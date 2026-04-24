@@ -15,7 +15,7 @@ import type { CustomerContext } from './types'
  *  - No matching active customer_account for this tenant
  */
 export async function requireCustomerAuth(host: string): Promise<CustomerContext> {
-  const sessionClient = createSessionServerClient()
+  const sessionClient = await createSessionServerClient()
   const { data: { user }, error } = await sessionClient.auth.getUser()
 
   if (error || !user) {
@@ -54,7 +54,7 @@ export async function requireCustomerAuth(host: string): Promise<CustomerContext
  * Returns null if unauthenticated or no portal account exists.
  */
 export async function getCustomerContext(host: string): Promise<CustomerContext | null> {
-  const sessionClient = createSessionServerClient()
+  const sessionClient = await createSessionServerClient()
   const { data: { user } } = await sessionClient.auth.getUser()
   if (!user) return null
 

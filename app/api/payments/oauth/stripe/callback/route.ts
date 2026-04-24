@@ -30,7 +30,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   // Validate CSRF state from cookie
-  const cookieStore      = cookies()
+  const cookieStore      = await cookies()
   const cookieState      = cookieStore.get('stripe_oauth_state')?.value ?? ''
   const cookieVerify     = verifyState(cookieState)
   const callbackVerify   = verifyState(stateParam)

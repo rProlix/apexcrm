@@ -22,7 +22,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ profile })
   }
 
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const customerCtx = await getCustomerContext(host)
   if (customerCtx && customerCtx.customer_id === id) {
     const profile = await getCustomerProfile(customerCtx.tenant_id, id)
@@ -78,7 +78,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   // Customer portal — limited fields only
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const customerCtx = await getCustomerContext(host)
   if (customerCtx && customerCtx.customer_id === id) {
     try {

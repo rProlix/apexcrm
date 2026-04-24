@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default async function ProductDetailPage({ params }: Props) {
-  const host   = headers().get('host') ?? ''
+  const host   = (await headers()).get('host') ?? ''
   const tenant = await getTenantFromHost(host)
   if (!tenant) redirect('/')
 

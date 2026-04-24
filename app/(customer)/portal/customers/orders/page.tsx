@@ -16,7 +16,7 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 export default async function CustomerPortalOrdersPage() {
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const ctx  = await requireCustomerAuth(host)
 
   const orders = await getCustomerOrders(ctx.tenant_id, ctx.customer_id, 100)

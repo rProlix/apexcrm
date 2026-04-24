@@ -12,7 +12,7 @@ import { linkCustomerAccount } from '@/lib/customers/linkCustomerAccount'
 // Body: { name?: string }
 // The email is taken from the authenticated auth.users session — never trusted from body.
 export async function POST(req: NextRequest) {
-  const session = createSessionServerClient()
+  const session = await createSessionServerClient()
   const { data: { user }, error: authErr } = await session.auth.getUser()
 
   if (authErr || !user?.email) {

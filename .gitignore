@@ -9,7 +9,7 @@ out/
 dist/
 build/
 
-# Environment files
+# Environment files — never commit real secrets
 .env
 .env.local
 .env.development.local
@@ -31,15 +31,10 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# Typescript
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
 
 # Supabase local
 supabase/.branches/
 supabase/.temp/
-.env
-.env.example
-.env.example:32
-echo ".env" >> .gitignore
-echo ".env.*" >> .gitignore

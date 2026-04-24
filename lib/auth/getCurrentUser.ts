@@ -15,7 +15,7 @@ export interface CurrentUser {
  * no active profile exists.
  */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const sessionClient = createSessionServerClient()
+  const sessionClient = await createSessionServerClient()
   const { data: { user }, error } = await sessionClient.auth.getUser()
 
   if (error || !user) return null

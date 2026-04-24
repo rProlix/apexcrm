@@ -20,13 +20,13 @@ export async function resolveWebsiteTenantId(): Promise<string | null> {
   if (ctx?.tenant_id) return ctx.tenant_id
 
   // 2. Host-based resolution (mirrors DashboardLayout)
-  const host   = headers().get('host') ?? ''
+  const host   = (await headers()).get('host') ?? ''
   const tenant = await getTenantFromHost(host)
   if (tenant?.id) return tenant.id
 
   // 3. Direct auth-user → users table lookup
   try {
-    const sessionClient = createSessionServerClient()
+    const sessionClient = await createSessionServerClient()
     const { data: { user } } = await sessionClient.auth.getUser()
 
     if (user?.id) {

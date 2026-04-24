@@ -3,7 +3,7 @@ import { createSessionServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
 export default async function MarketingPage() {
-  const supabase = createSessionServerClient()
+  const supabase = await createSessionServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (user) redirect('/dashboard')
   return (

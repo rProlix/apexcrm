@@ -29,7 +29,7 @@ export async function GET(): Promise<NextResponse> {
   const state        = generateState(ctx.tenant_id, 'square')
   const redirectUri  = `${NEXT_PUBLIC_APP_URL}/api/payments/oauth/square/callback`
 
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   cookieStore.set('square_oauth_state', state, {
     httpOnly: true,
     secure:   IS_PRODUCTION,

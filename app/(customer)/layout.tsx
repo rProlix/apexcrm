@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
-  const host   = headers().get('host') ?? ''
+  const host   = (await headers()).get('host') ?? ''
   const tenant = await getTenantFromHost(host)
 
   if (!tenant) redirect('/')

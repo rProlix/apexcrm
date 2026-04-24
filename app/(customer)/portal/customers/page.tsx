@@ -9,7 +9,7 @@ import { User, ShoppingBag, CreditCard, FileText, Settings } from 'lucide-react'
 export const dynamic = 'force-dynamic'
 
 export default async function CustomerPortalHomePage() {
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const ctx  = await requireCustomerAuth(host)
 
   const customer = await getTenantCustomerById(ctx.tenant_id, ctx.customer_id)

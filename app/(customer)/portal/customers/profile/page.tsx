@@ -11,7 +11,7 @@ import { redirect } from 'next/navigation'
 export const dynamic = 'force-dynamic'
 
 export default async function CustomerPortalProfilePage() {
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const ctx  = await requireCustomerAuth(host)
 
   const customer = await getTenantCustomerById(ctx.tenant_id, ctx.customer_id)

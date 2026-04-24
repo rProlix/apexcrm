@@ -20,7 +20,7 @@ import { TenantStatusButton } from '@/app/(admin)/admin/TenantStatusButton'
 import type { WidgetData } from '@/lib/dashboard/types'
 
 export default async function DashboardPage() {
-  const host  = headers().get('host') ?? ''
+  const host  = (await headers()).get('host') ?? ''
   const admin = getSupabaseServerClient()
 
   // ── Determine role context ────────────────────────────────────────────
@@ -37,7 +37,7 @@ export default async function DashboardPage() {
   // On localhost (and any host without a subdomain), fall back to the
   // authenticated user's own tenant so the page is never empty in development.
   if (!tenant) {
-    const sessionClient = createSessionServerClient()
+    const sessionClient = await createSessionServerClient()
     const { data: { user } } = await sessionClient.auth.getUser()
 
     if (user) {

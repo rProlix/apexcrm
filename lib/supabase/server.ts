@@ -25,9 +25,11 @@ export function getSupabaseServerClient() {
  * Cookie-backed session client for App Router server components,
  * route handlers, and server actions. Reads the session from the
  * request cookies set by the browser's @supabase/ssr client.
+ *
+ * Must be awaited — Next.js 15 made cookies() an async API.
  */
-export function createSessionServerClient() {
-  const cookieStore = cookies()
+export async function createSessionServerClient() {
+  const cookieStore = await cookies()
 
   return createServerClient<Database>(supabaseUrl, supabaseAnon, {
     cookies: {

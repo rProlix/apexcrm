@@ -7,7 +7,7 @@ import { createSessionServerClient } from '@/lib/supabase/server'
  * Returns the verified Supabase Auth user on success.
  */
 export async function protectRoute() {
-  const supabase = createSessionServerClient()
+  const supabase = await createSessionServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {

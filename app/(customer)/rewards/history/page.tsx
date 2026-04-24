@@ -23,7 +23,7 @@ const REDEMPTION_STATUS_COLORS: Record<string, string> = {
 }
 
 export default async function CustomerRewardsHistoryPage() {
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const ctx  = await requireCustomerAuth(host)
 
   const supabase = getSupabaseServerClient()

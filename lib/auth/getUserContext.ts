@@ -15,7 +15,7 @@ import type { UserContext } from './types'
  * route handlers, and server actions. Never trust role values from the client.
  */
 export async function getUserContext(): Promise<UserContext | null> {
-  const sessionClient = createSessionServerClient()
+  const sessionClient = await createSessionServerClient()
   const { data: { user }, error } = await sessionClient.auth.getUser()
 
   if (error || !user) return null

@@ -10,7 +10,7 @@ import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supaba
  * Only callable by the platform owner (role === 'owner').
  */
 export async function POST(req: NextRequest) {
-  const sessionClient = createSessionServerClient()
+  const sessionClient = await createSessionServerClient()
   const { data: { user }, error: authError } = await sessionClient.auth.getUser()
 
   if (authError || !user) {

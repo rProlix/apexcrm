@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 interface Props { params: { id: string } }
 
 export default async function CustomerPortalCustomerByIdPage({ params }: Props) {
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const ctx  = await requireCustomerAuth(host)
 
   // If the requested ID matches the logged-in customer, render their account home.

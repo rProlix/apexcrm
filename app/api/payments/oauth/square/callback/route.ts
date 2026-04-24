@@ -39,7 +39,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   // CSRF validation
-  const cookieStore    = cookies()
+  const cookieStore    = await cookies()
   const cookieState    = cookieStore.get('square_oauth_state')?.value ?? ''
   const cookieVerify   = verifyState(cookieState)
   const callbackVerify = verifyState(stateParam)

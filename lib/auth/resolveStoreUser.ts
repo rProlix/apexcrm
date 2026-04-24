@@ -25,7 +25,7 @@ export interface StoreUser {
  *  - tenant cannot be resolved by any method
  */
 export async function resolveStoreUser(req: NextRequest): Promise<StoreUser | null> {
-  const session = createSessionServerClient()
+  const session = await createSessionServerClient()
   const { data: { user }, error } = await session.auth.getUser()
   if (error || !user) return null
 
@@ -88,7 +88,7 @@ export async function resolveStoreUser(req: NextRequest): Promise<StoreUser | nu
  * Returns null if no active session or no matching customer_account.
  */
 export async function resolveStoreCustomer(req: NextRequest) {
-  const session = createSessionServerClient()
+  const session = await createSessionServerClient()
   const { data: { user }, error } = await session.auth.getUser()
   if (error || !user) return null
 

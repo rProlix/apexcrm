@@ -24,7 +24,7 @@ export interface AuthContext {
  * @param host - value of the Host request header
  */
 export async function requireAuth(host: string): Promise<AuthContext> {
-  const sessionClient = createSessionServerClient()
+  const sessionClient = await createSessionServerClient()
   const { data: { user }, error } = await sessionClient.auth.getUser()
 
   if (error || !user) {

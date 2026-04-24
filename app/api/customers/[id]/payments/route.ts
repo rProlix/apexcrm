@@ -26,7 +26,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   }
 
   // Customer portal
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const customerCtx = await getCustomerContext(host)
   if (customerCtx && customerCtx.customer_id === id) {
     const payments = await getCustomerPayments(customerCtx.tenant_id, id, limit)

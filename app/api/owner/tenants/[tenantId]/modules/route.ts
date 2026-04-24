@@ -11,7 +11,7 @@ async function verifyOwner(): Promise<
   | { ok: true;  admin: ReturnType<typeof getSupabaseServerClient> }
   | { ok: false; response: NextResponse }
 > {
-  const session = createSessionServerClient()
+  const session = await createSessionServerClient()
   const { data: { user }, error } = await session.auth.getUser()
 
   if (error || !user) {

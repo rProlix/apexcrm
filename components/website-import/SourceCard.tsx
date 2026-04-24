@@ -95,15 +95,15 @@ export function SourceCard({ source }: Props) {
       {/* Metadata preview */}
       {isFetched && meta && (
         <div className="space-y-1 text-xs">
-          {meta.og && typeof meta.og === 'object' && (meta.og as Record<string, unknown>).description && (
+          {!!meta.og && typeof meta.og === 'object' && !!(meta.og as Record<string, unknown>).description && (
             <p className="text-white/40 line-clamp-2">
               {String((meta.og as Record<string, unknown>).description)}
             </p>
           )}
-          {meta.structured && typeof meta.structured === 'object' && (
+          {!!meta.structured && typeof meta.structured === 'object' && (
             <p className="text-white/30">
               Schema.org: {String((meta.structured as Record<string, unknown>).type ?? 'Unknown')}
-              {(meta.structured as Record<string, unknown>).name && (
+              {!!(meta.structured as Record<string, unknown>).name && (
                 <> — {String((meta.structured as Record<string, unknown>).name)}</>
               )}
             </p>
@@ -112,7 +112,7 @@ export function SourceCard({ source }: Props) {
       )}
 
       {/* Error message */}
-      {isFailed && meta?.error && (
+      {isFailed && !!meta?.error && (
         <p className="text-xs text-red-400/70">
           {String(meta.error)}
         </p>

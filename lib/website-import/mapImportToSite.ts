@@ -121,7 +121,7 @@ function buildGallerySection(content: NormalizedImportContent, order: number): D
       headline: 'Gallery',
       images:   content.images.slice(0, 12).map((img) => ({
         url: img.url,
-        alt: img.alt || content.businessName ?? 'Image',
+        alt: img.alt ?? content.businessName ?? 'Image',
       })),
       layout: 'grid',
     },

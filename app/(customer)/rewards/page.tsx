@@ -12,7 +12,7 @@ import { Star, Gift, Zap, TrendingUp, ShoppingBag } from 'lucide-react'
 export const metadata = { title: 'My Rewards' }
 
 export default async function CustomerRewardsPage() {
-  const host    = headers().get('host') ?? ''
+  const host    = (await headers()).get('host') ?? ''
   const ctx     = await requireCustomerAuth(host)
 
   const [balance, program, punchCards, recentTxRes] = await Promise.all([

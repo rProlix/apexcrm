@@ -29,7 +29,7 @@ export async function GET(): Promise<NextResponse> {
   const redirectUri = `${NEXT_PUBLIC_APP_URL}/api/payments/oauth/stripe/callback`
 
   // Store state in a short-lived httpOnly cookie for CSRF validation
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   cookieStore.set('stripe_oauth_state', state, {
     httpOnly: true,
     secure:   process.env.NODE_ENV === 'production',

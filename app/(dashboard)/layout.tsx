@@ -11,7 +11,7 @@ import { slugifyBusinessName } from '@/lib/validation/auth'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   // ── Auth guard ──────────────────────────────────────────────────────
-  const sessionClient = createSessionServerClient()
+  const sessionClient = await createSessionServerClient()
   const { data: { user } } = await sessionClient.auth.getUser()
 
   if (!user) {
@@ -19,7 +19,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   // ── Tenant resolution ───────────────────────────────────────────────
-  const headersList = headers()
+  const headersList = await headers()
   const host        = headersList.get('host') ?? ''
   const admin       = getSupabaseServerClient()
 

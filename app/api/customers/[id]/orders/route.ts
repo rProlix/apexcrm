@@ -26,7 +26,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   }
 
   // Customer portal — can only view their own orders
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const customerCtx = await getCustomerContext(host)
   if (customerCtx && customerCtx.customer_id === id) {
     const orders = await getCustomerOrders(customerCtx.tenant_id, id, limit)

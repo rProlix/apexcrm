@@ -25,7 +25,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
   }
 
   // Try customer portal auth — customers can only view their own record
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const customerCtx = await getCustomerContext(host)
   if (customerCtx && customerCtx.customer_id === id) {
     const customer = await getTenantCustomerById(customerCtx.tenant_id, id)

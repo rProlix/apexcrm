@@ -7,7 +7,7 @@ import { Pill } from '@/components/ui/Pill'
 import type { ModuleKey } from '@/modules/shared/moduleTypes'
 
 export default async function ModulesPage() {
-  const host   = headers().get('host') ?? ''
+  const host   = (await headers()).get('host') ?? ''
   const tenant = await getTenantFromHost(host)
   if (!tenant) return null
 

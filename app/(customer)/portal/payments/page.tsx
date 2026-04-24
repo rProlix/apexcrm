@@ -18,7 +18,7 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 export default async function CustomerPaymentsPage() {
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const ctx  = await requireCustomerAuth(host)
 
   const invoices = await getCustomerInvoices(ctx.tenant_id, ctx.customer_id)

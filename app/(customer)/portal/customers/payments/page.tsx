@@ -23,7 +23,7 @@ const INV_STATUS: Record<string, string> = {
 }
 
 export default async function CustomerPortalPaymentsPage() {
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const ctx  = await requireCustomerAuth(host)
 
   const { transactions, invoices } = await getCustomerPayments(ctx.tenant_id, ctx.customer_id, 100)

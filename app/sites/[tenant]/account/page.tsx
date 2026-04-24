@@ -21,7 +21,7 @@ export default async function AccountPage({ params }: Props) {
   const config = await getPublishedSiteConfig(siteData.tenant.id)
   if (!config) notFound()
 
-  const sessionClient = createSessionServerClient()
+  const sessionClient = await createSessionServerClient()
   const { data: { user } } = await sessionClient.auth.getUser()
 
   if (!user) {

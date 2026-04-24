@@ -8,7 +8,7 @@ import Link from 'next/link'
 // Customer should only see their own appointments, rewards, payments, and vehicles
 
 export default async function CustomerPortalPage() {
-  const host   = headers().get('host') ?? ''
+  const host   = (await headers()).get('host') ?? ''
   const tenant = await getTenantFromHost(host)
 
   const portalSections = [

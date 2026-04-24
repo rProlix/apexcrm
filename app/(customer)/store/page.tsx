@@ -7,7 +7,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ShoppingBag, Package } from 'lucide-react'
 
 export default async function CustomerStorePage() {
-  const host   = headers().get('host') ?? ''
+  const host   = (await headers()).get('host') ?? ''
   const tenant = await getTenantFromHost(host)
   if (!tenant) redirect('/')
 

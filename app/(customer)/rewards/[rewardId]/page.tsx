@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: { rewardId: string 
 }
 
 export default async function CustomerRewardDetailPage({ params }: { params: { rewardId: string } }) {
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const ctx  = await requireCustomerAuth(host)
 
   const supabase = getSupabaseServerClient()

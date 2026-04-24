@@ -9,7 +9,7 @@ import { ArrowLeft, Clock } from 'lucide-react'
 export const metadata = { title: 'Payment History — Customer Portal' }
 
 export default async function CustomerPaymentHistoryPage() {
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const ctx  = await requireCustomerAuth(host)
 
   const transactions = await getCustomerTransactions(ctx.tenant_id, ctx.customer_id, 100)

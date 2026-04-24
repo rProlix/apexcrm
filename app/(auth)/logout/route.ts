@@ -7,7 +7,7 @@ import { createSessionServerClient } from '@/lib/supabase/server'
  * redirects to /login. Safe to call from a plain <a href="/logout"> link.
  */
 export async function GET(request: NextRequest) {
-  const supabase = createSessionServerClient()
+  const supabase = await createSessionServerClient()
   await supabase.auth.signOut()
 
   return NextResponse.redirect(new URL('/login', request.url))

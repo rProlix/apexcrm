@@ -8,7 +8,7 @@ import { createSessionServerClient } from '@/lib/supabase/server'
  * re-validate the JWT with the Supabase Auth server.
  */
 export async function getSession() {
-  const supabase = createSessionServerClient()
+  const supabase = await createSessionServerClient()
   const {
     data: { session },
   } = await supabase.auth.getSession()

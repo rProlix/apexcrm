@@ -413,7 +413,7 @@ export function ImportJobDetailClient({ tenantId, job: initialJob }: Props) {
                 <Clock size={12} className="text-white/20 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white/60 font-medium">{entry.action.replace(/_/g, ' ')}</p>
-                  {entry.metadata && Object.keys(entry.metadata as Record<string, unknown>).length > 0 && (
+                  {!!entry.metadata && Object.keys(entry.metadata as Record<string, unknown>).length > 0 && (
                     <pre className="text-xs text-white/25 font-mono mt-0.5 whitespace-pre-wrap">
                       {JSON.stringify(entry.metadata, null, 2).slice(0, 300)}
                     </pre>

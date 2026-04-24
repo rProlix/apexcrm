@@ -9,7 +9,7 @@ import Link from 'next/link'
 export const metadata = { title: 'Punch Cards — Rewards' }
 
 export default async function CustomerPunchCardsPage() {
-  const host = headers().get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const ctx  = await requireCustomerAuth(host)
 
   const allCards   = await getCustomerPunchCards(ctx.tenant_id, ctx.customer_id)
