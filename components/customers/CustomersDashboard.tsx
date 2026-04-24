@@ -1,6 +1,7 @@
 'use client'
 // components/customers/CustomersDashboard.tsx
 import { useState, useCallback } from 'react'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Users, UserCheck, ShoppingBag, TrendingUp, Plus } from 'lucide-react'
 import { CustomerList } from './CustomerList'
@@ -69,13 +70,13 @@ export function CustomersDashboard({
           </p>
         </div>
         {canManage && (
-          <a
+          <Link
             href="/customers/new"
             className="inline-flex items-center gap-2 h-10 px-5 rounded-xl font-semibold text-sm bg-gold-gradient text-graphite-900 hover:shadow-glow-gold transition-all duration-200"
           >
             <Plus className="w-4 h-4" />
             Add Customer
-          </a>
+          </Link>
         )}
       </motion.div>
 

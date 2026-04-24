@@ -44,8 +44,14 @@ export default async function CustomerRewardsHistoryPage() {
       .order('created_at', { ascending: false }),
   ])
 
-  const transactions = txnRes.data ?? []
-  const redemptions  = redemptionsRes.data ?? []
+  const transactions = (txnRes.data ?? []) as Array<{
+    id: string; transaction_type: string; points_delta: number
+    source_type: string | null; created_at: string
+  }>
+  const redemptions  = (redemptionsRes.data ?? []) as unknown as Array<{
+    id: string; points_used: number; status: string
+    created_at: string; reward_shop_items: { name: string } | null
+  }>
 
   return (
     <div className="space-y-8">

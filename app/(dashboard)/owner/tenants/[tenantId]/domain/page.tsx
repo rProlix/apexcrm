@@ -11,14 +11,16 @@ import Link                       from 'next/link'
 import { isVercelConfigured }     from '@/lib/vercel/client'
 
 interface Props {
-  params: { tenantId: string }
+  params: Promise<{ tenantId: string }>
 }
 
 export async function generateMetadata({ params }: Props) {
-  return { title: `Domain — Tenant ${params.tenantId.slice(0, 8)}` }
+  const { tenantId } = await params
+  return { title: `Domain — Tenant ${tenantId.slice(0, 8)}` }
 }
 
 export default async function OwnerTenantDomainPage({ params }: Props) {
+  const { tenantId } = await params
   await requireOwner()
 
   const db = getSupabaseServerClient()
@@ -26,7 +28,7 @@ export default async function OwnerTenantDomainPage({ params }: Props) {
   const { data: tenant } = await db
     .from('tenants')
     .select('id, name, slug, custom_domain, status')
-    .eq('id', params.tenantId)
+    .eq('id', tenantId)
     .maybeSingle()
 
   if (!tenant) notFound()

@@ -23,8 +23,18 @@ export default async function OwnerWebsiteImportPage() {
     .order('created_at', { ascending: false })
     .limit(100)
 
+  type ImportJob = {
+    id: string; tenant_id: string; status: string; progress: number | null
+    source_urls: string[] | null; error_message: string | null
+    started_at: string | null; completed_at: string | null; created_at: string
+    website_import_sources: Array<{
+      id: string; source_url: string; source_type: string
+      fetched_status: string; confidence_score: number | null
+    }> | null
+  }
+  const typedJobs = (jobs ?? []) as unknown as ImportJob[]
   // Load tenant names
-  const tenantIds = [...new Set((jobs ?? []).map((j) => j.tenant_id))]
+  const tenantIds = [...new Set(typedJobs.map((j) => j.tenant_id))]
   const { data: tenants } = tenantIds.length
     ? await db.from('tenants').select('id, name').in('id', tenantIds)
     : { data: [] }
@@ -58,7 +68,7 @@ export default async function OwnerWebsiteImportPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {(jobs ?? []).map((job) => {
+              {typedJobs.map((job) => {
                 const sources = (job.website_import_sources ?? []) as Array<{
                   source_url: string
                   source_type: string
@@ -115,7 +125,7 @@ export default async function OwnerWebsiteImportPage() {
                 )
               })}
 
-              {(jobs ?? []).length === 0 && (
+              {typedJobs.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-white/30 text-sm">
                     No import jobs found.

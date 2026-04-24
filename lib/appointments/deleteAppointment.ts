@@ -15,7 +15,7 @@ export async function deleteAppointment(
   id:        string,
   tenant_id: string
 ): Promise<DeleteResult> {
-  const supabase = getSupabaseServerClient()
+  const supabase = getSupabaseServerClient() as any
 
   const { data: current, error: fetchErr } = await supabase
     .from('appointments')

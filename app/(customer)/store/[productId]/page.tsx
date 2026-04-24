@@ -8,10 +8,11 @@ import { ProductDetailClient } from '@/components/store/ProductDetailClient'
 import { ArrowLeft } from 'lucide-react'
 
 interface Props {
-  params: { productId: string }
+  params: Promise<{ productId: string }>
 }
 
 export default async function ProductDetailPage({ params }: Props) {
+  const { productId } = await params
   const host   = (await headers()).get('host') ?? ''
   const tenant = await getTenantFromHost(host)
   if (!tenant) redirect('/')
@@ -20,7 +21,7 @@ export default async function ProductDetailPage({ params }: Props) {
   const { data: product } = await supabase
     .from('products')
     .select('id, name, description, price, currency, inventory_count, is_active')
-    .eq('id', params.productId)
+    .eq('id', productId)
     .eq('tenant_id', tenant.id)
     .eq('is_active', true)
     .maybeSingle()

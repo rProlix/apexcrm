@@ -19,11 +19,12 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
 
 interface Props {
   children:  React.ReactNode
-  params:    { tenant: string }
+  params:    Promise<{ tenant: string }>
 }
 
-export async function generateMetadata({ params }: { params: { tenant: string } }): Promise<Metadata> {
-  const tenantKey = decodeURIComponent(params.tenant)
+export async function generateMetadata({ params }: { params: Promise<{ tenant: string }> }): Promise<Metadata> {
+  const { tenant: tenantSlug } = await params
+  const tenantKey = decodeURIComponent(tenantSlug)
   const siteData  = tenantKey.includes('.')
     ? await getSiteByHost(tenantKey)
     : await getSiteBySlug(tenantKey)
@@ -56,7 +57,8 @@ export async function generateMetadata({ params }: { params: { tenant: string } 
 }
 
 export default async function SiteLayout({ children, params }: Props) {
-  const tenantKey = decodeURIComponent(params.tenant)
+  const { tenant: tenantSlug } = await params
+  const tenantKey = decodeURIComponent(tenantSlug)
 
   const siteData = tenantKey.includes('.')
     ? await getSiteByHost(tenantKey)

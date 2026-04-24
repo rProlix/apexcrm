@@ -6,13 +6,14 @@ import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 interface Props {
-  params: { tenant: string; id: string }
+  params: Promise<{ tenant: string; id: string }>
 }
 
 export const revalidate = 60
 
 export default async function ProductPage({ params }: Props) {
-  const tenantKey = decodeURIComponent(params.tenant)
+  const { tenant, id } = await params
+  const tenantKey = decodeURIComponent(tenant)
 
   const siteData = tenantKey.includes('.')
     ? await getSiteByHost(tenantKey)
@@ -28,7 +29,7 @@ export default async function ProductPage({ params }: Props) {
   const { data: productRaw } = await (db as any)
     .from('products')
     .select('id, name, description, price, currency, inventory_count, is_active')
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('tenant_id', siteData.tenant.id)
     .eq('is_active', true)
     .maybeSingle()

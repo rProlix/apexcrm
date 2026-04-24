@@ -13,9 +13,10 @@ import { formatDate } from '@/lib/utils'
 
 export const metadata = { title: 'Tenant Detail — Owner Panel' }
 
-type PageProps = { params: { tenantId: string } }
+type PageProps = { params: Promise<{ tenantId: string }> }
 
 export default async function TenantDetailPage({ params }: PageProps) {
+  const { tenantId } = await params
   // ── Owner guard ────────────────────────────────────────────────────────────
   const ctx = await getUserContext()
 
@@ -24,8 +25,8 @@ export default async function TenantDetailPage({ params }: PageProps) {
 
   // ── Data ───────────────────────────────────────────────────────────────────
   const [tenant, modules] = await Promise.all([
-    getTenantById(params.tenantId),
-    getTenantModulesWithDefaults(params.tenantId),
+    getTenantById(tenantId),
+    getTenantModulesWithDefaults(tenantId),
   ])
 
   if (!tenant) notFound()

@@ -78,7 +78,7 @@ export function WebsiteImportClient({ tenantId, initialJobs }: Props) {
       setRunError(err instanceof Error ? err.message : 'Import failed')
     } finally {
       setRunning(false)
-      pollRef.current && clearInterval(pollRef.current)
+      if (pollRef.current) clearInterval(pollRef.current)
       pollRef.current = null
       await refreshJobs()
     }

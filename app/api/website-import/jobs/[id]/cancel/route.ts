@@ -12,13 +12,14 @@ function forbidden() {
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await getUserContext()
   if (!ctx || ctx.role !== 'owner') return forbidden()
 
-  const db = getSupabaseServerClient()
-  const jobId = params.id
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = getSupabaseServerClient() as any
+  const jobId = (await params).id
 
   const { data: job } = await db
     .from('website_import_jobs')

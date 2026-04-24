@@ -4,7 +4,7 @@ import { resolveStoreUser } from '@/lib/auth/resolveStoreUser'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // ── GET /api/payments/payment-links/[id] ─────────────────────────────────────
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await resolveStoreUser(req)
   if (!user || !['admin', 'owner'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const { data, error } = await supabase
     .from('payment_links')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // ── PATCH /api/payments/payment-links/[id] ────────────────────────────────────
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await resolveStoreUser(req)
   if (!user || !['admin', 'owner'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -40,7 +40,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data: existing } = await supabase
     .from('payment_links')
     .select('id, tenant_id')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -62,7 +62,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data, error } = await supabase
     .from('payment_links')
     .update(updates)
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .select('id, status, url, updated_at')
     .single()
 

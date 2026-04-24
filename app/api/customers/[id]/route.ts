@@ -7,11 +7,11 @@ import { updateTenantCustomer } from '@/lib/customers/updateCustomerProfile'
 import { getCustomerContext } from '@/lib/auth/customerGuard'
 import { headers } from 'next/headers'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // ─── GET /api/customers/[id] ──────────────────────────────────────────────────
 export async function GET(_req: NextRequest, { params }: Params) {
-  const { id } = params
+  const { id } = await params
 
   // Try dashboard user first
   const ctx = await getUserContext()
@@ -38,7 +38,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 // ─── PATCH /api/customers/[id] ────────────────────────────────────────────────
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const { id } = params
+  const { id } = await params
   const ctx = await getUserContext()
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!hasPermission(ctx.role, 'manage_customers')) {
@@ -71,7 +71,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 // ─── DELETE /api/customers/[id] ───────────────────────────────────────────────
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const { id } = params
+  const { id } = await params
   const ctx = await getUserContext()
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!hasPermission(ctx.role, 'manage_customers')) {

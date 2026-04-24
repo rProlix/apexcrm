@@ -9,11 +9,12 @@ import { RewardsRedemptionCard as RewardDetailClient } from './_RewardDetailClie
 import { ArrowLeft, Gift, Package } from 'lucide-react'
 import Link from 'next/link'
 
-export async function generateMetadata({ params }: { params: { rewardId: string } }) {
+export async function generateMetadata({ params }: { params: Promise<{ rewardId: string }> }) {
   return { title: 'Reward Details' }
 }
 
-export default async function CustomerRewardDetailPage({ params }: { params: { rewardId: string } }) {
+export default async function CustomerRewardDetailPage({ params }: { params: Promise<{ rewardId: string }> }) {
+  const { rewardId } = await params
   const host = (await headers()).get('host') ?? ''
   const ctx  = await requireCustomerAuth(host)
 
@@ -23,7 +24,7 @@ export default async function CustomerRewardDetailPage({ params }: { params: { r
     supabase
       .from('reward_shop_items')
       .select('*, products(name, description, price, currency)')
-      .eq('id', params.rewardId)
+      .eq('id', rewardId)
       .eq('tenant_id', ctx.tenant_id)
       .eq('is_active', true)
       .maybeSingle(),
@@ -32,7 +33,7 @@ export default async function CustomerRewardDetailPage({ params }: { params: { r
 
   if (!itemRes.data) notFound()
 
-  const item = itemRes.data as RewardShopItem & { products?: { name: string; description: string | null; price: number; currency: string } | null }
+  const item = itemRes.data as unknown as unknown as RewardShopItem & { products?: { name: string; description: string | null; price: number; currency: string } | null }
   const canAfford = balance.points_balance >= item.points_cost
   const outOfStock = item.inventory_count <= 0 && item.inventory_count !== 0
 

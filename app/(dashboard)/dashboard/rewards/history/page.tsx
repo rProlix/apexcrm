@@ -41,11 +41,11 @@ export default async function RewardsHistoryPage() {
         <p className="text-sm text-white/40 mt-1">View all customer points activity and redemptions.</p>
       </div>
 
-      <RewardsBalanceList balances={balancesRes.data ?? []} />
+      <RewardsBalanceList balances={(balancesRes.data ?? []) as any} />
 
       <RewardsHistoryList
-        transactions={txnRes.data ?? []}
-        redemptions={redemptionsRes.data ?? []}
+        transactions={(txnRes.data ?? []) as any}
+        redemptions={(redemptionsRes.data ?? []) as any}
       />
     </div>
   )

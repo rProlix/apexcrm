@@ -7,15 +7,16 @@ import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
-interface Props { params: { id: string } }
+interface Props { params: Promise<{ id: string }> }
 
 export default async function CustomerPortalCustomerByIdPage({ params }: Props) {
+  const { id } = await params
   const host = (await headers()).get('host') ?? ''
   const ctx  = await requireCustomerAuth(host)
 
   // If the requested ID matches the logged-in customer, render their account home.
   // Otherwise, redirect to their own page — no cross-customer reads.
-  if (params.id !== ctx.customer_id) {
+  if (id !== ctx.customer_id) {
     redirect('/portal/customers')
   }
 

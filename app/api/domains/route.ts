@@ -16,7 +16,7 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
 export async function GET(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (ctx.role === 'customer') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if ((ctx.role as string) === 'customer') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const db = getSupabaseServerClient()
   const { searchParams } = req.nextUrl

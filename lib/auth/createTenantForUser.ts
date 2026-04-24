@@ -28,7 +28,7 @@ export async function createTenantForUser({
   businessName: string
   slug?:        string
 }): Promise<CreateTenantResult> {
-  const supabase = getSupabaseServerClient()
+  const supabase = getSupabaseServerClient() as any
 
   // Verify the auth user actually exists in Supabase Auth
   const { data: authData, error: authError } =

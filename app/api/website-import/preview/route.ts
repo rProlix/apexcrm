@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
   const jobId = req.nextUrl.searchParams.get('job_id')
   if (!jobId) return NextResponse.json({ error: 'job_id required' }, { status: 400 })
 
-  const db = getSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = getSupabaseServerClient() as any
 
   // Load all results for the job
   const { data: results } = await db
@@ -82,7 +83,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     success: true,
     preview: draftConfig,
-    approved_count: results.filter((r) => r.approved).length,
+    approved_count: results.filter((r: Record<string, unknown>) => r.approved).length,
     total_count:    results.length,
   })
 }

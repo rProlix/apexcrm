@@ -27,12 +27,12 @@ async function resolveOwnership(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const tenantId = await resolveOwnership(ctx, params.id)
+  const tenantId = await resolveOwnership(ctx, (await params).id)
   if (!tenantId) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const body    = await req.json()
@@ -46,7 +46,7 @@ export async function PATCH(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db.from('site_sections') as any)
     .update(patch)
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .select('*')
     .single()
 
@@ -56,19 +56,19 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const tenantId = await resolveOwnership(ctx, params.id)
+  const tenantId = await resolveOwnership(ctx, (await params).id)
   if (!tenantId) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const db = getSupabaseServerClient()
   const { error } = await db
     .from('site_sections')
     .delete()
-    .eq('id', params.id)
+    .eq('id', (await params).id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })

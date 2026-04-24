@@ -8,10 +8,11 @@ import { ImportJobDetailClient } from '@/components/website-import/ImportJobDeta
 export const metadata = { title: 'Import Job — Website Builder' }
 
 interface Props {
-  params: { jobId: string }
+  params: Promise<{ jobId: string }>
 }
 
 export default async function ImportJobDetailPage({ params }: Props) {
+  const { jobId } = await params
   const ctx = await requireOwner()
 
   const tenantId = ctx.tenant_id ?? (await resolveWebsiteTenantId())
@@ -28,7 +29,7 @@ export default async function ImportJobDetailPage({ params }: Props) {
       website_import_media(*),
       website_import_audit(id, action, metadata, created_at)
     `)
-    .eq('id', params.jobId)
+    .eq('id', jobId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
 

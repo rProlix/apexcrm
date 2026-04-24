@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveStoreUser } from '@/lib/auth/resolveStoreUser'
 
-type Params = { params: { customerId: string } }
+type Params = { params: Promise<{ customerId: string }> }
 
 // ─── GET /api/rewards/balances/[customerId] ───────────────────────────────────
 // admin/owner only — get a specific customer's balance
@@ -14,11 +14,12 @@ export async function GET(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const supabase = getSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase = getSupabaseServerClient() as any
   const { data, error } = await supabase
     .from('rewards_balances')
     .select('*, customers(id, name, email)')
-    .eq('customer_id', params.customerId)
+    .eq('customer_id', (await params).customerId)
     .eq('tenant_id', user.tenant_id)
     .maybeSingle()
 
@@ -45,12 +46,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'points_delta (number) is required' }, { status: 400 })
   }
 
-  const supabase = getSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase = getSupabaseServerClient() as any
 
   const { data: newBalance, error: balError } = await supabase
     .rpc('upsert_rewards_balance', {
       p_tenant_id:    user.tenant_id,
-      p_customer_id:  params.customerId,
+      p_customer_id:  (await params).customerId,
       p_points_delta: points_delta,
     })
 
@@ -62,7 +64,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   // Create transaction record for the manual adjustment
   await supabase.from('rewards_transactions').insert({
     tenant_id:        user.tenant_id,
-    customer_id:      params.customerId,
+    customer_id:      (await params).customerId,
     transaction_type: 'adjusted',
     points_delta:     points_delta,
     source_type:      'admin_adjustment',

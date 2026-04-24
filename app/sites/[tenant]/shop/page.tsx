@@ -6,13 +6,14 @@ import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 interface Props {
-  params: { tenant: string }
+  params: Promise<{ tenant: string }>
 }
 
 export const revalidate = 60
 
 export default async function ShopPage({ params }: Props) {
-  const tenantKey = decodeURIComponent(params.tenant)
+  const { tenant } = await params
+  const tenantKey = decodeURIComponent(tenant)
 
   const siteData = tenantKey.includes('.')
     ? await getSiteByHost(tenantKey)

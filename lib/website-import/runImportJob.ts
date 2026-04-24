@@ -77,7 +77,7 @@ export async function runImportJob(
   jobId:    string,
   tenantId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const db = getSupabaseServerClient()
+  const db = getSupabaseServerClient() as any
 
   // ── Load job + sources ────────────────────────────────────────────────────
 

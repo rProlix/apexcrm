@@ -1,6 +1,7 @@
 'use client'
 // components/rewards/PunchCardForm.tsx
 import { useState, useTransition, useEffect } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Zap, Plus, Save, Trash2, Check, AlertCircle, Package, Loader2 } from 'lucide-react'
@@ -234,9 +235,9 @@ export function PunchCardForm({ program }: Props) {
             <span>
               No products found in your store. You can still create punch cards for{' '}
               <em>any product / order</em>, or{' '}
-              <a href="/store/products" className="underline hover:text-amber-300 transition-colors">
+              <Link href="/store/products" className="underline hover:text-amber-300 transition-colors">
                 add products to your store
-              </a>{' '}
+              </Link>{' '}
               first to enable product-specific punch cards.
             </span>
           </div>

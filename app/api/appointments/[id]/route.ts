@@ -6,11 +6,11 @@ import { updateAppointment } from '@/lib/appointments/updateAppointment'
 import { deleteAppointment } from '@/lib/appointments/deleteAppointment'
 import type { Appointment } from '@/lib/appointments/types'
 
-type Ctx = { params: { id: string } }
+type Ctx = { params: Promise<{ id: string }> }
 
 // ─── GET /api/appointments/[id] ───────────────────────────────────────────────
 export async function GET(req: NextRequest, { params }: Ctx) {
-  const { id } = params
+  const { id } = await params
   const supabase = getSupabaseServerClient()
 
   const staffUser = await resolveStoreUser(req)
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 
 // ─── PATCH /api/appointments/[id] ─────────────────────────────────────────────
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  const { id } = params
+  const { id } = await params
 
   let body: Record<string, unknown>
   try {
@@ -127,7 +127,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
 // ─── DELETE /api/appointments/[id] ────────────────────────────────────────────
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const { id } = params
+  const { id } = await params
 
   const staffUser = await resolveStoreUser(req)
 

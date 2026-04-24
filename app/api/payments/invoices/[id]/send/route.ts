@@ -6,7 +6,7 @@ import { createPaymentLink } from '@/lib/payments/createPaymentLink'
 
 // ── POST /api/payments/invoices/[id]/send ─────────────────────────────────────
 // Creates a payment link for the invoice and marks it as pending
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await resolveStoreUser(req)
   if (!user || !['admin', 'owner'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { data: invoice } = await supabase
     .from('invoices')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })

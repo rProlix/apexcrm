@@ -40,7 +40,7 @@ export async function createAppointment(
     return { error: 'This time slot is already booked or unavailable' }
   }
 
-  const supabase = getSupabaseServerClient()
+  const supabase = getSupabaseServerClient() as any
 
   const { data, error } = await supabase
     .from('appointments')

@@ -14,7 +14,7 @@ export async function ensureTenantSubdomain(
   tenantId: string,
   slug:     string,
 ): Promise<string | null> {
-  const db = getSupabaseServerClient()
+  const db = getSupabaseServerClient() as any
 
   // Check if it already exists
   const { data: existing } = await db
@@ -67,7 +67,7 @@ export async function ensureSiteSettings(
   tenantId: string,
   slug:     string,
 ): Promise<void> {
-  const db = getSupabaseServerClient()
+  const db = getSupabaseServerClient() as any
 
   const { data: existing } = await db
     .from('site_settings')

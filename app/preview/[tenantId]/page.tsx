@@ -12,27 +12,28 @@ import { SiteFooter } from '@/components/site/SiteFooter'
 import { SectionRenderer } from '@/components/site/SectionRenderer'
 
 interface Props {
-  params: { tenantId: string }
+  params: Promise<{ tenantId: string }>
 }
 
 export const metadata = { title: 'Site Preview' }
 
 export default async function PreviewPage({ params }: Props) {
+  const { tenantId } = await params
   // Enforce admin / owner access — customers cannot preview
   let ctx: Awaited<ReturnType<typeof requireRole>>
   try {
     ctx = await requireRole(['owner', 'admin'])
   } catch {
-    redirect('/login?next=/preview/' + params.tenantId)
+    redirect('/login?next=/preview/' + tenantId)
   }
 
   // An admin can only preview their own tenant's site unless they're the platform owner
   const isOwner = ctx!.role === 'owner'
-  if (!isOwner && ctx!.tenant_id !== params.tenantId) {
+  if (!isOwner && ctx!.tenant_id !== tenantId) {
     notFound()
   }
 
-  const config = await getDraftSiteConfig(params.tenantId)
+  const config = await getDraftSiteConfig(tenantId)
   if (!config) notFound()
 
   const theme   = normalizeTheme(config.settings)
@@ -101,7 +102,7 @@ export default async function PreviewPage({ params }: Props) {
           <SectionRenderer
             key={section.id}
             section={section}
-            tenantId={params.tenantId}
+            tenantId={tenantId}
           />
         ))}
 

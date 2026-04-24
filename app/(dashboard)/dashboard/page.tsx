@@ -189,7 +189,7 @@ async function OwnerDashboard({
     moduleCountMap[m.tenant_id] = (moduleCountMap[m.tenant_id] ?? 0) + 1
   }
 
-  const tenants = (allTenants ?? []) as Array<{
+  const tenants = (allTenants ?? []) as unknown as Array<{
     id: string; name: string; slug: string; subdomain: string | null
     status: string; created_at: string
     subscriptions: Array<{ status: string; plan_id: string | null }>

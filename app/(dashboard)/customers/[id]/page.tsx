@@ -9,17 +9,18 @@ import { notFound } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
-interface Props { params: { id: string } }
+interface Props { params: Promise<{ id: string }> }
 
 export default async function CustomerDetailPage({ params }: Props) {
+  const { id } = await params
   const ctx = await requirePermission('view_customers')
   const tenantId = ctx.tenant_id!
 
   const [customer, orders, payments, profile] = await Promise.all([
-    getTenantCustomerById(tenantId, params.id),
-    getCustomerOrders(tenantId, params.id, 10),
-    getCustomerPayments(tenantId, params.id, 10),
-    getCustomerProfile(tenantId, params.id),
+    getTenantCustomerById(tenantId, id),
+    getCustomerOrders(tenantId, id, 10),
+    getCustomerPayments(tenantId, id, 10),
+    getCustomerProfile(tenantId, id),
   ])
 
   if (!customer) notFound()

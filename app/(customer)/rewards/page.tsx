@@ -28,7 +28,10 @@ export default async function CustomerRewardsPage() {
       .limit(5),
   ])
 
-  const recentTxns = recentTxRes.data ?? []
+  const recentTxns = (recentTxRes.data ?? []) as Array<{
+    points_delta: number; transaction_type: string
+    source_type: string | null; created_at: string
+  }>
   const pointsPerDollar = program?.earning_rules.points_per_dollar ?? 10
   const estimateFor10 = estimatePointsForAmount(10, program?.earning_rules ?? {})
 

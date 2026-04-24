@@ -102,7 +102,7 @@ export async function redeemRewardItem(params: {
     return { success: false, error: 'Failed to deduct points', points_used: 0, new_balance: currentBalance }
   }
 
-  const newBalance = (newBalanceData as number) ?? 0
+  const newBalance = (newBalanceData as unknown as number) ?? 0
 
   // ── Create rewards transaction ────────────────────────────────────────────
   await supabase.from('rewards_transactions').insert({

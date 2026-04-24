@@ -4,7 +4,7 @@ import { resolveStoreUser, resolveStoreCustomer } from '@/lib/auth/resolveStoreU
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // ── GET /api/payments/transactions/[id] ──────────────────────────────────────
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
 
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const { data, error } = await supabase
       .from('payment_transactions')
       .select('*, payment_refunds(*)')
-      .eq('id', params.id)
+      .eq('id', (await params).id)
       .maybeSingle()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const { data, error } = await supabase
     .from('payment_transactions')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .eq('tenant_id', customer.tenant_id)
     .eq('customer_id', customer.customer_id)
     .maybeSingle()

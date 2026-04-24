@@ -24,7 +24,7 @@ export default async function RewardsProgramsPage() {
     getAllProductRewardsConfigs(tenantId),
   ])
 
-  const programs = (programsRes.data ?? []) as RewardsProgram[]
+  const programs = (programsRes.data ?? []) as unknown as RewardsProgram[]
 
   return (
     <div className="space-y-8">

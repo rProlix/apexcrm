@@ -54,16 +54,17 @@ export async function POST(req: NextRequest) {
   const tenantId = user.tenant_id
   const supabase = getSupabaseServerClient()
 
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('rewards_programs')
     .insert({
       tenant_id:        tenantId,
       name:             name.trim(),
       description:      typeof description === 'string' ? description.trim() || null : null,
       status:           typeof status === 'string' ? status : 'active',
-      earning_rules:    (earning_rules as EarningRules)     ?? { points_per_dollar: 10, enabled: true, bonus_points_products: [] },
-      punch_card_rules: (punch_card_rules as PunchCardRule[]) ?? [],
-      settings:         (settings as ProgramSettings)       ?? { points_enabled: true, punch_cards_enabled: true, shop_enabled: true, min_redemption_points: 100 },
+      earning_rules:    earning_rules ?? { points_per_dollar: 10, enabled: true, bonus_points_products: [] },
+      punch_card_rules: punch_card_rules ?? [],
+      settings:         settings ?? { points_enabled: true, punch_cards_enabled: true, shop_enabled: true, min_redemption_points: 100 },
     })
     .select()
     .single()

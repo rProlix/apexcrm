@@ -86,7 +86,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'rules array is required' }, { status: 400 })
   }
 
-  const supabase  = getSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase  = getSupabaseServerClient() as any
   const tenant_id = staffUser.tenant_id
 
   const upserts = rules.map((rule: Record<string, unknown>) => {

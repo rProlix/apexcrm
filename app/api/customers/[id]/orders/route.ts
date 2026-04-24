@@ -6,13 +6,13 @@ import { getCustomerOrders } from '@/lib/customers/getCustomerOrders'
 import { getCustomerContext } from '@/lib/auth/customerGuard'
 import { headers } from 'next/headers'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // ─── GET /api/customers/[id]/orders ──────────────────────────────────────────
 // admin → customer's orders within their tenant
 // customer → only their own orders
 export async function GET(req: NextRequest, { params }: Params) {
-  const { id } = params
+  const { id } = await params
   const limit = Math.min(Number(req.nextUrl.searchParams.get('limit') ?? 50), 100)
 
   // Dashboard user (admin/owner)

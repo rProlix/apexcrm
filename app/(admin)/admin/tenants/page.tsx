@@ -41,7 +41,7 @@ export default async function AdminTenantsPage() {
       .select('tenant_id'),
   ])
 
-  const tenants = (tenantsRaw ?? []) as Array<{
+  const tenants = (tenantsRaw ?? []) as unknown as Array<{
     id: string; name: string; slug: string; subdomain: string | null
     custom_domain: string | null; status: string; created_at: string
     subscriptions: Array<{ status: string; current_period_end: string | null; plan_id: string | null }>

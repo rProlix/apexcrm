@@ -99,7 +99,7 @@ export function MonthView({ year, month, appointments, onSelect, onDayClick }: P
                         key={a.id}
                         appointment={a}
                         compact
-                        onClick={(e) => { e.stopPropagation?.(); onSelect(a) }}
+                        onClick={() => onSelect(a)}
                       />
                     ))}
                     {hasMore && (

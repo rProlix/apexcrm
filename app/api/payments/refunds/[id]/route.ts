@@ -4,7 +4,7 @@ import { resolveStoreUser } from '@/lib/auth/resolveStoreUser'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // ── GET /api/payments/refunds/[id] ───────────────────────────────────────────
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await resolveStoreUser(req)
   if (!user || !['admin', 'owner'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const { data, error } = await supabase
     .from('payment_refunds')
     .select('*, payment_transactions(*)')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

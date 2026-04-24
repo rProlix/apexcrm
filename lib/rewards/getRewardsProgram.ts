@@ -40,9 +40,9 @@ export async function getRewardsProgram(tenantId: string): Promise<RewardsProgra
 
   return {
     ...data,
-    earning_rules:    (data.earning_rules    as EarningRules)    ?? DEFAULT_EARNING_RULES,
-    punch_card_rules: (data.punch_card_rules as PunchCardRule[]) ?? [],
-    settings:         (data.settings         as ProgramSettings) ?? DEFAULT_SETTINGS,
+    earning_rules:    (data.earning_rules    as unknown as EarningRules)    ?? DEFAULT_EARNING_RULES,
+    punch_card_rules: (data.punch_card_rules as unknown as PunchCardRule[]) ?? [],
+    settings:         (data.settings         as unknown as ProgramSettings) ?? DEFAULT_SETTINGS,
   } as RewardsProgram
 }
 

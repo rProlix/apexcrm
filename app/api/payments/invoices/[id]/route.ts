@@ -4,7 +4,7 @@ import { resolveStoreUser, resolveStoreCustomer } from '@/lib/auth/resolveStoreU
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // ── GET /api/payments/invoices/[id] ──────────────────────────────────────────
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
 
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const { data, error } = await supabase
       .from('invoices')
       .select('*, invoice_items(*), payment_transactions(*), payment_links(*)')
-      .eq('id', params.id)
+      .eq('id', (await params).id)
       .maybeSingle()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const { data, error } = await supabase
     .from('invoices')
     .select('*, invoice_items(*)')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .eq('tenant_id', customer.tenant_id)
     .eq('customer_id', customer.customer_id)
     .maybeSingle()
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // ── PATCH /api/payments/invoices/[id] ────────────────────────────────────────
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await resolveStoreUser(req)
   if (!user || !['admin', 'owner'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -58,7 +58,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data: existing } = await supabase
     .from('invoices')
     .select('id, tenant_id, status')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -88,7 +88,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data, error } = await supabase
     .from('invoices')
     .update(updates)
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .select('id, invoice_number, status, amount, currency, updated_at')
     .single()
 
@@ -98,7 +98,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // ── DELETE /api/payments/invoices/[id] ───────────────────────────────────────
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await resolveStoreUser(req)
   if (!user || !['admin', 'owner'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -110,7 +110,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   const { data: existing } = await supabase
     .from('invoices')
     .select('id, tenant_id, status')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -123,7 +123,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ error: 'Cannot delete a paid invoice' }, { status: 400 })
   }
 
-  const { error } = await supabase.from('invoices').delete().eq('id', params.id)
+  const { error } = await supabase.from('invoices').delete().eq('id', (await params).id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

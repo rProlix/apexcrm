@@ -10,11 +10,12 @@ import { formatCurrency } from '@/lib/payments/formatCurrency'
 
 export const metadata = { title: 'Invoice — Customer Portal' }
 
-export default async function CustomerInvoicePage({ params }: { params: { id: string } }) {
+export default async function CustomerInvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const host = (await headers()).get('host') ?? ''
   const ctx  = await requireCustomerAuth(host)
 
-  const invoice = await getCustomerInvoiceById(ctx.tenant_id, ctx.customer_id, params.id)
+  const invoice = await getCustomerInvoiceById(ctx.tenant_id, ctx.customer_id, id)
 
   if (!invoice) notFound()
 

@@ -5,13 +5,14 @@ import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { SectionRenderer } from '@/components/site/SectionRenderer'
 
 interface Props {
-  params: { tenant: string }
+  params: Promise<{ tenant: string }>
 }
 
 export const revalidate = 60
 
 export default async function SiteHomePage({ params }: Props) {
-  const tenantKey = decodeURIComponent(params.tenant)
+  const { tenant } = await params
+  const tenantKey = decodeURIComponent(tenant)
 
   const siteData = tenantKey.includes('.')
     ? await getSiteByHost(tenantKey)

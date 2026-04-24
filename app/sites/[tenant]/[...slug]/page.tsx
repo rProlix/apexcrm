@@ -6,14 +6,15 @@ import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { SectionRenderer } from '@/components/site/SectionRenderer'
 
 interface Props {
-  params: { tenant: string; slug: string[] }
+  params: Promise<{ tenant: string; slug: string[] }>
 }
 
 export const revalidate = 60
 
 export default async function CustomPage({ params }: Props) {
-  const tenantKey = decodeURIComponent(params.tenant)
-  const pageSlug  = params.slug.join('/')
+  const { tenant, slug } = await params
+  const tenantKey = decodeURIComponent(tenant)
+  const pageSlug  = slug.join('/')
 
   const siteData = tenantKey.includes('.')
     ? await getSiteByHost(tenantKey)

@@ -25,7 +25,7 @@ export default async function RewardsShopAdminPage() {
     getAllProductRewardsConfigs(tenantId),
   ])
 
-  const items = (itemsRes.data ?? []) as RewardShopItem[]
+  const items = (itemsRes.data ?? []) as unknown as RewardShopItem[]
 
   return (
     <div className="space-y-8">

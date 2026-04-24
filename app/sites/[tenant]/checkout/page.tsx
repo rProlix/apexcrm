@@ -5,11 +5,12 @@ import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 
 interface Props {
-  params: { tenant: string }
+  params: Promise<{ tenant: string }>
 }
 
 export default async function CheckoutPage({ params }: Props) {
-  const tenantKey = decodeURIComponent(params.tenant)
+  const { tenant } = await params
+  const tenantKey = decodeURIComponent(tenant)
 
   const siteData = tenantKey.includes('.')
     ? await getSiteByHost(tenantKey)

@@ -4,7 +4,7 @@ import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supaba
 import { MODULE_REGISTRY } from '@/modules/registry'
 import { getTenantModulesWithDefaults } from '@/lib/modules/getTenantModulesWithDefaults'
 
-type RouteContext = { params: { tenantId: string } }
+type RouteContext = { params: Promise<{ tenantId: string }> }
 
 // ── Shared auth + owner guard ─────────────────────────────────────────────────
 async function verifyOwner(): Promise<
@@ -68,10 +68,10 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
   const auth = await verifyOwner()
   if (!auth.ok) return auth.response
 
-  const tenantErr = await verifyTenant(auth.admin, params.tenantId)
+  const tenantErr = await verifyTenant(auth.admin, (await params).tenantId)
   if (tenantErr) return tenantErr
 
-  const modules = await getTenantModulesWithDefaults(params.tenantId)
+  const modules = await getTenantModulesWithDefaults((await params).tenantId)
 
   return NextResponse.json({ modules })
 }
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   const auth = await verifyOwner()
   if (!auth.ok) return auth.response
 
-  const tenantErr = await verifyTenant(auth.admin, params.tenantId)
+  const tenantErr = await verifyTenant(auth.admin, (await params).tenantId)
   if (tenantErr) return tenantErr
 
   // Parse body
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   // Upsert — eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
-    tenant_id:  params.tenantId,
+    tenant_id:  (await params).tenantId,
     module_key,
     enabled:    is_enabled,
     config:     {},
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   return NextResponse.json({
     success:    true,
-    tenant_id:  params.tenantId,
+    tenant_id:  (await params).tenantId,
     module_key,
     is_enabled,
   })

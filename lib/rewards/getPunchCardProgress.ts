@@ -27,7 +27,7 @@ export async function getCustomerPunchCards(
     return []
   }
 
-  return (data ?? []) as RewardPunchCard[]
+  return (data ?? []) as unknown as RewardPunchCard[]
 }
 
 /**
@@ -52,7 +52,7 @@ export async function getActivePunchCards(
     return []
   }
 
-  return (data ?? []) as RewardPunchCard[]
+  return (data ?? []) as unknown as RewardPunchCard[]
 }
 
 /**
@@ -72,6 +72,6 @@ export async function getAllPunchCards(tenantId: string): Promise<RewardPunchCar
     return []
   }
 
-  return (data ?? []) as RewardPunchCard[]
+  return (data ?? []) as unknown as RewardPunchCard[]
 }
 

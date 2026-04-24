@@ -8,14 +8,14 @@ import { resolveStoreUser, resolveStoreCustomer } from '@/lib/auth/resolveStoreU
 // customer   → only if order.customer_id === their customer_id
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = getSupabaseServerClient()
 
   const { data: order, error: fetchErr } = await supabase
     .from('orders')
     .select('*, order_items(*, products(name, price))')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (fetchErr) {
@@ -52,7 +52,7 @@ export async function GET(
 // admin/owner only — update order status
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await resolveStoreUser(req)
 
@@ -75,7 +75,7 @@ export async function PATCH(
   const { data: existing } = await supabase
     .from('orders')
     .select('id, tenant_id')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (!existing) {
@@ -104,7 +104,7 @@ export async function PATCH(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('orders') as any)
     .update(updates)
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .select()
     .single()
 

@@ -30,7 +30,7 @@ export default async function WebsiteImportPage() {
   return (
     <WebsiteImportClient
       tenantId={tenantId}
-      initialJobs={(jobs ?? []) as Parameters<typeof WebsiteImportClient>[0]['initialJobs']}
+      initialJobs={(jobs ?? []) as unknown as Parameters<typeof WebsiteImportClient>[0]['initialJobs']}
     />
   )
 }

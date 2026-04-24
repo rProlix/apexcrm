@@ -9,15 +9,16 @@ import { ArrowLeft } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
-interface Props { params: { id: string } }
+interface Props { params: Promise<{ id: string }> }
 
 export default async function CustomerOrdersPage({ params }: Props) {
+  const { id } = await params
   const ctx = await requirePermission('view_customers')
   const tenantId = ctx.tenant_id!
 
   const [customer, orders] = await Promise.all([
-    getTenantCustomerById(tenantId, params.id),
-    getCustomerOrders(tenantId, params.id, 100),
+    getTenantCustomerById(tenantId, id),
+    getCustomerOrders(tenantId, id, 100),
   ])
 
   if (!customer) notFound()
@@ -26,7 +27,7 @@ export default async function CustomerOrdersPage({ params }: Props) {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Link
-          href={`/customers/${params.id}`}
+          href={`/customers/${id}`}
           className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />

@@ -17,7 +17,7 @@ export async function updateAppointment(
   tenant_id: string,
   input:     UpdateAppointmentInput
 ): Promise<UpdateResult> {
-  const supabase = getSupabaseServerClient()
+  const supabase = getSupabaseServerClient() as any
 
   // Fetch current record to merge times
   const { data: current, error: fetchErr } = await supabase

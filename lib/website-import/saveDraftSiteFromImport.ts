@@ -29,7 +29,7 @@ export async function saveDraftSiteFromImport(
   config:   DraftSiteConfig,
   content:  NormalizedImportContent,
 ): Promise<SaveDraftResult> {
-  const db = getSupabaseServerClient()
+  const db = getSupabaseServerClient() as any
 
   // ── 1. Upsert site_settings (preserve is_published) ───────────────────────
 

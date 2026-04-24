@@ -17,7 +17,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase  = getSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase  = getSupabaseServerClient() as any
   const tenant_id = staffUser!.tenant_id
 
   const { data, error } = await supabase
@@ -88,11 +89,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'slot_interval_minutes must be 5–480' }, { status: 400 })
   }
 
-  const supabase  = getSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase  = getSupabaseServerClient() as any
   const tenant_id = staffUser!.tenant_id
 
   const { data, error } = await supabase
     .from('availability_rules')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .insert({
       tenant_id,
       day_of_week:           repeatType === 'weekly' ? Number(day_of_week ?? 1) : null,
@@ -104,7 +107,7 @@ export async function POST(req: NextRequest) {
       repeat_days:           repeatType === 'custom' ? repeat_days : null,
       is_active:             is_active !== false,
       is_available:          is_active !== false,
-    })
+    } as any)
     .select()
     .single()
 
@@ -136,7 +139,8 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const supabase  = getSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase  = getSupabaseServerClient() as any
   const tenant_id = staffUser!.tenant_id
 
   // Only patch fields that were provided
@@ -165,7 +169,8 @@ export async function PATCH(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('availability_rules')
-    .update(patch)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .update(patch as any)
     .eq('id', id)
     .eq('tenant_id', tenant_id)
     .select()
@@ -192,7 +197,8 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'id query param is required' }, { status: 400 })
   }
 
-  const supabase  = getSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase  = getSupabaseServerClient() as any
   const tenant_id = staffUser!.tenant_id
 
   const { error } = await supabase

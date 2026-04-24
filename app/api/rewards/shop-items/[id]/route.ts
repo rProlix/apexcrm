@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveStoreUser } from '@/lib/auth/resolveStoreUser'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // ─── GET /api/rewards/shop-items/[id] ────────────────────────────────────────
 export async function GET(req: NextRequest, { params }: Params) {
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   const { data, error } = await supabase
     .from('reward_shop_items')
     .select('*, products(name, price)')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .eq('tenant_id', user.tenant_id)
     .maybeSingle()
 
@@ -52,8 +52,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const supabase = getSupabaseServerClient()
   const { data, error } = await supabase
     .from('reward_shop_items')
-    .update(updates)
-    .eq('id', params.id)
+    .update(updates as any)
+    .eq('id', (await params).id)
     .eq('tenant_id', user.tenant_id)
     .select()
     .single()
@@ -78,7 +78,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   const { error } = await supabase
     .from('reward_shop_items')
     .delete()
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .eq('tenant_id', user.tenant_id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

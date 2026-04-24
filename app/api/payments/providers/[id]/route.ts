@@ -4,7 +4,7 @@ import { resolveStoreUser } from '@/lib/auth/resolveStoreUser'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // ── PATCH /api/payments/providers/[id] ───────────────────────────────────────
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await resolveStoreUser(req)
   if (!user || !['admin', 'owner'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -17,7 +17,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data: existing } = await supabase
     .from('payment_providers')
     .select('id, tenant_id, config')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -58,7 +58,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data, error } = await supabase
     .from('payment_providers')
     .update(updates)
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .select('id, provider_key, is_enabled, is_default, updated_at')
     .single()
 
@@ -68,7 +68,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // ── DELETE /api/payments/providers/[id] ──────────────────────────────────────
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await resolveStoreUser(req)
   if (!user || !['admin', 'owner'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -80,7 +80,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   const { data: existing } = await supabaseDel
     .from('payment_providers')
     .select('id, tenant_id')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -92,7 +92,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   const { error } = await supabaseDel
     .from('payment_providers')
     .delete()
-    .eq('id', params.id)
+    .eq('id', (await params).id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

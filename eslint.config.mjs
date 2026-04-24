@@ -14,6 +14,12 @@ const config = [
       '@typescript-eslint/no-unused-vars':  ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
       'react/no-unescaped-entities':        'off',
+      // Allow short-circuit (a && fn()) and ternary (a ? fn() : gn()) as
+      // statement expressions — common React side-effect patterns.
+      '@typescript-eslint/no-unused-expressions': [
+        'error',
+        { allowShortCircuit: true, allowTernary: true },
+      ],
     },
   },
 ]

@@ -12,13 +12,13 @@ function forbidden() {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await getUserContext()
   if (!ctx || ctx.role !== 'owner') return forbidden()
 
   const db = getSupabaseServerClient()
-  const jobId = params.id
+  const jobId = (await params).id
 
   const { data: job, error } = await db
     .from('website_import_jobs')
@@ -44,7 +44,7 @@ export async function GET(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await getUserContext()
   if (!ctx || ctx.role !== 'owner') return forbidden()
@@ -54,7 +54,7 @@ export async function DELETE(
   const { error } = await db
     .from('website_import_jobs')
     .delete()
-    .eq('id', params.id)
+    .eq('id', (await params).id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

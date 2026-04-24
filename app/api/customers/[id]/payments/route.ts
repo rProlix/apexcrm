@@ -6,13 +6,13 @@ import { getCustomerPayments } from '@/lib/customers/getCustomerPayments'
 import { getCustomerContext } from '@/lib/auth/customerGuard'
 import { headers } from 'next/headers'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // ─── GET /api/customers/[id]/payments ────────────────────────────────────────
 // admin → customer's payments (transactions + invoices) within their tenant
 // customer → only their own payments
 export async function GET(req: NextRequest, { params }: Params) {
-  const { id } = params
+  const { id } = await params
   const limit = Math.min(Number(req.nextUrl.searchParams.get('limit') ?? 50), 100)
 
   // Dashboard user

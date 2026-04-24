@@ -16,7 +16,7 @@ export const metadata = { title: 'Website Domain' }
 export default async function WebsiteSettingsDomainPage() {
   const ctx = await getUserContext()
   if (!ctx) redirect('/login')
-  if (ctx.role === 'customer') redirect('/portal')
+  if ((ctx.role as string) === 'customer') redirect('/portal')
   if (!ctx.tenant_id && ctx.role !== 'owner') redirect('/dashboard')
 
   const tenantId = ctx.tenant_id ?? ''
@@ -44,7 +44,7 @@ export default async function WebsiteSettingsDomainPage() {
         .eq('hostname', customDomain)
         .eq('tenant_id', tenantId)
         .maybeSingle()
-      isVerified = domainRow?.is_verified ?? false
+      isVerified = (domainRow as { is_verified?: boolean } | null)?.is_verified ?? false
     }
   }
 

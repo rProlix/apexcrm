@@ -105,7 +105,7 @@ export async function calculatePoints(
     .in('id', productIds)
     .eq('tenant_id', tenantId)
 
-  const products = (productsRaw ?? []) as ProductWithRewards[]
+  const products = (productsRaw ?? []) as unknown as ProductWithRewards[]
   const productMap = new Map(products.map((p) => [p.id, p]))
 
   const breakdown: PointsBreakdownItem[] = []

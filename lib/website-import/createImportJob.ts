@@ -16,7 +16,7 @@ export interface CreateImportJobResult {
 export async function createImportJob(
   input: CreateImportJobInput,
 ): Promise<CreateImportJobResult> {
-  const db = getSupabaseServerClient()
+  const db = getSupabaseServerClient() as any
 
   const validUrls = input.sourceUrls.filter((u) => validateImportUrl(u) === null)
 

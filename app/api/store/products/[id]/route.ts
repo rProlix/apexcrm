@@ -7,7 +7,7 @@ import { resolveStoreUser } from '@/lib/auth/resolveStoreUser'
 // admin/owner only — update a product that belongs to their tenant
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await resolveStoreUser(req)
 
@@ -31,7 +31,7 @@ export async function PATCH(
   const { data: existing } = await supabase
     .from('products')
     .select('id, tenant_id')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (!existing) {
@@ -60,7 +60,7 @@ export async function PATCH(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('products') as any)
     .update(updates)
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .select()
     .single()
 
@@ -76,7 +76,7 @@ export async function PATCH(
 // admin/owner only — delete a product that belongs to their tenant
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await resolveStoreUser(req)
 
@@ -92,7 +92,7 @@ export async function DELETE(
   const { data: existing } = await supabase
     .from('products')
     .select('id, tenant_id')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (!existing) {
@@ -106,7 +106,7 @@ export async function DELETE(
   const { error } = await supabase
     .from('products')
     .delete()
-    .eq('id', params.id)
+    .eq('id', (await params).id)
 
   if (error) {
     console.error('[DELETE /api/store/products/:id]', error.message)

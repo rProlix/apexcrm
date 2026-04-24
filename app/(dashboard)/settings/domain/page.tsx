@@ -10,7 +10,7 @@ export default async function SettingsDomainPage() {
   const ctx = await getUserContext()
   if (!ctx) redirect('/login')
 
-  if (ctx.role === 'customer') redirect('/portal')
+  if ((ctx.role as string) === 'customer') redirect('/portal')
 
   if (ctx.role !== 'owner' && !ctx.tenant_id) {
     redirect('/dashboard?error=no_tenant')

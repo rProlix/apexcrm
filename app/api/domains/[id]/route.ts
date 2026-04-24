@@ -8,7 +8,7 @@ import { getUserContext }             from '@/lib/auth/getUserContext'
 import { removeDomainFromVercel }     from '@/lib/vercel/removeDomain'
 
 interface RouteContext {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 // ── PATCH ─────────────────────────────────────────────────────────────────────
@@ -20,12 +20,13 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const db = getSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = getSupabaseServerClient() as any
 
   const { data: existing } = await db
     .from('tenant_domains')
     .select('id, tenant_id, hostname, domain_type, is_primary')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (!existing) return NextResponse.json({ error: 'Domain not found' }, { status: 404 })
@@ -95,12 +96,13 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const db = getSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = getSupabaseServerClient() as any
 
   const { data: existing } = await db
     .from('tenant_domains')
     .select('id, tenant_id, hostname, domain_type, is_primary, is_verified')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle()
 
   if (!existing) return NextResponse.json({ error: 'Domain not found' }, { status: 404 })

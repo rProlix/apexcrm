@@ -9,7 +9,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 const ALLOWED_ROLES = ['admin', 'staff'] as const
 
 interface RouteContext {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 function forbidden(msg = 'Forbidden') {
@@ -67,7 +67,7 @@ async function resolveTarget(targetId: string) {
  * Access: admin (own tenant), owner (any tenant member of their tenant)
  */
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
-  const resolved = await resolveTarget(params.id)
+  const resolved = await resolveTarget((await params).id)
   if (!resolved.ok) return resolved.res
 
   const { ctx, tenantId, target } = resolved
@@ -96,7 +96,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (db.from('users') as any)
     .update({ role, updated_at: new Date().toISOString() })
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .eq('tenant_id', tenantId)
     .neq('role', 'owner')                           // safety net: never update owner rows
 
@@ -114,7 +114,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
  * Access: admin (own tenant, own invites), owner (full access in their tenant)
  */
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
-  const resolved = await resolveTarget(params.id)
+  const resolved = await resolveTarget((await params).id)
   if (!resolved.ok) return resolved.res
 
   const { ctx, tenantId, target } = resolved
@@ -129,7 +129,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   const { error } = await db
     .from('users')
     .delete()
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .eq('tenant_id', tenantId)
     .neq('role', 'owner')                           // final safety net on DELETE
 

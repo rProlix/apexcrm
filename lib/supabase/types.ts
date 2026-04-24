@@ -49,21 +49,46 @@ export interface Database {
       }
       tenant_domains: {
         Row: {
-          id:         string
-          tenant_id:  string
-          hostname:   string
-          verified:   boolean
-          created_at: string
+          id:                   string
+          tenant_id:            string
+          hostname:             string
+          verified:             boolean
+          created_at:           string
+          domain_type:          string
+          is_primary:           boolean
+          is_verified:          boolean
+          verification_token:   string | null
+          verification_method:  string | null
+          ssl_status:           string
+          last_verified_at:     string | null
+          metadata:             Json | null
+          updated_at:           string
         }
         Insert: {
-          tenant_id:  string
-          hostname:   string
-          verified?:  boolean
+          tenant_id:            string
+          hostname:             string
+          verified?:            boolean
+          domain_type?:         string
+          is_primary?:          boolean
+          is_verified?:         boolean
+          verification_token?:  string | null
+          verification_method?: string | null
+          ssl_status?:          string
+          metadata?:            Json | null
         }
         Update: {
-          tenant_id?: string
-          hostname?:  string
-          verified?:  boolean
+          tenant_id?:           string
+          hostname?:            string
+          verified?:            boolean
+          domain_type?:         string
+          is_primary?:          boolean
+          is_verified?:         boolean
+          verification_token?:  string | null
+          verification_method?: string | null
+          ssl_status?:          string
+          last_verified_at?:    string | null
+          metadata?:            Json | null
+          updated_at?:          string
         }
         Relationships: []
       }
@@ -716,6 +741,7 @@ export interface Database {
           custom_domain: string | null
           subdomain:     string | null
           domain_type:   string
+          domain_mode:   string
           is_published:  boolean
           created_at:    string
           updated_at:    string
@@ -734,6 +760,7 @@ export interface Database {
           custom_domain?: string | null
           subdomain?:     string | null
           domain_type?:   string
+          domain_mode?:   string
           is_published?:  boolean
         }
         Update: {
@@ -750,6 +777,7 @@ export interface Database {
           custom_domain?: string | null
           subdomain?:     string | null
           domain_type?:   string
+          domain_mode?:   string
           is_published?:  boolean
         }
         Relationships: []
@@ -873,6 +901,376 @@ export interface Database {
         }
         Relationships: []
       }
+      availability_rules: {
+        Row: {
+          id:                    string
+          tenant_id:             string
+          day_of_week:           number | null
+          start_time:            string
+          end_time:              string
+          slot_duration_minutes: number
+          slot_interval_minutes: number
+          is_available:          boolean
+          is_active:             boolean
+          repeat_type:           string
+          repeat_days:           number[] | null
+          created_at:            string
+          updated_at:            string
+        }
+        Insert: {
+          tenant_id:              string
+          day_of_week?:           number | null
+          start_time?:            string
+          end_time?:              string
+          slot_duration_minutes?: number
+          slot_interval_minutes?: number
+          is_available?:          boolean
+          is_active?:             boolean
+          repeat_type?:           string
+          repeat_days?:           number[] | null
+        }
+        Update: {
+          tenant_id?:             string
+          day_of_week?:           number | null
+          start_time?:            string
+          end_time?:              string
+          slot_duration_minutes?: number
+          slot_interval_minutes?: number
+          is_available?:          boolean
+          is_active?:             boolean
+          repeat_type?:           string
+          repeat_days?:           number[] | null
+          updated_at?:            string
+        }
+        Relationships: []
+      }
+      blocked_times: {
+        Row: {
+          id:         string
+          tenant_id:  string
+          start_time: string
+          end_time:   string
+          reason:     string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          tenant_id:   string
+          start_time:  string
+          end_time:    string
+          reason?:     string | null
+          created_by?: string | null
+        }
+        Update: {
+          tenant_id?:  string
+          start_time?: string
+          end_time?:   string
+          reason?:     string | null
+        }
+        Relationships: []
+      }
+      rewards_programs: {
+        Row: {
+          id:               string
+          tenant_id:        string
+          name:             string
+          description:      string | null
+          status:           string
+          earning_rules:    Json
+          punch_card_rules: Json
+          settings:         Json
+          created_at:       string
+          updated_at:       string
+        }
+        Insert: {
+          tenant_id:         string
+          name:              string
+          description?:      string | null
+          status?:           string
+          earning_rules?:    Json
+          punch_card_rules?: Json
+          settings?:         Json
+        }
+        Update: {
+          tenant_id?:        string
+          name?:             string
+          description?:      string | null
+          status?:           string
+          earning_rules?:    Json
+          punch_card_rules?: Json
+          settings?:         Json
+          updated_at?:       string
+        }
+        Relationships: []
+      }
+      rewards_balances: {
+        Row: {
+          id:                       string
+          tenant_id:                string
+          customer_id:              string
+          points_balance:           number
+          lifetime_points_earned:   number
+          lifetime_points_redeemed: number
+          updated_at:               string
+          created_at:               string
+        }
+        Insert: {
+          tenant_id:                  string
+          customer_id:                string
+          points_balance?:            number
+          lifetime_points_earned?:    number
+          lifetime_points_redeemed?:  number
+        }
+        Update: {
+          points_balance?:            number
+          lifetime_points_earned?:    number
+          lifetime_points_redeemed?:  number
+          updated_at?:                string
+        }
+        Relationships: []
+      }
+      rewards_transactions: {
+        Row: {
+          id:               string
+          tenant_id:        string
+          customer_id:      string
+          program_id:       string | null
+          transaction_type: string
+          points_delta:     number
+          source_type:      string | null
+          source_id:        string | null
+          metadata:         Json
+          created_at:       string
+        }
+        Insert: {
+          tenant_id:         string
+          customer_id:       string
+          program_id?:       string | null
+          transaction_type:  string
+          points_delta:      number
+          source_type?:      string | null
+          source_id?:        string | null
+          metadata?:         Json
+        }
+        Update: {
+          transaction_type?: string
+          points_delta?:     number
+          source_type?:      string | null
+          metadata?:         Json
+        }
+        Relationships: []
+      }
+      reward_shop_items: {
+        Row: {
+          id:                           string
+          tenant_id:                    string
+          name:                         string
+          description:                  string | null
+          points_cost:                  number
+          is_active:                    boolean
+          image_url:                    string | null
+          product_id:                   string | null
+          redemption_type:              string
+          discount_type:                string | null
+          discount_value:               number | null
+          inventory_count:              number
+          max_redemptions_per_customer: number | null
+          settings:                     Json
+          created_at:                   string
+        }
+        Insert: {
+          tenant_id:                     string
+          name:                          string
+          points_cost:                   number
+          description?:                  string | null
+          is_active?:                    boolean
+          image_url?:                    string | null
+          product_id?:                   string | null
+          redemption_type?:              string
+          discount_type?:                string | null
+          discount_value?:               number | null
+          inventory_count?:              number
+          max_redemptions_per_customer?: number | null
+          settings?:                     Json
+        }
+        Update: {
+          name?:                         string
+          points_cost?:                  number
+          description?:                  string | null
+          is_active?:                    boolean
+          image_url?:                    string | null
+          inventory_count?:              number
+          settings?:                     Json
+        }
+        Relationships: []
+      }
+      reward_redemptions: {
+        Row: {
+          id:             string
+          tenant_id:      string
+          customer_id:    string
+          reward_item_id: string | null
+          points_used:    number
+          status:         string
+          metadata:       Json
+          created_at:     string
+          updated_at:     string
+        }
+        Insert: {
+          tenant_id:       string
+          customer_id:     string
+          reward_item_id?: string | null
+          points_used:     number
+          status?:         string
+          metadata?:       Json
+        }
+        Update: {
+          status?:     string
+          metadata?:   Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reward_punch_cards: {
+        Row: {
+          id:          string
+          tenant_id:   string
+          customer_id: string
+          product_id:  string | null
+          title:       string
+          punch_goal:  number
+          punch_count: number
+          status:      string
+          metadata:    Json
+          created_at:  string
+          updated_at:  string
+        }
+        Insert: {
+          tenant_id:    string
+          customer_id:  string
+          product_id?:  string | null
+          title:        string
+          punch_goal:   number
+          punch_count?: number
+          status?:      string
+          metadata?:    Json
+        }
+        Update: {
+          punch_count?: number
+          status?:      string
+          metadata?:    Json
+          updated_at?:  string
+        }
+        Relationships: []
+      }
+      website_import_jobs: {
+        Row: {
+          id:             string
+          tenant_id:      string
+          created_by:     string
+          status:         string
+          source_urls:    Json
+          notes:          string | null
+          target_site_id: string | null
+          target_page_id: string | null
+          error_message:  string | null
+          progress:       number
+          started_at:     string | null
+          completed_at:   string | null
+          created_at:     string
+          updated_at:     string
+        }
+        Insert: {
+          tenant_id:       string
+          created_by:      string
+          status?:         string
+          source_urls?:    Json
+          notes?:          string | null
+          target_site_id?: string | null
+          target_page_id?: string | null
+          progress?:       number
+        }
+        Update: {
+          status?:         string
+          source_urls?:    Json
+          notes?:          string | null
+          error_message?:  string | null
+          progress?:       number
+          started_at?:     string | null
+          completed_at?:   string | null
+          updated_at?:     string
+        }
+        Relationships: []
+      }
+      website_import_results: {
+        Row: {
+          id:               string
+          tenant_id:        string
+          job_id:           string
+          result_key:       string
+          source_key:       string | null
+          mapped_section:   string | null
+          result_value:     Json
+          confidence_score: number
+          approved:         boolean
+          created_at:       string
+          updated_at:       string
+        }
+        Insert: {
+          tenant_id:         string
+          job_id:            string
+          result_key:        string
+          source_key?:       string | null
+          mapped_section?:   string | null
+          result_value?:     Json
+          confidence_score?: number
+          approved?:         boolean
+        }
+        Update: {
+          result_key?:       string
+          result_value?:     Json
+          confidence_score?: number
+          approved?:         boolean
+          mapped_section?:   string | null
+          updated_at?:       string
+        }
+        Relationships: []
+      }
+      website_import_sources: {
+        Row: {
+          id:               string
+          tenant_id:        string
+          job_id:           string
+          source_url:       string
+          source_type:      string | null
+          page_title:       string | null
+          fetched_status:   string
+          confidence_score: number
+          raw_metadata:     Json | null
+          raw_text:         string | null
+          created_at:       string
+          updated_at:       string
+        }
+        Insert: {
+          tenant_id:         string
+          job_id:            string
+          source_url:        string
+          source_type?:      string | null
+          page_title?:       string | null
+          fetched_status?:   string
+          confidence_score?: number
+          raw_metadata?:     Json | null
+          raw_text?:         string | null
+        }
+        Update: {
+          fetched_status?:   string
+          confidence_score?: number
+          raw_metadata?:     Json | null
+          raw_text?:         string | null
+          updated_at?:       string
+        }
+        Relationships: []
+      }
     }
     Views:     Record<string, never>
     Functions: {
@@ -891,6 +1289,10 @@ export interface Database {
       set_platform_admin_context: {
         Args:    Record<string, never>
         Returns: void
+      }
+      upsert_rewards_balance: {
+        Args:    { p_tenant_id: string; p_customer_id: string; p_points_delta: number }
+        Returns: { new_balance: number; lifetime_earned: number; lifetime_redeemed: number } | null
       }
     }
     Enums: Record<string, never>

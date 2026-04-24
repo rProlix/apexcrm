@@ -27,7 +27,7 @@ export async function applyOrderRewards(params: {
   items:      OrderItemForRewards[]
 }): Promise<ApplyOrderRewardsResult> {
   const { tenantId, customerId, orderId, items } = params
-  const supabase = getSupabaseServerClient()
+  const supabase = getSupabaseServerClient() as any
 
   const EMPTY: ApplyOrderRewardsResult = {
     points_earned:   0,
@@ -63,7 +63,7 @@ export async function applyOrderRewards(params: {
       if (balanceError) {
         console.error('[applyOrderRewards] balance upsert', balanceError.message)
       } else {
-        newBalance = (balanceData as number) ?? 0
+        newBalance = (balanceData as unknown as number) ?? 0
       }
     } else {
       // Still fetch current balance for return value

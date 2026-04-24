@@ -17,13 +17,13 @@ function forbidden() {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await getUserContext()
   if (!ctx || ctx.role !== 'owner') return forbidden()
 
   const db = getSupabaseServerClient()
-  const jobId = params.id
+  const jobId = (await params).id
 
   // Verify job belongs to owner's tenant
   const { data: job } = await db
