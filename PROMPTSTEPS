@@ -1,0 +1,146 @@
+You are now in strict file-by-file build mode.
+
+Rules:
+- Do NOT generate the whole project at once.
+- Do NOT explain architecture unless I ask.
+- Do NOT add extra files.
+- Do NOT refactor unrelated code.
+- Do NOT speculate.
+- Do NOT output placeholders unless explicitly asked.
+- Do NOT overwrite files not listed in the current step.
+- Output only the exact file contents requested for the current step.
+- Each file must be in its own code block.
+- Put the filepath as a comment on the first line of each code block.
+- Keep code concise, production-ready, and TypeScript-first.
+- If a file depends on another file not yet created, create only the minimum needed stub, and stop.
+
+Project goal:
+Build a multi-tenant white-labeled SaaS CRM foundation in Next.js 14 + TypeScript + Tailwind + Supabase with dynamic modules, tenant routing, dashboard shell, customer portal scaffold, and secure multi-tenant data isolation.
+
+Now work in this exact order. Finish only Step 1, then stop and wait for my next instruction.
+
+STEP 1: CORE PROJECT FILES
+Create exact contents for these files only:
+1. package.json
+2. tsconfig.json
+3. next.config.js
+4. tailwind.config.ts
+5. postcss.config.js
+6. app/globals.css
+7. .env.example
+8. .gitignore
+9. README.md
+
+Requirements for Step 1:
+- package.json must include:
+  - next
+  - react
+  - react-dom
+  - typescript
+  - tailwindcss
+  - postcss
+  - autoprefixer
+  - framer-motion
+  - clsx
+  - tailwind-merge
+  - @supabase/supabase-js
+  - zod
+  - lucide-react
+  - dotenv
+  - uuid
+  - eslint
+  - prettier
+  - eslint-config-next
+  - @types/node
+  - @types/react
+  - @types/react-dom
+- Include scripts for dev, build, start, lint, format
+- tsconfig should be strict and fit Next.js App Router
+- next.config.js should be minimal and production-safe
+- tailwind.config.ts must define the luxury dark theme tokens for the gold/graphite UI
+- app/globals.css must define CSS variables for the premium theme and reusable utility classes:
+  - premium-panel
+  - premium-border
+  - noise-overlay
+  - glass-surface
+- .env.example must include placeholders for Supabase, app URL, and admin secret
+- README.md must be short and practical, with local run steps only
+- Keep all names generic and easy to rename later
+
+After Step 1, stop completely and wait.
+
+STEP 2: SUPABASE SCHEMA + SEED ONLY
+
+Create exact contents for these files only:
+1. supabase/migrations/001_init.sql
+2. supabase/seed.sql
+3. supabase/README.md
+
+Requirements:
+- Single shared PostgreSQL database
+- Multi-tenant architecture using tenant_id everywhere appropriate
+- Include tables for:
+  - tenants
+  - tenant_domains
+  - plans
+  - subscriptions
+  - tenant_modules
+  - users
+  - customer_accounts
+  - customers
+  - leads
+  - contacts
+  - messages
+  - appointments
+  - payments
+  - reward_points
+  - reward_history
+  - vehicles
+  - vehicle_images
+  - vehicle_assignments
+  - damage_assessments
+  - activity_logs
+  - audit_logs
+- Add timestamps, indexes, and sensible defaults
+- Add Row Level Security policies for all tenant-owned tables
+- Use a clear, secure RLS approach based on tenant context
+- Include sample seed data for:
+  - rentalco
+  - plumberpro
+  - salonx
+- Give each tenant different enabled modules
+- Include sample plans and subscriptions
+- Include sample domains/subdomains
+- Include sample customers, vehicles, appointments, rewards, and leads
+- Keep it production-minded and migration-friendly
+- Do not add any files beyond these three
+
+Output each file in its own code block with filepath comment on line 1.
+After Step 2, stop completely and wait.
+
+STEP 3: SUPABASE HELPERS ONLY
+
+Create exact contents for these files only:
+1. lib/supabase/client.ts
+2. lib/supabase/server.ts
+3. lib/tenant/getTenantFromHost.ts
+4. lib/tenant/loadTenantConfig.ts
+5. lib/modules/loadEnabledModules.ts
+6. lib/modules/guardModuleAccess.ts
+7. lib/validation.ts
+8. lib/utils.ts
+
+Requirements:
+- Use @supabase/supabase-js
+- client.ts for browser client
+- server.ts for server/admin client
+- getTenantFromHost.ts must map hostname/subdomain safely
+- loadTenantConfig.ts must fetch tenant branding + enabled modules
+- loadEnabledModules.ts must dynamically resolve modules from tenant_modules
+- guardModuleAccess.ts must block access to disabled modules server-side
+- validation.ts should contain reusable zod helpers
+- utils.ts should include small shared helpers only
+- Keep everything minimal and ready for App Router
+- Do not add route files yet
+
+After Step 3, stop completely and wait.

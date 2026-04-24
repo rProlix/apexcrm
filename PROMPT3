@@ -1,0 +1,209 @@
+You are building a premium multi-tenant SaaS dashboard that dynamically adapts per business type, enabled modules, and available data.
+
+IMPORTANT RULES:
+- Do NOT rebuild the entire app
+- Only create or modify files related to the dashboard system
+- Keep everything modular and extensible
+- Use existing module system and tenant loading logic
+- Use TypeScript, Next.js App Router, Tailwind, and Framer Motion
+- Output ONLY code, no explanations
+- Each file must be in its own code block with filepath as comment on line 1
+
+GOAL:
+Create a dynamic, intelligent dashboard that:
+- Shows different layouts depending on tenant modules
+- Groups stats into meaningful sections (Operations, Financial, Usage)
+- Handles empty states gracefully
+- Feels premium (dark, glass, gold accents)
+- Looks like a $100k+ SaaS product
+
+---
+
+STEP 1: CREATE DASHBOARD CONFIG SYSTEM
+
+Create:
+lib/dashboard/getDashboardConfig.ts
+
+This file should:
+- Accept tenant + enabled modules
+- Return a structured dashboard config:
+
+{
+  sections: [
+    {
+      title: "Operations",
+      items: [...]
+    },
+    {
+      title: "Financial",
+      items: [...]
+    },
+    {
+      title: "Usage",
+      items: [...]
+    }
+  ]
+}
+
+- Pull stats dynamically from modules
+- Only include stats from enabled modules
+- Filter out empty/irrelevant stats
+- Allow modules to define their own categories
+
+---
+
+STEP 2: STANDARDIZE MODULE STATS INTERFACE
+
+Modify or create:
+modules/shared/moduleTypes.ts
+
+Define a stat type:
+
+type DashboardStat = {
+  key: string
+  label: string
+  category: "operations" | "financial" | "usage"
+  getValue: (tenantId: string) => Promise<number | string>
+  format?: (value: any) => string
+  emptyMessage?: string
+}
+
+Each module must export:
+
+stats?: DashboardStat[]
+
+---
+
+STEP 3: UPDATE MODULES TO PROVIDE STATS
+
+Update at least:
+- modules/vehicles/index.ts
+- modules/appointments/index.ts
+- modules/payments/index.ts
+
+Each should export stats like:
+
+vehicles:
+- total vehicles
+- active vehicles
+- maintenance alerts
+
+appointments:
+- total appointments
+- returning customers
+
+payments:
+- monthly revenue
+- outstanding balance
+
+Each stat must:
+- query Supabase
+- use tenant_id
+- return real values (or mock if needed)
+- include category
+
+---
+
+STEP 4: CREATE PREMIUM DASHBOARD UI
+
+Create:
+components/dashboard/PremiumDashboard.tsx
+
+This component should:
+- Accept dashboard config
+- Render sections dynamically
+- Use grid layout
+- Each section has a title + stat cards
+
+Design requirements:
+- Dark background
+- Glass panels (backdrop blur)
+- Gold accent gradients
+- Soft borders
+- Smooth hover effects
+- Framer Motion animations (fade + slight lift)
+
+---
+
+STEP 5: CREATE STAT CARD COMPONENT
+
+Create:
+components/dashboard/AdaptiveStatCard.tsx
+
+This component should:
+- Display label + value
+- Handle loading state
+- Handle empty state (show emptyMessage)
+- Support glow effect on hover
+- Format values if formatter exists
+
+---
+
+STEP 6: UPDATE DASHBOARD PAGE
+
+Modify:
+app/(dashboard)/dashboard/page.tsx
+
+Requirements:
+- Load tenant from host
+- Load enabled modules
+- Load dashboard config using getDashboardConfig
+- Render PremiumDashboard
+
+---
+
+STEP 7: EMPTY STATE UX
+
+If a section has no data:
+- Do NOT render the section
+
+If a stat has no data:
+- Show:
+  "No data yet"
+  or custom emptyMessage
+
+---
+
+STEP 8: BUSINESS-TYPE FEEL (IMPORTANT)
+
+The dashboard should FEEL different depending on modules:
+
+IF vehicles module exists:
+- Show fleet-style stats (operational heavy)
+
+IF appointments exists:
+- Show scheduling + retention focus
+
+IF payments exists:
+- Show revenue prominently
+
+Do NOT hardcode business types
+Let modules shape the experience
+
+---
+
+STEP 9: ANIMATION POLISH
+
+Use Framer Motion:
+- Sections fade in staggered
+- Cards lift slightly on hover
+- Subtle glow transitions
+
+Keep animations fast and premium (no laggy effects)
+
+---
+
+STEP 10: DO NOT DO THESE
+
+- Do not hardcode stats into dashboard
+- Do not create separate dashboards per industry
+- Do not duplicate logic
+- Do not fetch all data in one place
+- Do not break module isolation
+
+---
+
+DELIVERABLE:
+Return all created/modified files only.
+
+After finishing, STOP.
