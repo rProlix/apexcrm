@@ -343,14 +343,19 @@ function isPlatformRootHost(hostname: string): boolean {
   if (hostname === ROOT_DOMAIN) return true
   if (hostname === `app.${ROOT_DOMAIN}`) return true
 
+  // Explicit APP_URL env var (e.g. https://app.yourcrm.com or https://yourapp.vercel.app)
   const appHostname = safeHostname(APP_URL)
-  if (appHostname && hostname === appHostname) return true
+  if (appHostname && appHostname !== 'localhost' && hostname === appHostname) return true
 
-  // Vercel production deployment (e.g. "myapp.vercel.app")
-  if (VERCEL_URL && hostname === VERCEL_URL) return true
+  // Vercel auto-injects VERCEL_URL for the current deployment (no NEXT_PUBLIC_ prefix)
+  // Format: "project-name-gitbranch-abc123.vercel.app"
+  if (VERCEL_URL) {
+    const vercelHostname = safeHostname(`https://${VERCEL_URL}`)
+    if (hostname === vercelHostname) return true
+  }
 
-  // All *.vercel.app subdomains are this project's preview/production deployments.
-  // Requests to OTHER Vercel apps never reach this middleware, so this is safe.
+  // All *.vercel.app hostnames belong to this project's preview/production deployments.
+  // Requests to other Vercel projects never reach this middleware instance.
   if (hostname.endsWith('.vercel.app')) return true
 
   return false
