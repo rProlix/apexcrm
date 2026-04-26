@@ -24,7 +24,13 @@ export interface TenantRecord {
 export async function getTenantFromHost(host: string): Promise<TenantRecord | null> {
   const hostname = normalizeHost(host)
 
-  const supabase = getSupabaseServerClient()
+  let supabase: ReturnType<typeof getSupabaseServerClient>
+  try {
+    supabase = getSupabaseServerClient()
+  } catch {
+    // Supabase env vars not configured — treat as platform root (no tenant)
+    return null
+  }
 
   // 1. Lookup by exact hostname in tenant_domains
   const { data: domainRow } = await supabase

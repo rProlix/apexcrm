@@ -47,7 +47,12 @@ export async function resolveTenantByHost(
   const appHostname = safeHostname(APP_URL)
   if (hostname === ROOT_DOMAIN || hostname === appHostname) return null
 
-  const db = getSupabaseServerClient()
+  let db: ReturnType<typeof getSupabaseServerClient>
+  try {
+    db = getSupabaseServerClient()
+  } catch {
+    return null
+  }
 
   // 1. Verified custom domain
   const { data: domainRow } = await db
@@ -76,7 +81,12 @@ export async function resolveTenantByHost(
  * Used for direct slug lookups without a host header (e.g., dashboard pages).
  */
 export async function resolveTenantBySlug(slug: string): Promise<ResolvedTenant | null> {
-  const db = getSupabaseServerClient()
+  let db: ReturnType<typeof getSupabaseServerClient>
+  try {
+    db = getSupabaseServerClient()
+  } catch {
+    return null
+  }
   const { data } = await db
     .from('tenants')
     .select('id, name, slug, status')
