@@ -1,6 +1,6 @@
 // middleware.ts
-import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
+import { createMiddlewareSupabaseClient } from '@/lib/supabase/middleware'
 
 // ── Environment ───────────────────────────────────────────────────────────────
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
@@ -84,38 +84,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // ── Guard: skip auth if Supabase env vars are absent ──────────────────────
-  // This happens during Vercel build-time analysis or if vars aren't set yet.
-  const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const response = NextResponse.next({ request })
 
-  if (!supabaseUrl || !supabaseAnon) {
-    console.warn('[middleware] Supabase env vars missing — skipping auth, allowing request')
-    return NextResponse.next()
-  }
-
-  let response = NextResponse.next({ request })
-
-  const supabase = createServerClient(supabaseUrl, supabaseAnon, {
-    cookies: {
-      getAll() { return request.cookies.getAll() },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        response = NextResponse.next({ request })
-        cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options)
-        )
-      },
-    },
-  })
+  // Edge-safe Supabase client — returns null if env vars are absent.
+  // Auth is skipped gracefully in that case (no crash, request passes through).
+  const supabase = createMiddlewareSupabaseClient(request, response)
 
   // Catch Supabase auth errors gracefully — never crash a user request
   let user: { id: string } | null = null
-  try {
-    const { data } = await supabase.auth.getUser()
-    user = data.user
-  } catch (err) {
-    console.error('[middleware] supabase.auth.getUser failed:', err)
+  if (supabase) {
+    try {
+      const { data } = await supabase.auth.getUser()
+      user = data.user
+    } catch (err) {
+      console.error('[middleware] supabase.auth.getUser failed:', err)
+    }
+  } else {
+    console.warn('[middleware] Supabase env vars missing — skipping auth, allowing request')
   }
 
   // ── Host normalisation ─────────────────────────────────────────────────────
@@ -125,7 +110,7 @@ export async function middleware(request: NextRequest) {
   const tenantKey  = resolveTenantKey(hostname)
 
   // ── Module access enforcement (authenticated users only) ──────────────────
-  if (user) {
+  if (user && supabase) {
     const moduleKey = getModuleFromPath(pathname)
     if (moduleKey) {
       const blocked = await enforceModuleAccess({
@@ -165,9 +150,12 @@ export async function middleware(request: NextRequest) {
   // ── Tenant host (subdomain or verified custom domain) ────────────────────
   // For custom (non-subdomain) domains: verify before serving.
   if (domainType === 'custom') {
-    const isVerified = await isVerifiedCustomDomain(supabase, hostname)
+    // If Supabase is unavailable we can't verify the domain — return 404 to
+    // prevent serving tenant content on an unverified host.
+    const isVerified = supabase
+      ? await isVerifiedCustomDomain(supabase, hostname)
+      : false
     if (!isVerified) {
-      // Return a proper 404 response — avoids the rewrite-loop from /not-found
       return new NextResponse(null, { status: 404 })
     }
   }
@@ -231,7 +219,10 @@ export async function middleware(request: NextRequest) {
 
 // ── Module enforcement helper ─────────────────────────────────────────────────
 
-type SupabaseEdgeClient = ReturnType<typeof createServerClient>
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/lib/supabase/types'
+
+type SupabaseEdgeClient = SupabaseClient<Database>
 
 interface EnforceModuleParams {
   supabase:   SupabaseEdgeClient

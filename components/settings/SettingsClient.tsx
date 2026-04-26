@@ -1311,12 +1311,8 @@ function SecurityTab() {
     }
     setSaving(true); setPwdError(null)
     try {
-      // Supabase auth password update
-      const { createBrowserClient } = await import('@supabase/ssr')
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
+      const { getSupabaseBrowserClient } = await import('@/lib/supabase/client')
+      const supabase = getSupabaseBrowserClient()
       const { error } = await supabase.auth.updateUser({ password: newPwd })
       if (error) throw new Error(error.message)
       setSaved(true)
