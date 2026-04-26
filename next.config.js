@@ -2,15 +2,16 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // Note: output:'standalone' is NOT used on Vercel — Vercel handles its own
-  // output optimization. Standalone mode causes prerender-tracing crashes when
-  // env vars aren't available at build time.
+  // compress: true is the Vercel/Node.js default but explicit is clearer
+  compress: true,
 
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**.supabase.co' },
       { protocol: 'https', hostname: '**.supabase.in' },
       { protocol: 'https', hostname: '**.vercel.app' },
+      // Allow any https image (user-uploaded content from arbitrary CDNs)
+      { protocol: 'https', hostname: '**' },
     ],
     // Serve modern formats — Vercel handles conversion at the edge
     formats: ['image/avif', 'image/webp'],
