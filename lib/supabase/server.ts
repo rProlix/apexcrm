@@ -14,8 +14,12 @@ function getEnv() {
   const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!url || !anon) {
+    // Log clearly so the developer sees exactly what to fix in Vercel dashboard.
+    // Callers (pages, layouts) must catch this and degrade gracefully.
     throw new Error(
-      'Missing Supabase env vars: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required.'
+      '[Supabase] Missing env vars: set NEXT_PUBLIC_SUPABASE_URL and ' +
+      'NEXT_PUBLIC_SUPABASE_ANON_KEY in your Vercel project settings ' +
+      '(Settings → Environment Variables).'
     )
   }
   return { url, anon, serviceRole: serviceRole ?? '' }

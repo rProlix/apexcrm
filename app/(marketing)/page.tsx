@@ -5,9 +5,15 @@ import { createSessionServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
 export default async function MarketingPage() {
-  const supabase = await createSessionServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (user) redirect('/dashboard')
+  // Wrap auth check so the marketing page never crashes — if Supabase env vars
+  // are missing or auth errors out, we simply show the unauthenticated landing page.
+  try {
+    const supabase = await createSessionServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) redirect('/dashboard')
+  } catch {
+    // Supabase unavailable or misconfigured — show landing page without auth
+  }
   return (
     <main className="min-h-dvh bg-graphite-950 flex flex-col items-center justify-center px-6">
       {/* Background glow */}

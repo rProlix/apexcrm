@@ -1,5 +1,6 @@
 // lib/auth/getUserContext.ts
 import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
+import type { User } from '@supabase/supabase-js'
 import type { UserContext } from './types'
 
 /**
@@ -15,10 +16,17 @@ import type { UserContext } from './types'
  * route handlers, and server actions. Never trust role values from the client.
  */
 export async function getUserContext(): Promise<UserContext | null> {
-  const sessionClient = await createSessionServerClient()
-  const { data: { user }, error } = await sessionClient.auth.getUser()
+  let user: User | null = null
+  try {
+    const sessionClient = await createSessionServerClient()
+    const { data, error } = await sessionClient.auth.getUser()
+    if (error || !data.user) return null
+    user = data.user
+  } catch {
+    return null
+  }
 
-  if (error || !user) return null
+  if (!user) return null
 
   const admin = getSupabaseServerClient()
   const { data: record, error: dbError } = await admin

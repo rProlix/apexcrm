@@ -8,13 +8,22 @@ import { getTenantFromHost, type TenantRecord } from '@/lib/tenant/getTenantFrom
 import { loadTenantConfig } from '@/lib/tenant/loadTenantConfig'
 import { loadEnabledModules } from '@/lib/modules/loadEnabledModules'
 import type { NavModule } from '@/modules/shared/moduleTypes'
+import type { User } from '@supabase/supabase-js'
 import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import { slugifyBusinessName } from '@/lib/validation/auth'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   // ── Auth guard ──────────────────────────────────────────────────────
-  const sessionClient = await createSessionServerClient()
-  const { data: { user } } = await sessionClient.auth.getUser()
+  // Wrap in try/catch so a Supabase misconfiguration redirects to login
+  // rather than crashing the entire dashboard with a 500/404.
+  let user: User | null = null
+  try {
+    const sessionClient = await createSessionServerClient()
+    const { data } = await sessionClient.auth.getUser()
+    user = data.user
+  } catch {
+    redirect('/login')
+  }
 
   if (!user) {
     redirect('/login')
