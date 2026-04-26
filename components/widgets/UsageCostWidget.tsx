@@ -1,6 +1,5 @@
 'use client'
 
-import { cn } from '@/lib/utils'
 import type { WidgetDataUsage } from '@/lib/dashboard/types'
 
 interface UsageCostWidgetProps {

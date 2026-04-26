@@ -3,7 +3,7 @@
 // Shows the punch card rules that have been saved to the rewards program.
 // This is a read-only confirmation panel — editing happens in PunchCardForm above.
 import { motion } from 'framer-motion'
-import { Zap, CheckCircle2, XCircle, Package, Gift } from 'lucide-react'
+import { Zap, CheckCircle2, Package, Gift } from 'lucide-react'
 import type { PunchCardRule, ProductWithRewards } from '@/types/rewards'
 
 interface Props {

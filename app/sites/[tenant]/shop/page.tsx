@@ -1,9 +1,12 @@
+export const dynamic = 'force-dynamic'
+
 // app/sites/[tenant]/shop/page.tsx — Public shop / product catalog
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import Image from 'next/image'
 
 interface Props {
   params: Promise<{ tenant: string }>
@@ -94,7 +97,7 @@ export default async function ShopPage({ params }: Props) {
                     justifyContent: 'center',
                   }}>
                     {product.image_url
-                      ? <img src={product.image_url} alt={product.name}
+                      ? <Image src={product.image_url} alt={product.name} width={400} height={400} unoptimized
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : <span style={{ fontSize: '3rem', opacity: 0.3 }}>📦</span>
                     }

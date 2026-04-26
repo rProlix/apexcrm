@@ -1,7 +1,9 @@
+export const dynamic = 'force-dynamic'
+
 // app/(dashboard)/owner/tenants/[tenantId]/domain/page.tsx
 // Platform owner page to manage domains for any specific tenant.
 
-import { redirect, notFound }     from 'next/navigation'
+import { notFound }     from 'next/navigation'
 import { requireOwner }           from '@/lib/auth/requireRole'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { DomainManager }          from '@/components/domains/DomainManager'

@@ -1,12 +1,15 @@
-// app/(customer)/portal/appointments/[id]/page.tsx
 'use client'
 
+export const dynamic = 'force-dynamic'
+
+// app/(customer)/portal/appointments/[id]/page.tsx
+
 import { useState, useEffect } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import {
-  CalendarDays, Clock, MapPin, FileText, ChevronLeft,
+  CalendarDays, MapPin, FileText, ChevronLeft,
   CheckCircle2, XCircle, AlertCircle, Loader2, RefreshCw, Pencil,
 } from 'lucide-react'
 import { StatusBadge }    from '@/components/appointments/StatusBadge'
@@ -31,7 +34,6 @@ function durationLabel(starts: string, ends: string) {
 
 export default function CustomerAppointmentDetailPage() {
   const { id }       = useParams<{ id: string }>()
-  const router       = useRouter()
   const searchParams = useSearchParams()
   const justBooked   = searchParams.get('booked') === '1'
 

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { redirectIfAuthed } from '@/lib/auth/redirectIfAuthed'
 import { AuthCard } from '@/components/auth/AuthCard'
 import { SignupForm } from '@/components/auth/SignupForm'

@@ -1,6 +1,8 @@
+export const dynamic = 'force-dynamic'
+
 import { headers } from 'next/headers'
 import { getTenantFromHost } from '@/lib/tenant/getTenantFromHost'
-import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/Card'
+import { Card } from '@/components/ui/Card'
 import { CalendarDays, CreditCard, Star, Car } from 'lucide-react'
 import Link from 'next/link'
 

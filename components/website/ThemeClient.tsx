@@ -1,6 +1,7 @@
 'use client'
 // components/website/ThemeClient.tsx
 import { useState } from 'react'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { Palette, Save, RotateCcw, Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -139,7 +140,7 @@ export function ThemeClient({ tenantId, initialSettings }: Props) {
             <input className={inputCls} placeholder="https://cdn.example.com/logo.png" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} />
             {logoUrl && (
               <div className="mt-2 h-12 w-auto inline-flex items-center justify-center rounded-lg border border-surface-border bg-graphite-700 px-3">
-                <img src={logoUrl} alt="Logo preview" className="max-h-8 max-w-[120px] object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                <Image src={logoUrl} alt="Logo preview" width={120} height={32} unoptimized className="max-h-8 max-w-[120px] object-contain" onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')} />
               </div>
             )}
           </div>

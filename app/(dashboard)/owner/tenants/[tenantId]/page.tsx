@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(dashboard)/owner/tenants/[tenantId]/page.tsx
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -6,7 +8,7 @@ import { getTenantById }  from '@/lib/owner/getTenants'
 import { getTenantModulesWithDefaults } from '@/lib/modules/getTenantModulesWithDefaults'
 import { TenantModuleManager } from '@/components/owner/TenantModuleManager'
 import {
-  ArrowLeft, Building2, Globe, Calendar,
+  ArrowLeft, Globe, Calendar,
   CheckCircle2, XCircle, Users, Layers,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'

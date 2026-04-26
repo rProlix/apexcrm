@@ -1,10 +1,11 @@
+export const dynamic = 'force-dynamic'
+
 import { headers } from 'next/headers'
 import { getTenantFromHost } from '@/lib/tenant/getTenantFromHost'
 import { loadTenantConfig } from '@/lib/tenant/loadTenantConfig'
 import { MODULE_REGISTRY } from '@/modules/registry'
-import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/Card'
+import { Card } from '@/components/ui/Card'
 import { Pill } from '@/components/ui/Pill'
-import type { ModuleKey } from '@/modules/shared/moduleTypes'
 
 export default async function ModulesPage() {
   const host   = (await headers()).get('host') ?? ''

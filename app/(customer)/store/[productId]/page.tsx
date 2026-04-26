@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(customer)/store/[productId]/page.tsx
 import { headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'

@@ -2,8 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveStoreUser } from '@/lib/auth/resolveStoreUser'
-import type { EarningRules, PunchCardRule, ProgramSettings } from '@/types/rewards'
-
 // ─── GET /api/rewards/programs ────────────────────────────────────────────────
 // admin/owner → returns all programs for their tenant
 export async function GET(req: NextRequest) {

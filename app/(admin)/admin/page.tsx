@@ -1,7 +1,8 @@
+export const dynamic = 'force-dynamic'
+
 // app/(admin)/admin/page.tsx
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
-import { Pill } from '@/components/ui/Pill'
 import { Card } from '@/components/ui/Card'
 import { formatDate } from '@/lib/utils'
 import { Building2, Users, Activity, ArrowRight } from 'lucide-react'

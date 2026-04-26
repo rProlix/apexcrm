@@ -4,15 +4,6 @@
 import { ArrowRight, Layout, Mail, Star, HelpCircle, Image, Type, Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface MappingRow {
-  fieldKey:      string
-  fieldLabel:    string
-  sectionLabel:  string
-  sectionType:   string
-  approved:      boolean
-  confidence:    number
-}
-
 interface Props {
   results: Array<{
     result_key:      string

@@ -12,7 +12,7 @@ interface TopBarProps {
   userRole?:  string
 }
 
-export function TopBar({ tenantName, userEmail, userRole }: TopBarProps) {
+export function TopBar({ tenantName: _tenantName, userEmail, userRole }: TopBarProps) {
   const name = userEmail?.split('@')[0] ?? 'User'
 
   return (

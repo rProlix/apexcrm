@@ -25,7 +25,7 @@ const SECTION_OPTIONS = Object.values(SECTION_TYPE_META).map((m) => ({
   value: m.type, label: m.label, description: m.description,
 }))
 
-export function SectionsPanel({ pageId, tenantId }: Props) {
+export function SectionsPanel({ pageId, tenantId: _tenantId }: Props) {
   const [sections,      setSections]      = useState<SiteSection[]>([])
   const [loading,       setLoading]       = useState(true)
   const [showPicker,    setShowPicker]    = useState(false)

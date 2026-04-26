@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { z } from 'zod'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { loginSchema } from '@/lib/validation/auth'
 import { Button } from '@/components/ui/Button'

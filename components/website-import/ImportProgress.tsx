@@ -1,6 +1,6 @@
 'use client'
 // components/website-import/ImportProgress.tsx
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ImportJobStatus } from '@/lib/website-import/types'

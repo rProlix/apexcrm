@@ -1,5 +1,8 @@
-// app/(customer)/portal/appointments/book/page.tsx
 'use client'
+
+export const dynamic = 'force-dynamic'
+
+// app/(customer)/portal/appointments/book/page.tsx
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -24,7 +27,7 @@ export default function BookAppointmentPage() {
 
   const [step,         setStep]         = useState<Step>(1)
   const [title,        setTitle]        = useState('')
-  const [description,  setDescription]  = useState('')
+  const [description]  = useState('')
   const [duration,     setDuration]     = useState(60)
   const [notes,        setNotes]        = useState('')
   const [selectedDate, setSelectedDate] = useState<string>('')

@@ -95,7 +95,6 @@ const supabase  = getSupabaseServerClient() as any
 
   const { data, error } = await supabase
     .from('availability_rules')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .insert({
       tenant_id,
       day_of_week:           repeatType === 'weekly' ? Number(day_of_week ?? 1) : null,
@@ -107,6 +106,7 @@ const supabase  = getSupabaseServerClient() as any
       repeat_days:           repeatType === 'custom' ? repeat_days : null,
       is_active:             is_active !== false,
       is_available:          is_active !== false,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
     .select()
     .single()

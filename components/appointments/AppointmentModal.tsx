@@ -7,7 +7,7 @@ import { X, CalendarDays, Clock, MapPin, FileText, Save, Trash2, CheckCircle } f
 import { CustomerSelector } from './CustomerSelector'
 import { TimeSlotPicker } from './TimeSlotPicker'
 import { StatusBadge } from './StatusBadge'
-import type { Appointment, AppointmentStatus, TimeSlot } from '@/lib/appointments/types'
+import type { Appointment, TimeSlot } from '@/lib/appointments/types'
 
 interface Props {
   open:          boolean

@@ -49,7 +49,7 @@ const PROVIDER_LABELS: Record<string, { name: string; color: string; desc: strin
 
 type ConnectMode = 'oauth' | 'apikey' | null
 
-export function ProviderStatusCard({ providers, accounts, tenantId }: Props) {
+export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }: Props) {
   const searchParams = useSearchParams()
   const [loading,     setLoading]     = useState(false)
   const [error,       setError]       = useState<string | null>(null)

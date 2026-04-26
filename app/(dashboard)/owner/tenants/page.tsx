@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(dashboard)/owner/tenants/page.tsx
 import { redirect } from 'next/navigation'
 import { getUserContext } from '@/lib/auth/getUserContext'
@@ -53,7 +55,7 @@ export default async function OwnerTenantsPage() {
           { label: 'Active',          value: active,          color: 'text-emerald-400', bg: 'bg-emerald-500/8' },
           { label: 'Inactive',        value: inactive,        color: 'text-white/30',    bg: 'bg-white/4'       },
           { label: 'Enabled Modules', value: totalMods,       color: 'text-blue-400',    bg: 'bg-blue-500/8'    },
-        ].map(({ label, value, color, bg }) => (
+        ].map(({ label, value, color, bg: _bg }) => (
           <div
             key={label}
             className="rounded-2xl border border-surface-border bg-graphite-900/60 px-5 py-4"

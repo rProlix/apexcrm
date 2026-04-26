@@ -1,5 +1,6 @@
 // components/site/SiteFooter.tsx
 import Link from 'next/link'
+import Image from 'next/image'
 import type { PublishedSiteConfig } from '@/lib/website/types'
 
 interface Props {
@@ -36,7 +37,7 @@ export function SiteFooter({ config }: Props) {
             {showLogo && (
               <Link href="/" style={{ textDecoration: 'none' }}>
                 {logoUrl
-                  ? <img src={logoUrl} alt={siteName} style={{ height: 28, objectFit: 'contain' }} />
+                  ? <Image src={logoUrl} alt={siteName} width={100} height={28} style={{ height: 28, width: 'auto', objectFit: 'contain' }} unoptimized />
                   : <span style={{
                       fontSize: '1rem',
                       fontWeight: 700,

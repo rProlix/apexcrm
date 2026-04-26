@@ -3,9 +3,23 @@ import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
 
-const supabaseUrl         = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnon        = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY!
+/**
+ * Reads Supabase env vars at call time (not module load time).
+ * This prevents "supabaseUrl is required" errors during Next.js build-time
+ * prerendering, where env vars may not yet be injected.
+ */
+function getEnv() {
+  const url         = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anon        = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !anon) {
+    throw new Error(
+      'Missing Supabase env vars: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required.'
+    )
+  }
+  return { url, anon, serviceRole: serviceRole ?? '' }
+}
 
 /**
  * Service-role server client for admin/write operations.
@@ -13,7 +27,8 @@ const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY!
  * platform admin tasks, and other privileged server-side work.
  */
 export function getSupabaseServerClient() {
-  return createClient<Database>(supabaseUrl, supabaseServiceRole, {
+  const { url, serviceRole } = getEnv()
+  return createClient<Database>(url, serviceRole, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -29,9 +44,10 @@ export function getSupabaseServerClient() {
  * Must be awaited — Next.js 15 made cookies() an async API.
  */
 export async function createSessionServerClient() {
+  const { url, anon } = getEnv()
   const cookieStore = await cookies()
 
-  return createServerClient<Database>(supabaseUrl, supabaseAnon, {
+  return createServerClient<Database>(url, anon, {
     cookies: {
       getAll() {
         return cookieStore.getAll()
@@ -56,7 +72,7 @@ export async function createSessionServerClient() {
  * apply correctly for the duration of this client's queries.
  */
 export function getSupabaseTenantClient(tenantId: string) {
-  const client = getSupabaseServerClient()
+  const client = getSupabaseServerClient() // uses getEnv() internally
 
   return {
     client,

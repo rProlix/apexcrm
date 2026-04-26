@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(customer)/portal/payments/[id]/page.tsx
 import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'

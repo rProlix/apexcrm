@@ -17,7 +17,6 @@ export function RichTextSection({ content }: Props) {
           fontSize:   '1rem',
           lineHeight: 1.75,
         }}
-        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </section>

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(customer)/rewards/history/page.tsx
 import { headers } from 'next/headers'
 import { requireCustomerAuth } from '@/lib/auth/customerGuard'

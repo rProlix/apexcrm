@@ -2,7 +2,7 @@
 // components/payments/TransactionList.tsx
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { CreditCard, Search, Filter, RotateCcw, ArrowRight } from 'lucide-react'
+import { CreditCard, Search, Filter, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/payments/formatCurrency'
 
@@ -35,7 +35,7 @@ const STATUS_STYLES: Record<string, string> = {
 const PROVIDER_NAMES: Record<string, string> = { stripe: 'Stripe', square: 'Square' }
 const STATUS_OPTIONS = ['all', 'pending', 'succeeded', 'failed', 'refunded', 'canceled']
 
-export function TransactionList({ initialTransactions, tenantId }: Props) {
+export function TransactionList({ initialTransactions, tenantId: _tenantId }: Props) {
   const [transactions] = useState<Transaction[]>(initialTransactions)
   const [search, setSearch]   = useState('')
   const [filter, setFilter]   = useState('all')

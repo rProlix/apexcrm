@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/sites/[tenant]/layout.tsx
 //
 // Public site layout — loaded for every request rewritten by middleware to

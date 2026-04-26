@@ -63,7 +63,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 const PROVIDER_NAMES: Record<string, string> = { stripe: 'Stripe', square: 'Square' }
 
-export function PaymentsDashboard({ revenue, dailyRevenue, currency, recentTransactions, providers, tenantId }: Props) {
+export function PaymentsDashboard({ revenue, dailyRevenue, currency, recentTransactions, providers, tenantId: _tenantId }: Props) {
   const fmt = (n: number) => formatCurrency(n, currency)
 
   const quickStats = [

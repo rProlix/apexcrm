@@ -71,7 +71,7 @@ function ChartWidgetInner({ data }: { data: WidgetDataChart }) {
 }
 
 function WidgetShell({
-  config,
+  config: _config,
   children,
   wide = false,
 }: {

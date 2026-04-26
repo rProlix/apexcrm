@@ -2,7 +2,7 @@
 // components/customers/CustomerCard.tsx
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { User, Mail, Phone, CheckCircle2, Circle, ChevronRight } from 'lucide-react'
+import { Mail, Phone, CheckCircle2, Circle, ChevronRight } from 'lucide-react'
 import type { TenantCustomer } from '@/lib/customers/getTenantCustomers'
 
 interface Props {
@@ -17,7 +17,7 @@ const STATUS_STYLES: Record<string, string> = {
   banned:   'text-red-400 bg-red-400/10 border-red-400/20',
 }
 
-export function CustomerCard({ customer, index = 0, canManage }: Props) {
+export function CustomerCard({ customer, index = 0, canManage: _canManage }: Props) {
   const initials = customer.name
     .split(' ')
     .map((w) => w[0])

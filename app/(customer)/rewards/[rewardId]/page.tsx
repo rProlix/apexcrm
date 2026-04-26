@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(customer)/rewards/[rewardId]/page.tsx
 import { headers } from 'next/headers'
 import { requireCustomerAuth } from '@/lib/auth/customerGuard'
@@ -9,7 +11,7 @@ import { RewardsRedemptionCard as RewardDetailClient } from './_RewardDetailClie
 import { ArrowLeft, Gift, Package } from 'lucide-react'
 import Link from 'next/link'
 
-export async function generateMetadata({ params }: { params: Promise<{ rewardId: string }> }) {
+export async function generateMetadata() {
   return { title: 'Reward Details' }
 }
 

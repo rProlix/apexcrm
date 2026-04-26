@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import {
-  Mail, Phone, User, ArrowLeft, ShoppingBag, CreditCard, FileText,
+  Mail, Phone, ArrowLeft, ShoppingBag, CreditCard, FileText,
   CheckCircle2, Circle, ExternalLink, Calendar
 } from 'lucide-react'
 import type { TenantCustomerDetail } from '@/lib/customers/getTenantCustomerById'
@@ -29,7 +29,7 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 export function CustomerDetail({
-  customer, recentOrders, recentPayments, profile, tenantId, userRole, userEmail,
+  customer, recentOrders, recentPayments, profile, tenantId: _tenantId, userRole, userEmail: _userEmail,
 }: Props) {
   const initials = customer.name
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()

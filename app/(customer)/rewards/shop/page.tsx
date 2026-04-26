@@ -1,6 +1,9 @@
-// app/(customer)/rewards/shop/page.tsx
 'use client'
-import { useEffect, useState, useTransition } from 'react'
+
+export const dynamic = 'force-dynamic'
+
+// app/(customer)/rewards/shop/page.tsx
+import { useEffect, useState } from 'react'
 import { Gift, Star } from 'lucide-react'
 import { RewardsShopGrid } from '@/components/rewards/RewardsShopGrid'
 import type { RewardShopItem } from '@/types/rewards'
@@ -9,8 +12,6 @@ export default function CustomerRewardsShopPage() {
   const [items, setItems]       = useState<RewardShopItem[]>([])
   const [balance, setBalance]   = useState(0)
   const [loading, setLoading]   = useState(true)
-  const [, startTransition]     = useTransition()
-
   useEffect(() => {
     async function load() {
       const [itemsRes, balRes] = await Promise.all([

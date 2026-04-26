@@ -29,7 +29,7 @@ const PROVIDERS  = [
   { value: 'square', label: 'Square' },
 ]
 
-export function ProviderSettingsForm({ settings, tenantId }: Props) {
+export function ProviderSettingsForm({ settings, tenantId: _tenantId }: Props) {
   const [form, setForm]       = useState({ ...settings })
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)

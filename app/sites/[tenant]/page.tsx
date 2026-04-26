@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/sites/[tenant]/page.tsx — Public site homepage
 import { notFound } from 'next/navigation'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'

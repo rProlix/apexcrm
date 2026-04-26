@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/sites/[tenant]/checkout/page.tsx — Checkout page
 import Link from 'next/link'
 import { notFound } from 'next/navigation'

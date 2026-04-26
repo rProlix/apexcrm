@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/preview/[tenantId]/page.tsx
 // Admin-only preview of the public website using draft content.
 // Accessible at /preview/{tenantId} on the platform domain.

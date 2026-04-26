@@ -26,7 +26,7 @@ function redemptionBadge(item: RewardShopItem): string {
 }
 
 export function RewardsShopGrid({ items, isAdmin, userPoints = 0, tenantId, onRedeem }: Props) {
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
   const [editItem, setEditItem]     = useState<RewardShopItem | null>(null)
   const [redeemingId, setRedeemingId] = useState<string | null>(null)
   const [redeemError, setRedeemError] = useState<Record<string, string>>({})

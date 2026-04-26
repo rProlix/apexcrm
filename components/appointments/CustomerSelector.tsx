@@ -44,6 +44,7 @@ export function CustomerSelector({ value, onChange, disabled }: Props) {
       .then((r) => r.json())
       .then(({ customer }) => setSelected(customer ?? null))
       .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])
 
   // Close on outside click

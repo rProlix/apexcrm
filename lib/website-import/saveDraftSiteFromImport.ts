@@ -3,7 +3,7 @@
 // Never touches the published site — all pages/sections get status='draft'.
 
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import type { DraftSiteConfig, DraftPage, DraftSection, NormalizedImportContent } from './types'
+import type { DraftSiteConfig, DraftSection, NormalizedImportContent } from './types'
 
 export interface SaveDraftResult {
   siteSettingsId:  string

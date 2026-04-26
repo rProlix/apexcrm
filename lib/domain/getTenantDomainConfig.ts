@@ -65,7 +65,7 @@ export async function getTenantDomainConfig(tenantId: string): Promise<TenantDom
   const verifiedCustom = domains.find(
     (d) => d.domain_type === 'custom' && d.is_verified && d.ssl_status === 'active',
   )
-  const primaryEntry  = domains.find((d) => d.is_primary) ?? domains[0]
+  const _primaryEntry = domains.find((d) => d.is_primary) ?? domains[0]
 
   const customDomain    = verifiedCustom?.hostname ?? null
   const customDomainUrl = customDomain ? `https://${customDomain}` : null

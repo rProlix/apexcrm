@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/sites/[tenant]/orders/page.tsx — Customer order history
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'

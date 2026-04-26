@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(dashboard)/website/settings/domain/page.tsx
 // Website-specific domain settings — mirrors /settings/domain but lives under the
 // website section and shows website-focused context (public site URL, preview link).

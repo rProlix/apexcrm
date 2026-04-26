@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(dashboard)/dashboard/rewards/punch-cards/page.tsx
 import { requireRole } from '@/lib/auth/requireRole'
 import { guardModuleAccess } from '@/lib/modules/guardModuleAccess'
@@ -24,7 +26,7 @@ export default async function PunchCardsAdminPage() {
   ])
 
   const configuredRules  = program?.punch_card_rules ?? []
-  const activeRules      = configuredRules.filter((r) => r.enabled)
+  const _activeRules     = configuredRules.filter((r) => r.enabled)
   const activeCustomers  = customerCards.filter((c) => c.status === 'active')
   const completedCustomers = customerCards.filter((c) => c.status === 'completed')
 

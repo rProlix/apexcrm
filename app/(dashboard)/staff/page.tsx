@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(dashboard)/staff/page.tsx
 // Staff management page — accessible by admin (own tenant) and owner.
 // Owner accounts are NEVER displayed or manageable from this page.

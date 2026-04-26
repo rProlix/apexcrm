@@ -1,4 +1,5 @@
 // components/site/sections/AboutSection.tsx
+import Image from 'next/image'
 import type { AboutContent } from '@/lib/website/types'
 
 interface Props { content: AboutContent }
@@ -34,9 +35,12 @@ export function AboutSection({ content }: Props) {
             )}
           </div>
           {image && (
-            <img
+            <Image
               src={image}
               alt={headline || 'About us'}
+              width={800}
+              height={400}
+              unoptimized
               style={{ width: '100%', borderRadius: '1rem', objectFit: 'cover', maxHeight: 400 }}
             />
           )}
@@ -58,7 +62,7 @@ export function AboutSection({ content }: Props) {
                 textAlign:      'center',
               }}>
                 {member.avatar
-                  ? <img src={member.avatar} alt={member.name}
+                  ? <Image src={member.avatar} alt={member.name} width={80} height={80} unoptimized
                       style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }} />
                   : <div style={{
                       width:          80,

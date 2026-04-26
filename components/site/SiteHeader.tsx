@@ -1,5 +1,6 @@
 // components/site/SiteHeader.tsx
 import Link from 'next/link'
+import Image from 'next/image'
 import type { PublishedSiteConfig } from '@/lib/website/types'
 
 interface Props {
@@ -43,7 +44,7 @@ export function SiteHeader({ config }: Props) {
           {showLogo && (
             <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', flexShrink: 0 }}>
               {logoUrl
-                ? <img src={logoUrl} alt={siteName} style={{ height: 32, objectFit: 'contain' }} />
+                ? <Image src={logoUrl} alt={siteName} width={120} height={32} style={{ height: 32, width: 'auto', objectFit: 'contain' }} unoptimized />
                 : <span style={{
                     fontSize: '1.125rem',
                     fontWeight: 700,

@@ -1,8 +1,10 @@
+export const dynamic = 'force-dynamic'
+
 // app/(admin)/layout.tsx
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getUserContext } from '@/lib/auth/getUserContext'
-import { Shield, LayoutDashboard, Users, Building2, LogOut } from 'lucide-react'
+import { Shield, LayoutDashboard, Building2, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export const metadata = { title: 'Platform Admin — ApexCRM' }

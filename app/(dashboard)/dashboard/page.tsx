@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(dashboard)/dashboard/page.tsx
 import { headers } from 'next/headers'
 import { getTenantFromHost, type TenantRecord } from '@/lib/tenant/getTenantFromHost'

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence }           from 'framer-motion'
-import { Plus, Globe, Loader2, RefreshCw, AlertCircle } from 'lucide-react'
+import { Globe, Loader2, RefreshCw, AlertCircle } from 'lucide-react'
 import { DomainCard }        from './DomainCard'
 import { DomainInput }       from './DomainInput'
 import { SubdomainDisplay }  from './SubdomainDisplay'

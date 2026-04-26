@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   try {
     const settings = await getPaymentSettings(tenantId)
     // Never expose webhook_secret to client
-    const { webhook_secret: _, ...safe } = settings
+    const { webhook_secret: _secret, ...safe } = settings
     return NextResponse.json({ settings: safe })
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 })
@@ -66,7 +66,7 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const settings = await upsertPaymentSettings(tenantId, updates as Parameters<typeof upsertPaymentSettings>[1])
-    const { webhook_secret: _, ...safe } = settings
+    const { webhook_secret: _secret, ...safe } = settings
     return NextResponse.json({ settings: safe })
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 })

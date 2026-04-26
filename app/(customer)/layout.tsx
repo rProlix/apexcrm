@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(customer)/layout.tsx
 import { headers } from 'next/headers'
 import { getTenantFromHost } from '@/lib/tenant/getTenantFromHost'

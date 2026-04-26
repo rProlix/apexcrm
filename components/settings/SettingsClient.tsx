@@ -182,7 +182,7 @@ type TabId = (typeof TABS)[number]['id']
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function SettingsClient({
-  tenantId, tenantName, tenantSlug, tenantSubdomain, tenantStatus,
+  tenantId, tenantName, tenantSlug, tenantSubdomain: _tenantSubdomain, tenantStatus,
   branding, modules, subscription, members: initialMembers,
   siteSettings, allDomains: initialDomains, currentUserRole, currentUserId,
 }: Props) {
@@ -256,7 +256,7 @@ export function SettingsClient({
 
 // ── General tab ───────────────────────────────────────────────────────────────
 
-function GeneralTab({ tenantId, tenantName, branding, tenantStatus, tenantSlug }: {
+function GeneralTab({ tenantId: _tenantId, tenantName, branding, tenantStatus, tenantSlug }: {
   tenantId: string; tenantName: string; branding: Record<string, unknown>; tenantStatus: string; tenantSlug: string
 }) {
   const [name,         setName]         = useState(tenantName)
@@ -803,7 +803,7 @@ function SeoTab({ tenantId, siteSettings }: { tenantId: string; siteSettings: Si
 
 // ── Team tab ──────────────────────────────────────────────────────────────────
 
-function TeamTab({ tenantId, initialMembers, currentUserId, currentUserRole }: {
+function TeamTab({ tenantId: _tenantId, initialMembers, currentUserId, currentUserRole }: {
   tenantId: string; initialMembers: TenantMember[]; currentUserId: string; currentUserRole: string
 }) {
   // Belt-and-suspenders: filter owners even if somehow they appear in server props

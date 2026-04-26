@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(admin)/admin/tenants/page.tsx
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { formatDate } from '@/lib/utils'

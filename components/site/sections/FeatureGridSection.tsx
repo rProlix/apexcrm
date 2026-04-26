@@ -1,4 +1,5 @@
 // components/site/sections/FeatureGridSection.tsx
+import Image from 'next/image'
 import type { FeatureGridContent } from '@/lib/website/types'
 
 interface Props { content: FeatureGridContent }
@@ -49,7 +50,7 @@ export function FeatureGridSection({ content }: Props) {
               gap:          '0.75rem',
             }}>
               {item.image && (
-                <img src={item.image} alt={item.title}
+                <Image src={item.image} alt={item.title} width={400} height={140} unoptimized
                   style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: '0.5rem' }} />
               )}
               {item.icon && !item.image && (

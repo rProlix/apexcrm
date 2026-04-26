@@ -40,7 +40,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 const PROVIDER_LABELS: Record<string, string> = { stripe: 'Stripe', square: 'Square' }
 
-export function CustomerPaymentHistory({ transactions, currency = 'USD' }: Props) {
+export function CustomerPaymentHistory({ transactions, currency: _currency = 'USD' }: Props) {
   if (transactions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">

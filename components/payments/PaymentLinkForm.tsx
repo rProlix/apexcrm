@@ -32,7 +32,7 @@ export function PaymentLinkForm({ onClose, invoices, currency, onCreated }: Prop
   const [created,  setCreated]  = useState<{ url: string; id: string } | null>(null)
   const [copied,   setCopied]   = useState(false)
 
-  const selectedInvoice = invoices.find((i) => i.id === form.invoice_id)
+  const _selectedInvoice = invoices.find((i) => i.id === form.invoice_id)
 
   function handleInvoiceChange(invoiceId: string) {
     const inv = invoices.find((i) => i.id === invoiceId)

@@ -1,5 +1,8 @@
-// app/(dashboard)/appointments/settings/page.tsx
 'use client'
+
+export const dynamic = 'force-dynamic'
+
+// app/(dashboard)/appointments/settings/page.tsx
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'

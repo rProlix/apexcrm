@@ -5,7 +5,7 @@ import { useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   ArrowLeft, RefreshCw, CheckCircle2, Send, AlertTriangle,
-  Layers, Eye, MapPin, Clock,
+  Layers, MapPin, Clock,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -61,7 +61,7 @@ interface Props {
 
 type Tab = 'review' | 'mapping' | 'preview' | 'sources' | 'audit'
 
-export function ImportJobDetailClient({ tenantId, job: initialJob }: Props) {
+export function ImportJobDetailClient({ tenantId: _tenantId, job: initialJob }: Props) {
   const [job,        setJob]        = useState<Job>(initialJob)
   const [tab,        setTab]        = useState<Tab>('review')
   const [running,    setRunning]    = useState(false)

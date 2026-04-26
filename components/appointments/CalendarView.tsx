@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, CalendarDays, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { MonthView } from './MonthView'
 import { WeekView }  from './WeekView'
 import { DayView }   from './DayView'

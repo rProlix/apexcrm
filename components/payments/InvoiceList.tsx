@@ -2,7 +2,7 @@
 // components/payments/InvoiceList.tsx
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Receipt, Send, Search, Filter, ExternalLink, Trash2 } from 'lucide-react'
+import { Plus, Receipt, Send, Search, Filter, Trash2 } from 'lucide-react'
 import { InvoiceForm } from './InvoiceForm'
 import { formatCurrency } from '@/lib/payments/formatCurrency'
 
@@ -53,7 +53,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 const STATUS_OPTIONS = ['all', 'draft', 'pending', 'paid', 'failed', 'canceled', 'refunded']
 
-export function InvoiceList({ initialInvoices, customers, tenantId }: Props) {
+export function InvoiceList({ initialInvoices, customers, tenantId: _tenantId }: Props) {
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices)
   const [showForm, setShowForm] = useState(false)
   const [search,   setSearch]   = useState('')

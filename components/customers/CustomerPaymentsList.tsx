@@ -33,7 +33,7 @@ const PROVIDER_NAMES: Record<string, string> = {
   manual: 'Manual',
 }
 
-export function CustomerPaymentsList({ transactions, invoices, tenantId }: Props) {
+export function CustomerPaymentsList({ transactions, invoices, tenantId: _tenantId }: Props) {
   const [tab, setTab] = useState<'transactions' | 'invoices'>('transactions')
 
   return (

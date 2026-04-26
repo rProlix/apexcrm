@@ -81,7 +81,7 @@ function OrderRow({ order }: { order: CustomerOrder }) {
   )
 }
 
-export function CustomerOrdersList({ orders, tenantId, compact }: Props) {
+export function CustomerOrdersList({ orders, tenantId: _tenantId, compact }: Props) {
   if (orders.length === 0) {
     return (
       <div className="premium-panel premium-border rounded-2xl py-12 flex flex-col items-center gap-3">

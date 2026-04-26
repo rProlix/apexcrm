@@ -2,7 +2,7 @@
 // components/rewards/PointsRuleBuilder.tsx
 import { useState, useTransition } from 'react'
 import { motion } from 'framer-motion'
-import { DollarSign, Plus, Trash2, Save, Zap } from 'lucide-react'
+import { DollarSign, Plus, Trash2, Save } from 'lucide-react'
 import type { RewardsProgram, EarningRules, ProductWithRewards } from '@/types/rewards'
 
 interface Props {
@@ -16,7 +16,7 @@ interface BonusEntry {
   bonus_points: number
 }
 
-export function PointsRuleBuilder({ tenantId, program, products }: Props) {
+export function PointsRuleBuilder({ tenantId: _tenantId, program, products }: Props) {
   const [isPending, startTransition] = useTransition()
   const [saved, setSaved]   = useState(false)
   const [error, setError]   = useState('')

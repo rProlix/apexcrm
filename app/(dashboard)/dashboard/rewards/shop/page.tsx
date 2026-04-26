@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(dashboard)/rewards/shop/page.tsx
 import { requireRole } from '@/lib/auth/requireRole'
 import { guardModuleAccess } from '@/lib/modules/guardModuleAccess'

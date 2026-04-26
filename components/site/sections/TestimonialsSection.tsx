@@ -1,4 +1,5 @@
 // components/site/sections/TestimonialsSection.tsx
+import Image from 'next/image'
 import type { TestimonialsContent } from '@/lib/website/types'
 
 interface Props { content: TestimonialsContent }
@@ -56,7 +57,7 @@ export function TestimonialsSection({ content }: Props) {
               }}>"{item.text}"</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 {item.avatar && (
-                  <img src={item.avatar} alt={item.name}
+                  <Image src={item.avatar} alt={item.name} width={36} height={36} unoptimized
                     style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
                 )}
                 <div>

@@ -22,7 +22,7 @@ import { DashboardRenderer } from '@/components/dashboard/DashboardRenderer'
 import { DraggableWidget } from '@/components/dashboard/DraggableWidget'
 import { SuggestedWidgets } from '@/components/dashboard/SuggestedWidgets'
 import { cn } from '@/lib/utils'
-import type { DashboardLayout, WidgetConfig, WidgetData, WidgetDefinition } from '@/lib/dashboard/types'
+import type { DashboardLayout, WidgetConfig, WidgetData } from '@/lib/dashboard/types'
 
 interface DashboardBuilderProps {
   tenantId:        string

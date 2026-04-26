@@ -1,5 +1,5 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import type { WidgetDefinition, WidgetData } from '@/lib/dashboard/types'
+import type { WidgetDefinition } from '@/lib/dashboard/types'
 
 // ─── helpers ─────────────────────────────────────────────────────
 

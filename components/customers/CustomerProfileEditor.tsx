@@ -14,7 +14,7 @@ interface Props {
   isAdmin?:  boolean
 }
 
-export function CustomerProfileEditor({ customer, profile: initialProfile, tenantId, userEmail, isAdmin }: Props) {
+export function CustomerProfileEditor({ customer, profile: initialProfile, tenantId: _tenantId, userEmail: _userEmail, isAdmin }: Props) {
   const [profile, setProfile]       = useState<CustomerProfile>(initialProfile)
   const [noteText, setNoteText]     = useState('')
   const [marketingOpt, setMarketing] = useState(profile.marketing_opt_in)

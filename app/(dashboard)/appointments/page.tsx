@@ -1,10 +1,13 @@
-// app/(dashboard)/appointments/page.tsx
 'use client'
+
+export const dynamic = 'force-dynamic'
+
+// app/(dashboard)/appointments/page.tsx
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  CalendarDays, List, Plus, TrendingUp, Clock, CheckCircle2, AlertCircle,
+  CalendarDays, List, Plus, TrendingUp, Clock, CheckCircle2,
 } from 'lucide-react'
 import { CalendarView }      from '@/components/appointments/CalendarView'
 import { AppointmentList }   from '@/components/appointments/AppointmentList'

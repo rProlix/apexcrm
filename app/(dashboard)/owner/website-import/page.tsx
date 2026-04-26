@@ -1,11 +1,11 @@
+export const dynamic = 'force-dynamic'
+
 // app/(dashboard)/owner/website-import/page.tsx
 // Platform-level owner view — see all import jobs across all tenants.
 import { requireOwner } from '@/lib/auth/requireRole'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { ImportStatusBadge } from '@/components/website-import/ImportStatusBadge'
-import { ConfidenceMeter } from '@/components/website-import/ConfidenceMeter'
-
 export const metadata = { title: 'Website Imports (Owner) — Admin' }
 
 export default async function OwnerWebsiteImportPage() {
@@ -75,7 +75,7 @@ export default async function OwnerWebsiteImportPage() {
                   fetched_status: string
                   confidence_score: number
                 }>
-                const avgConf = sources.length
+                const _avgConf = sources.length
                   ? sources.reduce((s, r) => s + r.confidence_score, 0) / sources.length
                   : 0
 

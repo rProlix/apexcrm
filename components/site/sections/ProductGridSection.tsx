@@ -1,4 +1,5 @@
 // components/site/sections/ProductGridSection.tsx
+import Image from 'next/image'
 // Server component — fetches live products from the store module.
 import Link from 'next/link'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -86,9 +87,12 @@ export async function ProductGridSection({ content, tenantId }: Props) {
                   justifyContent: 'center',
                 }}>
                   {product.image_url
-                    ? <img
+                    ? <Image
                         src={product.image_url}
                         alt={product.name}
+                        width={400}
+                        height={400}
+                        unoptimized
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     : <span style={{ fontSize: '2.5rem', opacity: 0.3 }}>📦</span>

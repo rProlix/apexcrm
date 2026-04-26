@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(customer)/portal/payments/page.tsx
 import { headers } from 'next/headers'
 import Link from 'next/link'

@@ -1,5 +1,8 @@
-// app/(dashboard)/appointments/list/page.tsx
 'use client'
+
+export const dynamic = 'force-dynamic'
+
+// app/(dashboard)/appointments/list/page.tsx
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'

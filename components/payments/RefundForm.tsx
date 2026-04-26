@@ -41,7 +41,7 @@ const STATUS_STYLES: Record<string, string> = {
   failed:   'text-red-400 bg-red-400/10 border-red-400/20',
 }
 
-export function RefundForm({ initialRefunds, availableTransactions, tenantId }: Props) {
+export function RefundForm({ initialRefunds, availableTransactions, tenantId: _tenantId }: Props) {
   const [refunds, setRefunds] = useState<Refund[]>(initialRefunds)
   const [search,  setSearch]  = useState('')
 

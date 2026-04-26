@@ -1,6 +1,7 @@
+export const dynamic = 'force-dynamic'
+
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { headers } from 'next/headers'
-import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/Card'
+import { Card } from '@/components/ui/Card'
 import { Pill } from '@/components/ui/Pill'
 import { formatDate } from '@/lib/utils'
 
@@ -54,7 +55,7 @@ export default async function TenantsPage() {
             </thead>
             <tbody className="divide-y divide-white/4">
               {(tenants ?? []).map((t) => {
-                const sub = (t as any).subscriptions?.[0]
+                const sub = (t as unknown as { subscriptions?: Array<{ plans?: { name?: string }; status?: string }> }).subscriptions?.[0]
                 return (
                   <tr key={t.id} className="hover:bg-white/2 transition-colors duration-100">
                     <td className="px-5 py-3 font-medium text-white">{t.name}</td>

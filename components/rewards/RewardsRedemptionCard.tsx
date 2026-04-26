@@ -1,7 +1,7 @@
 'use client'
 // components/rewards/RewardsRedemptionCard.tsx
 import { motion } from 'framer-motion'
-import { Gift, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { Gift, Clock, CheckCircle2, XCircle } from 'lucide-react'
 import type { RewardRedemption } from '@/types/rewards'
 
 interface Props {

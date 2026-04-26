@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Calendar, ChevronRight, Search, SlidersHorizontal } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { StatusBadge } from './StatusBadge'
-import type { Appointment, AppointmentStatus } from '@/lib/appointments/types'
+import type { Appointment } from '@/lib/appointments/types'
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString([], {
@@ -31,7 +31,7 @@ const STATUS_FILTERS: Array<{ value: string; label: string }> = [
   { value: 'canceled',  label: 'Canceled'  },
 ]
 
-export function AppointmentList({ appointments, onSelect, onDelete, isAdmin }: Props) {
+export function AppointmentList({ appointments, onSelect, isAdmin }: Props) {
   const [search,       setSearch]       = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 

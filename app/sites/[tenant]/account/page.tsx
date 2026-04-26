@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/sites/[tenant]/account/page.tsx — Customer account page
 import Link from 'next/link'
 import { notFound } from 'next/navigation'

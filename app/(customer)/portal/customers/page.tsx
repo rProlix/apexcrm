@@ -4,7 +4,7 @@ import { requireCustomerAuth } from '@/lib/auth/customerGuard'
 import { getTenantCustomerById } from '@/lib/customers/getTenantCustomerById'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { User, ShoppingBag, CreditCard, FileText, Settings } from 'lucide-react'
+import { ShoppingBag, CreditCard, Settings } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 

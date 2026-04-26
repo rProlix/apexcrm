@@ -105,7 +105,7 @@ export function WebsiteImportClient({ tenantId, initialJobs }: Props) {
     await refreshJobs()
   }
 
-  const showProgress = activeJob && (activeJob.status === 'running' || running)
+  const _showProgress = activeJob && (activeJob.status === 'running' || running)
   const activeCompleted = activeJob?.status === 'completed'
 
   return (

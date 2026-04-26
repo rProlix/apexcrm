@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/sites/[tenant]/[...slug]/page.tsx
 // Catch-all for custom pages: /about, /contact, /faq, and any custom slug.
 import { notFound } from 'next/navigation'

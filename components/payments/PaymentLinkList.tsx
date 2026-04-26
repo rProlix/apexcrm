@@ -40,7 +40,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 const PROVIDER_NAMES: Record<string, string> = { stripe: 'Stripe', square: 'Square' }
 
-export function PaymentLinkList({ initialLinks, invoices, tenantId }: Props) {
+export function PaymentLinkList({ initialLinks, invoices, tenantId: _tenantId }: Props) {
   const [links,    setLinks]    = useState<PaymentLink[]>(initialLinks)
   const [showForm, setShowForm] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)

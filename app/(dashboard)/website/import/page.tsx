@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/(dashboard)/website/import/page.tsx
 import { redirect } from 'next/navigation'
 import { requireOwner } from '@/lib/auth/requireRole'
