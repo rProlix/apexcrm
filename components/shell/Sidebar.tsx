@@ -43,6 +43,10 @@ interface SidebarProps {
   modules:          NavModule[]
   userRole?:        string
   isPlatformAdmin?: boolean
+  /** Controlled open state (mobile drawer) */
+  isOpen?:          boolean
+  /** Called when user closes the drawer (mobile) */
+  onClose?:         () => void
 }
 
 interface NavItem {
@@ -71,7 +75,7 @@ const platformNav: NavItem[] = [
   { label: 'Module Access',  href: '/owner/modules',   icon: Layers },
 ]
 
-export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin }: SidebarProps) {
+export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin, isOpen = false, onClose }: SidebarProps) {
   const pathname  = usePathname()
   const isOwner   = isPlatformAdmin || userRole === 'owner'
   const isAdmin   = isOwner || userRole === 'admin'
@@ -86,15 +90,25 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin }: Side
     return item.roles.includes(userRole ?? '')
   }
 
+  function handleLinkClick() {
+    onClose?.()
+  }
+
   return (
     <motion.aside
       variants={fadeIn}
       initial="hidden"
       animate="visible"
       className={cn(
-        'fixed left-0 top-0 bottom-0 z-30 w-60',
+        // Base — fixed rail, always above overlay
+        'fixed left-0 top-0 bottom-0 z-40 w-60',
         'flex flex-col border-r border-surface-border',
-        'bg-graphite-900/95 backdrop-blur-xl'
+        'bg-graphite-900/95 backdrop-blur-xl',
+        // Mobile drawer: slide in/out with CSS transition
+        'transition-transform duration-300 ease-in-out',
+        isOpen ? 'translate-x-0' : '-translate-x-full',
+        // Desktop: always visible regardless of isOpen
+        'md:translate-x-0'
       )}
     >
       {/* Logo / tenant name */}
@@ -104,10 +118,20 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin }: Side
             {tenantName.slice(0, 2).toUpperCase()}
           </span>
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-white truncate">{tenantName}</p>
           <LiveBadge label="Active" className="mt-0.5" />
         </div>
+        {/* Mobile close button */}
+        <button
+          onClick={onClose}
+          className="md:hidden flex items-center justify-center h-7 w-7 rounded-lg text-white/30 hover:text-white hover:bg-graphite-700 transition-colors shrink-0"
+          aria-label="Close sidebar"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
       {/* Navigation */}
@@ -118,6 +142,7 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin }: Side
             key={item.href}
             {...item}
             active={isActive(item.href, item.exact)}
+            onNavigate={handleLinkClick}
           />
         ))}
 
@@ -136,6 +161,7 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin }: Side
                 href={mod.href}
                 icon={MODULE_ICONS[mod.key] ?? Layers}
                 active={isActive(mod.href)}
+                onNavigate={handleLinkClick}
               />
             ))}
           </>
@@ -154,6 +180,7 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin }: Side
                 key={item.href}
                 {...item}
                 active={isActive(item.href)}
+                onNavigate={handleLinkClick}
               />
             ))}
           </>
@@ -172,6 +199,7 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin }: Side
                 key={item.href}
                 {...item}
                 active={isActive(item.href)}
+                onNavigate={handleLinkClick}
               />
             ))}
           </>
@@ -213,14 +241,16 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin }: Side
 }
 
 interface SidebarItemProps extends NavItem {
-  active: boolean
+  active:       boolean
+  onNavigate?:  () => void
 }
 
-function SidebarItem({ label, href, icon: Icon, active }: SidebarItemProps) {
+function SidebarItem({ label, href, icon: Icon, active, onNavigate }: SidebarItemProps) {
   return (
     <motion.div initial="rest" whileHover="hover" variants={sidebarItemHover}>
       <Link
         href={href}
+        onClick={onNavigate}
         className={cn(
           'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium',
           'transition-colors duration-150 focus-ring',

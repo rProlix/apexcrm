@@ -1,18 +1,20 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Bell, Search, ChevronDown } from 'lucide-react'
+import { Bell, Search, ChevronDown, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { initials } from '@/lib/utils'
 import { fadeIn } from '@/lib/motion'
 
 interface TopBarProps {
-  tenantName: string
-  userEmail?: string
-  userRole?:  string
+  tenantName:   string
+  userEmail?:   string
+  userRole?:    string
+  /** Called when the mobile hamburger is tapped */
+  onMenuClick?: () => void
 }
 
-export function TopBar({ tenantName: _tenantName, userEmail, userRole }: TopBarProps) {
+export function TopBar({ tenantName: _tenantName, userEmail, userRole, onMenuClick }: TopBarProps) {
   const name = userEmail?.split('@')[0] ?? 'User'
 
   return (
@@ -21,13 +23,27 @@ export function TopBar({ tenantName: _tenantName, userEmail, userRole }: TopBarP
       initial="hidden"
       animate="visible"
       className={cn(
-        'fixed top-0 right-0 left-60 z-20 h-14',
-        'flex items-center justify-between px-6',
+        // Mobile: spans full width. Desktop: offset by sidebar width.
+        'fixed top-0 right-0 left-0 md:left-60 z-20 h-14',
+        'flex items-center justify-between px-4 md:px-6',
         'bg-graphite-900/80 backdrop-blur-xl border-b border-surface-border'
       )}
     >
-      {/* Left: search */}
+      {/* Left: hamburger (mobile) + search */}
       <div className="flex items-center gap-2">
+        {/* Hamburger — mobile only */}
+        <button
+          onClick={onMenuClick}
+          className={cn(
+            'md:hidden flex items-center justify-center h-8 w-8 rounded-xl',
+            'text-white/50 hover:text-white hover:bg-graphite-700',
+            'transition-colors duration-150 focus-ring'
+          )}
+          aria-label="Open navigation"
+        >
+          <Menu className="h-5 w-5" strokeWidth={1.75} />
+        </button>
+
         <button
           className={cn(
             'flex items-center gap-2 px-3 py-1.5 rounded-xl',
@@ -37,8 +53,8 @@ export function TopBar({ tenantName: _tenantName, userEmail, userRole }: TopBarP
           )}
         >
           <Search className="h-3.5 w-3.5" strokeWidth={2} />
-          <span className="text-xs">Search…</span>
-          <span className="ml-2 text-2xs text-white/20 border border-white/10 rounded px-1">⌘K</span>
+          <span className="text-xs hidden sm:inline">Search…</span>
+          <span className="ml-2 text-2xs text-white/20 border border-white/10 rounded px-1 hidden sm:inline">⌘K</span>
         </button>
       </div>
 
