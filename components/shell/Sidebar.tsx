@@ -22,7 +22,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { sidebarItemHover, fadeIn } from '@/lib/motion'
+import { sidebarItemHover } from '@/lib/motion'
 import { LiveBadge } from '@/components/ui/LiveBadge'
 import type { NavModule } from '@/modules/shared/moduleTypes'
 
@@ -95,19 +95,16 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin, isOpen
   }
 
   return (
-    <motion.aside
-      variants={fadeIn}
-      initial="hidden"
-      animate="visible"
+    <aside
       className={cn(
         // Base — fixed rail, always above overlay
         'fixed left-0 top-0 bottom-0 z-40 w-60',
         'flex flex-col border-r border-surface-border',
         'bg-graphite-900/95 backdrop-blur-xl',
-        // Mobile drawer: slide in/out with CSS transition
+        // CSS-only transition so Framer Motion cannot override translateX
         'transition-transform duration-300 ease-in-out',
         isOpen ? 'translate-x-0' : '-translate-x-full',
-        // Desktop: always visible regardless of isOpen
+        // Desktop: always visible, ignore isOpen
         'md:translate-x-0'
       )}
     >
@@ -236,7 +233,7 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin, isOpen
           Sign out
         </motion.a>
       </div>
-    </motion.aside>
+    </aside>
   )
 }
 
