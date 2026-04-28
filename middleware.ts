@@ -386,6 +386,8 @@ function safeHostname(url: string): string {
 }
 
 export const config = {
-  // Match everything except Next.js internals and static files
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Exclude all Next.js internals and favicon from middleware.
+  // _next/* covers static assets, image responses, data fetches, chunks, and webpack files.
+  // API routes are intentionally kept in scope for module-access enforcement.
+  matcher: ['/((?!_next|favicon.ico).*)'],
 }
