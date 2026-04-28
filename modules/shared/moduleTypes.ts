@@ -14,6 +14,7 @@ export type ModuleKey =
   | 'website'
   | 'customers'
   | 'spin_packages'
+  | 'spin_360'
 
 export type StatCategory = 'operations' | 'financial' | 'usage'
 

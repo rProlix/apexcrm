@@ -8,6 +8,7 @@ import { getPublishedSiteConfig }       from '@/lib/website/getPublishedSiteConf
 import { getSupabaseServerClient }      from '@/lib/supabase/server'
 import Image                     from 'next/image'
 import ProductSpinSection        from '@/components/spin-packages/ProductSpinSection'
+import ProductSpin360Section     from '@/components/360-spins/ProductSpin360Section'
 
 interface Props {
   params: Promise<{ tenant: string; id: string }>
@@ -32,7 +33,7 @@ export default async function ProductPage({ params }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: productRaw } = await (db as any)
     .from('products')
-    .select('id, name, description, price, currency, inventory_count, is_active, spin_package_id')
+    .select('id, name, description, price, currency, inventory_count, is_active, spin_package_id, spin_360_id')
     .eq('id', id)
     .eq('tenant_id', siteData.tenant.id)
     .eq('is_active', true)
@@ -41,7 +42,7 @@ export default async function ProductPage({ params }: Props) {
   const product = productRaw as {
     id: string; name: string; description: string | null
     price: number; currency: string; inventory_count: number; is_active: boolean
-    image_url?: string | null; spin_package_id: string | null
+    image_url?: string | null; spin_package_id: string | null; spin_360_id: string | null
   } | null
 
   if (!product) notFound()
@@ -71,7 +72,9 @@ export default async function ProductPage({ params }: Props) {
             background:   'var(--color-surface)',
             border:       '1px solid var(--color-border)',
           }}>
-            {product.spin_package_id ? (
+            {product.spin_360_id ? (
+              <ProductSpin360Section productId={product.id} label={product.name} />
+            ) : product.spin_package_id ? (
               <ProductSpinSection productId={product.id} />
             ) : product.image_url ? (
               <Image src={product.image_url} alt={product.name} width={600} height={600} unoptimized

@@ -636,6 +636,7 @@ export interface Database {
           inventory_count: number
           is_active:       boolean
           spin_package_id: string | null
+          spin_360_id:     string | null
           created_at:      string
         }
         Insert: {
@@ -647,6 +648,7 @@ export interface Database {
           inventory_count?: number
           is_active?:       boolean
           spin_package_id?: string | null
+          spin_360_id?:     string | null
         }
         Update: {
           tenant_id?:       string
@@ -657,6 +659,43 @@ export interface Database {
           inventory_count?: number
           is_active?:       boolean
           spin_package_id?: string | null
+          spin_360_id?:     string | null
+        }
+        Relationships: []
+      }
+      product_360_spins: {
+        Row: {
+          id:            string
+          tenant_id:     string
+          product_id:    string
+          name:          string
+          prompt:        string
+          image_urls:    string[]
+          total_frames:  number
+          status:        'generating' | 'ready' | 'failed'
+          error_message: string | null
+          created_at:    string
+          updated_at:    string
+        }
+        Insert: {
+          tenant_id:      string
+          product_id:     string
+          name:           string
+          prompt:         string
+          image_urls?:    string[]
+          total_frames?:  number
+          status?:        'generating' | 'ready' | 'failed'
+          error_message?: string | null
+        }
+        Update: {
+          tenant_id?:     string
+          product_id?:    string
+          name?:          string
+          prompt?:        string
+          image_urls?:    string[]
+          total_frames?:  number
+          status?:        'generating' | 'ready' | 'failed'
+          error_message?: string | null
         }
         Relationships: []
       }

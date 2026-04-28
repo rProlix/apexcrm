@@ -22,6 +22,7 @@ export const DEFAULT_MODULE_STATES: Record<ModuleKey, boolean> = {
   vehicles:      false,   // opt-in: fleet/rental vertical only
   damage_ai:     false,   // opt-in: requires vehicle module + AI setup
   spin_packages: false,   // opt-in: requires IMAGINE_API_TOKEN and Midjourney subscription
+  spin_360:      false,   // opt-in: requires IMAGINE_API_TOKEN and Midjourney subscription
 }
 
 /**

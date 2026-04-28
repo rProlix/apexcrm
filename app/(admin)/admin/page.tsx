@@ -20,6 +20,10 @@ const ALL_MODULES = [
   'damage_ai',
   'messages',
   'store',
+  'website',
+  'customers',
+  'spin_packages',
+  'spin_360',
 ]
 
 export default async function AdminOverviewPage() {
