@@ -191,14 +191,44 @@ export function SettingsClient({
   return (
     <div className="flex flex-col gap-0 min-h-0">
       {/* Page header */}
-      <div className="mb-6">
+      <div className="mb-5">
         <h1 className="text-2xl font-bold text-white tracking-tight">Settings</h1>
         <p className="text-sm text-white/40 mt-0.5">Manage every aspect of your workspace</p>
       </div>
 
+      {/* Mobile: horizontal scrollable tab strip */}
+      <div className="md:hidden overflow-x-auto pb-3 -mx-4 px-4 mb-4">
+        <div className="flex gap-1.5 w-max">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap shrink-0 transition-colors duration-150 border',
+                activeTab === id
+                  ? id === 'danger'
+                    ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                    : 'bg-gold-500/12 text-gold-400 border-gold-500/20'
+                  : id === 'danger'
+                    ? 'text-red-400/60 border-surface-border bg-graphite-800 hover:text-red-400'
+                    : 'text-white/50 border-surface-border bg-graphite-800 hover:text-white',
+              )}
+            >
+              <Icon className={cn(
+                'h-3.5 w-3.5 shrink-0',
+                activeTab === id
+                  ? id === 'danger' ? 'text-red-400' : 'text-gold-400'
+                  : id === 'danger' ? 'text-red-400/50' : 'text-white/35',
+              )} strokeWidth={1.75} />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex gap-8 items-start">
-        {/* Sidebar nav */}
-        <nav className="w-48 shrink-0 space-y-0.5 sticky top-6">
+        {/* Desktop-only vertical nav */}
+        <nav className="hidden md:block w-48 shrink-0 space-y-0.5 sticky top-6">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -226,8 +256,8 @@ export function SettingsClient({
           ))}
         </nav>
 
-        {/* Content pane */}
-        <div className="flex-1 min-w-0">
+        {/* Content pane — full width on mobile, flex-1 on desktop */}
+        <div className="flex-1 min-w-0 w-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -287,8 +317,8 @@ function GeneralTab({ tenantId: _tenantId, tenantName, branding, tenantStatus, t
       <div className={sectionCls}>
         <SectionHead icon={Building} color="text-gold-400" title="Business Information" subtitle="Your business name and primary contact details" />
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="col-span-1 sm:col-span-2">
             <label className={labelCls}>Business Name</label>
             <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="My Business" />
           </div>
@@ -306,7 +336,7 @@ function GeneralTab({ tenantId: _tenantId, tenantName, branding, tenantStatus, t
               <span className="text-sm text-white/60 capitalize">{tenantStatus}</span>
             </div>
           </div>
-          <div className="col-span-2">
+          <div className="col-span-1 sm:col-span-2">
             <label className={labelCls}>Industry</label>
             <select
               className={cn(inputCls, 'appearance-none')}
@@ -319,7 +349,7 @@ function GeneralTab({ tenantId: _tenantId, tenantName, branding, tenantStatus, t
               ))}
             </select>
           </div>
-          <div className="col-span-2">
+          <div className="col-span-1 sm:col-span-2">
             <label className={labelCls}>Tagline</label>
             <input className={inputCls} value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="Quality service, every time." />
           </div>
@@ -328,7 +358,7 @@ function GeneralTab({ tenantId: _tenantId, tenantName, branding, tenantStatus, t
 
       <div className={sectionCls}>
         <SectionHead icon={Phone} color="text-blue-400" title="Contact Details" subtitle="Shown on your public website and customer communications" />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}><Mail className="h-3 w-3 inline mr-1" />Support Email</label>
             <input className={inputCls} type="email" value={supportEmail} onChange={(e) => setSupportEmail(e.target.value)} placeholder="hello@yourbusiness.com" />
@@ -337,7 +367,7 @@ function GeneralTab({ tenantId: _tenantId, tenantName, branding, tenantStatus, t
             <label className={labelCls}><Phone className="h-3 w-3 inline mr-1" />Support Phone</label>
             <input className={inputCls} type="tel" value={supportPhone} onChange={(e) => setSupportPhone(e.target.value)} placeholder="+1 (555) 000-0000" />
           </div>
-          <div className="col-span-2">
+          <div className="col-span-1 sm:col-span-2">
             <label className={labelCls}><MapPin className="h-3 w-3 inline mr-1" />Address</label>
             <input className={inputCls} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main St, City, State, ZIP" />
           </div>
@@ -765,7 +795,7 @@ function SeoTab({ tenantId, siteSettings }: { tenantId: string; siteSettings: Si
           <input className={inputCls} placeholder="https://cdn.example.com/og-image.png" value={ogImage} onChange={(e) => setOgImage(e.target.value)} />
           <p className="text-xs text-white/30 mt-1">Shown when your site is shared on social media. Recommended: 1200×630px.</p>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Twitter / X Handle</label>
             <input className={inputCls} placeholder="@mybusiness" value={twitter} onChange={(e) => setTwitter(e.target.value)} />
@@ -937,7 +967,7 @@ function TeamTab({ tenantId: _tenantId, initialMembers, currentUserId, currentUs
         <div className={sectionCls}>
           <SectionHead icon={Plus} color="text-emerald-400" title="Invite Team Member" subtitle="New members receive an email with login instructions" />
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Email Address</label>
               <input
@@ -1064,7 +1094,7 @@ function SubscriptionTab({ subscription }: { subscription: Subscription | null }
 
       <div className={sectionCls}>
         <SectionHead icon={Tag} color="text-blue-400" title="Available Plans" subtitle="Compare and upgrade your plan" />
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { name: 'Starter', slug: 'starter', price: '$29', desc: 'Perfect for small teams' },
             { name: 'Pro',     slug: 'pro',     price: '$79', desc: 'For growing businesses' },
