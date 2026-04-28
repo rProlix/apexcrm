@@ -10,17 +10,18 @@ import type { ModuleKey } from '@/modules/shared/moduleTypes'
  * false → disabled by default (tenant must explicitly enable)
  */
 export const DEFAULT_MODULE_STATES: Record<ModuleKey, boolean> = {
-  payments:     true,
-  appointments: true,
-  contacts:     true,
-  leads:        true,
-  messages:     true,
-  store:        true,
-  website:      true,
-  customers:    true,
-  rewards:      false,   // opt-in: not all businesses run loyalty programs
-  vehicles:     false,   // opt-in: fleet/rental vertical only
-  damage_ai:    false,   // opt-in: requires vehicle module + AI setup
+  payments:      true,
+  appointments:  true,
+  contacts:      true,
+  leads:         true,
+  messages:      true,
+  store:         true,
+  website:       true,
+  customers:     true,
+  rewards:       false,   // opt-in: not all businesses run loyalty programs
+  vehicles:      false,   // opt-in: fleet/rental vertical only
+  damage_ai:     false,   // opt-in: requires vehicle module + AI setup
+  spin_packages: false,   // opt-in: requires IMAGINE_API_TOKEN and Midjourney subscription
 }
 
 /**

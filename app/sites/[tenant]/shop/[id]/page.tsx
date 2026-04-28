@@ -1,12 +1,13 @@
 export const dynamic = 'force-dynamic'
 
 // app/sites/[tenant]/shop/[id]/page.tsx — Public product detail page
-import { notFound } from 'next/navigation'
-import Link from 'next/link'
+import { notFound }              from 'next/navigation'
+import Link                      from 'next/link'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
-import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
-import Image from 'next/image'
+import { getPublishedSiteConfig }       from '@/lib/website/getPublishedSiteConfig'
+import { getSupabaseServerClient }      from '@/lib/supabase/server'
+import Image                     from 'next/image'
+import ProductSpinSection        from '@/components/spin-packages/ProductSpinSection'
 
 interface Props {
   params: Promise<{ tenant: string; id: string }>
@@ -31,7 +32,7 @@ export default async function ProductPage({ params }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: productRaw } = await (db as any)
     .from('products')
-    .select('id, name, description, price, currency, inventory_count, is_active')
+    .select('id, name, description, price, currency, inventory_count, is_active, spin_package_id')
     .eq('id', id)
     .eq('tenant_id', siteData.tenant.id)
     .eq('is_active', true)
@@ -40,7 +41,7 @@ export default async function ProductPage({ params }: Props) {
   const product = productRaw as {
     id: string; name: string; description: string | null
     price: number; currency: string; inventory_count: number; is_active: boolean
-    image_url?: string | null
+    image_url?: string | null; spin_package_id: string | null
   } | null
 
   if (!product) notFound()
@@ -63,22 +64,28 @@ export default async function ProductPage({ params }: Props) {
           gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
           gap:                 '3rem',
         }}>
-          {/* Image */}
+          {/* Image / 360 viewer */}
           <div style={{
             borderRadius: '1.25rem',
             overflow:     'hidden',
             background:   'var(--color-surface)',
             border:       '1px solid var(--color-border)',
-            aspectRatio:  '1',
-            display:      'flex',
-            alignItems:   'center',
-            justifyContent: 'center',
           }}>
-            {product.image_url
-              ? <Image src={product.image_url} alt={product.name} width={600} height={600} unoptimized
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ fontSize: '5rem', opacity: 0.2 }}>📦</span>
-            }
+            {product.spin_package_id ? (
+              <ProductSpinSection productId={product.id} />
+            ) : product.image_url ? (
+              <Image src={product.image_url} alt={product.name} width={600} height={600} unoptimized
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <div style={{
+                aspectRatio: '1',
+                display:        'flex',
+                alignItems:     'center',
+                justifyContent: 'center',
+              }}>
+                <span style={{ fontSize: '5rem', opacity: 0.2 }}>📦</span>
+              </div>
+            )}
           </div>
 
           {/* Info */}

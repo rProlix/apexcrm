@@ -13,6 +13,7 @@ export type ModuleKey =
   | 'store'
   | 'website'
   | 'customers'
+  | 'spin_packages'
 
 export type StatCategory = 'operations' | 'financial' | 'usage'
 

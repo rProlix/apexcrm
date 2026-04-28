@@ -635,6 +635,7 @@ export interface Database {
           currency:        string
           inventory_count: number
           is_active:       boolean
+          spin_package_id: string | null
           created_at:      string
         }
         Insert: {
@@ -645,6 +646,7 @@ export interface Database {
           currency?:        string
           inventory_count?: number
           is_active?:       boolean
+          spin_package_id?: string | null
         }
         Update: {
           tenant_id?:       string
@@ -654,6 +656,66 @@ export interface Database {
           currency?:        string
           inventory_count?: number
           is_active?:       boolean
+          spin_package_id?: string | null
+        }
+        Relationships: []
+      }
+      spin_packages: {
+        Row: {
+          id:                string
+          tenant_id:         string
+          product_id:        string
+          status:            'draft' | 'generating' | 'ready' | 'failed'
+          prompt_text:       string
+          image_count:       number
+          midjourney_job_id: string | null
+          error_message:     string | null
+          created_at:        string
+          updated_at:        string
+        }
+        Insert: {
+          tenant_id:          string
+          product_id:         string
+          status?:            'draft' | 'generating' | 'ready' | 'failed'
+          prompt_text:        string
+          image_count?:       number
+          midjourney_job_id?: string | null
+          error_message?:     string | null
+        }
+        Update: {
+          tenant_id?:          string
+          product_id?:         string
+          status?:             'draft' | 'generating' | 'ready' | 'failed'
+          prompt_text?:        string
+          image_count?:        number
+          midjourney_job_id?:  string | null
+          error_message?:      string | null
+        }
+        Relationships: []
+      }
+      spin_images: {
+        Row: {
+          id:              string
+          spin_package_id: string
+          tenant_id:       string
+          image_url:       string
+          storage_path:    string | null
+          frame_index:     number
+          created_at:      string
+        }
+        Insert: {
+          spin_package_id: string
+          tenant_id:       string
+          image_url:       string
+          storage_path?:   string | null
+          frame_index:     number
+        }
+        Update: {
+          spin_package_id?: string
+          tenant_id?:       string
+          image_url?:       string
+          storage_path?:    string | null
+          frame_index?:     number
         }
         Relationships: []
       }
