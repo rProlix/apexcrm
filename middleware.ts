@@ -26,12 +26,21 @@ const PROTECTED_PREFIXES = [
   '/admin', '/portal', '/website', '/store', '/customers',
 ]
 
-// Paths on a tenant host that stay in the dashboard app (NOT rewritten to tenant public site)
+// Paths on a tenant host that stay in the dashboard app (NOT rewritten to tenant public site).
+// NOTE: /login, /signup, /logout are intentionally EXCLUDED so that
+// tenant subdomains/custom domains serve the customer auth pages instead.
+// Staff access their dashboard via the platform domain (APP_URL/ROOT_DOMAIN).
 const DASHBOARD_PREFIXES = [
   '/dashboard', '/modules', '/settings', '/tenants',
   '/admin', '/portal', '/website', '/store', '/customers',
-  '/login', '/signup', '/logout', '/api', '/appointments', '/payments', '/rewards',
+  '/api', '/appointments', '/payments', '/rewards',
 ]
+
+// Customer-facing routes on public tenant sites that require a session
+const CUSTOMER_PROTECTED_PATHS = ['/account', '/orders', '/profile']
+
+// Customer auth pages — redirect already-authenticated customers away
+const CUSTOMER_AUTH_PATHS = ['/login', '/signup']
 
 // ── Module route enforcement ───────────────────────────────────────────────────
 const MODULE_ROUTE_MAP: Record<string, string> = {
@@ -178,29 +187,51 @@ export async function middleware(request: NextRequest) {
   if (resolvedSlug) response.headers.set('x-tenant-resolved-slug', resolvedSlug)
   if (user)         response.headers.set('x-auth-uid', user.id)
 
-  // Dashboard/app paths on a tenant host — serve the app without rewriting
+  // Dashboard/app paths on a tenant host — serve the app without rewriting.
+  // Staff who reach a protected dashboard path unauthenticated are redirected
+  // to the PLATFORM login (APP_URL), not the customer login on this host.
   const isDashboardPath = DASHBOARD_PREFIXES.some((p) => pathname.startsWith(p))
 
   if (isDashboardPath) {
     const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))
-    const isAuthPage  = AUTH_PATHS.some((p) => pathname.startsWith(p))
 
     if (isProtected && !user) {
-      const loginUrl = new URL('/login', request.url)
-      loginUrl.searchParams.set('next', pathname)
-      return NextResponse.redirect(loginUrl)
+      // Staff must authenticate via the platform domain, not the tenant login.
+      const platformLogin = new URL('/login', APP_URL)
+      platformLogin.searchParams.set('next', pathname)
+      return NextResponse.redirect(platformLogin)
     }
 
-    if (isAuthPage && user) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
-
+    // Serve dashboard paths (including /api/*) without a site rewrite.
     return response
   }
 
-  // Preview mode — skip public site rewrite
+  // Preview mode — skip public site rewrite and customer auth checks
   if (pathname.startsWith('/preview')) {
     return response
+  }
+
+  // ── Customer route protection (public tenant site) ────────────────────────
+  // These checks run BEFORE the rewrite so redirects hit the right host.
+
+  const isCustomerProtected = CUSTOMER_PROTECTED_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + '/'),
+  )
+  const isCustomerAuthPath = CUSTOMER_AUTH_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + '/'),
+  )
+
+  if (isCustomerProtected && !user) {
+    // Send unauthenticated customers to the tenant's own login page.
+    // /login on this host will be rewritten to /sites/[tenant]/login below.
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('next', pathname)
+    return NextResponse.redirect(loginUrl)
+  }
+
+  if (isCustomerAuthPath && user) {
+    // Already authenticated — skip auth pages and go straight to account.
+    return NextResponse.redirect(new URL('/account', request.url))
   }
 
   // ── Public site rewrite ───────────────────────────────────────────────────

@@ -1,11 +1,13 @@
 export const dynamic = 'force-dynamic'
 
-// app/sites/[tenant]/account/page.tsx — Customer account page
-import Link from 'next/link'
+// app/sites/[tenant]/account/page.tsx — Customer account dashboard
 import { notFound } from 'next/navigation'
+import Link from 'next/link'
+import { headers } from 'next/headers'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
-import { createSessionServerClient } from '@/lib/supabase/server'
+import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
+import { customerLogout } from '@/lib/actions/customer-auth'
 
 interface Props {
   params: Promise<{ tenant: string }>
@@ -13,7 +15,7 @@ interface Props {
 
 export default async function AccountPage({ params }: Props) {
   const { tenant } = await params
-  const tenantKey = decodeURIComponent(tenant)
+  const tenantKey  = decodeURIComponent(tenant)
 
   const siteData = tenantKey.includes('.')
     ? await getSiteByHost(tenantKey)
@@ -27,6 +29,12 @@ export default async function AccountPage({ params }: Props) {
   const sessionClient = await createSessionServerClient()
   const { data: { user } } = await sessionClient.auth.getUser()
 
+  // Determine login URL based on whether we're on platform or subdomain
+  const headersList = await headers()
+  const isPlatform  = headersList.get('x-is-platform') === 'true'
+  const loginPath   = isPlatform ? `/sites/${tenant}/login` : '/login'
+
+  // Unauthenticated — show sign-in prompt (middleware also redirects, this is a fallback)
   if (!user) {
     return (
       <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
@@ -41,7 +49,7 @@ export default async function AccountPage({ params }: Props) {
           <p style={{ color: 'var(--color-muted)', marginBottom: '2rem' }}>
             Sign in to view your account and orders.
           </p>
-          <Link href="/login?next=/account" style={{
+          <Link href={`${loginPath}?next=/account`} style={{
             display:        'inline-block',
             background:     'var(--color-primary)',
             color:          '#fff',
@@ -57,64 +65,88 @@ export default async function AccountPage({ params }: Props) {
     )
   }
 
+  // Fetch customer profile
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const serviceClient = getSupabaseServerClient()
+  const { data: profile } = await (serviceClient as any)
+    .rpc('get_my_customer_account', { p_tenant_id: siteData.tenant.id })
+    .maybeSingle()
+
+  const fullName = (profile?.full_name as string | null) ?? user.email?.split('@')[0] ?? 'Customer'
+  const email    = (profile?.email    as string | null) ?? user.email ?? '—'
+
+  // After logout, redirect to the correct login page
+  const logoutRedirect = isPlatform ? `/sites/${tenant}/login` : '/login'
+
+  const card: React.CSSProperties = {
+    background:   'var(--color-surface)',
+    border:       '1px solid var(--color-border)',
+    borderRadius: '1rem',
+    padding:      '1.5rem',
+  }
+
   return (
     <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
         <h1 style={{
           fontSize:   'clamp(1.5rem, 3vw, 2rem)',
-          fontWeight: 700,
+          fontWeight: 800,
           fontFamily: 'var(--font-heading)',
           color:      'var(--color-text)',
-          margin:     '0 0 2rem',
+          margin:     '0 0 0.25rem',
         }}>My Account</h1>
+        <p style={{ color: 'var(--color-muted)', margin: '0 0 2rem', fontSize: '0.9375rem' }}>
+          Welcome back, {fullName}
+        </p>
 
         <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-          {/* Profile */}
-          <div style={{
-            background:   'var(--color-surface)',
-            border:       '1px solid var(--color-border)',
-            borderRadius: '1rem',
-            padding:      '1.5rem',
-          }}>
-            <h2 style={{ fontWeight: 600, color: 'var(--color-text)', margin: '0 0 0.5rem', fontSize: '1rem' }}>
+          {/* Profile summary */}
+          <div style={card}>
+            <h2 style={{ fontWeight: 700, color: 'var(--color-text)', margin: '0 0 0.75rem', fontSize: '0.9375rem' }}>
               Profile
             </h2>
-            <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem', margin: 0 }}>
-              {user.email}
+            <p style={{ color: 'var(--color-text)', fontWeight: 600, margin: '0 0 0.25rem', fontSize: '0.9375rem' }}>
+              {fullName}
             </p>
+            <p style={{ color: 'var(--color-muted)', fontSize: '0.8125rem', margin: '0 0 1rem' }}>
+              {email}
+            </p>
+            <Link href="/profile" style={{
+              fontSize:       '0.8125rem',
+              color:          'var(--color-primary)',
+              fontWeight:     600,
+              textDecoration: 'none',
+            }}>
+              Edit profile →
+            </Link>
           </div>
 
-          {/* Orders quick link */}
+          {/* Orders */}
           <Link href="/orders" style={{ textDecoration: 'none' }}>
-            <div style={{
-              background:   'var(--color-surface)',
-              border:       '1px solid var(--color-border)',
-              borderRadius: '1rem',
-              padding:      '1.5rem',
-              cursor:       'pointer',
-              height:       '100%',
-            }}>
-              <h2 style={{ fontWeight: 600, color: 'var(--color-text)', margin: '0 0 0.5rem', fontSize: '1rem' }}>
+            <div style={{ ...card, cursor: 'pointer', height: '100%', boxSizing: 'border-box' }}>
+              <h2 style={{ fontWeight: 700, color: 'var(--color-text)', margin: '0 0 0.5rem', fontSize: '0.9375rem' }}>
                 Order History
               </h2>
-              <p style={{ color: 'var(--color-primary)', fontSize: '0.875rem', margin: 0 }}>
+              <p style={{ color: 'var(--color-primary)', fontSize: '0.875rem', margin: 0, fontWeight: 600 }}>
                 View all orders →
               </p>
             </div>
           </Link>
 
-          {/* Continue shopping */}
+          {/* Shop */}
           <Link href="/shop" style={{ textDecoration: 'none' }}>
             <div style={{
-              background:   'var(--color-primary)',
-              borderRadius: '1rem',
-              padding:      '1.5rem',
-              cursor:       'pointer',
+              ...card,
+              background: 'var(--color-primary)',
+              border:     'none',
+              cursor:     'pointer',
+              height:     '100%',
+              boxSizing:  'border-box',
             }}>
-              <h2 style={{ fontWeight: 600, color: '#fff', margin: '0 0 0.5rem', fontSize: '1rem' }}>
+              <h2 style={{ fontWeight: 700, color: '#fff', margin: '0 0 0.5rem', fontSize: '0.9375rem' }}>
                 Shop
               </h2>
-              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.875rem', margin: 0 }}>
+              <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.875rem', margin: 0 }}>
                 Browse products →
               </p>
             </div>
@@ -122,17 +154,22 @@ export default async function AccountPage({ params }: Props) {
         </div>
 
         {/* Sign out */}
-        <div style={{ marginTop: '2rem' }}>
-          <form action="/logout" method="POST">
-            <button type="submit" style={{
-              background:   'transparent',
-              border:       '1px solid var(--color-border)',
-              color:        'var(--color-muted)',
-              padding:      '0.625rem 1.25rem',
-              borderRadius: '0.75rem',
-              cursor:       'pointer',
-              fontSize:     '0.875rem',
-            }}>
+        <div style={{ marginTop: '2.5rem' }}>
+          <form action={customerLogout}>
+            <input type="hidden" name="redirect_to" value={logoutRedirect} />
+            <button
+              type="submit"
+              style={{
+                background:   'transparent',
+                border:       '1px solid var(--color-border)',
+                color:        'var(--color-muted)',
+                padding:      '0.625rem 1.25rem',
+                borderRadius: '0.75rem',
+                cursor:       'pointer',
+                fontSize:     '0.875rem',
+                fontWeight:   500,
+              }}
+            >
               Sign Out
             </button>
           </form>
