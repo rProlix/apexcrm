@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
+
   reactStrictMode: true,
 
-  // compress: true is the Vercel/Node.js default but explicit is clearer
   compress: true,
 
   images: {
