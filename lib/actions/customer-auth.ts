@@ -60,29 +60,47 @@ export async function customerSignup(
   // 2. Use service role to insert DB records (bypasses RLS — runs server-side only)
   const serviceClient = getSupabaseServerClient()
 
-  const { data: customer, error: customerError } = await serviceClient
+  // Check for an existing customer with this email in the tenant
+  const { data: existingCustomer } = await serviceClient
     .from('customers')
-    .insert({ tenant_id: tenantId, name: fullName, email })
     .select('id')
-    .single()
+    .eq('tenant_id', tenantId)
+    .eq('email', email)
+    .maybeSingle()
 
-  if (customerError || !customer) {
-    // Best-effort cleanup — don't leave orphaned auth users
-    try { await serviceClient.auth.admin.deleteUser(signupData.user.id) } catch { /* no-op */ }
-    return { error: 'Profile setup failed. Please try again.' }
+  let customerId: string
+
+  if (existingCustomer) {
+    // Re-use the existing customer record (e.g. previously created by staff)
+    customerId = existingCustomer.id
+  } else {
+    const { data: newCustomer, error: customerError } = await serviceClient
+      .from('customers')
+      .insert({ tenant_id: tenantId, name: fullName, email })
+      .select('id')
+      .single()
+
+    if (customerError || !newCustomer) {
+      try { await serviceClient.auth.admin.deleteUser(signupData.user.id) } catch { /* no-op */ }
+      return { error: 'Profile setup failed. Please try again.' }
+    }
+
+    customerId = newCustomer.id
   }
 
+  // Link the auth user to the customer record
   const { error: linkError } = await serviceClient
     .from('customer_accounts')
-    .insert({
+    .upsert({
       tenant_id:    tenantId,
-      customer_id:  customer.id,
+      customer_id:  customerId,
       auth_user_id: signupData.user.id,
       email,
-    })
+      status:       'active',
+    }, { onConflict: 'auth_user_id,tenant_id' })
 
   if (linkError) {
-    try { await serviceClient.from('customers').delete().eq('id', customer.id) } catch { /* no-op */ }
+    try { await serviceClient.from('customers').delete().eq('id', customerId) } catch { /* no-op */ }
     try { await serviceClient.auth.admin.deleteUser(signupData.user.id) } catch { /* no-op */ }
     return { error: 'Account link failed. Please try again.' }
   }
@@ -98,6 +116,7 @@ export async function customerLogin(
 ): Promise<{ error?: string }> {
   const email    = (formData.get('email')    as string | null)?.trim() ?? ''
   const password =  formData.get('password') as string | null  ?? ''
+  const tenantId =  formData.get('tenant_id') as string | null ?? ''
   const next     = sanitizeRedirect(formData.get('next'))
 
   if (!email || !password) {
@@ -105,11 +124,28 @@ export async function customerLogin(
   }
 
   const sessionClient = await createSessionServerClient()
-  const { error } = await sessionClient.auth.signInWithPassword({ email, password })
+  const { data: signInData, error } = await sessionClient.auth.signInWithPassword({ email, password })
 
-  if (error) {
-    // Return a generic message — never leak whether the email exists
+  if (error || !signInData.user) {
     return { error: 'Invalid email or password.' }
+  }
+
+  // Validate that this user has an active customer account for this specific tenant.
+  // This prevents a customer of tenant A from accessing tenant B's portal.
+  if (tenantId) {
+    const serviceClient = getSupabaseServerClient()
+    const { data: account } = await serviceClient
+      .from('customer_accounts')
+      .select('id, status')
+      .eq('auth_user_id', signInData.user.id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+
+    if (!account || account.status !== 'active') {
+      // Sign them out immediately — no access to this tenant's portal
+      await sessionClient.auth.signOut()
+      return { error: 'No account found for this store. Please sign up first.' }
+    }
   }
 
   redirect(next)

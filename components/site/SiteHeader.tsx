@@ -4,10 +4,21 @@ import Image from 'next/image'
 import type { PublishedSiteConfig } from '@/lib/website/types'
 
 interface Props {
-  config: PublishedSiteConfig
+  config:          PublishedSiteConfig
+  /**
+   * Base path prefix for all internal tenant links.
+   * Set to `/sites/[tenantSlug]` when serving via the platform root domain,
+   * or empty string `''` when serving via subdomain / custom domain.
+   */
+  basePath?:       string
+  /**
+   * Whether the current visitor has an active customer session.
+   * Used to toggle between "Login" and "Account" in the header.
+   */
+  isAuthenticated?: boolean
 }
 
-export function SiteHeader({ config }: Props) {
+export function SiteHeader({ config, basePath = '', isAuthenticated = false }: Props) {
   const { settings, navigation } = config
   const headerCfg = settings.header_config as {
     showLogo?: boolean; showNav?: boolean; transparent?: boolean; sticky?: boolean
@@ -19,7 +30,7 @@ export function SiteHeader({ config }: Props) {
   const showLogo      = headerCfg?.showLogo     ?? true
   const showNav       = headerCfg?.showNav      ?? true
   const ctaLabel      = headerCfg?.ctaLabel
-  const ctaHref       = headerCfg?.ctaHref ?? '/shop'
+  const ctaHref       = headerCfg?.ctaHref ?? `${basePath}/shop`
 
   const navItems = navigation.header.filter((n) => n.is_visible)
   const siteName  = settings.site_name || 'Store'
@@ -42,7 +53,7 @@ export function SiteHeader({ config }: Props) {
 
           {/* Logo */}
           {showLogo && (
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', flexShrink: 0 }}>
+            <Link href={`${basePath}/`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', flexShrink: 0 }}>
               {logoUrl
                 ? <Image src={logoUrl} alt={siteName} width={120} height={32} style={{ height: 32, width: 'auto', objectFit: 'contain' }} unoptimized />
                 : <span style={{
@@ -83,34 +94,50 @@ export function SiteHeader({ config }: Props) {
           {/* Spacer */}
           {(!showNav || navItems.length === 0) && <div style={{ flex: 1 }} />}
 
-          {/* CTA */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Link href="/shop" style={{
+          {/* Right-side actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+            <Link href={`${basePath}/shop`} style={{
               fontSize: '0.875rem',
               color: 'var(--color-muted)',
               textDecoration: 'none',
             }}>
               Shop
             </Link>
-            <Link href="/account" style={{
-              fontSize: '0.875rem',
-              color: 'var(--color-muted)',
-              textDecoration: 'none',
-            }}>
-              Account
-            </Link>
+
+            {isAuthenticated ? (
+              <Link href={`${basePath}/account`} style={{
+                fontSize: '0.875rem',
+                color: 'var(--color-muted)',
+                textDecoration: 'none',
+              }}>
+                Account
+              </Link>
+            ) : (
+              <Link href={`${basePath}/login`} style={{
+                fontSize:       '0.875rem',
+                color:          '#fff',
+                background:     'var(--color-primary)',
+                padding:        '0.4rem 1rem',
+                borderRadius:   '0.625rem',
+                textDecoration: 'none',
+                fontWeight:     600,
+              }}>
+                Login
+              </Link>
+            )}
+
             {ctaLabel && (
               <Link
                 href={ctaHref}
                 style={{
-                  background:   'var(--color-primary)',
-                  color:        '#fff',
-                  padding:      '0.5rem 1.25rem',
-                  borderRadius: '0.75rem',
-                  fontSize:     '0.875rem',
-                  fontWeight:   600,
+                  background:     'var(--color-primary)',
+                  color:          '#fff',
+                  padding:        '0.5rem 1.25rem',
+                  borderRadius:   '0.75rem',
+                  fontSize:       '0.875rem',
+                  fontWeight:     600,
                   textDecoration: 'none',
-                  transition:   'opacity 0.15s',
+                  transition:     'opacity 0.15s',
                 }}
               >
                 {ctaLabel}

@@ -10,9 +10,11 @@ export const dynamic = 'force-dynamic'
 // Resolution: slug if no dot; host-based if dot present.
 
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { normalizeTheme } from '@/lib/website/normalizeTheme'
+import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
 import { SiteHeader } from '@/components/site/SiteHeader'
 import { SiteFooter } from '@/components/site/SiteFooter'
 
@@ -111,6 +113,33 @@ export default async function SiteLayout({ children, params }: Props) {
     '--font-body':        `"${theme.fontBody}", sans-serif`,
   } as React.CSSProperties
 
+  // Determine routing context so SiteHeader uses correct link prefixes.
+  const headersList = await headers()
+  const isPlatform  = headersList.get('x-is-platform') === 'true'
+  const basePath    = isPlatform ? `/sites/${tenantSlug}` : ''
+
+  // Read session to decide whether to show Login or Account in the header.
+  // Non-fatal: if Supabase is unavailable the header degrades to "Login".
+  let isAuthenticated = false
+  try {
+    const sessionClient = await createSessionServerClient()
+    const { data: { user } } = await sessionClient.auth.getUser()
+    if (user) {
+      // Verify the user actually has a customer account for THIS tenant
+      // (prevents a staff member session from lighting up the "Account" link)
+      const db = getSupabaseServerClient()
+      const { data: account } = await db
+        .from('customer_accounts')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .eq('tenant_id', siteData.tenant.id)
+        .maybeSingle()
+      isAuthenticated = !!account
+    }
+  } catch {
+    // Non-fatal — show Login as the safe fallback
+  }
+
   return (
     <div
       className="site-root min-h-screen flex flex-col"
@@ -121,7 +150,11 @@ export default async function SiteLayout({ children, params }: Props) {
         fontFamily: `"${theme.fontBody}", sans-serif`,
       }}
     >
-      <SiteHeader config={config} />
+      <SiteHeader
+        config={config}
+        basePath={basePath}
+        isAuthenticated={isAuthenticated}
+      />
       <main className="flex-1">{children}</main>
       <SiteFooter config={config} />
     </div>

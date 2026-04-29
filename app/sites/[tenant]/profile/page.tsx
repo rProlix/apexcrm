@@ -1,8 +1,9 @@
 export const dynamic = 'force-dynamic'
 
 // app/sites/[tenant]/profile/page.tsx — Customer profile (protected)
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
+import { headers } from 'next/headers'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
@@ -24,14 +25,16 @@ export default async function ProfilePage({ params }: Props) {
   const config = await getPublishedSiteConfig(siteData.tenant.id)
   if (!config) notFound()
 
-  // Middleware ensures user is authenticated before reaching here
+  const headersList = await headers()
+  const isPlatform  = headersList.get('x-is-platform') === 'true'
+  const basePath    = isPlatform ? `/sites/${tenant}` : ''
+  const loginPath   = `${basePath}/login?next=/profile`
+
   const sessionClient = await createSessionServerClient()
   const { data: { user } } = await sessionClient.auth.getUser()
 
-  // Fallback: if somehow unauthenticated, show minimal view
-  if (!user) notFound()
+  if (!user) redirect(loginPath)
 
-  // Fetch customer profile via secure helper function
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const serviceClient = getSupabaseServerClient()
   const { data: profile } = await (serviceClient as any)
@@ -53,12 +56,12 @@ export default async function ProfilePage({ params }: Props) {
   }
 
   const fieldLabel: React.CSSProperties = {
-    fontSize:     '0.75rem',
-    fontWeight:   600,
-    color:        'var(--color-muted)',
+    fontSize:      '0.75rem',
+    fontWeight:    600,
+    color:         'var(--color-muted)',
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
-    marginBottom: '0.25rem',
+    marginBottom:  '0.25rem',
   }
 
   const fieldValue: React.CSSProperties = {
@@ -73,7 +76,7 @@ export default async function ProfilePage({ params }: Props) {
       <div style={{ maxWidth: 680, margin: '0 auto' }}>
         {/* Breadcrumb */}
         <div style={{ marginBottom: '1.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Link href="/account" style={{ color: 'var(--color-muted)', fontSize: '0.875rem', textDecoration: 'none' }}>
+          <Link href={`${basePath}/account`} style={{ color: 'var(--color-muted)', fontSize: '0.875rem', textDecoration: 'none' }}>
             ← Account
           </Link>
         </div>
@@ -120,7 +123,7 @@ export default async function ProfilePage({ params }: Props) {
 
           {/* Quick links */}
           <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-            <Link href="/orders" style={{ textDecoration: 'none' }}>
+            <Link href={`${basePath}/orders`} style={{ textDecoration: 'none' }}>
               <div style={{ ...card, cursor: 'pointer' }}>
                 <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9375rem' }}>
                   Order History
@@ -130,7 +133,17 @@ export default async function ProfilePage({ params }: Props) {
                 </p>
               </div>
             </Link>
-            <Link href="/shop" style={{ textDecoration: 'none' }}>
+            <Link href={`${basePath}/rewards`} style={{ textDecoration: 'none' }}>
+              <div style={{ ...card, cursor: 'pointer' }}>
+                <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9375rem' }}>
+                  Rewards
+                </p>
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.8125rem', color: 'var(--color-primary)' }}>
+                  View points →
+                </p>
+              </div>
+            </Link>
+            <Link href={`${basePath}/shop`} style={{ textDecoration: 'none' }}>
               <div style={{ ...card, cursor: 'pointer' }}>
                 <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9375rem' }}>
                   Continue Shopping

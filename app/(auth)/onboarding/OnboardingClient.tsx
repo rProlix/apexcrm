@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
 const STEPS = [
   { label: 'Creating your workspace',   duration: 800  },
@@ -13,7 +13,6 @@ const STEPS = [
 ]
 
 export function OnboardingClient() {
-  const router       = useRouter()
   const searchParams = useSearchParams()
   const slug         = searchParams.get('slug') ?? ''
   const name         = searchParams.get('name') ?? 'Your Business'
@@ -32,10 +31,11 @@ export function OnboardingClient() {
         if (!cancelled) {
           setDone(true)
           setProgress(100)
-          // Small pause so user can read "Everything is ready!" then forward
+          // Small pause so user can read "Everything is ready!" then forward.
+          // Hard redirect ensures auth cookies are sent fresh on first load.
           await sleep(700)
           if (!cancelled) {
-            router.replace('/dashboard')
+            window.location.href = '/dashboard'
           }
         }
         return

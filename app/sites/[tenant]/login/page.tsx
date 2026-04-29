@@ -24,8 +24,9 @@ export default async function CustomerLoginPage({ params, searchParams }: Props)
 
   if (!siteData) notFound()
 
+  // Load published config for branding — fall back gracefully if not published yet.
+  // Login must always be accessible regardless of publication state.
   const config = await getPublishedSiteConfig(siteData.tenant.id)
-  if (!config) notFound()
 
   // If already authenticated, send straight to the destination
   const sessionClient = await createSessionServerClient()
@@ -40,7 +41,7 @@ export default async function CustomerLoginPage({ params, searchParams }: Props)
     ? `/sites/${tenant}/signup${next !== '/account' ? `?next=${encodeURIComponent(next)}` : ''}`
     : `/signup${next !== '/account' ? `?next=${encodeURIComponent(next)}` : ''}`
 
-  const businessName = config.settings?.site_name ?? siteData.tenant.name
+  const businessName = config?.settings?.site_name ?? siteData.tenant.name
 
   return (
     <div style={{
@@ -53,8 +54,8 @@ export default async function CustomerLoginPage({ params, searchParams }: Props)
       <div style={{
         width:        '100%',
         maxWidth:     '420px',
-        background:   'var(--color-surface)',
-        border:       '1px solid var(--color-border)',
+        background:   'var(--color-surface, #fff)',
+        border:       '1px solid var(--color-border, #e5e7eb)',
         borderRadius: '1.25rem',
         padding:      'clamp(1.5rem, 5vw, 2.5rem)',
         boxShadow:    '0 4px 32px rgba(0,0,0,0.08)',
@@ -64,14 +65,14 @@ export default async function CustomerLoginPage({ params, searchParams }: Props)
           <h1 style={{
             fontSize:     'clamp(1.375rem, 3vw, 1.75rem)',
             fontWeight:   800,
-            fontFamily:   'var(--font-heading)',
-            color:        'var(--color-text)',
+            fontFamily:   'var(--font-heading, sans-serif)',
+            color:        'var(--color-text, #111)',
             margin:       '0 0 0.375rem',
             lineHeight:   1.2,
           }}>
             Welcome back
           </h1>
-          <p style={{ color: 'var(--color-muted)', fontSize: '0.9375rem', margin: 0 }}>
+          <p style={{ color: 'var(--color-muted, #6b7280)', fontSize: '0.9375rem', margin: 0 }}>
             Sign in to your {businessName} account
           </p>
         </div>

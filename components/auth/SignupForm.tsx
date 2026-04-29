@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { signupSchema, slugifyBusinessName } from '@/lib/validation/auth'
@@ -65,8 +64,6 @@ function Field({
 }
 
 export function SignupForm() {
-  const router = useRouter()
-
   const [businessName,     setBusinessName]     = useState('')
   const [slug,             setSlug]             = useState('')
   const [email,            setEmail]            = useState('')
@@ -165,10 +162,10 @@ export function SignupForm() {
       return
     }
 
-    // Redirect to onboarding page which shows the "Setting up your business..." animation
-    // then forwards to the dashboard once everything is ready.
+    // Hard redirect — forces a full page load so the newly set auth cookies
+    // are included in the very first server request (router.push can race).
     const onboardingParams = new URLSearchParams({ slug: tenantSlug, name: parsed.data.businessName })
-    router.push(`/onboarding?${onboardingParams.toString()}`)
+    window.location.href = `/onboarding?${onboardingParams.toString()}`
   }
 
   if (emailSent) {

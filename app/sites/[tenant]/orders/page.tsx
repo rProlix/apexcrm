@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 // app/sites/[tenant]/orders/page.tsx — Customer order history
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
@@ -24,18 +25,35 @@ export default async function OrdersPage({ params }: Props) {
   const config = await getPublishedSiteConfig(siteData.tenant.id)
   if (!config) notFound()
 
+  const headersList = await headers()
+  const isPlatform  = headersList.get('x-is-platform') === 'true'
+  const basePath    = isPlatform ? `/sites/${tenant}` : ''
+  const loginPath   = `${basePath}/login?next=/orders`
+
   const sessionClient = await createSessionServerClient()
   const { data: { user } } = await sessionClient.auth.getUser()
 
-  if (!user) redirect('/login?next=/orders')
+  if (!user) redirect(loginPath)
 
   const db = getSupabaseServerClient()
+
+  // Resolve the CRM customer_id via the customer_accounts link.
+  // orders.customer_id references customers.id — NOT the auth user's UUID.
+  const { data: account } = await db
+    .from('customer_accounts')
+    .select('customer_id, status')
+    .eq('auth_user_id', user.id)
+    .eq('tenant_id', siteData.tenant.id)
+    .maybeSingle()
+
+  if (!account || account.status !== 'active') redirect(loginPath)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: ordersRaw } = await (db as any)
     .from('orders')
     .select('id, status, total_amount, created_at, items')
     .eq('tenant_id', siteData.tenant.id)
-    .eq('customer_id', user.id)
+    .eq('customer_id', account.customer_id)
     .order('created_at', { ascending: false })
     .limit(50)
 
@@ -63,7 +81,7 @@ export default async function OrdersPage({ params }: Props) {
             color:      'var(--color-text)',
             margin:     0,
           }}>Order History</h1>
-          <Link href="/account" style={{
+          <Link href={`${basePath}/account`} style={{
             fontSize:       '0.875rem',
             color:          'var(--color-muted)',
             textDecoration: 'none',
@@ -77,7 +95,7 @@ export default async function OrdersPage({ params }: Props) {
             color:      'var(--color-muted)',
           }}>
             <p style={{ fontSize: '1.125rem', marginBottom: '1.5rem' }}>No orders yet.</p>
-            <Link href="/shop" style={{
+            <Link href={`${basePath}/shop`} style={{
               display:        'inline-block',
               background:     'var(--color-primary)',
               color:          '#fff',
@@ -104,13 +122,13 @@ export default async function OrdersPage({ params }: Props) {
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{
-                    margin:     0,
-                    fontWeight: 600,
-                    color:      'var(--color-text)',
-                    fontSize:   '0.9375rem',
-                    overflow:   'hidden',
+                    margin:       0,
+                    fontWeight:   600,
+                    color:        'var(--color-text)',
+                    fontSize:     '0.9375rem',
+                    overflow:     'hidden',
                     textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    whiteSpace:   'nowrap',
                   }}>
                     Order #{order.id.slice(0, 8).toUpperCase()}
                   </p>
@@ -130,7 +148,7 @@ export default async function OrdersPage({ params }: Props) {
                     {order.status}
                   </span>
                   <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
-                    ${Number(order.total_amount).toFixed(2)}
+                    ${Number(order.total_amount ?? 0).toFixed(2)}
                   </span>
                 </div>
               </div>

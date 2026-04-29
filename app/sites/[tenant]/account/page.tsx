@@ -26,15 +26,17 @@ export default async function AccountPage({ params }: Props) {
   const config = await getPublishedSiteConfig(siteData.tenant.id)
   if (!config) notFound()
 
+  // Determine routing mode — platform path vs. subdomain/custom domain.
+  // When x-is-platform is true, all internal links must be prefixed with
+  // /sites/[tenant] so they resolve correctly on the platform root domain.
+  const headersList = await headers()
+  const isPlatform  = headersList.get('x-is-platform') === 'true'
+  const basePath    = isPlatform ? `/sites/${tenant}` : ''
+  const loginPath   = `${basePath}/login`
+
   const sessionClient = await createSessionServerClient()
   const { data: { user } } = await sessionClient.auth.getUser()
 
-  // Determine login URL based on whether we're on platform or subdomain
-  const headersList = await headers()
-  const isPlatform  = headersList.get('x-is-platform') === 'true'
-  const loginPath   = isPlatform ? `/sites/${tenant}/login` : '/login'
-
-  // Unauthenticated — show sign-in prompt (middleware also redirects, this is a fallback)
   if (!user) {
     return (
       <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
@@ -65,9 +67,10 @@ export default async function AccountPage({ params }: Props) {
     )
   }
 
-  // Fetch customer profile
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const serviceClient = getSupabaseServerClient()
+
+  // Fetch customer profile via the secure helper RPC (multi-tenant safe)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: profile } = await (serviceClient as any)
     .rpc('get_my_customer_account', { p_tenant_id: siteData.tenant.id })
     .maybeSingle()
@@ -75,8 +78,21 @@ export default async function AccountPage({ params }: Props) {
   const fullName = (profile?.full_name as string | null) ?? user.email?.split('@')[0] ?? 'Customer'
   const email    = (profile?.email    as string | null) ?? user.email ?? '—'
 
-  // After logout, redirect to the correct login page
-  const logoutRedirect = isPlatform ? `/sites/${tenant}/login` : '/login'
+  // Fetch rewards balance for this tenant
+  const customerId = profile?.customer_id as string | null
+  let pointsBalance: number | null = null
+
+  if (customerId) {
+    const { data: rewardsRow } = await serviceClient
+      .from('rewards_balances')
+      .select('points_balance')
+      .eq('tenant_id', siteData.tenant.id)
+      .eq('customer_id', customerId)
+      .maybeSingle()
+    pointsBalance = (rewardsRow?.points_balance as number | null) ?? 0
+  }
+
+  const logoutRedirect = `${basePath}/login`
 
   const card: React.CSSProperties = {
     background:   'var(--color-surface)',
@@ -100,6 +116,7 @@ export default async function AccountPage({ params }: Props) {
         </p>
 
         <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+
           {/* Profile summary */}
           <div style={card}>
             <h2 style={{ fontWeight: 700, color: 'var(--color-text)', margin: '0 0 0.75rem', fontSize: '0.9375rem' }}>
@@ -111,7 +128,7 @@ export default async function AccountPage({ params }: Props) {
             <p style={{ color: 'var(--color-muted)', fontSize: '0.8125rem', margin: '0 0 1rem' }}>
               {email}
             </p>
-            <Link href="/profile" style={{
+            <Link href={`${basePath}/profile`} style={{
               fontSize:       '0.8125rem',
               color:          'var(--color-primary)',
               fontWeight:     600,
@@ -122,7 +139,7 @@ export default async function AccountPage({ params }: Props) {
           </div>
 
           {/* Orders */}
-          <Link href="/orders" style={{ textDecoration: 'none' }}>
+          <Link href={`${basePath}/orders`} style={{ textDecoration: 'none' }}>
             <div style={{ ...card, cursor: 'pointer', height: '100%', boxSizing: 'border-box' }}>
               <h2 style={{ fontWeight: 700, color: 'var(--color-text)', margin: '0 0 0.5rem', fontSize: '0.9375rem' }}>
                 Order History
@@ -133,8 +150,26 @@ export default async function AccountPage({ params }: Props) {
             </div>
           </Link>
 
+          {/* Rewards */}
+          <Link href={`${basePath}/rewards`} style={{ textDecoration: 'none' }}>
+            <div style={{ ...card, cursor: 'pointer', height: '100%', boxSizing: 'border-box' }}>
+              <h2 style={{ fontWeight: 700, color: 'var(--color-text)', margin: '0 0 0.5rem', fontSize: '0.9375rem' }}>
+                Rewards
+              </h2>
+              {pointsBalance !== null ? (
+                <p style={{ color: 'var(--color-primary)', fontSize: '1.25rem', margin: 0, fontWeight: 800 }}>
+                  {pointsBalance.toLocaleString()} pts
+                </p>
+              ) : (
+                <p style={{ color: 'var(--color-primary)', fontSize: '0.875rem', margin: 0, fontWeight: 600 }}>
+                  View rewards →
+                </p>
+              )}
+            </div>
+          </Link>
+
           {/* Shop */}
-          <Link href="/shop" style={{ textDecoration: 'none' }}>
+          <Link href={`${basePath}/shop`} style={{ textDecoration: 'none' }}>
             <div style={{
               ...card,
               background: 'var(--color-primary)',

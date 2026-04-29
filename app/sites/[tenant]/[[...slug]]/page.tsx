@@ -4,6 +4,11 @@ export const revalidate = 60
 // app/sites/[tenant]/[[...slug]]/page.tsx
 // Optional catch-all — handles both the tenant homepage (no slug) and all
 // nested custom pages (/about, /contact, /faq, etc.) in a single component.
+//
+// Zero-404 guarantee:
+//   - Unknown slugs silently fall back to the homepage content
+//   - Missing pages fall back to the first available published page
+//   - A site with no pages shows the business name and a coming-soon message
 
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
@@ -57,10 +62,16 @@ export default async function TenantPage({ params }: Props) {
   }
 
   // Home page: find the page marked as home, slug '', or fall back to first page
-  const page = pageSlug === ''
+  let page = pageSlug === ''
     ? (config.pages.find((p) => p.page_type === 'home' || p.slug === '') ?? config.pages[0])
     : config.pages.find((p) => p.slug === pageSlug || p.slug === `/${pageSlug}`)
 
+  // Zero-404: if the requested slug has no matching page, fall back to homepage
+  if (!page) {
+    page = config.pages.find((p) => p.page_type === 'home' || p.slug === '') ?? config.pages[0]
+  }
+
+  // Still no page — business has no published pages at all
   if (!page) {
     return (
       <div style={{
@@ -73,11 +84,9 @@ export default async function TenantPage({ params }: Props) {
             color: 'var(--color-text)', fontFamily: 'var(--font-heading)',
             marginBottom: '0.5rem',
           }}>
-            {pageSlug === '' ? `Welcome to ${siteData.tenant.name}` : 'Page not found'}
+            Welcome to {siteData.tenant.name}
           </h1>
-          <p>
-            {pageSlug === '' ? 'Content coming soon.' : 'This page does not exist on this site.'}
-          </p>
+          <p>Content coming soon.</p>
         </div>
       </div>
     )

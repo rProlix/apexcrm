@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { loginSchema } from '@/lib/validation/auth'
@@ -60,8 +59,6 @@ function Field({
 }
 
 export function LoginForm() {
-  const router = useRouter()
-
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [loading,  setLoading]  = useState(false)
@@ -102,7 +99,11 @@ export function LoginForm() {
       return
     }
 
-    router.push('/dashboard')
+    // Hard redirect — forces a full page load so the browser sends the
+    // newly set auth cookies in the very first request to /dashboard.
+    // router.push() does a soft client-side nav which can race against
+    // cookie storage, causing the server component to see no session.
+    window.location.href = '/dashboard'
   }
 
   return (
