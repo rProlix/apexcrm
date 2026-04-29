@@ -1,12 +1,13 @@
 export const dynamic = 'force-dynamic'
 
 // app/sites/[tenant]/rewards/page.tsx — Customer rewards & loyalty portal
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { headers } from 'next/headers'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
+import { safeQuery, safeSingle } from '@/lib/supabase/safeQuery'
 
 interface Props {
   params: Promise<{ tenant: string }>
@@ -55,10 +56,24 @@ export default async function RewardsPage({ params }: Props) {
     ? await getSiteByHost(tenantKey)
     : await getSiteBySlug(tenantKey)
 
-  if (!siteData) notFound()
+  if (!siteData) {
+    return (
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', textAlign: 'center', padding: '4rem 1.5rem' }}>
+        <p style={{ color: 'var(--color-muted)' }}>Site not found.</p>
+      </div>
+    )
+  }
 
   const config = await getPublishedSiteConfig(siteData.tenant.id)
-  if (!config) notFound()
+  if (!config) {
+    return (
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', textAlign: 'center', padding: '4rem 1.5rem' }}>
+        <p style={{ color: 'var(--color-muted)' }}>Rewards are not available yet.</p>
+      </div>
+    )
+  }
 
   const headersList = await headers()
   const isPlatform  = headersList.get('x-is-platform') === 'true'
@@ -109,11 +124,25 @@ export default async function RewardsPage({ params }: Props) {
       .limit(10),
   ])
 
-  const balance      = balanceResult.data
-  const transactions = (transactionsResult.data ?? []) as Transaction[]
-  const punchCards   = (punchCardsResult.data   ?? []) as PunchCard[]
+  if (balanceResult.error) {
+    console.error('[rewards] balance fetch error:', balanceResult.error.message)
+  }
+  if (transactionsResult.error) {
+    console.error('[rewards] transactions fetch error:', transactionsResult.error.message)
+  }
+  if (punchCardsResult.error) {
+    console.error('[rewards] punch cards fetch error:', punchCardsResult.error.message)
+  }
 
-  const pointsBalance    = balance?.points_balance            ?? 0
+  const balance      = safeSingle<{
+    points_balance:            number
+    lifetime_points_earned:    number
+    lifetime_points_redeemed:  number
+  }>(balanceResult)
+  const transactions = safeQuery<Transaction>(transactionsResult)
+  const punchCards   = safeQuery<PunchCard>(punchCardsResult)
+
+  const pointsBalance    = balance?.points_balance           ?? 0
   const lifetimeEarned   = balance?.lifetime_points_earned   ?? 0
   const lifetimeRedeemed = balance?.lifetime_points_redeemed ?? 0
 

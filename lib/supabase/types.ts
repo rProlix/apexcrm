@@ -1234,33 +1234,39 @@ export interface Database {
       }
       reward_punch_cards: {
         Row: {
-          id:          string
-          tenant_id:   string
-          customer_id: string
-          product_id:  string | null
-          title:       string
-          punch_goal:  number
-          punch_count: number
-          status:      string
-          metadata:    Json
-          created_at:  string
-          updated_at:  string
+          id:              string
+          tenant_id:       string
+          customer_id:     string
+          product_id:      string | null
+          title:           string
+          punch_goal:      number
+          current_punches: number
+          reward_type:     string
+          reward_value:    number | null
+          status:          string
+          metadata:        Json
+          created_at:      string
+          updated_at:      string
         }
         Insert: {
-          tenant_id:    string
-          customer_id:  string
-          product_id?:  string | null
-          title:        string
-          punch_goal:   number
-          punch_count?: number
-          status?:      string
-          metadata?:    Json
+          tenant_id:        string
+          customer_id:      string
+          product_id?:      string | null
+          title:            string
+          punch_goal:       number
+          current_punches?: number
+          reward_type:      string
+          reward_value?:    number | null
+          status?:          string
+          metadata?:        Json
         }
         Update: {
-          punch_count?: number
-          status?:      string
-          metadata?:    Json
-          updated_at?:  string
+          current_punches?: number
+          reward_type?:     string
+          reward_value?:    number | null
+          status?:          string
+          metadata?:        Json
+          updated_at?:      string
         }
         Relationships: []
       }
