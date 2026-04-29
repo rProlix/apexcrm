@@ -5,8 +5,9 @@ import { slugifyBusinessName } from '@/lib/validation/auth'
 import type { Json } from '@/lib/supabase/types'
 
 export interface CreateTenantResult {
-  tenantId: string
-  userId:   string
+  tenantId:   string
+  userId:     string
+  tenantSlug: string
 }
 
 /**
@@ -46,7 +47,12 @@ export async function createTenantForUser({
     .maybeSingle()
 
   if (existing?.tenant_id) {
-    return { tenantId: existing.tenant_id, userId: existing.id }
+    const { data: existingTenant } = await supabase
+      .from('tenants')
+      .select('slug')
+      .eq('id', existing.tenant_id)
+      .single()
+    return { tenantId: existing.tenant_id, userId: existing.id, tenantSlug: existingTenant?.slug ?? '' }
   }
 
   // Resolve a unique slug
@@ -112,8 +118,8 @@ export async function createTenantForUser({
     },
   })
 
-  // Enable a sensible set of default modules
-  const defaultModules = ['contacts', 'leads', 'appointments', 'payments']
+  // Enable a sensible set of default modules (Shopify-style: all core modules on)
+  const defaultModules = ['contacts', 'leads', 'appointments', 'payments', 'store', 'website', 'customers']
   await supabase.from('tenant_modules').insert(
     defaultModules.map((key) => ({
       tenant_id:  tenant.id,
@@ -172,7 +178,10 @@ export async function createTenantForUser({
     })
   }
 
-  return { tenantId: tenant.id, userId: userRecord.id }
+  // ── Seed demo data so the dashboard is never empty ───────────────────────
+  await seedDemoData(supabase, tenant.id, businessName.trim())
+
+  return { tenantId: tenant.id, userId: userRecord.id, tenantSlug: finalSlug }
 }
 
 async function resolveUniqueSlug(
@@ -190,4 +199,161 @@ async function resolveUniqueSlug(
     slug = `${baseSlug}-${Math.random().toString(36).slice(2, 5)}`
   }
   return `${baseSlug}-${Date.now().toString(36)}`
+}
+
+/**
+ * Seeds demo products, customers, and appointments so the dashboard
+ * is never empty after signup. Failures are silent — they never block onboarding.
+ */
+async function seedDemoData(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  tenantId: string,
+  businessName: string,
+): Promise<void> {
+  try {
+    // ── Demo customers ────────────────────────────────────────────────────
+    const { data: customers } = await supabase
+      .from('customers')
+      .insert([
+        { tenant_id: tenantId, name: 'Alex Johnson',  email: 'alex@example.com',  phone: '(555) 100-0001', metadata: { source: 'demo' } },
+        { tenant_id: tenantId, name: 'Maria Garcia',  email: 'maria@example.com', phone: '(555) 100-0002', metadata: { source: 'demo' } },
+        { tenant_id: tenantId, name: 'James Williams',email: 'james@example.com', phone: '(555) 100-0003', metadata: { source: 'demo' } },
+      ])
+      .select('id')
+
+    // ── Demo products ─────────────────────────────────────────────────────
+    await supabase
+      .from('products')
+      .insert([
+        {
+          tenant_id:       tenantId,
+          name:            'Premium Service Package',
+          description:     'Full-service package including consultation, treatment, and follow-up support.',
+          price:           149.99,
+          currency:        'USD',
+          inventory_count: 50,
+          is_active:       true,
+        },
+        {
+          tenant_id:       tenantId,
+          name:            'Standard Service',
+          description:     'Core service offering with professional quality and fast turnaround.',
+          price:           79.99,
+          currency:        'USD',
+          inventory_count: 100,
+          is_active:       true,
+        },
+        {
+          tenant_id:       tenantId,
+          name:            'Add-on: Priority Support',
+          description:     'Jump the queue and get dedicated priority handling for your service.',
+          price:           29.99,
+          currency:        'USD',
+          inventory_count: 999,
+          is_active:       true,
+        },
+      ])
+
+    // ── Demo appointments ─────────────────────────────────────────────────
+    const customerId1 = customers?.[0]?.id ?? null
+    const customerId2 = customers?.[1]?.id ?? null
+
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    tomorrow.setHours(10, 0, 0, 0)
+
+    const dayAfter = new Date()
+    dayAfter.setDate(dayAfter.getDate() + 2)
+    dayAfter.setHours(14, 0, 0, 0)
+
+    await supabase
+      .from('appointments')
+      .insert([
+        {
+          tenant_id:    tenantId,
+          customer_id:  customerId1,
+          service_name: 'Premium Service Package',
+          starts_at:    tomorrow.toISOString(),
+          ends_at:      new Date(tomorrow.getTime() + 60 * 60 * 1000).toISOString(),
+          status:       'scheduled',
+          notes:        'Demo appointment — your first booking!',
+        },
+        {
+          tenant_id:    tenantId,
+          customer_id:  customerId2,
+          service_name: 'Standard Service',
+          starts_at:    dayAfter.toISOString(),
+          ends_at:      new Date(dayAfter.getTime() + 45 * 60 * 1000).toISOString(),
+          status:       'scheduled',
+          notes:        'Demo appointment — walk-in service.',
+        },
+      ])
+
+    // ── Demo payment records ───────────────────────────────────────────────
+    if (customerId1) {
+      await supabase.from('payments').insert([
+        {
+          tenant_id:          tenantId,
+          customer_id:        customerId1,
+          amount_cents:       14999,
+          currency:           'usd',
+          provider:           'demo',
+          provider_reference: 'demo_001',
+          status:             'completed',
+        },
+        {
+          tenant_id:          tenantId,
+          customer_id:        customerId2,
+          amount_cents:       7999,
+          currency:           'usd',
+          provider:           'demo',
+          provider_reference: 'demo_002',
+          status:             'pending',
+        },
+      ])
+    }
+
+    // ── Default dashboard layout with widgets ─────────────────────────────
+    await supabase
+      .from('dashboard_layouts')
+      .upsert(
+        {
+          tenant_id: tenantId,
+          layout: {
+            sections: [
+              {
+                id:    'operations',
+                title: 'Operations',
+                widgets: [
+                  { key: 'stat_appts_upcoming', id: 'stat_appts_upcoming' },
+                  { key: 'stat_appts_today',    id: 'stat_appts_today'    },
+                ],
+              },
+              {
+                id:    'financial',
+                title: 'Financial',
+                widgets: [
+                  { key: 'stat_revenue_month',  id: 'stat_revenue_month'  },
+                  { key: 'stat_revenue_total',  id: 'stat_revenue_total'  },
+                  { key: 'stat_outstanding',    id: 'stat_outstanding'    },
+                  { key: 'chart_revenue_trend', id: 'chart_revenue_trend' },
+                ],
+              },
+              {
+                id:    'usage',
+                title: 'Usage & Billing',
+                widgets: [
+                  { key: 'stat_leads_new',           id: 'stat_leads_new'           },
+                  { key: 'stat_returning_customers',  id: 'stat_returning_customers' },
+                ],
+              },
+            ],
+          },
+        },
+        { onConflict: 'tenant_id' }
+      )
+  } catch (err) {
+    // Seeding failures are non-fatal — the tenant was created successfully.
+    console.error('[createTenantForUser] seedDemoData error (non-fatal):', err)
+  }
 }

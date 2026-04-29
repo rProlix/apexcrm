@@ -141,13 +141,15 @@ export function SignupForm() {
     // Step 2: Create tenant + user profile on the server.
     // Always do this before checking for a session so the workspace exists
     // even when Supabase requires email confirmation and data.session is null.
+    let tenantSlug = ''
     try {
-      await createTenantForUser({
+      const result = await createTenantForUser({
         authUserId:   data.user.id,
         email:        parsed.data.email,
         businessName: parsed.data.businessName,
         slug:         parsed.data.slug || undefined,
       })
+      tenantSlug = result.tenantSlug
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to set up your workspace.')
       setLoading(false)
@@ -163,7 +165,10 @@ export function SignupForm() {
       return
     }
 
-    router.push('/dashboard')
+    // Redirect to onboarding page which shows the "Setting up your business..." animation
+    // then forwards to the dashboard once everything is ready.
+    const onboardingParams = new URLSearchParams({ slug: tenantSlug, name: parsed.data.businessName })
+    router.push(`/onboarding?${onboardingParams.toString()}`)
   }
 
   if (emailSent) {
@@ -301,7 +306,7 @@ export function SignupForm() {
           className="w-full mt-2"
           size="lg"
         >
-          Create workspace
+          {loading ? 'Creating your workspace…' : 'Create workspace'}
         </Button>
 
         <p className="text-center text-xs text-white/25 pt-1">

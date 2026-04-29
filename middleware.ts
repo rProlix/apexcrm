@@ -16,6 +16,8 @@ const VERCEL_URL = process.env.VERCEL_URL ?? ''
 const ALWAYS_PUBLIC = ['/_next', '/favicon.ico', '/api/health']
 
 // Auth pages — redirect authenticated users away
+// Note: /onboarding is intentionally NOT in this list — users just signed up
+// and are authenticated while viewing the onboarding animation.
 const AUTH_PATHS = ['/login', '/signup']
 
 // Dashboard/admin paths that require a session
