@@ -9,9 +9,12 @@ const VERCEL_URL  = process.env.VERCEL_URL ?? ''
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
   const host     = req.headers.get('host') ?? ''
-  const hostname = host.split(':')[0].toLowerCase()
+  const hostname = host.split(':')[0]
 
-  // ── Static assets — skip immediately ─────────────────────────────────────
+  // Debug — visible in Vercel Function logs (remove after confirming routing)
+  console.log('[middleware] HOST:', hostname, '| PATH:', pathname)
+
+  // ── Static assets — skip all middleware logic ─────────────────────────────
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon.ico') ||
@@ -20,93 +23,70 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // ── Step 1: Session refresh ───────────────────────────────────────────────
-  // CRITICAL — this must run on every request regardless of routing outcome.
+  // ── Supabase session refresh (MUST run on every request) ──────────────────
   //
-  // @supabase/ssr stores sessions in short-lived access tokens (default 1 hr)
-  // backed by a one-time-use refresh token. When the access token expires the
-  // Supabase client silently exchanges the refresh token for a new pair.
-  //
-  // Server Components are read-only — they cannot write Set-Cookie headers.
-  // If only the server component calls getUser(), the refreshed tokens are
-  // never written back to the browser cookie store. On the next request the
-  // old (already-consumed) refresh token is seen → exchange fails → user
-  // appears unauthenticated → redirect to /login → infinite loop.
-  //
-  // The middleware CAN write cookies. By calling getUser() here we ensure
-  // freshly-minted tokens are forwarded to the browser on every response,
-  // breaking the loop permanently.
+  // Supabase access tokens expire every hour and are backed by one-time-use
+  // refresh tokens. Only the middleware can write Set-Cookie headers that
+  // persist refreshed tokens back to the browser. Without this call, tokens
+  // expire silently and the user is forced to re-login in a loop.
   const sessionResponse = NextResponse.next({ request: req })
   const supabase = createMiddlewareSupabaseClient(req, sessionResponse)
   if (supabase) {
     try {
       await supabase.auth.getUser()
     } catch {
-      // Non-fatal: if Supabase is down we still route the request normally
+      // Non-fatal: if Supabase is unreachable we still route the request
     }
   }
 
-  // ── Step 2: Routing ───────────────────────────────────────────────────────
-
-  // Platform root domain(s) — serve the app directly.
-  // Tag the request so pages under /sites/[tenant]/* know they are being
-  // served via the platform URL (not via a tenant subdomain / custom domain).
-  // This allows server components to build tenant-aware link prefixes.
-  if (isPlatformHost(hostname)) {
-    sessionResponse.headers.set('x-is-platform', 'true')
+  // ── Vercel preview / deployment URLs — pass through ───────────────────────
+  if (hostname.endsWith('.vercel.app')) {
     return sessionResponse
   }
 
-  // Tenant subdomain: acme.nexoranow.com or acme.localhost
-  const tenantSlug = extractTenantSlug(hostname)
-
-  if (!tenantSlug) {
-    // Unknown host — fall through to Next.js (will 404 naturally)
+  // ── Root domain — serve the app directly ─────────────────────────────────
+  if (
+    hostname === ROOT_DOMAIN        ||
+    hostname === `www.${ROOT_DOMAIN}` ||
+    hostname === `app.${ROOT_DOMAIN}` ||
+    hostname === 'localhost'        ||
+    (VERCEL_URL && hostname === VERCEL_URL.split(':')[0])
+  ) {
     return sessionResponse
   }
 
-  // Rewrite: acme.nexoranow.com/path → internal /sites/acme/path
-  const rewriteUrl      = req.nextUrl.clone()
-  rewriteUrl.pathname   = `/sites/${tenantSlug}${pathname === '/' ? '' : pathname}`
-  const rewriteResponse = NextResponse.rewrite(rewriteUrl, { request: req })
+  // ── Extract subdomain ────────────────────────────────────────────────────
+  //
+  // Handles:
+  //   acme.nexoranow.com → parts = ['acme', 'nexoranow', 'com'] → subdomain = 'acme'
+  //   acme.localhost      → parts = ['acme', 'localhost']       → subdomain = 'acme'
+  const parts     = hostname.split('.')
+  const subdomain = parts.length > 2 ? parts[0]
+    : (parts.length === 2 && hostname.endsWith('.localhost') ? parts[0] : null)
 
-  // Pass the original hostname so server components can resolve custom domains.
-  rewriteResponse.headers.set('x-forwarded-host', hostname)
-  rewriteResponse.headers.set('x-is-platform', 'false')
+  console.log('[middleware] SUBDOMAIN:', subdomain)
 
-  // Copy the refreshed session cookies onto the rewrite response so the
-  // browser receives the new tokens even on tenant-domain requests.
-  sessionResponse.cookies.getAll().forEach(({ name, value, ...opts }) => {
-    rewriteResponse.cookies.set({ name, value, ...opts })
-  })
+  // ── Tenant subdomain rewrite ─────────────────────────────────────────────
+  if (subdomain) {
+    const rewriteUrl    = req.nextUrl.clone()
+    rewriteUrl.pathname = `/sites/${subdomain}${pathname === '/' ? '' : pathname}`
 
-  return rewriteResponse
-}
+    console.log('[middleware] REWRITE →', rewriteUrl.pathname)
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+    const rewriteResponse = NextResponse.rewrite(rewriteUrl, { request: req })
 
-function isPlatformHost(hostname: string): boolean {
-  if (hostname === 'localhost') return true
-  if (hostname === ROOT_DOMAIN) return true
-  if (hostname === `www.${ROOT_DOMAIN}`) return true
-  if (hostname === `app.${ROOT_DOMAIN}`) return true
-  if (VERCEL_URL && hostname === VERCEL_URL.split(':')[0]) return true
-  if (hostname.endsWith('.vercel.app')) return true
-  return false
-}
+    // Forward refreshed session cookies to the rewrite response
+    sessionResponse.cookies.getAll().forEach(({ name, value, ...opts }) => {
+      rewriteResponse.cookies.set({ name, value, ...opts })
+    })
 
-function extractTenantSlug(hostname: string): string | null {
-  if (hostname.endsWith('.localhost')) {
-    return hostname.replace(/\.localhost$/, '') || null
+    return rewriteResponse
   }
-  const suffix = `.${ROOT_DOMAIN}`
-  if (hostname.endsWith(suffix)) {
-    return hostname.slice(0, hostname.length - suffix.length) || null
-  }
-  // Custom domain — return full hostname; the page resolves via DB
-  return hostname || null
+
+  // ── Custom / unknown domain — pass through; page resolves via DB ──────────
+  return sessionResponse
 }
 
 export const config = {
-  matcher: ['/((?!_next|favicon.ico).*)'],
+  matcher: ['/((?!_next|api|favicon.ico|.*\\..*).*)', '/'],
 }
