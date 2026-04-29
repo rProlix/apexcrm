@@ -5,7 +5,7 @@ import { useState }               from 'react'
 import { motion }                 from 'framer-motion'
 import { Globe, Copy, Check, ExternalLink } from 'lucide-react'
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 interface SubdomainDisplayProps {
   slug:    string

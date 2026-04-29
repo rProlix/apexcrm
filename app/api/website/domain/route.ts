@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Block platform domain
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
   if (domain === rootDomain || domain.endsWith(`.${rootDomain}`)) {
     return NextResponse.json({ error: 'Cannot register the platform domain' }, { status: 400 })
   }

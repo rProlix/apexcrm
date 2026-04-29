@@ -9,7 +9,7 @@ import { isValidDomain, isPublicHostname, normalizeHost } from '@/lib/domain/nor
 import { addDomainToVercel }          from '@/lib/vercel/addDomain'
 import crypto                         from 'crypto'
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 

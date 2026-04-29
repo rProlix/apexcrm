@@ -19,7 +19,7 @@ interface Props {
   allDomains:      Array<{ hostname: string; verified: boolean }>
 }
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 export function SettingsClient({
   tenantId, tenantSlug, initialSettings, verifiedDomains, allDomains,

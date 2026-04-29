@@ -3,7 +3,7 @@
 
 import { normalizeHost } from './normalizeHost'
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 /**
  * Returns true when the host is a platform subdomain.

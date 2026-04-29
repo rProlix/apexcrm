@@ -4,7 +4,7 @@
 import { motion }       from 'framer-motion'
 import { ExternalLink, Globe, LayoutDashboard, Users, ShoppingBag } from 'lucide-react'
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 interface DomainPreviewCardProps {
   slug:         string

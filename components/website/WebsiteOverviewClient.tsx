@@ -28,7 +28,7 @@ interface Props {
   navCount:        number
 }
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages, navCount }: Props) {
   const [settings,   setSettings]   = useState<SiteSettings | null>(initialSettings)

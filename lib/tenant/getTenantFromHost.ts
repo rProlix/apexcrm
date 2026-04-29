@@ -1,6 +1,6 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 export interface TenantRecord {
   id: string

@@ -1,7 +1,7 @@
 // lib/domain/buildTenantUrl.ts
 // Builds the preferred public URL for a tenant based on its domain config.
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 const APP_URL     = process.env.NEXT_PUBLIC_APP_URL     ?? 'http://localhost:3000'
 
 export type UrlTarget = 'site' | 'dashboard' | 'portal' | 'preview'

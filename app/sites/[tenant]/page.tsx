@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic'
 
 // app/sites/[tenant]/page.tsx — Public site homepage
-import { notFound } from 'next/navigation'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { SectionRenderer } from '@/components/site/SectionRenderer'
@@ -20,10 +19,28 @@ export default async function SiteHomePage({ params }: Props) {
     ? await getSiteByHost(tenantKey)
     : await getSiteBySlug(tenantKey)
 
-  if (!siteData) notFound()
+  if (!siteData) {
+    return (
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', textAlign: 'center', padding: '4rem 1.5rem' }}>
+        <p style={{ color: 'var(--color-muted)', fontSize: '1rem' }}>Site not found.</p>
+      </div>
+    )
+  }
 
   const config = await getPublishedSiteConfig(siteData.tenant.id)
-  if (!config) notFound()
+  if (!config) {
+    return (
+      <div style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+        gap: '1rem', padding: '4rem 1.5rem' }}>
+        <p style={{ fontSize: '1.25rem', fontWeight: 600 }}>Welcome to {siteData.tenant.name}</p>
+        <p style={{ fontSize: '0.9375rem', color: 'var(--color-muted)' }}>
+          This site is coming soon.
+        </p>
+      </div>
+    )
+  }
 
   const homePage = config.pages.find((p) => p.page_type === 'home' || p.slug === '')
     ?? config.pages[0]

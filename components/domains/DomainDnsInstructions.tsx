@@ -18,7 +18,7 @@ interface DomainDnsInstructionsProps {
   expanded?:          boolean
 }
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)

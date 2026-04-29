@@ -1,255 +1,129 @@
 // middleware.ts
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { createMiddlewareSupabaseClient } from '@/lib/supabase/middleware'
 
 // ── Environment ───────────────────────────────────────────────────────────────
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 const APP_URL     = process.env.NEXT_PUBLIC_APP_URL     ?? 'http://localhost:3000'
+// Vercel injects VERCEL_URL automatically — format: "project-name-abc123.vercel.app"
+const VERCEL_URL  = process.env.VERCEL_URL ?? ''
 
-// Vercel injects VERCEL_URL automatically (no NEXT_PUBLIC_ prefix needed in middleware).
-// Format: "project-name-abc123.vercel.app" — used to detect all Vercel deployments.
-const VERCEL_URL = process.env.VERCEL_URL ?? ''
+// ── Route groups ──────────────────────────────────────────────────────────────
 
-// ── Static path lists ─────────────────────────────────────────────────────────
-
-// Paths that bypass all middleware logic entirely
-const ALWAYS_PUBLIC = ['/_next', '/favicon.ico', '/api/health']
-
-// Auth pages — redirect authenticated users away
-// Note: /onboarding is intentionally NOT in this list — users just signed up
-// and are authenticated while viewing the onboarding animation.
-const AUTH_PATHS = ['/login', '/signup']
-
-// Dashboard/admin paths that require a session
+// Paths that require a session on the platform domain
 const PROTECTED_PREFIXES = [
   '/dashboard', '/modules', '/settings', '/tenants',
   '/admin', '/portal', '/website', '/store', '/customers',
+  '/appointments', '/payments', '/rewards', '/staff',
 ]
 
-// Paths on a tenant host that stay in the dashboard app (NOT rewritten to tenant public site).
-// NOTE: /login, /signup, /logout are intentionally EXCLUDED so that
-// tenant subdomains/custom domains serve the customer auth pages instead.
-// Staff access their dashboard via the platform domain (APP_URL/ROOT_DOMAIN).
+// Auth pages — redirect already-authenticated users away
+const AUTH_PATHS = ['/login', '/signup']
+
+// Dashboard/app paths served on a tenant host without public-site rewrite
 const DASHBOARD_PREFIXES = [
   '/dashboard', '/modules', '/settings', '/tenants',
   '/admin', '/portal', '/website', '/store', '/customers',
-  '/api', '/appointments', '/payments', '/rewards',
+  '/api', '/appointments', '/payments', '/rewards', '/staff',
+  '/preview',
 ]
-
-// Customer-facing routes on public tenant sites that require a session
-const CUSTOMER_PROTECTED_PATHS = ['/account', '/orders', '/profile']
-
-// Customer auth pages — redirect already-authenticated customers away
-const CUSTOMER_AUTH_PATHS = ['/login', '/signup']
-
-// ── Module route enforcement ───────────────────────────────────────────────────
-const MODULE_ROUTE_MAP: Record<string, string> = {
-  '/payments':              'payments',
-  '/rewards':               'rewards',
-  '/appointments':          'appointments',
-  '/store':                 'store',
-  '/website':               'website',
-  '/vehicles':              'vehicles',
-  '/leads':                 'leads',
-  '/messages':              'messages',
-  '/contacts':              'contacts',
-  '/damage_ai':             'damage_ai',
-  '/customers':             'customers',
-  '/dashboard/360-spins':   'spin_360',
-  '/owner/spin-generator':  'spin_packages',
-  '/api/payments':          'payments',
-  '/api/rewards':           'rewards',
-  '/api/appointments':      'appointments',
-  '/api/store':             'store',
-  '/api/website':           'website',
-  '/api/customers':         'customers',
-  '/api/ai/generate-360':   'spin_360',
-  '/api/360-spins':         'spin_360',
-  '/api/spin-packages':     'spin_packages',
-}
-
-const MIDDLEWARE_DEFAULT_ENABLED: Record<string, boolean> = {
-  payments:      true,
-  appointments:  true,
-  contacts:      true,
-  leads:         true,
-  messages:      true,
-  store:         true,
-  website:       true,
-  customers:     true,
-  rewards:       false,
-  vehicles:      false,
-  damage_ai:     false,
-  spin_packages: false,
-  spin_360:      false,
-}
-
-function getModuleFromPath(pathname: string): string | null {
-  for (const [prefix, key] of Object.entries(MODULE_ROUTE_MAP)) {
-    if (pathname === prefix || pathname.startsWith(prefix + '/')) return key
-  }
-  return null
-}
 
 // ── Main middleware ───────────────────────────────────────────────────────────
 
 export async function middleware(request: NextRequest) {
-  const { pathname, search } = request.nextUrl
+  const { pathname } = request.nextUrl
   const host = request.headers.get('host') ?? ''
 
-  // Short-circuit for static assets and health checks
-  if (ALWAYS_PUBLIC.some((p) => pathname.startsWith(p))) {
+  // Pass through static assets immediately — no auth overhead
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon.ico') ||
+    pathname.includes('.')
+  ) {
     return NextResponse.next()
   }
 
+  // Build a mutable response so Supabase can write refreshed session cookies
   const response = NextResponse.next({ request })
 
-  // Edge-safe Supabase client — returns null if env vars are absent.
-  // Auth is skipped gracefully in that case (no crash, request passes through).
+  // Refresh Supabase session — never crash if env vars are missing
   const supabase = createMiddlewareSupabaseClient(request, response)
-
-  // Catch Supabase auth errors gracefully — never crash a user request
   let user: { id: string } | null = null
   if (supabase) {
     try {
       const { data } = await supabase.auth.getUser()
-      user = data.user
+      user = data.user ?? null
     } catch (err) {
       console.error('[middleware] supabase.auth.getUser failed:', err)
     }
-  } else {
-    console.warn('[middleware] Supabase env vars missing — skipping auth, allowing request')
   }
 
-  // ── Host normalisation ─────────────────────────────────────────────────────
-  const hostname   = host.split(':')[0].toLowerCase()
-  const isPlatform = isPlatformRootHost(hostname)
-  const domainType = resolveDomainType(hostname)
-  const tenantKey  = resolveTenantKey(hostname)
+  const hostname  = host.split(':')[0].toLowerCase()
+  const isPlatform = isPlatformHost(hostname)
 
-  // ── Module access enforcement (authenticated users only) ──────────────────
-  if (user && supabase) {
-    const moduleKey = getModuleFromPath(pathname)
-    if (moduleKey) {
-      const blocked = await enforceModuleAccess({
-        supabase,
-        userId:     user.id,
-        tenantKey,
-        moduleKey,
-        isApiRoute: pathname.startsWith('/api/'),
-        request,
-      })
-      if (blocked) return blocked
-    }
-  }
-
-  // ── Platform root domain (localhost / yourcrm.com / *.vercel.app) ─────────
+  // ── Platform domain ────────────────────────────────────────────────────────
   if (isPlatform) {
     const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))
     const isAuthPage  = AUTH_PATHS.some((p) => pathname.startsWith(p))
 
+    // Unauthenticated user hitting a protected route → /login
     if (isProtected && !user) {
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('next', pathname)
       return NextResponse.redirect(loginUrl)
     }
 
+    // Authenticated user hitting an auth page → /dashboard
     if (isAuthPage && user) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 
     if (user) response.headers.set('x-auth-uid', user.id)
     response.headers.set('x-is-platform', 'true')
-    response.headers.set('x-tenant-slug', '')
     response.headers.set('x-domain-type', 'platform')
     return response
   }
 
-  // ── Tenant host (subdomain or verified custom domain) ────────────────────
-  // For custom (non-subdomain) domains: verify before serving.
-  if (domainType === 'custom') {
-    // If Supabase is unavailable we can't verify the domain — return 404 to
-    // prevent serving tenant content on an unverified host.
-    const isVerified = supabase
-      ? await isVerifiedCustomDomain(supabase, hostname)
-      : false
-    if (!isVerified) {
-      return new NextResponse(null, { status: 404 })
-    }
+  // ── Tenant host (subdomain or verified custom domain) ─────────────────────
+  const tenantKey = extractTenantKey(hostname)
+
+  // Unknown / unresolvable host — pass through to Next.js (will 404 naturally)
+  if (!tenantKey) {
+    return NextResponse.next()
   }
 
-  const resolvedSlug = domainType === 'subdomain' ? tenantKey! : null
+  response.headers.set('x-tenant-slug', tenantKey)
+  response.headers.set('x-hostname',    hostname)
+  response.headers.set('x-is-platform', 'false')
 
-  response.headers.set('x-tenant-slug',  tenantKey ?? '')
-  response.headers.set('x-hostname',     hostname)
-  response.headers.set('x-is-platform',  'false')
-  response.headers.set('x-domain-type',  domainType)
-  if (resolvedSlug) response.headers.set('x-tenant-resolved-slug', resolvedSlug)
-  if (user)         response.headers.set('x-auth-uid', user.id)
-
-  // Dashboard/app paths on a tenant host — serve the app without rewriting.
-  // Staff who reach a protected dashboard path unauthenticated are redirected
-  // to the PLATFORM login (APP_URL), not the customer login on this host.
-  const isDashboardPath = DASHBOARD_PREFIXES.some((p) => pathname.startsWith(p))
-
-  if (isDashboardPath) {
+  // Dashboard/app paths on a tenant host → serve without public-site rewrite
+  const isDashboard = DASHBOARD_PREFIXES.some((p) => pathname.startsWith(p))
+  if (isDashboard) {
     const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))
-
     if (isProtected && !user) {
-      // Staff must authenticate via the platform domain, not the tenant login.
+      // Staff must authenticate via the platform domain
       const platformLogin = new URL('/login', APP_URL)
       platformLogin.searchParams.set('next', pathname)
       return NextResponse.redirect(platformLogin)
     }
-
-    // Serve dashboard paths (including /api/*) without a site rewrite.
     return response
   }
 
-  // Preview mode — skip public site rewrite and customer auth checks
-  if (pathname.startsWith('/preview')) {
-    return response
-  }
-
-  // ── Customer route protection (public tenant site) ────────────────────────
-  // These checks run BEFORE the rewrite so redirects hit the right host.
-
-  const isCustomerProtected = CUSTOMER_PROTECTED_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(p + '/'),
-  )
-  const isCustomerAuthPath = CUSTOMER_AUTH_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(p + '/'),
-  )
-
-  if (isCustomerProtected && !user) {
-    // Send unauthenticated customers to the tenant's own login page.
-    // /login on this host will be rewritten to /sites/[tenant]/login below.
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('next', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  if (isCustomerAuthPath && user) {
-    // Already authenticated — skip auth pages and go straight to account.
-    return NextResponse.redirect(new URL('/account', request.url))
-  }
-
-  // ── Public site rewrite ───────────────────────────────────────────────────
-  // tenantKey is guaranteed non-null here (subdomain or verified custom domain)
-  const sitePath   = pathname === '/' ? '' : pathname
-  const rewriteUrl = new URL(
-    `/sites/${encodeURIComponent(tenantKey!)}${sitePath}${search}`,
-    request.url,
-  )
+  // ── Public-site rewrite ───────────────────────────────────────────────────
+  // Rewrite: tenant.nexoranow.com/foo → /sites/[tenant]/foo
+  const rewriteUrl = request.nextUrl.clone()
+  rewriteUrl.pathname = `/sites/${encodeURIComponent(tenantKey)}${
+    pathname === '/' ? '' : pathname
+  }`
 
   const rewritten = NextResponse.rewrite(rewriteUrl, { request })
-  rewritten.headers.set('x-tenant-slug',  tenantKey ?? '')
-  rewritten.headers.set('x-hostname',     hostname)
-  rewritten.headers.set('x-is-platform',  'false')
-  rewritten.headers.set('x-domain-type',  domainType)
+  rewritten.headers.set('x-tenant-slug', tenantKey)
+  rewritten.headers.set('x-hostname',    hostname)
+  rewritten.headers.set('x-is-platform', 'false')
   if (user) rewritten.headers.set('x-auth-uid', user.id)
 
-  // Forward any auth cookies set during this request
+  // Forward any session cookies refreshed during this request
   response.cookies.getAll().forEach(({ name, value }) => {
     rewritten.cookies.set(name, value)
   })
@@ -257,177 +131,68 @@ export async function middleware(request: NextRequest) {
   return rewritten
 }
 
-// ── Module enforcement helper ─────────────────────────────────────────────────
-
-import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '@/lib/supabase/types'
-
-type SupabaseEdgeClient = SupabaseClient<Database>
-
-interface EnforceModuleParams {
-  supabase:   SupabaseEdgeClient
-  userId:     string
-  tenantKey:  string | null
-  moduleKey:  string
-  isApiRoute: boolean
-  request:    NextRequest
-}
-
-async function enforceModuleAccess(params: EnforceModuleParams): Promise<NextResponse | null> {
-  const { supabase, userId, tenantKey, moduleKey, isApiRoute, request } = params
-
-  try {
-    const { data: userRecord } = await supabase
-      .from('users')
-      .select('role, tenant_id')
-      .eq('auth_user_id', userId)
-      .eq('status', 'active')
-      .maybeSingle()
-
-    if (!userRecord) return null
-    if (userRecord.role === 'owner') return null
-
-    let tenantId: string | null = null
-
-    if (tenantKey) {
-      const { data: tenant } = await supabase
-        .from('tenants')
-        .select('id')
-        .or(`slug.eq.${tenantKey},subdomain.eq.${tenantKey},custom_domain.eq.${tenantKey}`)
-        .eq('status', 'active')
-        .maybeSingle()
-      tenantId = tenant?.id ?? null
-    } else {
-      tenantId = userRecord.tenant_id as string | null
-    }
-
-    if (!tenantId) return null
-
-    const { data: moduleRecord } = await supabase
-      .from('tenant_modules')
-      .select('enabled')
-      .eq('tenant_id', tenantId)
-      .eq('module_key', moduleKey)
-      .maybeSingle()
-
-    const defaultEnabled = MIDDLEWARE_DEFAULT_ENABLED[moduleKey] ?? true
-    const isEnabled = moduleRecord !== null
-      ? (moduleRecord.enabled as boolean)
-      : defaultEnabled
-
-    if (isEnabled) return null
-
-    if (isApiRoute) {
-      return NextResponse.json(
-        { error: `Module '${moduleKey}' is not enabled for this tenant` },
-        { status: 403 },
-      )
-    }
-
-    const redirectUrl = new URL('/dashboard', request.url)
-    redirectUrl.searchParams.set('error', 'module_disabled')
-    return NextResponse.redirect(redirectUrl)
-
-  } catch (err) {
-    console.error('[middleware] enforceModuleAccess error:', err)
-    return null
-  }
-}
-
-// ── Custom domain verification ────────────────────────────────────────────────
-
-async function isVerifiedCustomDomain(
-  supabase: SupabaseEdgeClient,
-  hostname: string,
-): Promise<boolean> {
-  try {
-    const { data } = await supabase
-      .from('tenant_domains')
-      .select('id')
-      .eq('hostname', hostname)
-      .eq('domain_type', 'custom')
-      .eq('is_verified', true)
-      .maybeSingle()
-    return !!data
-  } catch {
-    return false
-  }
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
  * Returns true for the platform's own hostnames.
- * Any request reaching this middleware from these hosts is treated as a
- * platform-admin / SaaS-app request, NOT a tenant public site.
- *
- * Includes:
- *   - localhost               local dev
- *   - yourcrm.com             production root domain
- *   - app.yourcrm.com         alternate platform root
- *   - NEXT_PUBLIC_APP_URL     explicitly configured app URL
- *   - VERCEL_URL              auto-injected by Vercel (this deployment)
- *   - *.vercel.app            all Vercel preview/production deployments of this project
+ * Recognised hosts:
+ *   - localhost              local dev
+ *   - ROOT_DOMAIN            production root (e.g. nexoranow.com)
+ *   - www.ROOT_DOMAIN        www alias
+ *   - app.ROOT_DOMAIN        alternate platform entry-point
+ *   - NEXT_PUBLIC_APP_URL    explicitly configured app URL
+ *   - VERCEL_URL             auto-injected deployment URL
+ *   - *.vercel.app           all Vercel preview/production deployments
  */
-function isPlatformRootHost(hostname: string): boolean {
+function isPlatformHost(hostname: string): boolean {
   if (hostname === 'localhost') return true
   if (hostname === ROOT_DOMAIN) return true
+  if (hostname === `www.${ROOT_DOMAIN}`) return true
   if (hostname === `app.${ROOT_DOMAIN}`) return true
 
-  // Explicit APP_URL env var (e.g. https://app.yourcrm.com or https://yourapp.vercel.app)
-  const appHostname = safeHostname(APP_URL)
-  if (appHostname && appHostname !== 'localhost' && hostname === appHostname) return true
-
-  // Vercel auto-injects VERCEL_URL for the current deployment (no NEXT_PUBLIC_ prefix)
-  // Format: "project-name-gitbranch-abc123.vercel.app"
   if (VERCEL_URL) {
-    const vercelHostname = safeHostname(`https://${VERCEL_URL}`)
-    if (hostname === vercelHostname) return true
+    const vercelHost = VERCEL_URL.split(':')[0]
+    if (hostname === vercelHost) return true
   }
 
-  // All *.vercel.app hostnames belong to this project's preview/production deployments.
-  // Requests to other Vercel projects never reach this middleware instance.
   if (hostname.endsWith('.vercel.app')) return true
+
+  try {
+    const appHost = new URL(APP_URL).hostname
+    if (appHost && appHost !== 'localhost' && hostname === appHost) return true
+  } catch { /* ignore invalid APP_URL */ }
 
   return false
 }
 
-type DomainType = 'platform' | 'subdomain' | 'custom'
-
-function resolveDomainType(hostname: string): DomainType {
-  if (isPlatformRootHost(hostname)) return 'platform'
-  if (hostname.endsWith(`.${ROOT_DOMAIN}`)) return 'subdomain'
-  if (hostname.endsWith('.localhost'))       return 'subdomain'
-  return 'custom'
-}
-
 /**
- * Returns the tenant key (slug or full hostname) for the given host.
- * Returns null for platform root hosts.
+ * Extracts the tenant key from a hostname.
+ *
+ * Returns:
+ *   - slug string  → for *.ROOT_DOMAIN subdomains and *.localhost
+ *   - full hostname → for custom domains (page-level DB lookup handles verification)
+ *   - null          → for the platform root (should be caught by isPlatformHost first)
  */
-function resolveTenantKey(hostname: string): string | null {
-  if (isPlatformRootHost(hostname)) return null
-
+function extractTenantKey(hostname: string): string | null {
+  // {slug}.localhost  (local multi-tenant dev)
   if (hostname.endsWith('.localhost')) {
     return hostname.replace(/\.localhost$/, '') || null
   }
 
+  // {slug}.ROOT_DOMAIN  (e.g. acme.nexoranow.com)
   const suffix = `.${ROOT_DOMAIN}`
   if (hostname.endsWith(suffix)) {
     return hostname.slice(0, hostname.length - suffix.length) || null
   }
 
-  // Custom domain — use the full hostname as the tenant key
-  return hostname
-}
-
-function safeHostname(url: string): string {
-  try { return new URL(url).hostname } catch { return '' }
+  // Custom domain — return full hostname; page will verify via DB
+  // Only reached when isPlatformHost() returned false, so ROOT_DOMAIN itself
+  // is never passed here.
+  return hostname || null
 }
 
 export const config = {
-  // Exclude all Next.js internals and favicon from middleware.
-  // _next/* covers static assets, image responses, data fetches, chunks, and webpack files.
-  // API routes are intentionally kept in scope for module-access enforcement.
+  // Run on all paths except Next.js internals and favicon.
+  // API routes are intentionally included so headers are forwarded.
   matcher: ['/((?!_next|favicon.ico).*)'],
 }

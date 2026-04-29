@@ -9,7 +9,6 @@ export const dynamic = 'force-dynamic'
 //
 // Resolution: slug if no dot; host-based if dot present.
 
-import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
@@ -17,7 +16,7 @@ import { normalizeTheme } from '@/lib/website/normalizeTheme'
 import { SiteHeader } from '@/components/site/SiteHeader'
 import { SiteFooter } from '@/components/site/SiteFooter'
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 interface Props {
   children:  React.ReactNode
@@ -66,7 +65,17 @@ export default async function SiteLayout({ children, params }: Props) {
     ? await getSiteByHost(tenantKey)
     : await getSiteBySlug(tenantKey)
 
-  if (!siteData) notFound()
+  if (!siteData) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center"
+        style={{ background: '#0f0f13', color: '#fff' }}>
+        <div className="text-center space-y-3 px-6">
+          <h1 className="text-2xl font-bold">Site not found</h1>
+          <p className="text-white/50 text-sm">This address is not associated with any site.</p>
+        </div>
+      </div>
+    )
+  }
 
   const config = await getPublishedSiteConfig(siteData.tenant.id)
 

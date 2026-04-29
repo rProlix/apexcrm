@@ -2,7 +2,6 @@ export const dynamic = 'force-dynamic'
 
 // app/sites/[tenant]/[...slug]/page.tsx
 // Catch-all for custom pages: /about, /contact, /faq, and any custom slug.
-import { notFound } from 'next/navigation'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { SectionRenderer } from '@/components/site/SectionRenderer'
@@ -22,13 +21,47 @@ export default async function CustomPage({ params }: Props) {
     ? await getSiteByHost(tenantKey)
     : await getSiteBySlug(tenantKey)
 
-  if (!siteData) notFound()
+  if (!siteData) {
+    return (
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', textAlign: 'center', padding: '4rem 1.5rem' }}>
+        <p style={{ color: 'var(--color-muted)', fontSize: '1rem' }}>Site not found.</p>
+      </div>
+    )
+  }
 
   const config = await getPublishedSiteConfig(siteData.tenant.id)
-  if (!config) notFound()
+  if (!config) {
+    return (
+      <div style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+        gap: '1rem', padding: '4rem 1.5rem' }}>
+        <p style={{ fontSize: '1.25rem', fontWeight: 600 }}>
+          Welcome to {siteData.tenant.name}
+        </p>
+        <p style={{ fontSize: '0.9375rem', color: 'var(--color-muted)' }}>
+          This site is coming soon.
+        </p>
+      </div>
+    )
+  }
 
   const page = config.pages.find((p) => p.slug === pageSlug || p.slug === `/${pageSlug}`)
-  if (!page) notFound()
+  if (!page) {
+    return (
+      <div style={{ minHeight: '40vh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', padding: '4rem 1.5rem' }}>
+        <div style={{ textAlign: 'center', color: 'var(--color-muted)' }}>
+          <h1 style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: 700,
+            color: 'var(--color-text)', fontFamily: 'var(--font-heading)',
+            marginBottom: '0.5rem' }}>
+            Page not found
+          </h1>
+          <p>This page does not exist on this site.</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div>

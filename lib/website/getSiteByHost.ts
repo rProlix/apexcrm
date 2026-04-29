@@ -2,7 +2,7 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { SiteByHostResult, SiteSettings } from './types'
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'yourcrm.com'
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 interface TenantRow {
   id:            string
