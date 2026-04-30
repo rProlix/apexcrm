@@ -6,12 +6,16 @@ import { createMiddlewareSupabaseClient } from '@/lib/supabase/middleware'
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 const VERCEL_URL  = process.env.VERCEL_URL ?? ''
 
+// Paths that require an authenticated session on the owner domain.
+// All other paths (/, /login, /signup, /sites/*, /api/*) remain public.
+const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/admin']
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
   const host     = req.headers.get('host') ?? ''
   const hostname = host.split(':')[0]
 
-  // Debug — visible in Vercel Function logs (remove after confirming routing)
+  // Debug — check Vercel Function logs to confirm routing behaviour
   console.log('[middleware] HOST:', hostname, '| PATH:', pathname)
 
   // ── Static assets — skip all middleware logic ─────────────────────────────
@@ -23,58 +27,79 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // ── Supabase session refresh (MUST run on every request) ──────────────────
+  // ── Supabase session refresh (MUST run on every non-static request) ────────
   //
-  // Supabase access tokens expire every hour and are backed by one-time-use
-  // refresh tokens. Only the middleware can write Set-Cookie headers that
-  // persist refreshed tokens back to the browser. Without this call, tokens
-  // expire silently and the user is forced to re-login in a loop.
+  // Supabase access tokens expire every hour. Only middleware can write
+  // Set-Cookie headers that refresh the token before the server component
+  // runs. Skipping this causes silent session loss → re-login loops.
+  //
+  // We also capture the user here for the auth guard below — no extra
+  // network round-trip because getUser() is needed for the refresh anyway.
   const sessionResponse = NextResponse.next({ request: req })
   const supabase = createMiddlewareSupabaseClient(req, sessionResponse)
+
+  let user: { id: string } | null = null
   if (supabase) {
     try {
-      await supabase.auth.getUser()
+      const { data } = await supabase.auth.getUser()
+      user = data.user
     } catch {
-      // Non-fatal: if Supabase is unreachable we still route the request
+      // Non-fatal: unreachable Supabase → route the request without a session
     }
   }
 
-  // ── Vercel preview / deployment URLs — pass through ───────────────────────
-  if (hostname.endsWith('.vercel.app')) {
-    return sessionResponse
-  }
+  console.log('[middleware] USER:', user?.id ?? 'none')
 
-  // ── Root domain — serve the app directly ─────────────────────────────────
-  if (
-    hostname === ROOT_DOMAIN        ||
+  // ── Platform domain check ─────────────────────────────────────────────────
+  const isOwnerDomain = (
+    hostname === ROOT_DOMAIN          ||
     hostname === `www.${ROOT_DOMAIN}` ||
     hostname === `app.${ROOT_DOMAIN}` ||
-    hostname === 'localhost'        ||
+    hostname === 'localhost'          ||
+    hostname.endsWith('.vercel.app')  ||
     (VERCEL_URL && hostname === VERCEL_URL.split(':')[0])
-  ) {
+  )
+
+  // ── Auth guard — protect owner-dashboard routes on the root domain ─────────
+  //
+  // Only fires for /dashboard, /onboarding, /admin when there is no session.
+  // Public paths (/, /login, /signup, /sites/*) are intentionally excluded.
+  //
+  // We intentionally do NOT redirect authenticated users away from /login here.
+  // That redirect is handled by app/page.tsx so there is only one authority —
+  // two competing redirects (middleware + server component) is the most common
+  // cause of the infinite login loop.
+  if (isOwnerDomain && !user && PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
+    console.log('[middleware] Unauthenticated access to protected path — redirecting to /login')
+    const loginUrl = req.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    return NextResponse.redirect(loginUrl)
+  }
+
+  // ── Root domain / Vercel preview — serve the app directly ─────────────────
+  if (isOwnerDomain) {
     return sessionResponse
   }
 
-  // ── Extract subdomain ────────────────────────────────────────────────────
+  // ── Extract tenant subdomain ──────────────────────────────────────────────
   //
-  // Only treat a hostname as a tenant subdomain when it ends with our exact
-  // ROOT_DOMAIN — this avoids false positives on unrelated 3-part hostnames.
+  // Only match subdomains of ROOT_DOMAIN so we never accidentally treat an
+  // unrelated hostname (e.g. a Vercel preview or custom domain) as a tenant.
   //
-  //   erickvcontacf.nexoranow.com  → subdomain = 'erickvcontacf'
-  //   erickvcontacf.localhost       → subdomain = 'erickvcontacf'
-  //   unknown.com                   → subdomain = null (custom domain, pass through)
+  //   erickvcontacf.nexoranow.com  →  subdomain = 'erickvcontacf'
+  //   acme.localhost               →  subdomain = 'acme'
+  //   unknown.com                  →  subdomain = null  (pass through)
   let subdomain: string | null = null
   if (hostname !== ROOT_DOMAIN && hostname.endsWith(`.${ROOT_DOMAIN}`)) {
     subdomain = hostname.slice(0, hostname.length - ROOT_DOMAIN.length - 1)
   } else if (hostname.endsWith('.localhost')) {
     subdomain = hostname.slice(0, hostname.length - '.localhost'.length)
   }
-  // 'www' is already caught by the root domain check above; guard for safety
   if (subdomain === 'www') subdomain = null
 
   console.log('[middleware] SUBDOMAIN:', subdomain)
 
-  // ── Tenant subdomain rewrite ─────────────────────────────────────────────
+  // ── Tenant subdomain rewrite ──────────────────────────────────────────────
   if (subdomain) {
     const rewriteUrl    = req.nextUrl.clone()
     rewriteUrl.pathname = `/sites/${subdomain}${pathname === '/' ? '' : pathname}`
@@ -83,14 +108,14 @@ export async function middleware(req: NextRequest) {
 
     const rewriteResponse = NextResponse.rewrite(rewriteUrl, { request: req })
 
-    // Expose routing context to server components via request headers.
-    // x-original-host is critical — the layout uses it to call getSiteByHost()
-    // which resolves by tenants.subdomain, not tenants.slug (they can differ).
+    // x-original-host lets the tenant layout call getSiteByHost(originalHost)
+    // which resolves by tenants.subdomain — not tenants.slug (they can differ).
     rewriteResponse.headers.set('x-original-host', hostname)
     rewriteResponse.headers.set('x-tenant-slug',   subdomain)
     rewriteResponse.headers.set('x-is-platform',   'false')
 
-    // Forward refreshed session cookies to the rewrite response
+    // Forward refreshed session cookies to the rewrite response so the tenant
+    // server components can read the refreshed session.
     sessionResponse.cookies.getAll().forEach(({ name, value, ...opts }) => {
       rewriteResponse.cookies.set({ name, value, ...opts })
     })
@@ -98,7 +123,7 @@ export async function middleware(req: NextRequest) {
     return rewriteResponse
   }
 
-  // ── Custom / unknown domain — pass through; page resolves via DB ──────────
+  // ── Custom / unknown domain — pass through; tenant page resolves via DB ───
   return sessionResponse
 }
 
