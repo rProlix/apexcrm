@@ -57,12 +57,20 @@ export async function middleware(req: NextRequest) {
 
   // ── Extract subdomain ────────────────────────────────────────────────────
   //
-  // Handles:
-  //   acme.nexoranow.com → parts = ['acme', 'nexoranow', 'com'] → subdomain = 'acme'
-  //   acme.localhost      → parts = ['acme', 'localhost']       → subdomain = 'acme'
-  const parts     = hostname.split('.')
-  const subdomain = parts.length > 2 ? parts[0]
-    : (parts.length === 2 && hostname.endsWith('.localhost') ? parts[0] : null)
+  // Only treat a hostname as a tenant subdomain when it ends with our exact
+  // ROOT_DOMAIN — this avoids false positives on unrelated 3-part hostnames.
+  //
+  //   erickvcontacf.nexoranow.com  → subdomain = 'erickvcontacf'
+  //   erickvcontacf.localhost       → subdomain = 'erickvcontacf'
+  //   unknown.com                   → subdomain = null (custom domain, pass through)
+  let subdomain: string | null = null
+  if (hostname !== ROOT_DOMAIN && hostname.endsWith(`.${ROOT_DOMAIN}`)) {
+    subdomain = hostname.slice(0, hostname.length - ROOT_DOMAIN.length - 1)
+  } else if (hostname.endsWith('.localhost')) {
+    subdomain = hostname.slice(0, hostname.length - '.localhost'.length)
+  }
+  // 'www' is already caught by the root domain check above; guard for safety
+  if (subdomain === 'www') subdomain = null
 
   console.log('[middleware] SUBDOMAIN:', subdomain)
 
@@ -75,9 +83,12 @@ export async function middleware(req: NextRequest) {
 
     const rewriteResponse = NextResponse.rewrite(rewriteUrl, { request: req })
 
-    // Expose routing context to server components via request headers
-    rewriteResponse.headers.set('x-tenant-slug',  subdomain)
-    rewriteResponse.headers.set('x-is-platform',  'false')
+    // Expose routing context to server components via request headers.
+    // x-original-host is critical — the layout uses it to call getSiteByHost()
+    // which resolves by tenants.subdomain, not tenants.slug (they can differ).
+    rewriteResponse.headers.set('x-original-host', hostname)
+    rewriteResponse.headers.set('x-tenant-slug',   subdomain)
+    rewriteResponse.headers.set('x-is-platform',   'false')
 
     // Forward refreshed session cookies to the rewrite response
     sessionResponse.cookies.getAll().forEach(({ name, value, ...opts }) => {

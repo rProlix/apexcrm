@@ -16,6 +16,11 @@ import type { Database } from '@/lib/supabase/types'
  * (Edge runtime). Cookie reads come from the incoming NextRequest; writes
  * are forwarded to the outgoing NextResponse via Set-Cookie headers.
  *
+ * When the request hostname is within the configured root domain (e.g.
+ * nexoranow.com or tenant.nexoranow.com), refreshed session cookies are
+ * written with domain=.nexoranow.com so they're shared across all
+ * subdomains. On Vercel preview or localhost the domain is left unset.
+ *
  * Returns null when env vars are absent so the middleware can degrade
  * gracefully instead of crashing during Vercel's build-time static analysis.
  */
@@ -28,7 +33,21 @@ export function createMiddlewareSupabaseClient(
 
   if (!url || !anon) return null
 
+  const rootDomain   = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? ''
+  const hostname     = request.headers.get('host')?.split(':')[0] ?? ''
+  const cookieDomain = rootDomain && (
+    hostname === rootDomain || hostname.endsWith(`.${rootDomain}`)
+  ) ? `.${rootDomain}` : undefined
+
   return createServerClient<Database>(url, anon, {
+    ...(cookieDomain ? {
+      cookieOptions: {
+        domain:   cookieDomain,
+        path:     '/',
+        sameSite: 'lax' as const,
+        secure:   true,
+      },
+    } : {}),
     cookies: {
       getAll() {
         return request.cookies.getAll()

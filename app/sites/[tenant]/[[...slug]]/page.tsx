@@ -1,5 +1,4 @@
 export const dynamic = 'force-dynamic'
-export const revalidate = 60
 
 // app/sites/[tenant]/[[...slug]]/page.tsx
 // Optional catch-all — handles both the tenant homepage (no slug) and all
@@ -10,6 +9,7 @@ export const revalidate = 60
 //   - Missing pages fall back to the first available published page
 //   - A site with no pages shows the business name and a coming-soon message
 
+import { headers } from 'next/headers'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { SectionRenderer } from '@/components/site/SectionRenderer'
@@ -21,13 +21,18 @@ interface Props {
 export default async function TenantPage({ params }: Props) {
   const { tenant, slug } = await params
   const tenantKey = decodeURIComponent(tenant)
-  // Empty string → home page; joined string → custom page slug
-  const pageSlug = slug?.join('/') ?? ''
+  const pageSlug  = slug?.join('/') ?? ''
 
-  // Resolve site — custom domain uses host-based lookup, slug uses subdomain
-  const siteData = tenantKey.includes('.')
-    ? await getSiteByHost(tenantKey)
-    : await getSiteBySlug(tenantKey)
+  // Prefer the original host so we resolve by tenants.subdomain (set at
+  // signup) rather than tenants.slug, which can differ from the subdomain.
+  const headersList  = await headers()
+  const originalHost = headersList.get('x-original-host')
+
+  const siteData = originalHost
+    ? await getSiteByHost(originalHost)
+    : tenantKey.includes('.')
+      ? await getSiteByHost(tenantKey)
+      : await getSiteBySlug(tenantKey)
 
   if (!siteData) {
     return (

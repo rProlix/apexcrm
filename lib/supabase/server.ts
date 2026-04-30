@@ -1,5 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
 
@@ -45,13 +45,31 @@ export function getSupabaseServerClient() {
  * route handlers, and server actions. Reads the session from the
  * request cookies set by the browser's @supabase/ssr client.
  *
- * Must be awaited — Next.js 15 made cookies() an async API.
+ * Applies the same cross-subdomain cookie domain as the browser and
+ * middleware clients so that refreshed tokens written here (e.g. from
+ * route handlers) are readable across all *.nexoranow.com subdomains.
+ *
+ * Must be awaited — Next.js 15 made cookies() and headers() async APIs.
  */
 export async function createSessionServerClient() {
   const { url, anon } = getEnv()
-  const cookieStore = await cookies()
+  const [cookieStore, headersList] = await Promise.all([cookies(), headers()])
+
+  const rootDomain   = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? ''
+  const hostname     = headersList.get('host')?.split(':')[0] ?? ''
+  const cookieDomain = rootDomain && (
+    hostname === rootDomain || hostname.endsWith(`.${rootDomain}`)
+  ) ? `.${rootDomain}` : undefined
 
   return createServerClient<Database>(url, anon, {
+    ...(cookieDomain ? {
+      cookieOptions: {
+        domain:   cookieDomain,
+        path:     '/',
+        sameSite: 'lax' as const,
+        secure:   true,
+      },
+    } : {}),
     cookies: {
       getAll() {
         return cookieStore.getAll()

@@ -70,9 +70,17 @@ export default async function SiteLayout({ children, params }: Props) {
 
     console.log('[SiteLayout] rendering tenant:', tenantKey)
 
-    const siteData = tenantKey.includes('.')
-      ? await getSiteByHost(tenantKey)
-      : await getSiteBySlug(tenantKey)
+    // Prefer host-based resolution when the original host header is present.
+    // getSiteByHost() resolves by tenants.subdomain, custom_domain, and
+    // tenant_domains — all the strategies a slug-only lookup misses.
+    const headersList = await headers()
+    const originalHost = headersList.get('x-original-host')
+
+    const siteData = originalHost
+      ? await getSiteByHost(originalHost)
+      : tenantKey.includes('.')
+        ? await getSiteByHost(tenantKey)
+        : await getSiteBySlug(tenantKey)
 
     if (!siteData) {
       console.error('[SiteLayout] no site found for key:', tenantKey)
@@ -118,9 +126,8 @@ export default async function SiteLayout({ children, params }: Props) {
       '--font-body':        `"${theme.fontBody}", sans-serif`,
     } as React.CSSProperties
 
-    const headersList = await headers()
-    const isPlatform  = headersList.get('x-is-platform') === 'true'
-    const basePath    = isPlatform ? `/sites/${tenantSlug}` : ''
+    const isPlatform = headersList.get('x-is-platform') === 'true'
+    const basePath   = isPlatform ? `/sites/${tenantSlug}` : ''
 
     let isAuthenticated = false
     try {
