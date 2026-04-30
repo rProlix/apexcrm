@@ -75,6 +75,10 @@ export async function middleware(req: NextRequest) {
 
     const rewriteResponse = NextResponse.rewrite(rewriteUrl, { request: req })
 
+    // Expose routing context to server components via request headers
+    rewriteResponse.headers.set('x-tenant-slug',  subdomain)
+    rewriteResponse.headers.set('x-is-platform',  'false')
+
     // Forward refreshed session cookies to the rewrite response
     sessionResponse.cookies.getAll().forEach(({ name, value, ...opts }) => {
       rewriteResponse.cookies.set({ name, value, ...opts })

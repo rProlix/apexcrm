@@ -22,51 +22,66 @@ import type {
 export async function getPublishedSiteConfig(
   tenantId: string,
 ): Promise<PublishedSiteConfig | null> {
-  const db = getSupabaseServerClient()
+  let db: ReturnType<typeof getSupabaseServerClient>
+  try {
+    db = getSupabaseServerClient()
+  } catch (err) {
+    console.error('[getPublishedSiteConfig] Supabase client init failed:', err instanceof Error ? err.message : err)
+    return null
+  }
 
-  const [settingsResult, pagesResult, navResult] = await Promise.all([
-    db
-      .from('site_settings')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .maybeSingle(),
-    db
-      .from('site_pages')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .eq('status', 'published')
-      .order('sort_order', { ascending: true }),
-    db
-      .from('site_navigation_items')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .eq('is_visible', true)
-      .order('sort_order', { ascending: true }),
-  ])
+  try {
+    const [settingsResult, pagesResult, navResult] = await Promise.all([
+      db
+        .from('site_settings')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .maybeSingle(),
+      db
+        .from('site_pages')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'published')
+        .order('sort_order', { ascending: true }),
+      db
+        .from('site_navigation_items')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_visible', true)
+        .order('sort_order', { ascending: true }),
+    ])
 
-  const settings = settingsResult.data as unknown as SiteSettings | null
+    if (settingsResult.error) console.error('[getPublishedSiteConfig] settings error:', settingsResult.error.message)
+    if (pagesResult.error)    console.error('[getPublishedSiteConfig] pages error:', pagesResult.error.message)
+    if (navResult.error)      console.error('[getPublishedSiteConfig] nav error:', navResult.error.message)
 
-  if (!settings?.is_published) return null
+    const settings = settingsResult.data as unknown as SiteSettings | null
 
-  const pages    = (pagesResult.data ?? []) as unknown as SitePage[]
-  const navItems = (navResult.data   ?? []) as unknown as SiteNavigationItem[]
+    if (!settings?.is_published) return null
 
-  const sections = await fetchSectionsForPages(db, pages.map((p) => p.id), true)
+    const pages    = (pagesResult.data ?? []) as unknown as SitePage[]
+    const navItems = (navResult.data   ?? []) as unknown as SiteNavigationItem[]
 
-  const sectionsByPage = groupByKey(sections as unknown as Record<string, unknown>[], 'page_id')
+    const sections = await fetchSectionsForPages(db, pages.map((p) => p.id), true)
 
-  return {
-    tenant_id: tenantId,
-    settings,
-    pages: pages.map((page) => ({
-      ...page,
-      sections: (sectionsByPage[page.id] ?? []) as unknown as SiteSection[],
-    })),
-    navigation: {
-      header: navItems.filter((n) => n.location === 'header'),
-      footer: navItems.filter((n) => n.location === 'footer'),
-    },
-    theme: normalizeTheme(settings),
+    const sectionsByPage = groupByKey(sections as unknown as Record<string, unknown>[], 'page_id')
+
+    return {
+      tenant_id: tenantId,
+      settings,
+      pages: pages.map((page) => ({
+        ...page,
+        sections: (sectionsByPage[page.id] ?? []) as unknown as SiteSection[],
+      })),
+      navigation: {
+        header: navItems.filter((n) => n.location === 'header'),
+        footer: navItems.filter((n) => n.location === 'footer'),
+      },
+      theme: normalizeTheme(settings),
+    }
+  } catch (err) {
+    console.error('[getPublishedSiteConfig] unexpected error for tenant', tenantId, ':', err instanceof Error ? err.message : err)
+    return null
   }
 }
 

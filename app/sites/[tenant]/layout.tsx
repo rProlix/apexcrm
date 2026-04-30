@@ -26,137 +26,153 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ tenant: string }> }): Promise<Metadata> {
-  const { tenant: tenantSlug } = await params
-  const tenantKey = decodeURIComponent(tenantSlug)
-  const siteData  = tenantKey.includes('.')
-    ? await getSiteByHost(tenantKey)
-    : await getSiteBySlug(tenantKey)
+  try {
+    const { tenant: tenantSlug } = await params
+    const tenantKey = decodeURIComponent(tenantSlug)
+    const siteData  = tenantKey.includes('.')
+      ? await getSiteByHost(tenantKey)
+      : await getSiteBySlug(tenantKey)
 
-  if (!siteData) return { title: 'Not Found' }
+    if (!siteData) return { title: 'Not Found' }
 
-  const { tenant, settings } = siteData
-  const seo   = (settings?.seo_defaults as Record<string, string> | null) ?? {}
-  const title = seo.title || settings?.site_name || tenant.name
+    const { tenant, settings } = siteData
+    const seo   = (settings?.seo_defaults as Record<string, string> | null) ?? {}
+    const title = seo.title || settings?.site_name || tenant.name
 
-  // Canonical URL prefers custom domain if domain_type = 'custom'
-  const canonicalHost =
-    settings?.domain_type === 'custom' && settings.custom_domain
-      ? settings.custom_domain
-      : `${tenant.slug}.${ROOT_DOMAIN}`
+    const canonicalHost =
+      settings?.domain_type === 'custom' && settings.custom_domain
+        ? settings.custom_domain
+        : `${tenant.slug}.${ROOT_DOMAIN}`
 
-  return {
-    title,
-    description:  seo.description ?? undefined,
-    openGraph: {
+    return {
       title,
-      description: seo.description ?? undefined,
-      images:      seo.ogImage ? [seo.ogImage] : undefined,
-      url:         `https://${canonicalHost}`,
-    },
-    alternates: {
-      canonical: `https://${canonicalHost}`,
-    },
+      description:  seo.description ?? undefined,
+      openGraph: {
+        title,
+        description: seo.description ?? undefined,
+        images:      seo.ogImage ? [seo.ogImage] : undefined,
+        url:         `https://${canonicalHost}`,
+      },
+      alternates: {
+        canonical: `https://${canonicalHost}`,
+      },
+    }
+  } catch (err) {
+    console.error('[generateMetadata/tenant] error:', err instanceof Error ? err.message : err)
+    return { title: 'Site' }
   }
 }
 
 export default async function SiteLayout({ children, params }: Props) {
-  const { tenant: tenantSlug } = await params
-  const tenantKey = decodeURIComponent(tenantSlug)
+  try {
+    const { tenant: tenantSlug } = await params
+    const tenantKey = decodeURIComponent(tenantSlug)
 
-  const siteData = tenantKey.includes('.')
-    ? await getSiteByHost(tenantKey)
-    : await getSiteBySlug(tenantKey)
+    console.log('[SiteLayout] rendering tenant:', tenantKey)
 
-  if (!siteData) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center"
-        style={{ background: '#0f0f13', color: '#fff' }}>
-        <div className="text-center space-y-3 px-6">
-          <h1 className="text-2xl font-bold">Site not found</h1>
-          <p className="text-white/50 text-sm">This address is not associated with any site.</p>
+    const siteData = tenantKey.includes('.')
+      ? await getSiteByHost(tenantKey)
+      : await getSiteBySlug(tenantKey)
+
+    if (!siteData) {
+      console.error('[SiteLayout] no site found for key:', tenantKey)
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0f0f13', color: '#fff' }}>
+          <div style={{ textAlign: 'center', padding: '0 1.5rem' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>Site not found</h1>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem' }}>
+              This address is not associated with any site.
+            </p>
+          </div>
         </div>
+      )
+    }
+
+    const config = await getPublishedSiteConfig(siteData.tenant.id)
+
+    if (!config) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0f0f13', color: '#fff' }}>
+          <div style={{ textAlign: 'center', padding: '0 1.5rem' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🚧</div>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>{siteData.tenant.name}</h1>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem', maxWidth: '28rem' }}>
+              This website is coming soon. Check back later.
+            </p>
+          </div>
+        </div>
+      )
+    }
+
+    const theme = normalizeTheme(config.settings)
+
+    const cssVars = {
+      '--color-primary':    theme.primaryColor,
+      '--color-accent':     theme.accentColor,
+      '--color-bg':         theme.backgroundColor,
+      '--color-surface':    theme.surfaceColor,
+      '--color-text':       theme.textColor,
+      '--color-muted':      theme.mutedColor,
+      '--color-border':     theme.borderColor,
+      '--font-heading':     `"${theme.fontHeading}", sans-serif`,
+      '--font-body':        `"${theme.fontBody}", sans-serif`,
+    } as React.CSSProperties
+
+    const headersList = await headers()
+    const isPlatform  = headersList.get('x-is-platform') === 'true'
+    const basePath    = isPlatform ? `/sites/${tenantSlug}` : ''
+
+    let isAuthenticated = false
+    try {
+      const sessionClient = await createSessionServerClient()
+      const { data: { user } } = await sessionClient.auth.getUser()
+      if (user) {
+        const db = getSupabaseServerClient()
+        const { data: account } = await db
+          .from('customer_accounts')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .eq('tenant_id', siteData.tenant.id)
+          .maybeSingle()
+        isAuthenticated = !!account
+      }
+    } catch {
+      // Non-fatal — show Login as the safe fallback
+    }
+
+    return (
+      <div
+        className="site-root min-h-screen flex flex-col"
+        style={{
+          ...cssVars,
+          background: theme.backgroundColor,
+          color:      theme.textColor,
+          fontFamily: `"${theme.fontBody}", sans-serif`,
+        }}
+      >
+        <SiteHeader
+          config={config}
+          basePath={basePath}
+          isAuthenticated={isAuthenticated}
+        />
+        <main className="flex-1">{children}</main>
+        <SiteFooter config={config} />
       </div>
     )
-  }
-
-  const config = await getPublishedSiteConfig(siteData.tenant.id)
-
-  // Not published → show coming-soon page (no header/footer)
-  if (!config) {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('[SiteLayout] unhandled error:', message)
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center"
-        style={{ background: '#0f0f13', color: '#fff' }}>
-        <div className="text-center space-y-4 px-6">
-          <div className="h-16 w-16 rounded-2xl bg-white/8 border border-white/10 flex items-center justify-center mx-auto text-2xl">
-            🚧
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight">{siteData.tenant.name}</h1>
-          <p className="text-white/50 text-sm max-w-sm">
-            This website is coming soon. Check back later.
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0f0f13', color: '#fff', padding: '2rem' }}>
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+            This page could not be loaded
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem' }}>
+            Please try again in a moment.
           </p>
         </div>
       </div>
     )
   }
-
-  const theme = normalizeTheme(config.settings)
-
-  const cssVars = {
-    '--color-primary':    theme.primaryColor,
-    '--color-accent':     theme.accentColor,
-    '--color-bg':         theme.backgroundColor,
-    '--color-surface':    theme.surfaceColor,
-    '--color-text':       theme.textColor,
-    '--color-muted':      theme.mutedColor,
-    '--color-border':     theme.borderColor,
-    '--font-heading':     `"${theme.fontHeading}", sans-serif`,
-    '--font-body':        `"${theme.fontBody}", sans-serif`,
-  } as React.CSSProperties
-
-  // Determine routing context so SiteHeader uses correct link prefixes.
-  const headersList = await headers()
-  const isPlatform  = headersList.get('x-is-platform') === 'true'
-  const basePath    = isPlatform ? `/sites/${tenantSlug}` : ''
-
-  // Read session to decide whether to show Login or Account in the header.
-  // Non-fatal: if Supabase is unavailable the header degrades to "Login".
-  let isAuthenticated = false
-  try {
-    const sessionClient = await createSessionServerClient()
-    const { data: { user } } = await sessionClient.auth.getUser()
-    if (user) {
-      // Verify the user actually has a customer account for THIS tenant
-      // (prevents a staff member session from lighting up the "Account" link)
-      const db = getSupabaseServerClient()
-      const { data: account } = await db
-        .from('customer_accounts')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .eq('tenant_id', siteData.tenant.id)
-        .maybeSingle()
-      isAuthenticated = !!account
-    }
-  } catch {
-    // Non-fatal — show Login as the safe fallback
-  }
-
-  return (
-    <div
-      className="site-root min-h-screen flex flex-col"
-      style={{
-        ...cssVars,
-        background: theme.backgroundColor,
-        color:      theme.textColor,
-        fontFamily: `"${theme.fontBody}", sans-serif`,
-      }}
-    >
-      <SiteHeader
-        config={config}
-        basePath={basePath}
-        isAuthenticated={isAuthenticated}
-      />
-      <main className="flex-1">{children}</main>
-      <SiteFooter config={config} />
-    </div>
-  )
 }
