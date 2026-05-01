@@ -2,17 +2,18 @@
 // Dispatches each site section to its appropriate renderer.
 // ProductGridSection is async (server component), the rest are sync.
 
-import { HeroSection }          from './sections/HeroSection'
-import { FeatureGridSection }   from './sections/FeatureGridSection'
-import { TestimonialsSection }  from './sections/TestimonialsSection'
-import { FaqSection }           from './sections/FaqSection'
-import { CtaSection }           from './sections/CtaSection'
-import { RichTextSection }      from './sections/RichTextSection'
-import { BannerSection }        from './sections/BannerSection'
-import { ContactSection }       from './sections/ContactSection'
-import { AboutSection }         from './sections/AboutSection'
-import { ProductGridSection }   from './sections/ProductGridSection'
-import type { SiteSection }     from '@/lib/website/types'
+import { HeroSection }              from './sections/HeroSection'
+import { FeatureGridSection }       from './sections/FeatureGridSection'
+import { TestimonialsSection }      from './sections/TestimonialsSection'
+import { FaqSection }              from './sections/FaqSection'
+import { CtaSection }              from './sections/CtaSection'
+import { RichTextSection }         from './sections/RichTextSection'
+import { BannerSection }           from './sections/BannerSection'
+import { ContactSection }          from './sections/ContactSection'
+import { AboutSection }            from './sections/AboutSection'
+import { ProductGridSection }      from './sections/ProductGridSection'
+import { Product360ViewerSection } from './sections/Product360ViewerSection'
+import type { SiteSection }        from '@/lib/website/types'
 
 interface Props {
   section:  SiteSection
@@ -54,6 +55,9 @@ export async function SectionRenderer({ section, tenantId }: Props) {
 
     case 'about':
       return <AboutSection content={c as never} />
+
+    case 'product_360_viewer':
+      return <Product360ViewerSection content={c as never} tenantId={tenantId} />
 
     default:
       return null

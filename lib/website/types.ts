@@ -29,6 +29,7 @@ export type SectionType =
   | 'rich_text'
   | 'banner'
   | 'about'
+  | 'product_360_viewer'
   | 'custom'
 
 export type NavLocation = 'header' | 'footer'
@@ -164,6 +165,19 @@ export interface AboutContent {
   teamItems?: Array<{ name: string; role: string; avatar?: string }>
 }
 
+export interface Product360ViewerContent {
+  /** UUID of the product whose 360° package should be loaded */
+  productId:   string
+  /** UUID of a specific product_360_packages record (optional override) */
+  packageId?:  string
+  /** Spin slowly on load */
+  autoRotate:  boolean
+  /** Autoplay frames per second (used when autoRotate is on) */
+  speed:       number
+  /** Label shown in the viewer overlay */
+  label?:      string
+}
+
 export type SectionContent =
   | HeroContent
   | FeatureGridContent
@@ -176,6 +190,7 @@ export type SectionContent =
   | BannerContent
   | ImageGalleryContent
   | AboutContent
+  | Product360ViewerContent
   | Record<string, unknown>
 
 // ── Site config sub-objects ───────────────────────────────────────────────────
@@ -469,6 +484,19 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
       headline: 'About Us',
       body:     'Tell your story here.',
     } as AboutContent,
+  },
+  product_360_viewer: {
+    type: 'product_360_viewer',
+    label: '360° Product Viewer',
+    description: 'Interactive drag-to-rotate 360° product spin viewer',
+    icon: 'rotate-ccw',
+    defaultContent: {
+      productId:  '',
+      packageId:  '',
+      autoRotate: false,
+      speed:      18,
+      label:      '',
+    } as Product360ViewerContent,
   },
   custom: {
     type: 'custom',

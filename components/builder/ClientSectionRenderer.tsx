@@ -90,6 +90,31 @@ export function ClientSectionRenderer({ section }: Props) {
         </div>
       )
 
+    case 'product_360_viewer':
+      return (
+        <div style={{
+          padding:      '3rem 1.5rem',
+          textAlign:    'center',
+          background:   'linear-gradient(135deg, #0f0a1e 0%, #1a0a2e 100%)',
+          border:       '2px dashed #4c1d95',
+          borderRadius: '0.5rem',
+          margin:       '1rem 1.5rem',
+        }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🔄</div>
+          <p style={{ color: '#c4b5fd', fontWeight: 600, margin: '0 0 0.25rem', fontSize: '0.9375rem' }}>
+            360° Product Viewer
+          </p>
+          <p style={{ color: '#7c3aed', fontSize: '0.8125rem', margin: 0 }}>
+            {(c.productId as string)
+              ? `Product ID: ${(c.productId as string).slice(0, 8)}… · Configure in sidebar →`
+              : 'Select a product in the sidebar to attach a 360° spin'}
+          </p>
+          <p style={{ color: '#6d28d9', fontSize: '0.75rem', marginTop: '0.75rem' }}>
+            Interactive drag-to-rotate viewer will render on the live site
+          </p>
+        </div>
+      )
+
     default:
       return null
   }

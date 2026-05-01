@@ -138,6 +138,19 @@ export const SECTION_TYPES: SectionTypeDef[] = [
       layout: 'grid',
     },
   },
+  {
+    type:  'product_360_viewer',
+    label: '360° Product Viewer',
+    description: 'Interactive drag-to-rotate 360° product spin — powered by AI',
+    icon:  '🔄',
+    defaultContent: {
+      productId:  '',
+      packageId:  '',
+      autoRotate: false,
+      speed:      18,
+      label:      '',
+    },
+  },
 ]
 
 export const SECTION_TYPE_MAP = new Map(

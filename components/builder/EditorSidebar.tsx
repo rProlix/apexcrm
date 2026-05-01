@@ -6,16 +6,17 @@
 
 import { useBuilderStore } from '@/lib/builder/store'
 import { SECTION_TYPE_MAP } from '@/lib/builder/defaults'
-import { HeroEditor }          from './editors/HeroEditor'
-import { FeatureGridEditor }   from './editors/FeatureGridEditor'
-import { CtaEditor }           from './editors/CtaEditor'
-import { RichTextEditor }      from './editors/RichTextEditor'
-import { BannerEditor }        from './editors/BannerEditor'
-import { TestimonialsEditor }  from './editors/TestimonialsEditor'
-import { FaqEditor }           from './editors/FaqEditor'
-import { AboutEditor }         from './editors/AboutEditor'
-import { GenericEditor }       from './editors/GenericEditor'
-import { Toggle }              from './editors/FormFields'
+import { HeroEditor }              from './editors/HeroEditor'
+import { FeatureGridEditor }       from './editors/FeatureGridEditor'
+import { CtaEditor }              from './editors/CtaEditor'
+import { RichTextEditor }         from './editors/RichTextEditor'
+import { BannerEditor }           from './editors/BannerEditor'
+import { TestimonialsEditor }     from './editors/TestimonialsEditor'
+import { FaqEditor }              from './editors/FaqEditor'
+import { AboutEditor }            from './editors/AboutEditor'
+import { Product360ViewerEditor } from './editors/Product360ViewerEditor'
+import { GenericEditor }          from './editors/GenericEditor'
+import { Toggle }                 from './editors/FormFields'
 
 const SIDEBAR_WIDTH = 360
 
@@ -132,14 +133,15 @@ export function EditorSidebar() {
 
 function renderEditor(sectionType: string, sectionId: string) {
   switch (sectionType) {
-    case 'hero':          return <HeroEditor sectionId={sectionId} />
-    case 'feature_grid':  return <FeatureGridEditor sectionId={sectionId} />
-    case 'cta':           return <CtaEditor sectionId={sectionId} />
-    case 'rich_text':     return <RichTextEditor sectionId={sectionId} />
-    case 'banner':        return <BannerEditor sectionId={sectionId} />
-    case 'testimonials':  return <TestimonialsEditor sectionId={sectionId} />
-    case 'faq':           return <FaqEditor sectionId={sectionId} />
-    case 'about':         return <AboutEditor sectionId={sectionId} />
-    default:              return <GenericEditor sectionId={sectionId} />
+    case 'hero':                return <HeroEditor sectionId={sectionId} />
+    case 'feature_grid':        return <FeatureGridEditor sectionId={sectionId} />
+    case 'cta':                 return <CtaEditor sectionId={sectionId} />
+    case 'rich_text':           return <RichTextEditor sectionId={sectionId} />
+    case 'banner':              return <BannerEditor sectionId={sectionId} />
+    case 'testimonials':        return <TestimonialsEditor sectionId={sectionId} />
+    case 'faq':                 return <FaqEditor sectionId={sectionId} />
+    case 'about':               return <AboutEditor sectionId={sectionId} />
+    case 'product_360_viewer':  return <Product360ViewerEditor sectionId={sectionId} />
+    default:                    return <GenericEditor sectionId={sectionId} />
   }
 }
