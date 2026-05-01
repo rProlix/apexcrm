@@ -8,7 +8,8 @@
  *  - Passes NextRequest / NextResponse cookie adapters directly
  */
 import { createServerClient } from '@supabase/ssr'
-import type { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 import type { Database } from '@/lib/supabase/types'
 
 /**
@@ -62,4 +63,25 @@ export function createMiddlewareSupabaseClient(
       },
     },
   })
+}
+
+/**
+ * Convenience wrapper that creates both the Supabase client and the
+ * outgoing NextResponse in one call — matches the pattern used in the
+ * official @supabase/ssr documentation.
+ *
+ * Usage in middleware.ts:
+ *   const { supabase, response } = updateSession(req)
+ *   const { data: { user } } = await supabase.auth.getUser()
+ *   // ... routing logic ...
+ *   return response
+ *
+ * The returned `response` already has any refreshed session cookies attached.
+ * You MUST return it (or a redirect derived from it) — discarding it loses
+ * the refreshed tokens and causes a re-login loop on the next request.
+ */
+export function updateSession(request: NextRequest) {
+  const response = NextResponse.next({ request })
+  const supabase = createMiddlewareSupabaseClient(request, response)
+  return { supabase, response }
 }

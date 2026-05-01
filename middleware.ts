@@ -106,15 +106,23 @@ export async function middleware(req: NextRequest) {
 
     console.log('[middleware] REWRITE →', rewriteUrl.pathname)
 
-    const rewriteResponse = NextResponse.rewrite(rewriteUrl, { request: req })
+    // CRITICAL: headers must be injected via `request.headers` in the rewrite
+    // options, NOT via `rewriteResponse.headers.set()`.
+    //
+    // `response.headers.set()` sets HTTP *response* headers sent to the browser.
+    // `request: { headers }` sets the *request* headers visible to server
+    // components via `headers()` (next/headers). Using response headers here
+    // is why x-original-host was silently dropped and the tenant layout always
+    // fell back to getSiteBySlug() → "Site not found".
+    const requestHeaders = new Headers(req.headers)
+    requestHeaders.set('x-original-host', hostname)
+    requestHeaders.set('x-tenant-slug',   subdomain)
 
-    // x-original-host lets the tenant layout call getSiteByHost(originalHost)
-    // which resolves by tenants.subdomain — not tenants.slug (they can differ).
-    rewriteResponse.headers.set('x-original-host', hostname)
-    rewriteResponse.headers.set('x-tenant-slug',   subdomain)
-    rewriteResponse.headers.set('x-is-platform',   'false')
+    const rewriteResponse = NextResponse.rewrite(rewriteUrl, {
+      request: { headers: requestHeaders },
+    })
 
-    // Forward refreshed session cookies to the rewrite response so the tenant
+    // Forward refreshed session cookies to the rewrite response so tenant
     // server components can read the refreshed session.
     sessionResponse.cookies.getAll().forEach(({ name, value, ...opts }) => {
       rewriteResponse.cookies.set({ name, value, ...opts })
