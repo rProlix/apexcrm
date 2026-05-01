@@ -24,7 +24,9 @@ export async function GET(req: NextRequest, { params }: Params) {
     .eq('id', id)
     .maybeSingle()
 
-  if (!pkg) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (!pkg || typeof pkg !== 'object') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
 
   // Count completed frames for progress display
   const { count: frames_done } = await supabase
@@ -32,7 +34,12 @@ export async function GET(req: NextRequest, { params }: Params) {
     .select('id', { count: 'exact', head: true })
     .eq('package_id', id)
 
-  return NextResponse.json({ package: { ...pkg, frames_done: frames_done ?? 0 } })
+  return NextResponse.json({
+    package: {
+      ...(pkg as Record<string, unknown>),
+      frames_done: frames_done ?? 0,
+    },
+  })
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
