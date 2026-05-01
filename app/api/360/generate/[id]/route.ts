@@ -8,6 +8,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerClient }   from '@/lib/supabase/server'
 import { resolveStoreUser }          from '@/lib/auth/resolveStoreUser'
 import { generatePackage360 }        from '@/lib/services/spin-generator/generate360Package'
+import { safeOptional, safeSingle }  from '@/lib/supabase/safeQuery'
+
+// Local type for product_360_packages rows.
+// Defined here until the Supabase generated types are regenerated to include
+// the migration-024 tables (at which point this can be removed in favour of
+// the auto-generated Database['public']['Tables']['product_360_packages']['Row']).
+type Product360Package = {
+  id:            string
+  tenant_id:     string
+  product_id:    string
+  name:          string | null
+  prompt:        string | null
+  frame_count:   number
+  status:        string
+  error_message: string | null
+  created_at:    string
+  updated_at:    string
+}
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -18,15 +36,14 @@ export async function GET(req: NextRequest, { params }: Params) {
 
   const supabase = getSupabaseServerClient()
 
-  const { data: pkg } = await supabase
+  const { data, error } = await supabase
     .from('product_360_packages')
     .select('*')
     .eq('id', id)
     .maybeSingle()
 
-  if (!pkg || typeof pkg !== 'object') {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  }
+  const pkg = safeOptional<Product360Package>(data as Product360Package | null, error)
+  if (!pkg) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   // Count completed frames for progress display
   const { count: frames_done } = await supabase
@@ -51,20 +68,33 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const supabase = getSupabaseServerClient()
 
-  const { data: pkg } = await supabase
-    .from('product_360_packages')
-    .select('id, status, tenant_id')
-    .eq('id', id)
-    .maybeSingle()
+  try {
+    const { data, error } = await supabase
+      .from('product_360_packages')
+      .select('id, status, tenant_id')
+      .eq('id', id)
+      .maybeSingle()
 
-  if (!pkg) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (pkg.status === 'generating')
-    return NextResponse.json({ error: 'Generation already in progress' }, { status: 409 })
+    const pkg = safeSingle<Pick<Product360Package, 'id' | 'status' | 'tenant_id'>>(
+      data as Pick<Product360Package, 'id' | 'status' | 'tenant_id'> | null,
+      error,
+      'Package not found',
+    )
 
-  // Fire-and-forget
-  generatePackage360(id).catch(err =>
-    console.error('[POST /api/360/generate/[id]] retry error:', err)
-  )
+    if (pkg.status === 'generating') {
+      return NextResponse.json({ error: 'Generation already in progress' }, { status: 409 })
+    }
 
-  return NextResponse.json({ status: 'generating' })
+    // Fire-and-forget
+    generatePackage360(id).catch(err =>
+      console.error('[POST /api/360/generate/[id]] retry error:', err)
+    )
+
+    return NextResponse.json({ status: 'generating' })
+
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal error'
+    const status  = message === 'Package not found' ? 404 : 500
+    return NextResponse.json({ error: message }, { status })
+  }
 }

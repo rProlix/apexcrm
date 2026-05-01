@@ -1,77 +1,103 @@
 // lib/supabase/safeQuery.ts
 //
-// Lightweight helpers that turn Supabase's { data, error } tuple into a
-// guaranteed non-null value — or throw/return early with a typed error.
+// Helpers that turn Supabase's { data, error } tuple into typed, non-null
+// values — or throw with a clear message on failure.
 //
-// Usage (in an API route):
-//
-//   import { requireData, safeData } from '@/lib/supabase/safeQuery'
-//
-//   // throws if missing — use inside try/catch blocks
-//   const pkg = requireData(data, error)
-//
-//   // returns null if missing — use when absence is expected
-//   const pkg = safeData(data, error)
+// Named exports (alphabetical):
+//   safeQuery    – list query   → T[]        (throws on error, returns [] when empty)
+//   safeSingle   – single row   → T          (throws if missing or error)
+//   safeOptional – optional row → T | null   (throws only on DB error)
+//   requireData  – alias for safeSingle (backward compat)
+//   safeData     – alias for safeOptional (backward compat)
+//   toRecord     – cast to Record for safe spreading
+//   apiError     – converts caught errors into NextResponse 500
 
 import { NextResponse } from 'next/server'
 
-// ── Core helpers ──────────────────────────────────────────────────────────────
+type QueryError = { message: string } | null | undefined
+
+// ── Primary helpers ───────────────────────────────────────────────────────────
 
 /**
- * Asserts that a Supabase query returned a non-null row.
- * Throws if `error` is set or `data` is null/undefined.
+ * List query helper — asserts no DB error and returns the rows array.
+ * Returns an empty array when Supabase returns null (empty result set).
  *
  * @example
- *   const pkg = requireData<Product360Package>(data, error, 'Package not found')
+ *   const { data, error } = await supabase.from('products').select('*')
+ *   const products = safeQuery<Product>(data, error)
  */
-export function requireData<T>(
-  data:    T | null | undefined,
-  error:   { message: string } | null | undefined,
-  message = 'Not found',
-): T {
-  if (error)  throw new Error(error.message)
-  if (!data)  throw new Error(message)
-  return data
+export function safeQuery<T>(
+  data:  T[] | null | undefined,
+  error: QueryError,
+): T[] {
+  if (error) throw new Error(error.message ?? 'Query failed')
+  return (data ?? []) as T[]
 }
 
 /**
- * Returns null instead of throwing when data is absent.
- * Throws only if `error` is set (DB-level failure, not just a missing row).
+ * Single-row helper — throws if the row is missing or the query errored.
+ * Use when the row MUST exist (e.g. after a prior existence check).
  *
  * @example
- *   const pkg = safeData(data, error)
- *   if (!pkg) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+ *   const { data, error } = await supabase.from('products').select('*').eq('id', id).maybeSingle()
+ *   const product = safeSingle<Product>(data, error)
  */
-export function safeData<T>(
+export function safeSingle<T>(
   data:  T | null | undefined,
-  error: { message: string } | null | undefined,
+  error: QueryError,
+  message = 'Record not found',
+): T {
+  if (error) throw new Error(error.message ?? 'Query failed')
+  if (!data) throw new Error(message)
+  return data as T
+}
+
+/**
+ * Optional single-row helper — returns null when the row is absent.
+ * Throws only on a real DB error.
+ *
+ * @example
+ *   const { data, error } = await supabase.from('products').select('*').eq('id', id).maybeSingle()
+ *   const product = safeOptional<Product>(data, error)
+ *   if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+ */
+export function safeOptional<T>(
+  data:  T | null | undefined,
+  error: QueryError,
 ): T | null {
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(error.message ?? 'Query failed')
   return data ?? null
 }
+
+// ── Backward-compatible aliases ───────────────────────────────────────────────
+
+/** @alias safeSingle */
+export const requireData = safeSingle
+
+/** @alias safeOptional */
+export const safeData = safeOptional
 
 // ── Spread helper ─────────────────────────────────────────────────────────────
 
 /**
- * Casts a Supabase row to a plain Record so it can be spread safely.
- * Always guard against null BEFORE calling this.
+ * Casts a Supabase row to a plain Record for safe spreading.
+ * Call AFTER a null check — throws at runtime if the value is not an object.
  *
  * @example
- *   const row = requireData(data, error)
- *   return NextResponse.json({ ...toRecord(row), extra_field: 123 })
+ *   const row = safeSingle(data, error)
+ *   return NextResponse.json({ ...toRecord(row), extra: 1 })
  */
 export function toRecord(row: unknown): Record<string, unknown> {
   if (!row || typeof row !== 'object') {
-    throw new Error('Cannot spread a non-object Supabase row')
+    throw new Error('toRecord: value is not a spreadable object')
   }
   return row as Record<string, unknown>
 }
 
-// ── Route-level error response helper ─────────────────────────────────────────
+// ── Route error helper ────────────────────────────────────────────────────────
 
 /**
- * Converts a caught error into a JSON 500 response, logging the message.
- * Useful at the top of API route catch blocks.
+ * Converts a caught unknown error into a JSON 500 NextResponse.
  *
  * @example
  *   } catch (err) {
