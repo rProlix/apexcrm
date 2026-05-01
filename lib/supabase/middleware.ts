@@ -11,6 +11,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import type { Database } from '@/lib/supabase/types'
+import { getSupabaseEnv } from '@/lib/env'
 
 /**
  * Creates a Supabase client that is safe to use in Next.js middleware
@@ -29,10 +30,16 @@ export function createMiddlewareSupabaseClient(
   request: NextRequest,
   response: NextResponse,
 ) {
-  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!url || !anon) return null
+  let url: string, anon: string
+  try {
+    const env = getSupabaseEnv()
+    url  = env.url
+    anon = env.key
+  } catch {
+    // Env vars absent (e.g. Vercel build-time static analysis).
+    // Return null so middleware degrades gracefully instead of crashing.
+    return null
+  }
 
   const rootDomain   = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? ''
   const hostname     = request.headers.get('host')?.split(':')[0] ?? ''

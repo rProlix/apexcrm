@@ -2,6 +2,7 @@
 
 import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/lib/supabase/types'
+import { getSupabaseEnv } from '@/lib/env'
 
 /**
  * Returns '.nexoranow.com' when the current page is on the production root
@@ -31,9 +32,8 @@ function getCookieDomain(): string | undefined {
  * read them server-side via @supabase/ssr.
  */
 export function getSupabaseBrowserClient() {
-  const url        = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const anon       = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  const cookieDomain = getCookieDomain()
+  const { url, key: anon } = getSupabaseEnv()
+  const cookieDomain       = getCookieDomain()
 
   return createBrowserClient<Database>(url, anon, {
     ...(cookieDomain ? {

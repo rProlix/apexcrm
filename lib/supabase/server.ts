@@ -2,27 +2,16 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies, headers } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
+import { getSupabaseEnv } from '@/lib/env'
 
 /**
- * Reads Supabase env vars at call time (not module load time).
- * This prevents "supabaseUrl is required" errors during Next.js build-time
- * prerendering, where env vars may not yet be injected.
+ * Returns service-role key at call time (never at module scope).
+ * SUPABASE_SERVICE_ROLE_KEY is a server-side secret — it is intentionally
+ * kept out of lib/env.ts (which is importable by client code) and accessed
+ * only here in this server-only file.
  */
-function getEnv() {
-  const url         = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anon        = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!url || !anon) {
-    // Log clearly so the developer sees exactly what to fix in Vercel dashboard.
-    // Callers (pages, layouts) must catch this and degrade gracefully.
-    throw new Error(
-      '[Supabase] Missing env vars: set NEXT_PUBLIC_SUPABASE_URL and ' +
-      'NEXT_PUBLIC_SUPABASE_ANON_KEY in your Vercel project settings ' +
-      '(Settings → Environment Variables).'
-    )
-  }
-  return { url, anon, serviceRole: serviceRole ?? '' }
+function getServiceRoleKey(): string {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 }
 
 /**
@@ -31,7 +20,8 @@ function getEnv() {
  * platform admin tasks, and other privileged server-side work.
  */
 export function getSupabaseServerClient() {
-  const { url, serviceRole } = getEnv()
+  const { url }    = getSupabaseEnv()
+  const serviceRole = getServiceRoleKey()
   return createClient<Database>(url, serviceRole, {
     auth: {
       persistSession: false,
@@ -52,7 +42,7 @@ export function getSupabaseServerClient() {
  * Must be awaited — Next.js 15 made cookies() and headers() async APIs.
  */
 export async function createSessionServerClient() {
-  const { url, anon } = getEnv()
+  const { url, key: anon } = getSupabaseEnv()
   const [cookieStore, headersList] = await Promise.all([cookies(), headers()])
 
   const rootDomain   = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? ''
