@@ -39,14 +39,70 @@ export default async function OrdersPage({ params }: Props) {
 
   // Resolve the CRM customer_id via the customer_accounts link.
   // orders.customer_id references customers.id — NOT the auth user's UUID.
-  const { data: account } = await db
+  const { data: account, error: accountError } = await db
     .from('customer_accounts')
     .select('customer_id, status')
     .eq('auth_user_id', user.id)
     .eq('tenant_id', siteData.tenant.id)
     .maybeSingle()
 
-  if (!account || account.status !== 'active') redirect(loginPath)
+  if (accountError && accountError.code !== 'PGRST116') {
+    console.error('[OrdersPage] account lookup error:', accountError.message)
+  }
+
+  // No customer_accounts row for this tenant — the user is authenticated but
+  // hasn't signed up for THIS store's portal yet.
+  // DO NOT redirect to /login (the user IS logged in — that would create an
+  // infinite loop: orders → login → orders → …).  Show a gentle prompt instead.
+  if (!account) {
+    return (
+      <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
+        <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center', paddingTop: '3rem' }}>
+          <h1 style={{
+            fontSize:   'clamp(1.5rem, 3vw, 2rem)',
+            fontWeight: 700,
+            fontFamily: 'var(--font-heading)',
+            color:      'var(--color-text)',
+            margin:     '0 0 1rem',
+          }}>Order History</h1>
+          <p style={{ color: 'var(--color-muted)', marginBottom: '2rem' }}>
+            You don&apos;t have an account with this store yet.
+          </p>
+          <Link href={`${basePath}/signup`} style={{
+            display:        'inline-block',
+            background:     'var(--color-primary)',
+            color:          '#fff',
+            padding:        '0.75rem 1.75rem',
+            borderRadius:   '0.75rem',
+            fontWeight:     600,
+            textDecoration: 'none',
+          }}>
+            Create a store account
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  // Account exists but is not yet active — show a holding message.
+  if (account.status !== 'active') {
+    return (
+      <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
+        <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center', paddingTop: '3rem' }}>
+          <h1 style={{
+            fontSize:   'clamp(1.5rem, 3vw, 2rem)',
+            fontWeight: 700,
+            fontFamily: 'var(--font-heading)',
+            color:      'var(--color-text)',
+            margin:     '0 0 1rem',
+          }}>Order History</h1>
+          <p style={{ color: 'var(--color-muted)' }}>
+            Your account is pending activation. Please check your email or contact the store.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: ordersRaw } = await (db as any)

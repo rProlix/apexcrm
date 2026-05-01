@@ -134,17 +134,27 @@ export async function customerLogin(
   // This prevents a customer of tenant A from accessing tenant B's portal.
   if (tenantId) {
     const serviceClient = getSupabaseServerClient()
-    const { data: account } = await serviceClient
+    const { data: account, error: accountError } = await serviceClient
       .from('customer_accounts')
       .select('id, status')
       .eq('auth_user_id', signInData.user.id)
       .eq('tenant_id', tenantId)
       .maybeSingle()
 
-    if (!account || account.status !== 'active') {
-      // Sign them out immediately — no access to this tenant's portal
+    if (accountError && accountError.code !== 'PGRST116') {
+      // Unexpected DB error (e.g. service role key not set). Log it and let the
+      // user proceed rather than silently signing them out — they authenticated
+      // successfully and a lookup failure is not a security violation.
+      console.error('[customerLogin] account lookup error:', accountError.message)
+    } else if (!account) {
+      // No row for this tenant — block access but don't globally sign them out.
+      // They may have a valid account on another tenant; a full signOut would
+      // break those sessions too.
       await sessionClient.auth.signOut()
       return { error: 'No account found for this store. Please sign up first.' }
+    } else if (account.status !== 'active') {
+      await sessionClient.auth.signOut()
+      return { error: 'Your account is pending activation. Please check your email.' }
     }
   }
 
