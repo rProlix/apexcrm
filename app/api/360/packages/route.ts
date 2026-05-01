@@ -21,11 +21,7 @@ export async function GET(req: NextRequest) {
 
   const { data: packages, error } = await supabase
     .from('product_360_packages')
-    .select(`
-      id, name, prompt, frame_count, status, error_message, created_at, updated_at,
-      product_id,
-      product_360_frames(id)
-    `)
+    .select('id, name, prompt, frame_count, status, error_message, created_at, updated_at, product_id')
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
 
@@ -34,10 +30,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const result = (packages ?? []).map(pkg => ({
+  if (!packages?.length) {
+    return NextResponse.json({ packages: [] })
+  }
+
+  // Fetch per-package frame counts in one query (avoids N+1 and join typing issues)
+  const packageIds = packages.map(p => p.id)
+  const { data: frameCounts } = await supabase
+    .from('product_360_frames')
+    .select('package_id')
+    .in('package_id', packageIds)
+
+  const countMap = new Map<string, number>()
+  for (const row of frameCounts ?? []) {
+    countMap.set(row.package_id, (countMap.get(row.package_id) ?? 0) + 1)
+  }
+
+  const result = packages.map(pkg => ({
     ...pkg,
-    frames_done: Array.isArray(pkg.product_360_frames) ? pkg.product_360_frames.length : 0,
-    product_360_frames: undefined,
+    frames_done: countMap.get(pkg.id) ?? 0,
   }))
 
   return NextResponse.json({ packages: result })

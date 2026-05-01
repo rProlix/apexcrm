@@ -627,39 +627,98 @@ export interface Database {
       }
       products: {
         Row: {
-          id:              string
-          tenant_id:       string
-          name:            string
-          description:     string | null
-          price:           number
-          currency:        string
-          inventory_count: number
-          is_active:       boolean
-          spin_package_id: string | null
-          spin_360_id:     string | null
-          created_at:      string
-        }
-        Insert: {
+          id:               string
           tenant_id:        string
           name:             string
-          description?:     string | null
+          description:      string | null
           price:            number
-          currency?:        string
-          inventory_count?: number
-          is_active?:       boolean
-          spin_package_id?: string | null
-          spin_360_id?:     string | null
+          currency:         string
+          inventory_count:  number
+          is_active:        boolean
+          spin_package_id:  string | null
+          spin_360_id:      string | null
+          p360_package_id:  string | null
+          created_at:       string
+        }
+        Insert: {
+          tenant_id:         string
+          name:              string
+          description?:      string | null
+          price:             number
+          currency?:         string
+          inventory_count?:  number
+          is_active?:        boolean
+          spin_package_id?:  string | null
+          spin_360_id?:      string | null
+          p360_package_id?:  string | null
         }
         Update: {
-          tenant_id?:       string
-          name?:            string
-          description?:     string | null
-          price?:           number
-          currency?:        string
-          inventory_count?: number
-          is_active?:       boolean
-          spin_package_id?: string | null
-          spin_360_id?:     string | null
+          tenant_id?:        string
+          name?:             string
+          description?:      string | null
+          price?:            number
+          currency?:         string
+          inventory_count?:  number
+          is_active?:        boolean
+          spin_package_id?:  string | null
+          spin_360_id?:      string | null
+          p360_package_id?:  string | null
+        }
+        Relationships: []
+      }
+      product_360_packages: {
+        Row: {
+          id:            string
+          tenant_id:     string
+          product_id:    string
+          name:          string | null
+          prompt:        string | null
+          frame_count:   number
+          status:        'pending' | 'generating' | 'complete' | 'failed'
+          error_message: string | null
+          created_at:    string
+          updated_at:    string
+        }
+        Insert: {
+          tenant_id:      string
+          product_id:     string
+          name?:          string | null
+          prompt?:        string | null
+          frame_count?:   number
+          status?:        'pending' | 'generating' | 'complete' | 'failed'
+          error_message?: string | null
+        }
+        Update: {
+          tenant_id?:     string
+          product_id?:    string
+          name?:          string | null
+          prompt?:        string | null
+          frame_count?:   number
+          status?:        'pending' | 'generating' | 'complete' | 'failed'
+          error_message?: string | null
+        }
+        Relationships: []
+      }
+      product_360_frames: {
+        Row: {
+          id:           string
+          package_id:   string
+          frame_index:  number
+          image_url:    string
+          storage_path: string | null
+          created_at:   string
+        }
+        Insert: {
+          package_id:    string
+          frame_index:   number
+          image_url:     string
+          storage_path?: string | null
+        }
+        Update: {
+          package_id?:   string
+          frame_index?:  number
+          image_url?:    string
+          storage_path?: string | null
         }
         Relationships: []
       }

@@ -9,23 +9,9 @@ import { getSupabaseServerClient }   from '@/lib/supabase/server'
 import { resolveStoreUser }          from '@/lib/auth/resolveStoreUser'
 import { generatePackage360 }        from '@/lib/services/spin-generator/generate360Package'
 import { safeOptional, safeSingle }  from '@/lib/supabase/safeQuery'
+import type { Database }             from '@/lib/supabase/types'
 
-// Local type for product_360_packages rows.
-// Defined here until the Supabase generated types are regenerated to include
-// the migration-024 tables (at which point this can be removed in favour of
-// the auto-generated Database['public']['Tables']['product_360_packages']['Row']).
-type Product360Package = {
-  id:            string
-  tenant_id:     string
-  product_id:    string
-  name:          string | null
-  prompt:        string | null
-  frame_count:   number
-  status:        string
-  error_message: string | null
-  created_at:    string
-  updated_at:    string
-}
+type Product360Package = Database['public']['Tables']['product_360_packages']['Row']
 
 type Params = { params: Promise<{ id: string }> }
 
