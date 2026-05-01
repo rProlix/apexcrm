@@ -7,7 +7,7 @@ import { headers } from 'next/headers'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
-import { safeQuery, safeSingle } from '@/lib/supabase/safeQuery'
+import { safeQuery, safeOptional } from '@/lib/supabase/safeQuery'
 
 interface Props {
   params: Promise<{ tenant: string }>
@@ -134,13 +134,13 @@ export default async function RewardsPage({ params }: Props) {
     console.error('[rewards] punch cards fetch error:', punchCardsResult.error.message)
   }
 
-  const balance      = safeSingle<{
-    points_balance:            number
-    lifetime_points_earned:    number
-    lifetime_points_redeemed:  number
-  }>(balanceResult)
-  const transactions = safeQuery<Transaction>(transactionsResult)
-  const punchCards   = safeQuery<PunchCard>(punchCardsResult)
+  const balance = safeOptional<{
+    points_balance:           number
+    lifetime_points_earned:   number
+    lifetime_points_redeemed: number
+  }>(balanceResult.data, balanceResult.error)
+  const transactions = safeQuery<Transaction>(transactionsResult.data, transactionsResult.error)
+  const punchCards   = safeQuery<PunchCard>(punchCardsResult.data, punchCardsResult.error)
 
   const pointsBalance    = balance?.points_balance           ?? 0
   const lifetimeEarned   = balance?.lifetime_points_earned   ?? 0
