@@ -14,19 +14,13 @@ export const revalidate = 0
 //
 // Zero-404 guarantee: unknown slugs silently fall back to the homepage.
 
-import dynamicImport from 'next/dynamic'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { SectionRenderer } from '@/components/site/SectionRenderer'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import EditorShellClient from '@/components/builder/EditorShellClient'
 import type { BuilderSection, EditorContext } from '@/lib/builder/types'
-
-// Lazy-load the editor bundle — customers NEVER download it
-const EditorShell = dynamicImport(
-  () => import('@/components/builder/EditorShell').then((m) => m.EditorShell),
-  { ssr: false },
-)
 
 interface Props {
   params: Promise<{ tenant: string; slug?: string[] }>
@@ -101,7 +95,7 @@ export default async function TenantPage({ params }: Props) {
           sections:    (draftSections ?? []) as BuilderSection[],
         }
 
-        return <EditorShell editorCtx={editorCtx} />
+        return <EditorShellClient editorCtx={editorCtx} />
       }
     }
 
@@ -144,7 +138,7 @@ export default async function TenantPage({ params }: Props) {
       sections:    page.sections as BuilderSection[],
     }
 
-    return <EditorShell editorCtx={editorCtx} />
+    return <EditorShellClient editorCtx={editorCtx} />
   }
 
   // ── PUBLIC / CUSTOMER MODE ────────────────────────────────────────────────
