@@ -24,8 +24,8 @@ export function Product360ViewerEditor({ sectionId }: Props) {
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [loadingPackages, setLoadingPackages] = useState(false)
 
-  // Derive tenant_id from the section (available on section.tenant_id)
-  const tenantId = (section as Record<string, unknown>)?.tenant_id as string | undefined
+  // tenant_id is a first-class field on BuilderSection — no cast needed
+  const tenantId = section?.tenant_id
 
   // ── Load products ─────────────────────────────────────────────────────────
   useEffect(() => {
