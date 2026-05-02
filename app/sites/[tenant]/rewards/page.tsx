@@ -8,28 +8,29 @@ import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
 import { safeQuery, safeOptional } from '@/lib/supabase/safeQuery'
+import type { Json } from '@/lib/supabase/types'
 
 interface Props {
   params: Promise<{ tenant: string }>
 }
 
 type Transaction = {
-  id: string
+  id:               string
   transaction_type: string
-  points_delta: number
-  source_type: string | null
-  created_at: string
-  metadata: Record<string, unknown>
+  points_delta:     number
+  source_type:      string | null
+  created_at:       string
+  metadata:         Json
 }
 
 type PunchCard = {
-  id: string
-  title: string
-  punch_goal: number
+  id:              string
+  title:           string
+  punch_goal:      number
   current_punches: number
-  reward_type: string
-  reward_value: number | null
-  status: string
+  reward_type:     string
+  reward_value:    number | null
+  status:          string
 }
 
 const typeLabel: Record<string, string> = {
