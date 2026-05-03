@@ -1,0 +1,222 @@
+// lib/product-360/types.ts
+// Canonical TypeScript types for the product_360 module.
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+export type P360Status =
+  | 'draft'
+  | 'queued'
+  | 'generating'
+  | 'ready'
+  | 'failed'
+  | 'archived'
+
+export type P360PackageType =
+  | 'ai_generated'
+  | 'uploaded_frames'
+  | 'hybrid'
+  | 'model_3d'
+
+export type P360JobStatus =
+  | 'queued'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+
+export type P360HotspotAction =
+  | 'info'
+  | 'link'
+  | 'add_to_cart'
+  | 'open_section'
+  | 'promo'
+
+// ─── Core domain models ───────────────────────────────────────────────────────
+
+export interface P360Package {
+  id:                  string
+  tenant_id:           string
+  product_id:          string | null
+  created_by:          string | null
+  name:                string
+  slug:                string
+  description:         string | null
+  status:              P360Status
+  is_enabled:          boolean
+  is_default:          boolean
+  package_type:        P360PackageType
+  promo_starts_at:     string | null
+  promo_ends_at:       string | null
+  frame_count:         number
+  target_frame_count:  number
+  cover_frame_url:     string | null
+  model_url:           string | null
+  ar_model_url:        string | null
+  generation_prompt:   string | null
+  negative_prompt:     string | null
+  generation_provider: string
+  generation_job_id:   string | null
+  generation_error:    string | null
+  settings:            Record<string, unknown>
+  hotspot_config:      P360HotspotConfig[]
+  lighting_config:     P360LightingConfig
+  camera_config:       P360CameraConfig
+  created_at:          string
+  updated_at:          string
+}
+
+export interface P360Frame {
+  id:            string
+  package_id:    string
+  tenant_id:     string
+  product_id:    string | null
+  frame_index:   number
+  angle_degrees: number
+  image_url:     string
+  storage_path:  string | null
+  width:         number | null
+  height:        number | null
+  file_size:     number | null
+  alt_text:      string | null
+  metadata:      Record<string, unknown>
+  created_at:    string
+}
+
+export interface P360Hotspot {
+  id:           string
+  tenant_id:    string
+  package_id:   string
+  product_id:   string
+  frame_index:  number | null
+  label:        string
+  description:  string | null
+  x:            number
+  y:            number
+  z:            number | null
+  action_type:  P360HotspotAction
+  action_value: string | null
+  is_enabled:   boolean
+  created_at:   string
+  updated_at:   string
+}
+
+export interface P360GenerationJob {
+  id:                 string
+  tenant_id:          string
+  package_id:         string
+  product_id:         string
+  requested_by:       string | null
+  provider:           string
+  provider_job_id:    string | null
+  status:             P360JobStatus
+  prompt:             string
+  negative_prompt:    string | null
+  target_frame_count: number
+  frames_completed:   number
+  error_message:      string | null
+  raw_response:       Record<string, unknown>
+  created_at:         string
+  started_at:         string | null
+  completed_at:       string | null
+  updated_at:         string
+}
+
+export interface P360ModuleSettings {
+  id:                      string
+  tenant_id:               string
+  default_frame_count:     number
+  allow_ai_generation:     boolean
+  allow_manual_upload:     boolean
+  require_owner_approval:  boolean
+  default_viewer_settings: P360ViewerSettings
+  created_at:              string
+  updated_at:              string
+}
+
+// ─── Config objects ───────────────────────────────────────────────────────────
+
+export interface P360HotspotConfig {
+  frame_index:  number | null
+  label:        string
+  x:            number
+  y:            number
+  action_type:  P360HotspotAction
+  action_value: string | null
+}
+
+export interface P360LightingConfig {
+  ambientIntensity?:     number
+  directionalIntensity?: number
+  environmentMap?:       string
+  vignetteStrength?:     number
+  rimLightColor?:        string
+}
+
+export interface P360CameraConfig {
+  fov?:              number
+  minZoom?:          number
+  maxZoom?:          number
+  initialZoom?:      number
+  enablePan?:        boolean
+  sensitivity?:      number
+  autoRotateSpeed?:  number
+}
+
+export interface P360ViewerSettings {
+  autoRotate?:      boolean
+  autoRotateSpeed?: number
+  showControls?:    boolean
+  enableZoom?:      boolean
+  enablePan?:       boolean
+  enableHotspots?:  boolean
+  showFullscreen?:  boolean
+  dragSensitivity?: number
+  bgColor?:         string
+}
+
+// ─── Composite / list types ───────────────────────────────────────────────────
+
+export interface P360PackageWithFrames extends P360Package {
+  frames:    P360Frame[]
+  hotspots:  P360Hotspot[]
+}
+
+export interface P360PackageSummary extends P360Package {
+  frames_done:  number
+  product_name: string | null
+}
+
+/** Minimal public payload — no private fields. Only enabled/ready packages. */
+export interface P360PublicPayload {
+  packageId:    string
+  packageName:  string
+  slug:         string
+  packageType:  P360PackageType
+  coverUrl:     string | null
+  viewerSettings: P360ViewerSettings
+  lightingConfig: P360LightingConfig
+  cameraConfig:   P360CameraConfig
+  frames: Array<{
+    frame_index:   number
+    angle_degrees: number
+    image_url:     string
+    alt_text:      string | null
+  }>
+  hotspots: Array<{
+    id:           string
+    frame_index:  number | null
+    label:        string
+    description:  string | null
+    x:            number
+    y:            number
+    action_type:  P360HotspotAction
+    action_value: string | null
+  }>
+}
+
+/** Multi-package list for a product (storefront) */
+export interface P360ProductPackageList {
+  productId:   string
+  productName: string
+  packages:    P360PublicPayload[]
+}

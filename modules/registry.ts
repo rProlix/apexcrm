@@ -11,21 +11,21 @@ import { contactsModule }      from '@/modules/contacts'
 import { storeModule }         from '@/modules/store'
 import { websiteModule }       from '@/modules/website'
 import { customersModule }     from '@/modules/customers'
-import { product360SpinModule } from '@/modules/product_360_spin'
+import { product360Module }    from '@/modules/product_360'
 
 export const MODULE_REGISTRY: Record<ModuleKey, ModuleDefinition> = {
-  payments:         paymentsModule,
-  appointments:     appointmentsModule,
-  rewards:          rewardsModule,
-  vehicles:         vehiclesModule,
-  damage_ai:        damageAiModule,
-  leads:            leadsModule,
-  messages:         messagesModule,
-  contacts:         contactsModule,
-  store:            storeModule,
-  website:          websiteModule,
-  customers:        customersModule,
-  product_360_spin: product360SpinModule,
+  payments:       paymentsModule,
+  appointments:   appointmentsModule,
+  rewards:        rewardsModule,
+  vehicles:       vehiclesModule,
+  damage_ai:      damageAiModule,
+  leads:          leadsModule,
+  messages:       messagesModule,
+  contacts:       contactsModule,
+  store:          storeModule,
+  website:        websiteModule,
+  customers:      customersModule,
+  product_360:    product360Module,
 }
 
 export type { ModuleKey, ModuleDefinition }

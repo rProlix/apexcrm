@@ -3,13 +3,12 @@ export const dynamic = 'force-dynamic'
 // app/sites/[tenant]/shop/[id]/page.tsx — Public product detail page
 import { notFound }              from 'next/navigation'
 import Link                      from 'next/link'
+import Image                     from 'next/image'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig }       from '@/lib/website/getPublishedSiteConfig'
 import { getSupabaseServerClient }      from '@/lib/supabase/server'
-import Image                     from 'next/image'
-
-// Canonical 360 viewer imports
-import Product360ViewerLazy from '@/components/360/Product360ViewerLazy'
+import { Product360BlockRenderer }      from '@/components/product-360/Product360BlockRenderer'
+import { isModuleEnabled }              from '@/lib/modules/guardModuleAccess'
 
 interface Props {
   params: Promise<{ tenant: string; id: string }>
@@ -30,53 +29,41 @@ export default async function ProductPage({ params }: Props) {
   const config = await getPublishedSiteConfig(siteData.tenant.id)
   if (!config) notFound()
 
+  const tenantId = siteData.tenant.id
   const db = getSupabaseServerClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: productRaw } = await (db as any)
+
+  const { data: productRaw } = await db
     .from('products')
-    .select('id, name, description, price, currency, inventory_count, is_active, image_url, spin_package_id')
+    .select('id, name, description, price, currency, inventory_count, is_active, image_url')
     .eq('id', id)
-    .eq('tenant_id', siteData.tenant.id)
+    .eq('tenant_id', tenantId)
     .eq('is_active', true)
     .maybeSingle()
 
   const product = productRaw as {
     id: string; name: string; description: string | null
     price: number; currency: string; inventory_count: number; is_active: boolean
-    image_url?: string | null; spin_package_id: string | null
+    image_url?: string | null
   } | null
 
   if (!product) notFound()
 
-  // If product has a ready 360 package, fetch the frames for the viewer
-  let spin360Frames: Array<{ frame_index: number; angle_degrees: number; image_url: string }> = []
+  // Check if product_360 module is enabled for this tenant
+  const p360Enabled = await isModuleEnabled(tenantId, 'product_360')
 
-  if (product.spin_package_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: pkg } = await (db as any)
-      .from('product_360_packages')
-      .select('id, status')
-      .eq('id', product.spin_package_id)
-      .eq('tenant_id', siteData.tenant.id)
-      .eq('status', 'ready')
-      .maybeSingle()
+  // Check if there are any enabled ready packages for this product
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: pkgCheck } = p360Enabled ? await (db as any)
+    .from('product_360_packages')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('product_id', id)
+    .eq('status', 'ready')
+    .eq('is_enabled', true)
+    .limit(1)
+    .maybeSingle() : { data: null }
 
-    if (pkg) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: frames } = await (db as any)
-        .from('product_360_frames')
-        .select('frame_index, angle_degrees, image_url')
-        .eq('package_id', product.spin_package_id)
-        .order('frame_index')
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      spin360Frames = (frames ?? []).map((f: any) => ({
-        frame_index:   f.frame_index as number,
-        angle_degrees: (f.angle_degrees as number) ?? 0,
-        image_url:     f.image_url as string,
-      }))
-    }
-  }
+  const has360Viewer = !!pkgCheck
 
   return (
     <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
@@ -103,12 +90,12 @@ export default async function ProductPage({ params }: Props) {
             background:   'var(--color-surface)',
             border:       '1px solid var(--color-border)',
           }}>
-            {spin360Frames.length > 0 ? (
-              <Product360ViewerLazy
-                frames={spin360Frames}
-                label={product.name}
-                autoRotate={false}
+            {has360Viewer ? (
+              <Product360BlockRenderer
+                tenantId={tenantId}
+                productId={id}
                 showControls
+                showHotspots
               />
             ) : product.image_url ? (
               <Image src={product.image_url} alt={product.name} width={600} height={600} unoptimized

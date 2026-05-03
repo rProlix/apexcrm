@@ -35,7 +35,7 @@ const MODULE_ICONS: Record<string, LucideIcon> = {
   store:            ShoppingBag,
   customers:        UserCheck,
   website:          Globe,
-  product_360_spin: Rotate3D,
+  product_360:   Rotate3D,
 }
 
 interface BottomNavProps {

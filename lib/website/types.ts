@@ -167,15 +167,23 @@ export interface AboutContent {
 
 export interface Product360ViewerContent {
   /** UUID of the product whose 360° package should be loaded */
-  productId:   string
+  productId:      string
   /** UUID of a specific product_360_packages record (optional override) */
-  packageId?:  string
+  packageId?:     string
   /** Spin slowly on load */
-  autoRotate:  boolean
+  autoRotate:     boolean
   /** Autoplay frames per second (used when autoRotate is on) */
-  speed:       number
+  speed:          number
   /** Label shown in the viewer overlay */
-  label?:      string
+  label?:         string
+  /** Show control buttons */
+  showControls?:  boolean
+  /** Show hotspots */
+  showHotspots?:  boolean
+  /** Show package label in viewer */
+  showLabel?:     boolean
+  /** Layout hint: hero | card | split */
+  layout?:        'hero' | 'card' | 'split'
 }
 
 export type SectionContent =

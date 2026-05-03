@@ -1,14 +1,14 @@
-// modules/product_360_spin/index.ts
-import { Rotate3D }               from 'lucide-react'
-import type { ModuleDefinition }  from '@/modules/shared/moduleTypes'
+// modules/product_360/index.ts
+import { Rotate3D }                from 'lucide-react'
+import type { ModuleDefinition }   from '@/modules/shared/moduleTypes'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
-export const product360SpinModule: ModuleDefinition = {
-  key:         'product_360_spin',
-  label:       '360 Product Viewer',
-  description: 'Create interactive 360° product viewers — AI-generated or manually uploaded frames. Drag to spin on storefront.',
+export const product360Module: ModuleDefinition = {
+  key:         'product_360',
+  label:       '360 Product Studio',
+  description: 'Create interactive 360° product viewers — AI-generated or manually uploaded. Drag to spin on the storefront. Supports multiple packages per product, promo scheduling, hotspots, and AR.',
   icon:        Rotate3D,
-  href:        '/dashboard/360',
+  href:        '/dashboard/product-360',
   color:       'text-fuchsia-400',
   bgColor:     'bg-fuchsia-400/10',
   order:       12,
@@ -32,18 +32,20 @@ export const product360SpinModule: ModuleDefinition = {
       },
     },
     {
-      key:          'p360_products_assigned',
-      label:        'Products with 360°',
+      key:          'p360_enabled_packages',
+      label:        'Live on Storefront',
       category:     'usage',
-      color:        'text-violet-400',
-      emptyMessage: 'No products assigned',
+      color:        'text-emerald-400',
+      emptyMessage: 'None enabled',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
-        const { count } = await supabase
-          .from('products')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { count } = await (supabase as any)
+          .from('product_360_packages')
           .select('id', { count: 'exact', head: true })
           .eq('tenant_id', tenantId)
-          .not('spin_package_id', 'is', null)
+          .eq('status', 'ready')
+          .eq('is_enabled', true)
         return count ?? 0
       },
     },
@@ -51,22 +53,24 @@ export const product360SpinModule: ModuleDefinition = {
 
   async getStats(tenantId) {
     const supabase = getSupabaseServerClient()
-    const [{ count: ready }, { count: assigned }] = await Promise.all([
+    const [{ count: ready }, { count: enabled }] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any)
         .from('product_360_packages')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
         .eq('status', 'ready'),
-      supabase
-        .from('products')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from('product_360_packages')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
-        .not('spin_package_id', 'is', null),
+        .eq('status', 'ready')
+        .eq('is_enabled', true),
     ])
     return [
-      { label: 'Ready Packages',     value: ready    ?? 0 },
-      { label: 'Products with 360°', value: assigned ?? 0 },
+      { label: 'Ready Packages',     value: ready   ?? 0 },
+      { label: 'Live on Storefront', value: enabled ?? 0 },
     ]
   },
 }

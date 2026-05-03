@@ -30,18 +30,18 @@ import { LiveBadge } from '@/components/ui/LiveBadge'
 import type { NavModule } from '@/modules/shared/moduleTypes'
 
 const MODULE_ICONS: Record<string, LucideIcon> = {
-  payments:         CreditCard,
-  appointments:     CalendarDays,
-  rewards:          Star,
-  vehicles:         Car,
-  damage_ai:        ScanLine,
-  leads:            UserPlus,
-  messages:         MessageSquare,
-  contacts:         BookUser,
-  website:          Globe,
-  store:            ShoppingBag,
-  customers:        UserCheck,
-  product_360_spin: Rotate3D,
+  payments:      CreditCard,
+  appointments:  CalendarDays,
+  rewards:       Star,
+  vehicles:      Car,
+  damage_ai:     ScanLine,
+  leads:         UserPlus,
+  messages:      MessageSquare,
+  contacts:      BookUser,
+  website:       Globe,
+  store:         ShoppingBag,
+  customers:     UserCheck,
+  product_360:   Rotate3D,
 }
 
 interface SidebarProps {

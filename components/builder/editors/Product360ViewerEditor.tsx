@@ -1,5 +1,4 @@
 'use client'
-
 // components/builder/editors/Product360ViewerEditor.tsx
 // Sidebar editor for the product_360_viewer section.
 // Owner/admin only — never ships editor code to customers.
@@ -9,8 +8,8 @@ import { useBuilderStore }                  from '@/lib/builder/store'
 import { Toggle, Field }                    from './FormFields'
 import type { Product360ViewerContent }     from '@/lib/website/types'
 
-interface Product { id: string; name: string; spin_package_id: string | null }
-interface Package { id: string; name: string | null; status: string; frames_done: number; frame_count: number }
+interface Product { id: string; name: string }
+interface Package { id: string; name: string; status: string; frames_done: number; target_frame_count: number; is_default: boolean; is_enabled: boolean }
 
 interface Props { sectionId: string }
 
@@ -19,39 +18,31 @@ export function Product360ViewerEditor({ sectionId }: Props) {
   const section = sections.find(s => s.id === sectionId)
   const content = (section?.content ?? {}) as Partial<Product360ViewerContent>
 
-  const [products, setProducts] = useState<Product[]>([])
-  const [packages, setPackages] = useState<Package[]>([])
+  const [products,        setProducts]        = useState<Product[]>([])
+  const [packages,        setPackages]        = useState<Package[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [loadingPackages, setLoadingPackages] = useState(false)
 
-  // tenant_id is a first-class field on BuilderSection — no cast needed
-  const tenantId = section?.tenant_id
+  const tenantId = (section as Record<string, unknown> | undefined)?.tenant_id as string | undefined
 
-  // ── Load products ─────────────────────────────────────────────────────────
+  // ── Load products + packages ───────────────────────────────────────────────
   useEffect(() => {
     setLoadingProducts(true)
-    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
-    fetch(`/api/360/products${qs}`)
+    const qs = tenantId ? `?tenantId=${tenantId}` : ''
+    fetch(`/api/builder/product-360/packages${qs}`)
       .then(r => r.json())
-      .then(d => setProducts(d.products ?? []))
+      .then(d => {
+        setProducts(d.products ?? [])
+        setPackages(d.packages ?? [])
+      })
       .catch(() => {})
       .finally(() => setLoadingProducts(false))
   }, [tenantId])
 
-  // ── Load packages when product changes ────────────────────────────────────
-  useEffect(() => {
-    if (!content.productId) { setPackages([]); return }
-    setLoadingPackages(true)
-    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
-    fetch(`/api/360/packages${qs}`)
-      .then(r => r.json())
-      .then(d => {
-        const all: Package[] = d.packages ?? []
-        setPackages(all.filter(p => p.status === 'ready'))
-      })
-      .catch(() => {})
-      .finally(() => setLoadingPackages(false))
-  }, [content.productId, tenantId])
+  // Filter packages for selected product
+  const productPackages = content.productId
+    ? packages.filter(p => (p as unknown as Record<string, unknown>).product_id === content.productId)
+    : packages
 
   const patch = useCallback((key: keyof Product360ViewerContent, value: unknown) => {
     if (!section) return
@@ -77,26 +68,20 @@ export function Product360ViewerEditor({ sectionId }: Props) {
 
   return (
     <div>
-
       {/* Product selector */}
       <div style={groupStyle}>
         <label style={labelStyle}>Product</label>
         {loadingProducts ? (
-          <p style={{ fontSize: '0.75rem', color: '#52525b' }}>Loading products…</p>
+          <p style={{ fontSize: '0.75rem', color: '#52525b' }}>Loading…</p>
         ) : (
           <select
             value={content.productId ?? ''}
-            onChange={e => {
-              patch('productId', e.target.value)
-              patch('packageId', '')
-            }}
+            onChange={e => { patch('productId', e.target.value); patch('packageId', '') }}
             style={selectStyle}
           >
             <option value="">— Select product —</option>
             {products.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.name}{p.spin_package_id ? ' ✓ 360°' : ''}
-              </option>
+              <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
         )}
@@ -108,10 +93,10 @@ export function Product360ViewerEditor({ sectionId }: Props) {
           <label style={labelStyle}>360° Package</label>
           {loadingPackages ? (
             <p style={{ fontSize: '0.75rem', color: '#52525b' }}>Loading packages…</p>
-          ) : packages.length === 0 ? (
+          ) : productPackages.length === 0 ? (
             <p style={{ fontSize: '0.75rem', color: '#71717a' }}>
-              No ready 360° packages for this product.{' '}
-              <a href="/dashboard/360" target="_blank" rel="noreferrer" style={{ color: '#c084fc' }}>
+              No 360° packages for this product.{' '}
+              <a href="/dashboard/product-360" target="_blank" rel="noreferrer" style={{ color: '#c084fc' }}>
                 Create one →
               </a>
             </p>
@@ -121,29 +106,16 @@ export function Product360ViewerEditor({ sectionId }: Props) {
               onChange={e => patch('packageId', e.target.value)}
               style={selectStyle}
             >
-              <option value="">— Use product&apos;s default —</option>
-              {packages.map(p => (
+              <option value="">— Use default enabled package —</option>
+              {productPackages.map(p => (
                 <option key={p.id} value={p.id}>
-                  {p.name ?? p.id} ({p.frames_done}/{p.frame_count} frames)
+                  {p.name} ({p.status}{p.is_default ? ' · default' : ''}{p.is_enabled ? '' : ' · disabled'})
                 </option>
               ))}
             </select>
           )}
         </div>
       )}
-
-      {/* Label */}
-      <div style={groupStyle}>
-        <Field label="Overlay Label (optional)">
-          <input
-            type="text"
-            value={content.label ?? ''}
-            onChange={e => patch('label', e.target.value)}
-            placeholder="e.g. Premium Sneaker"
-            style={inputStyle}
-          />
-        </Field>
-      </div>
 
       {/* Auto-rotate */}
       <div style={groupStyle}>
@@ -154,26 +126,53 @@ export function Product360ViewerEditor({ sectionId }: Props) {
         />
       </div>
 
+      {/* Show controls */}
+      <div style={groupStyle}>
+        <Toggle
+          label="Show viewer controls"
+          value={content.showControls ?? true}
+          onChange={v => patch('showControls', v)}
+        />
+      </div>
+
+      {/* Show hotspots */}
+      <div style={groupStyle}>
+        <Toggle
+          label="Show hotspots"
+          value={content.showHotspots ?? true}
+          onChange={v => patch('showHotspots', v)}
+        />
+      </div>
+
+      {/* Show package label */}
+      <div style={groupStyle}>
+        <Toggle
+          label="Show package name label"
+          value={content.showLabel ?? false}
+          onChange={v => patch('showLabel', v)}
+        />
+      </div>
+
       {/* Speed */}
       {content.autoRotate && (
         <div style={groupStyle}>
-          <label style={labelStyle}>Autoplay speed (fps)</label>
+          <label style={labelStyle}>Auto-rotate speed (ms/frame)</label>
           <input
             type="range"
-            min={4}
-            max={36}
-            step={1}
-            value={content.speed ?? 18}
+            min={10}
+            max={100}
+            step={5}
+            value={content.speed ?? 20}
             onChange={e => patch('speed', Number(e.target.value))}
             style={{ width: '100%', accentColor: '#c084fc' }}
           />
           <p style={{ fontSize: '0.75rem', color: '#52525b', marginTop: '0.25rem' }}>
-            {content.speed ?? 18} fps
+            {content.speed ?? 20}ms / frame
           </p>
         </div>
       )}
 
-      {/* Info callout */}
+      {/* Info */}
       <div style={{
         padding:      '0.75rem',
         borderRadius: '0.5rem',
@@ -183,8 +182,10 @@ export function Product360ViewerEditor({ sectionId }: Props) {
         color:        '#c084fc',
         lineHeight:   1.5,
       }}>
-        Customers drag left/right to spin the product 360°. Works on desktop and mobile.
-        Frames are preloaded for instant interaction.
+        Customers drag to spin the product 360°. Desktop + mobile. Manage packages in{' '}
+        <a href="/dashboard/product-360" target="_blank" rel="noreferrer" style={{ color: '#a78bfa' }}>
+          360 Product Studio
+        </a>.
       </div>
     </div>
   )

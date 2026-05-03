@@ -152,8 +152,8 @@ function ProductCard({
   tenantId,
 }: CardProps) {
   const spin360Href = product.spin_package_id
-    ? `/dashboard/360`
-    : `/dashboard/360?productId=${product.id}`
+    ? `/dashboard/product-360`
+    : `/dashboard/product-360?productId=${product.id}`
 
   return (
     <div className="group premium-panel premium-border rounded-2xl p-5 hover:shadow-panel-lg transition-shadow duration-200">
