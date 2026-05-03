@@ -6,7 +6,8 @@ import { notFound, redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
-import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { resolveSiteUser } from '@/lib/auth/resolveSiteUser'
 
 interface Props {
   params: Promise<{ tenant: string }>
@@ -30,31 +31,52 @@ export default async function OrdersPage({ params }: Props) {
   const basePath    = isPlatform ? `/sites/${tenant}` : ''
   const loginPath   = `${basePath}/login?next=/orders`
 
-  const sessionClient = await createSessionServerClient()
-  const { data: { user } } = await sessionClient.auth.getUser()
+  const siteCtx = await resolveSiteUser(siteData.tenant.id)
 
-  if (!user) redirect(loginPath)
+  if (!siteCtx) redirect(loginPath)
 
-  const db = getSupabaseServerClient()
-
-  // Resolve the CRM customer_id via the customer_accounts link.
-  // orders.customer_id references customers.id — NOT the auth user's UUID.
-  const { data: account, error: accountError } = await db
-    .from('customer_accounts')
-    .select('customer_id, status')
-    .eq('auth_user_id', user.id)
-    .eq('tenant_id', siteData.tenant.id)
-    .maybeSingle()
-
-  if (accountError && accountError.code !== 'PGRST116') {
-    console.error('[OrdersPage] account lookup error:', accountError.message)
+  // ── Business user: redirect to their management tools ───────────────────
+  if (siteCtx.accessLevel === 'platform' || siteCtx.accessLevel === 'business') {
+    return (
+      <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
+        <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center', paddingTop: '3rem' }}>
+          <h1 style={{
+            fontSize:   'clamp(1.5rem, 3vw, 2rem)',
+            fontWeight: 700,
+            fontFamily: 'var(--font-heading)',
+            color:      'var(--color-text)',
+            margin:     '0 0 1rem',
+          }}>Order History</h1>
+          <p style={{ color: 'var(--color-muted)', marginBottom: '2rem' }}>
+            As a business {siteCtx.role}, you can view all store orders from your CRM dashboard.
+          </p>
+          {siteCtx.canManageStore ? (
+            <Link href="/dashboard" style={{
+              display:        'inline-block',
+              background:     'var(--color-primary)',
+              color:          '#fff',
+              padding:        '0.75rem 1.75rem',
+              borderRadius:   '0.75rem',
+              fontWeight:     600,
+              textDecoration: 'none',
+            }}>
+              Go to CRM Dashboard →
+            </Link>
+          ) : (
+            <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
+              You do not have access to manage this site.
+            </p>
+          )}
+        </div>
+      </div>
+    )
   }
 
-  // No customer_accounts row for this tenant — the user is authenticated but
-  // hasn't signed up for THIS store's portal yet.
-  // DO NOT redirect to /login (the user IS logged in — that would create an
-  // infinite loop: orders → login → orders → …).  Show a gentle prompt instead.
-  if (!account) {
+  // ── Customer: resolve their customer_id ──────────────────────────────────
+  const db = getSupabaseServerClient()
+
+  if (!siteCtx.customerId) {
+    // Authenticated customer but no linked customer record for this tenant yet
     return (
       <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
         <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center', paddingTop: '3rem' }}>
@@ -84,32 +106,12 @@ export default async function OrdersPage({ params }: Props) {
     )
   }
 
-  // Account exists but is not yet active — show a holding message.
-  if (account.status !== 'active') {
-    return (
-      <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
-        <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center', paddingTop: '3rem' }}>
-          <h1 style={{
-            fontSize:   'clamp(1.5rem, 3vw, 2rem)',
-            fontWeight: 700,
-            fontFamily: 'var(--font-heading)',
-            color:      'var(--color-text)',
-            margin:     '0 0 1rem',
-          }}>Order History</h1>
-          <p style={{ color: 'var(--color-muted)' }}>
-            Your account is pending activation. Please check your email or contact the store.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: ordersRaw } = await (db as any)
     .from('orders')
     .select('id, status, total_amount, created_at, items')
     .eq('tenant_id', siteData.tenant.id)
-    .eq('customer_id', account.customer_id)
+    .eq('customer_id', siteCtx.customerId)
     .order('created_at', { ascending: false })
     .limit(50)
 

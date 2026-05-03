@@ -14,9 +14,9 @@ import { headers } from 'next/headers'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { normalizeTheme } from '@/lib/website/normalizeTheme'
-import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
 import { SiteHeader } from '@/components/site/SiteHeader'
 import { SiteFooter } from '@/components/site/SiteFooter'
+import { resolveSiteUser } from '@/lib/auth/resolveSiteUser'
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
@@ -129,20 +129,13 @@ export default async function SiteLayout({ children, params }: Props) {
     const isPlatform = headersList.get('x-is-platform') === 'true'
     const basePath   = isPlatform ? `/sites/${tenantSlug}` : ''
 
+    // isAuthenticated is true for any recognised identity: owner, admin, staff,
+    // or customer. This drives the header "Account" vs "Sign In" link only.
+    // Fine-grained access control happens inside each individual page.
     let isAuthenticated = false
     try {
-      const sessionClient = await createSessionServerClient()
-      const { data: { user } } = await sessionClient.auth.getUser()
-      if (user) {
-        const db = getSupabaseServerClient()
-        const { data: account } = await db
-          .from('customer_accounts')
-          .select('id')
-          .eq('auth_user_id', user.id)
-          .eq('tenant_id', siteData.tenant.id)
-          .maybeSingle()
-        isAuthenticated = !!account
-      }
+      const siteCtx = await resolveSiteUser(siteData.tenant.id)
+      isAuthenticated = siteCtx !== null
     } catch {
       // Non-fatal — show Login as the safe fallback
     }

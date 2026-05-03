@@ -134,6 +134,38 @@ export async function customerLogin(
   // This prevents a customer of tenant A from accessing tenant B's portal.
   if (tenantId) {
     const serviceClient = getSupabaseServerClient()
+
+    // ── 1. Check business identity first (owner / admin / staff) ────────────
+    // Business users share the same Supabase Auth identity across the CRM and
+    // their own storefronts. They do NOT need a customer_accounts row.
+    const { data: businessUser } = await serviceClient
+      .from('users')
+      .select('id, role, tenant_id')
+      .eq('auth_user_id', signInData.user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (businessUser) {
+      const role = businessUser.role as string
+
+      if (role === 'owner') {
+        // Platform owners can access every tenant's storefront
+        redirect(next)
+      }
+
+      if ((role === 'admin' || role === 'staff') && businessUser.tenant_id === tenantId) {
+        // Admin / staff of this exact tenant — allow access
+        redirect(next)
+      }
+
+      if ((role === 'admin' || role === 'staff') && businessUser.tenant_id !== tenantId) {
+        // Admin / staff of a DIFFERENT tenant — deny with a clear message
+        await sessionClient.auth.signOut()
+        return { error: 'You do not have access to manage this site.' }
+      }
+    }
+
+    // ── 2. Check customer identity ───────────────────────────────────────────
     const { data: account, error: accountError } = await serviceClient
       .from('customer_accounts')
       .select('id, status')
@@ -142,16 +174,16 @@ export async function customerLogin(
       .maybeSingle()
 
     if (accountError && accountError.code !== 'PGRST116') {
-      // Unexpected DB error (e.g. service role key not set). Log it and let the
-      // user proceed rather than silently signing them out — they authenticated
-      // successfully and a lookup failure is not a security violation.
+      // Unexpected DB error — log but allow the session to proceed rather than
+      // silently locking out the user; a lookup failure is not a security issue.
       console.error('[customerLogin] account lookup error:', accountError.message)
     } else if (!account) {
-      // No row for this tenant — block access but don't globally sign them out.
-      // They may have a valid account on another tenant; a full signOut would
-      // break those sessions too.
+      // No identity found for this tenant — sign out with a clear message.
+      // We intentionally avoid "sign up first" because the user may have an
+      // account on a different tenant; the current credential is simply not
+      // linked to this storefront.
       await sessionClient.auth.signOut()
-      return { error: 'No account found for this store. Please sign up first.' }
+      return { error: 'This account is not connected to this business website.' }
     } else if (account.status !== 'active') {
       await sessionClient.auth.signOut()
       return { error: 'Your account is pending activation. Please check your email.' }

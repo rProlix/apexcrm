@@ -8,6 +8,7 @@ import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
 import { customerLogout } from '@/lib/actions/customer-auth'
+import { resolveSiteUser } from '@/lib/auth/resolveSiteUser'
 
 interface Props {
   params: Promise<{ tenant: string }>
@@ -34,10 +35,11 @@ export default async function AccountPage({ params }: Props) {
   const basePath    = isPlatform ? `/sites/${tenant}` : ''
   const loginPath   = `${basePath}/login`
 
-  const sessionClient = await createSessionServerClient()
-  const { data: { user } } = await sessionClient.auth.getUser()
+  // Resolve the authenticated user's context (business user OR customer)
+  const siteCtx = await resolveSiteUser(siteData.tenant.id)
 
-  if (!user) {
+  if (!siteCtx) {
+    // Not authenticated at all
     return (
       <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
         <div style={{ maxWidth: 400, margin: '0 auto', textAlign: 'center' }}>
@@ -67,6 +69,97 @@ export default async function AccountPage({ params }: Props) {
     )
   }
 
+  // ── Business user: owner / admin / staff ────────────────────────────────
+  if (siteCtx.accessLevel === 'platform' || siteCtx.accessLevel === 'business') {
+    const roleLabel =
+      siteCtx.role === 'owner' ? 'Platform Owner'
+      : siteCtx.role === 'admin' ? 'Business Admin'
+      : 'Staff Member'
+
+    const canManage = siteCtx.canEditWebsite
+
+    return (
+      <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
+        <div style={{ maxWidth: 600, margin: '0 auto' }}>
+          <h1 style={{
+            fontSize:   'clamp(1.5rem, 3vw, 2rem)',
+            fontWeight: 800,
+            fontFamily: 'var(--font-heading)',
+            color:      'var(--color-text)',
+            margin:     '0 0 0.25rem',
+          }}>Business Account</h1>
+          <p style={{ color: 'var(--color-muted)', margin: '0 0 2rem', fontSize: '0.9375rem' }}>
+            Signed in as {siteCtx.email ?? 'unknown'} · {roleLabel}
+          </p>
+
+          {canManage ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <Link href={`${basePath}/`} style={{
+                display:        'block',
+                background:     'var(--color-primary)',
+                color:          '#fff',
+                padding:        '1rem 1.5rem',
+                borderRadius:   '0.875rem',
+                fontWeight:     700,
+                textDecoration: 'none',
+                fontSize:       '0.9375rem',
+              }}>
+                Edit Website →
+              </Link>
+              <Link href="/dashboard" style={{
+                display:        'block',
+                background:     'var(--color-surface)',
+                border:         '1px solid var(--color-border)',
+                color:          'var(--color-text)',
+                padding:        '1rem 1.5rem',
+                borderRadius:   '0.875rem',
+                fontWeight:     600,
+                textDecoration: 'none',
+                fontSize:       '0.9375rem',
+              }}>
+                Go to CRM Dashboard →
+              </Link>
+            </div>
+          ) : (
+            <div style={{
+              background:   'var(--color-surface)',
+              border:       '1px solid var(--color-border)',
+              borderRadius: '0.875rem',
+              padding:      '1.5rem',
+            }}>
+              <p style={{ color: 'var(--color-muted)', margin: 0 }}>
+                You do not have access to manage this site.
+                Your account is associated with a different business.
+              </p>
+            </div>
+          )}
+
+          <div style={{ marginTop: '2rem' }}>
+            <form action={customerLogout}>
+              <input type="hidden" name="redirect_to" value={`${basePath}/login`} />
+              <button type="submit" style={{
+                background:   'transparent',
+                border:       '1px solid var(--color-border)',
+                color:        'var(--color-muted)',
+                padding:      '0.625rem 1.25rem',
+                borderRadius: '0.75rem',
+                cursor:       'pointer',
+                fontSize:     '0.875rem',
+                fontWeight:   500,
+              }}>
+                Sign Out
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Customer account view ────────────────────────────────────────────────
+  const sessionClient = await createSessionServerClient()
+  const { data: { user } } = await sessionClient.auth.getUser()
+
   const serviceClient = getSupabaseServerClient()
 
   // Fetch customer profile via the secure helper RPC (multi-tenant safe)
@@ -75,11 +168,11 @@ export default async function AccountPage({ params }: Props) {
     .rpc('get_my_customer_account', { p_tenant_id: siteData.tenant.id })
     .maybeSingle()
 
-  const fullName = (profile?.full_name as string | null) ?? user.email?.split('@')[0] ?? 'Customer'
-  const email    = (profile?.email    as string | null) ?? user.email ?? '—'
+  const fullName = (profile?.full_name as string | null) ?? user?.email?.split('@')[0] ?? 'Customer'
+  const email    = (profile?.email    as string | null) ?? user?.email ?? '—'
 
   // Fetch rewards balance for this tenant
-  const customerId = profile?.customer_id as string | null
+  const customerId = siteCtx.customerId ?? (profile?.customer_id as string | null)
   let pointsBalance: number | null = null
 
   if (customerId) {

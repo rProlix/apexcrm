@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { headers } from 'next/headers'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
-import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { resolveSiteUser } from '@/lib/auth/resolveSiteUser'
 import { safeQuery, safeOptional } from '@/lib/supabase/safeQuery'
 import type { Json } from '@/lib/supabase/types'
 
@@ -81,24 +82,53 @@ export default async function RewardsPage({ params }: Props) {
   const basePath    = isPlatform ? `/sites/${tenant}` : ''
   const loginPath   = `${basePath}/login?next=/rewards`
 
-  const sessionClient = await createSessionServerClient()
-  const { data: { user } } = await sessionClient.auth.getUser()
+  const siteCtx = await resolveSiteUser(siteData.tenant.id)
 
-  if (!user) redirect(loginPath)
+  if (!siteCtx) redirect(loginPath)
 
+  // ── Business user: redirect to management tools (no rewards data to show) ─
+  if (siteCtx.accessLevel === 'platform' || siteCtx.accessLevel === 'business') {
+    return (
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', textAlign: 'center', padding: '4rem 1.5rem' }}>
+        <div>
+          <h1 style={{
+            fontSize:   'clamp(1.5rem, 3vw, 2rem)',
+            fontWeight: 700,
+            fontFamily: 'var(--font-heading)',
+            color:      'var(--color-text)',
+            margin:     '0 0 1rem',
+          }}>Rewards</h1>
+          <p style={{ color: 'var(--color-muted)', marginBottom: '2rem' }}>
+            As a business {siteCtx.role}, manage your rewards program from your CRM dashboard.
+          </p>
+          {siteCtx.canManageStore ? (
+            <Link href="/dashboard" style={{
+              display:        'inline-block',
+              background:     'var(--color-primary)',
+              color:          '#fff',
+              padding:        '0.75rem 1.75rem',
+              borderRadius:   '0.75rem',
+              fontWeight:     600,
+              textDecoration: 'none',
+            }}>
+              Go to CRM Dashboard →
+            </Link>
+          ) : (
+            <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
+              You do not have access to manage this site.
+            </p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Customer: require a linked customer record ───────────────────────────
+  if (!siteCtx.customerId) redirect(loginPath)
+
+  const customerId = siteCtx.customerId
   const db = getSupabaseServerClient()
-
-  // Resolve the CRM customer_id via customer_accounts (multi-tenant safe)
-  const { data: account } = await db
-    .from('customer_accounts')
-    .select('customer_id, status')
-    .eq('auth_user_id', user.id)
-    .eq('tenant_id', siteData.tenant.id)
-    .maybeSingle()
-
-  if (!account || account.status !== 'active') redirect(loginPath)
-
-  const { customer_id: customerId } = account
 
   // Load all rewards data in parallel
   const [balanceResult, transactionsResult, punchCardsResult] = await Promise.all([
