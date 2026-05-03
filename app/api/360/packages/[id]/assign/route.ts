@@ -1,21 +1,16 @@
 // app/api/360/packages/[id]/assign/route.ts
-// POST /api/360/packages/[id]/assign
-//
-// Assigns (or removes) a product_360_packages spin as the active 360 viewer
-// for a product (sets products.p360_package_id).
-//
-// Body: { product_id: string | null }
-// Owner / admin only.
+// REDIRECT: This endpoint has moved to /api/360/packages/[id]/attach
+// Forwards to the canonical attach route for backwards compatibility.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerClient }   from '@/lib/supabase/server'
-import { resolveStoreUser }          from '@/lib/auth/resolveStoreUser'
+import { resolve360ApiUser }         from '@/lib/360/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
 export async function POST(req: NextRequest, { params }: Params) {
   const { id } = await params
-  const user   = await resolveStoreUser(req)
+  const user   = await resolve360ApiUser(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (user.role !== 'owner' && user.role !== 'admin')
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -25,32 +20,47 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const supabase  = getSupabaseServerClient()
-  const productId = body.product_id as string | null
+  // Bridge old field name (product_id) to new field name (productId)
+  const productId = body.product_id !== undefined
+    ? body.product_id
+    : body.productId
 
-  // Verify package exists and is complete
+  const supabase = getSupabaseServerClient()
+
   const { data: pkg } = await supabase
     .from('product_360_packages')
-    .select('id, product_id, tenant_id, status')
+    .select('id, tenant_id')
     .eq('id', id)
     .maybeSingle()
 
   if (!pkg) return NextResponse.json({ error: 'Package not found' }, { status: 404 })
-  if (pkg.status !== 'complete')
-    return NextResponse.json({ error: 'Package is not yet complete' }, { status: 422 })
+  if (user.role !== 'owner' && pkg.tenant_id !== user.tenant_id)
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const targetProductId = productId ?? pkg.product_id
+  if (productId && typeof productId === 'string') {
+    await supabase
+      .from('products')
+      .update({ spin_package_id: id })
+      .eq('id', productId)
+      .eq('tenant_id', pkg.tenant_id)
 
-  const { error } = await supabase
-    .from('products')
-    .update({ p360_package_id: productId === null ? null : id })
-    .eq('id', targetProductId)
-    .eq('tenant_id', pkg.tenant_id)
+    await supabase
+      .from('product_360_packages')
+      .update({ product_id: productId })
+      .eq('id', id)
+  } else {
+    await supabase
+      .from('products')
+      .update({ spin_package_id: null })
+      .eq('spin_package_id', id)
+      .eq('tenant_id', pkg.tenant_id)
 
-  if (error) {
-    console.error('[POST /api/360/packages/[id]/assign]', error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    await supabase
+      .from('product_360_packages')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update({ product_id: null as any })
+      .eq('id', id)
   }
 
-  return NextResponse.json({ success: true, product_id: targetProductId, package_id: productId === null ? null : id })
+  return NextResponse.json({ success: true })
 }

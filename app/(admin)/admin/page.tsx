@@ -22,8 +22,7 @@ const ALL_MODULES = [
   'store',
   'website',
   'customers',
-  'spin_packages',
-  'spin_360',
+  'product_360_spin',
 ]
 
 export default async function AdminOverviewPage() {

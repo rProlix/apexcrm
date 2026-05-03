@@ -14,7 +14,7 @@ import { Card } from '@/components/ui/Card'
 const ALL_MODULES = [
   'contacts', 'leads', 'appointments', 'payments',
   'rewards', 'vehicles', 'damage_ai', 'messages', 'store',
-  'website', 'customers', 'spin_packages', 'spin_360',
+  'website', 'customers', 'product_360_spin',
 ]
 
 export const metadata = { title: 'Tenants — Platform Admin' }

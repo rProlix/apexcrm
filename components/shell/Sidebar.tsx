@@ -21,7 +21,7 @@ import {
   Globe,
   ShoppingBag,
   UserCheck,
-  RotateCcw,
+  Rotate3D,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -30,19 +30,18 @@ import { LiveBadge } from '@/components/ui/LiveBadge'
 import type { NavModule } from '@/modules/shared/moduleTypes'
 
 const MODULE_ICONS: Record<string, LucideIcon> = {
-  payments:      CreditCard,
-  appointments:  CalendarDays,
-  rewards:       Star,
-  vehicles:      Car,
-  damage_ai:     ScanLine,
-  leads:         UserPlus,
-  messages:      MessageSquare,
-  contacts:      BookUser,
-  website:       Globe,
-  store:         ShoppingBag,
-  customers:     UserCheck,
-  spin_packages: RotateCcw,
-  spin_360:      RotateCcw,
+  payments:         CreditCard,
+  appointments:     CalendarDays,
+  rewards:          Star,
+  vehicles:         Car,
+  damage_ai:        ScanLine,
+  leads:            UserPlus,
+  messages:         MessageSquare,
+  contacts:         BookUser,
+  website:          Globe,
+  store:            ShoppingBag,
+  customers:        UserCheck,
+  product_360_spin: Rotate3D,
 }
 
 interface SidebarProps {
@@ -77,11 +76,9 @@ const adminOnlyNav: NavItem[] = [
 ]
 
 const platformNav: NavItem[] = [
-  { label: 'Businesses',     href: '/owner/tenants',        icon: Users     },
-  { label: 'Admin',          href: '/admin',                icon: Shield    },
-  { label: 'Module Access',  href: '/owner/modules',        icon: Layers    },
-  { label: '360° Spin',      href: '/dashboard/360-spins',  icon: RotateCcw },
-  { label: 'Spin Generator', href: '/owner/spin-generator', icon: RotateCcw },
+  { label: 'Businesses',    href: '/owner/tenants',  icon: Users  },
+  { label: 'Admin',         href: '/admin',          icon: Shield },
+  { label: 'Module Access', href: '/owner/modules',  icon: Layers },
 ]
 
 export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin, isOpen = false, onClose }: SidebarProps) {

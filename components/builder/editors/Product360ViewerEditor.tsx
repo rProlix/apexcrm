@@ -2,14 +2,14 @@
 
 // components/builder/editors/Product360ViewerEditor.tsx
 // Sidebar editor for the product_360_viewer section.
-// Lets the builder user pick a product and its 360 package, toggle autoplay, etc.
+// Owner/admin only — never ships editor code to customers.
 
 import { useState, useEffect, useCallback } from 'react'
 import { useBuilderStore }                  from '@/lib/builder/store'
 import { Toggle, Field }                    from './FormFields'
 import type { Product360ViewerContent }     from '@/lib/website/types'
 
-interface Product { id: string; name: string; p360_package_id: string | null }
+interface Product { id: string; name: string; spin_package_id: string | null }
 interface Package { id: string; name: string | null; status: string; frames_done: number; frame_count: number }
 
 interface Props { sectionId: string }
@@ -31,7 +31,7 @@ export function Product360ViewerEditor({ sectionId }: Props) {
   useEffect(() => {
     setLoadingProducts(true)
     const qs = tenantId ? `?tenant_id=${tenantId}` : ''
-    fetch(`/api/store/products${qs}`)
+    fetch(`/api/360/products${qs}`)
       .then(r => r.json())
       .then(d => setProducts(d.products ?? []))
       .catch(() => {})
@@ -47,7 +47,7 @@ export function Product360ViewerEditor({ sectionId }: Props) {
       .then(r => r.json())
       .then(d => {
         const all: Package[] = d.packages ?? []
-        setPackages(all.filter(p => p.status === 'complete'))
+        setPackages(all.filter(p => p.status === 'ready'))
       })
       .catch(() => {})
       .finally(() => setLoadingPackages(false))
@@ -95,7 +95,7 @@ export function Product360ViewerEditor({ sectionId }: Props) {
             <option value="">— Select product —</option>
             {products.map(p => (
               <option key={p.id} value={p.id}>
-                {p.name}{p.p360_package_id ? ' ✓ 360°' : ''}
+                {p.name}{p.spin_package_id ? ' ✓ 360°' : ''}
               </option>
             ))}
           </select>
@@ -110,9 +110,9 @@ export function Product360ViewerEditor({ sectionId }: Props) {
             <p style={{ fontSize: '0.75rem', color: '#52525b' }}>Loading packages…</p>
           ) : packages.length === 0 ? (
             <p style={{ fontSize: '0.75rem', color: '#71717a' }}>
-              No complete 360° packages for this product.{' '}
-              <a href="/dashboard/360" target="_blank" rel="noreferrer" style={{ color: '#818cf8' }}>
-                Generate one →
+              No ready 360° packages for this product.{' '}
+              <a href="/dashboard/360" target="_blank" rel="noreferrer" style={{ color: '#c084fc' }}>
+                Create one →
               </a>
             </p>
           ) : (
@@ -121,7 +121,7 @@ export function Product360ViewerEditor({ sectionId }: Props) {
               onChange={e => patch('packageId', e.target.value)}
               style={selectStyle}
             >
-              <option value="">— Use product's default —</option>
+              <option value="">— Use product&apos;s default —</option>
               {packages.map(p => (
                 <option key={p.id} value={p.id}>
                   {p.name ?? p.id} ({p.frames_done}/{p.frame_count} frames)
@@ -154,7 +154,7 @@ export function Product360ViewerEditor({ sectionId }: Props) {
         />
       </div>
 
-      {/* Speed (only relevant if autoRotate) */}
+      {/* Speed */}
       {content.autoRotate && (
         <div style={groupStyle}>
           <label style={labelStyle}>Autoplay speed (fps)</label>
@@ -165,7 +165,7 @@ export function Product360ViewerEditor({ sectionId }: Props) {
             step={1}
             value={content.speed ?? 18}
             onChange={e => patch('speed', Number(e.target.value))}
-            style={{ width: '100%', accentColor: '#818cf8' }}
+            style={{ width: '100%', accentColor: '#c084fc' }}
           />
           <p style={{ fontSize: '0.75rem', color: '#52525b', marginTop: '0.25rem' }}>
             {content.speed ?? 18} fps
@@ -180,7 +180,7 @@ export function Product360ViewerEditor({ sectionId }: Props) {
         background:   '#1e1b4b44',
         border:       '1px solid #3730a344',
         fontSize:     '0.75rem',
-        color:        '#818cf8',
+        color:        '#c084fc',
         lineHeight:   1.5,
       }}>
         Customers drag left/right to spin the product 360°. Works on desktop and mobile.

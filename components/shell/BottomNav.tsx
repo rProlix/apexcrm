@@ -17,26 +17,25 @@ import {
   ShoppingBag,
   UserCheck,
   Globe,
-  RotateCcw,
+  Rotate3D,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { NavModule } from '@/modules/shared/moduleTypes'
 
 const MODULE_ICONS: Record<string, LucideIcon> = {
-  payments:      CreditCard,
-  appointments:  CalendarDays,
-  rewards:       Star,
-  vehicles:      Car,
-  damage_ai:     ScanLine,
-  leads:         UserPlus,
-  messages:      MessageSquare,
-  contacts:      BookUser,
-  store:         ShoppingBag,
-  customers:     UserCheck,
-  website:       Globe,
-  spin_packages: RotateCcw,
-  spin_360:      RotateCcw,
+  payments:         CreditCard,
+  appointments:     CalendarDays,
+  rewards:          Star,
+  vehicles:         Car,
+  damage_ai:        ScanLine,
+  leads:            UserPlus,
+  messages:         MessageSquare,
+  contacts:         BookUser,
+  store:            ShoppingBag,
+  customers:        UserCheck,
+  website:          Globe,
+  product_360_spin: Rotate3D,
 }
 
 interface BottomNavProps {

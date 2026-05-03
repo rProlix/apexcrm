@@ -7,8 +7,9 @@ import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig }       from '@/lib/website/getPublishedSiteConfig'
 import { getSupabaseServerClient }      from '@/lib/supabase/server'
 import Image                     from 'next/image'
-import ProductSpinSection        from '@/components/spin-packages/ProductSpinSection'
-import ProductSpin360Section     from '@/components/360-spins/ProductSpin360Section'
+
+// Canonical 360 viewer imports
+import Product360ViewerLazy from '@/components/360/Product360ViewerLazy'
 
 interface Props {
   params: Promise<{ tenant: string; id: string }>
@@ -33,7 +34,7 @@ export default async function ProductPage({ params }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: productRaw } = await (db as any)
     .from('products')
-    .select('id, name, description, price, currency, inventory_count, is_active, spin_package_id, spin_360_id')
+    .select('id, name, description, price, currency, inventory_count, is_active, image_url, spin_package_id')
     .eq('id', id)
     .eq('tenant_id', siteData.tenant.id)
     .eq('is_active', true)
@@ -42,10 +43,40 @@ export default async function ProductPage({ params }: Props) {
   const product = productRaw as {
     id: string; name: string; description: string | null
     price: number; currency: string; inventory_count: number; is_active: boolean
-    image_url?: string | null; spin_package_id: string | null; spin_360_id: string | null
+    image_url?: string | null; spin_package_id: string | null
   } | null
 
   if (!product) notFound()
+
+  // If product has a ready 360 package, fetch the frames for the viewer
+  let spin360Frames: Array<{ frame_index: number; angle_degrees: number; image_url: string }> = []
+
+  if (product.spin_package_id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: pkg } = await (db as any)
+      .from('product_360_packages')
+      .select('id, status')
+      .eq('id', product.spin_package_id)
+      .eq('tenant_id', siteData.tenant.id)
+      .eq('status', 'ready')
+      .maybeSingle()
+
+    if (pkg) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: frames } = await (db as any)
+        .from('product_360_frames')
+        .select('frame_index, angle_degrees, image_url')
+        .eq('package_id', product.spin_package_id)
+        .order('frame_index')
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      spin360Frames = (frames ?? []).map((f: any) => ({
+        frame_index:   f.frame_index as number,
+        angle_degrees: (f.angle_degrees as number) ?? 0,
+        image_url:     f.image_url as string,
+      }))
+    }
+  }
 
   return (
     <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
@@ -72,10 +103,13 @@ export default async function ProductPage({ params }: Props) {
             background:   'var(--color-surface)',
             border:       '1px solid var(--color-border)',
           }}>
-            {product.spin_360_id ? (
-              <ProductSpin360Section productId={product.id} label={product.name} />
-            ) : product.spin_package_id ? (
-              <ProductSpinSection productId={product.id} />
+            {spin360Frames.length > 0 ? (
+              <Product360ViewerLazy
+                frames={spin360Frames}
+                label={product.name}
+                autoRotate={false}
+                showControls
+              />
             ) : product.image_url ? (
               <Image src={product.image_url} alt={product.name} width={600} height={600} unoptimized
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -120,7 +154,7 @@ export default async function ProductPage({ params }: Props) {
               }}>{product.description}</p>
             )}
 
-            {/* Add to cart — client action */}
+            {/* Add to cart */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <Link href="/cart" style={{
                 display:        'block',

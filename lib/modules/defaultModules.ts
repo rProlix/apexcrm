@@ -18,12 +18,10 @@ export const DEFAULT_MODULE_STATES: Record<ModuleKey, boolean> = {
   store:         true,
   website:       true,
   customers:     true,
-  rewards:       false,   // opt-in: not all businesses run loyalty programs
-  vehicles:      false,   // opt-in: fleet/rental vertical only
-  damage_ai:     false,   // opt-in: requires vehicle module + AI setup
-  spin_packages:     false,   // opt-in: requires IMAGINE_API_TOKEN and Midjourney subscription
-  spin_360:          false,   // opt-in: requires IMAGINE_API_TOKEN and Midjourney subscription
-  product_360_spin:  false,   // opt-in: AI 360 product spin with website builder integration
+  rewards:       false,          // opt-in: not all businesses run loyalty programs
+  vehicles:      false,          // opt-in: fleet/rental vertical only
+  damage_ai:     false,          // opt-in: requires vehicle module + AI setup
+  product_360_spin: false,       // opt-in: AI 360 product spin with website builder integration
 }
 
 /**

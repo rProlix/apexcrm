@@ -1,16 +1,15 @@
 // components/site/sections/Product360ViewerSection.tsx
 //
-// Server component: resolves the 360° frame URLs for a product, then hands
-// them to the client-side SpinViewer360 (canvas-based drag-to-rotate).
+// Server component: resolves 360° frame URLs for a product/package,
+// then hands them to the client-side Product360Viewer.
 //
 // Resolution order:
 //   1. If content.packageId is set → load product_360_frames for that package
-//   2. Else if content.productId  → load product's active p360_package_id from products table
-//   3. Else if product has spin_360_id  → fall back to product_360_spins (JSONB, migration 019)
-//   4. Render nothing if no data found
+//   2. Else if content.productId  → load product's active spin_package_id
+//   3. If no ready frames found   → render empty fallback
 
-import { getSupabaseServerClient }     from '@/lib/supabase/server'
-import SpinViewer360Lazy              from '@/components/SpinViewer360/SpinViewer360Lazy'
+import { getSupabaseServerClient }  from '@/lib/supabase/server'
+import Product360ViewerLazy         from '@/components/360/Product360ViewerLazy'
 import type { Product360ViewerContent } from '@/lib/website/types'
 
 interface Props {
@@ -23,57 +22,72 @@ export async function Product360ViewerSection({ content, tenantId }: Props) {
 
   if (!productId && !packageId) return null
 
-  const supabase = getSupabaseServerClient()
-  let urls: string[] = []
-  let resolvedLabel  = label ?? ''
+  const supabase      = getSupabaseServerClient()
+  let urls: string[]  = []
+  let resolvedLabel   = label ?? ''
 
-  // ── Strategy 1: explicit packageId ───────────────────────────────────────
+  // ── Strategy 1: explicit packageId ────────────────────────────────────────
   if (packageId) {
-    const { data: frames } = await supabase
-      .from('product_360_frames')
-      .select('frame_index, image_url')
-      .eq('package_id', packageId)
-      .order('frame_index')
+    // Verify package is ready (never show drafts to public)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: pkg } = await (supabase as any)
+      .from('product_360_packages')
+      .select('id, name, status')
+      .eq('id', packageId)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'ready')
+      .maybeSingle()
 
-    if (frames?.length) {
-      urls          = frames.map(f => f.image_url)
-      resolvedLabel = resolvedLabel || ''
+    if (pkg) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: frames } = await (supabase as any)
+        .from('product_360_frames')
+        .select('frame_index, image_url')
+        .eq('package_id', packageId)
+        .order('frame_index')
+
+      if (frames?.length) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        urls          = (frames as any[]).map((f: any) => f.image_url as string)
+        resolvedLabel = resolvedLabel || (pkg as any).name || ''
+      }
     }
   }
 
-  // ── Strategy 2: product's active p360_package_id ─────────────────────────
+  // ── Strategy 2: product's active spin_package_id ──────────────────────────
   if (!urls.length && productId) {
-    const { data: product } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: product } = await (supabase as any)
       .from('products')
-      .select('name, p360_package_id, spin_360_id')
+      .select('name, spin_package_id')
       .eq('id', productId)
       .eq('tenant_id', tenantId)
       .maybeSingle()
 
     if (!resolvedLabel && product?.name) resolvedLabel = product.name
 
-    if (product?.p360_package_id) {
-      const { data: frames } = await supabase
-        .from('product_360_frames')
-        .select('frame_index, image_url')
-        .eq('package_id', product.p360_package_id)
-        .order('frame_index')
-
-      if (frames?.length) urls = frames.map(f => f.image_url)
-    }
-
-    // ── Strategy 3: fall back to product_360_spins JSONB (migration 019) ─
-    if (!urls.length && product?.spin_360_id) {
-      const { data: spin } = await supabase
-        .from('product_360_spins')
-        .select('image_urls, name')
-        .eq('id', product.spin_360_id)
+    if (product?.spin_package_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: pkg } = await (supabase as any)
+        .from('product_360_packages')
+        .select('id, status, name')
+        .eq('id', product.spin_package_id)
         .eq('status', 'ready')
         .maybeSingle()
 
-      if (spin?.image_urls && Array.isArray(spin.image_urls)) {
-        urls          = (spin.image_urls as string[]).filter(Boolean)
-        resolvedLabel = resolvedLabel || (spin.name ?? '')
+      if (pkg) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: frames } = await (supabase as any)
+          .from('product_360_frames')
+          .select('frame_index, image_url')
+          .eq('package_id', product.spin_package_id)
+          .order('frame_index')
+
+        if (frames?.length) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          urls          = (frames as any[]).map((f: any) => f.image_url as string)
+          resolvedLabel = resolvedLabel || (pkg as any).name || ''
+        }
       }
     }
   }
@@ -89,10 +103,11 @@ export async function Product360ViewerSection({ content, tenantId }: Props) {
   return (
     <section className="w-full py-10 px-4">
       <div className="mx-auto max-w-xl">
-        <SpinViewer360Lazy
+        <Product360ViewerLazy
           urls={urls}
           label={resolvedLabel || undefined}
-          fps={typeof speed === 'number' ? speed : 18}
+          speed={typeof speed === 'number' ? speed : 18}
+          autoRotate={autoRotate ?? false}
           className="w-full"
         />
         {resolvedLabel && (

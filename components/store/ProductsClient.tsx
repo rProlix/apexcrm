@@ -1,14 +1,16 @@
 'use client'
 // components/store/ProductsClient.tsx
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Package, ToggleLeft, ToggleRight } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Pencil, Trash2, Package, ToggleLeft, ToggleRight, Rotate3D } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { ProductForm, type ProductFormValues } from '@/components/store/ProductForm'
 
 interface Product extends ProductFormValues {
-  id:         string
-  created_at: string
-  currency:   string
+  id:              string
+  created_at:      string
+  currency:        string
+  spin_package_id?: string | null
 }
 
 interface Props {
@@ -98,6 +100,7 @@ export function ProductsClient({ initialProducts, tenantId }: Props) {
             <ProductCard
               key={product.id}
               product={product}
+              tenantId={tenantId}
               deleting={deleting === product.id}
               confirmingDelete={deleteConfirm === product.id}
               onEdit={() => openEdit(product)}
@@ -134,6 +137,7 @@ interface CardProps {
   onDeleteRequest:  () => void
   onDeleteConfirm:  () => void
   onDeleteCancel:   () => void
+  tenantId:         string
 }
 
 function ProductCard({
@@ -145,7 +149,12 @@ function ProductCard({
   onDeleteRequest,
   onDeleteConfirm,
   onDeleteCancel,
+  tenantId,
 }: CardProps) {
+  const spin360Href = product.spin_package_id
+    ? `/dashboard/360`
+    : `/dashboard/360?productId=${product.id}`
+
   return (
     <div className="group premium-panel premium-border rounded-2xl p-5 hover:shadow-panel-lg transition-shadow duration-200">
       {/* Top row */}
@@ -153,15 +162,23 @@ function ProductCard({
         <div className="h-10 w-10 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center shrink-0">
           <Package className="h-5 w-5 text-amber-400" strokeWidth={1.75} />
         </div>
-        <span
-          className={`text-xs font-medium px-2 py-1 rounded-lg border ${
-            product.is_active
-              ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
-              : 'text-white/30 bg-white/4 border-white/8'
-          }`}
-        >
-          {product.is_active ? 'Active' : 'Draft'}
-        </span>
+        <div className="flex items-center gap-2">
+          {product.spin_package_id && (
+            <span className="text-xs font-medium px-2 py-1 rounded-lg border text-sky-400 bg-sky-400/10 border-sky-400/20 flex items-center gap-1">
+              <Rotate3D className="h-3 w-3" />
+              360°
+            </span>
+          )}
+          <span
+            className={`text-xs font-medium px-2 py-1 rounded-lg border ${
+              product.is_active
+                ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
+                : 'text-white/30 bg-white/4 border-white/8'
+            }`}
+          >
+            {product.is_active ? 'Active' : 'Draft'}
+          </span>
+        </div>
       </div>
 
       {/* Info */}
@@ -171,6 +188,22 @@ function ProductCard({
       {product.description && (
         <p className="text-xs text-white/40 line-clamp-2 mb-3">{product.description}</p>
       )}
+
+      {/* 360 Viewer row */}
+      <div className="mb-3 rounded-xl bg-white/3 border border-white/8 px-3 py-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Rotate3D className="h-3.5 w-3.5 text-sky-400/70 shrink-0" />
+          <span className="text-xs text-white/50">
+            {product.spin_package_id ? '360° viewer attached' : 'No 360° viewer'}
+          </span>
+        </div>
+        <Link
+          href={spin360Href}
+          className="text-xs text-sky-400 hover:text-sky-300 transition-colors whitespace-nowrap"
+        >
+          {product.spin_package_id ? 'Manage' : 'Add viewer'}
+        </Link>
+      </div>
 
       {/* Price + Inventory */}
       <div className="flex items-center justify-between mb-4">
