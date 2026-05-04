@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.website_ai_import_jobs (
                                      CHECK (status IN (
                                        'draft','analyzing','ready','applied','failed','cancelled'
                                      )),
-  model                  text        NOT NULL DEFAULT 'gemini-3.1-pro-preview',
+  model                  text        NOT NULL DEFAULT 'gemini-3-flash-preview',
   summary                text        NULL,
   detected_business_type text        NULL,
   detected_content_types text[]      NOT NULL DEFAULT '{}',

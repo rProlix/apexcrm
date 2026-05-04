@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireAiAutofillAccess, resolveTenantAccess } from '@/lib/website-ai/tenantAccess'
+import { getWebsiteAiGeminiModel } from '@/lib/ai/geminiConfig'
 import { checkInputSecurity, sanitizeInput } from '@/lib/website-ai/security'
 import type { AiJobSourceType } from '@/lib/website-ai/types'
 
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
       source_type: sourceType,
       raw_input:   sanitized,
       status:      'draft',
-      model:       'gemini-3.1-pro-preview',
+      model:       getWebsiteAiGeminiModel(),
     })
     .select('*')
     .single()

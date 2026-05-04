@@ -4,8 +4,8 @@
 
 import type { GeminiResult } from './types'
 import { parseGeminiResult } from './parseGeminiResult'
+import { getWebsiteAiGeminiModel } from '@/lib/ai/geminiConfig'
 
-const GEMINI_MODEL    = 'gemini-3.1-pro-preview'
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 const TIMEOUT_MS      = 90_000
 
@@ -31,7 +31,7 @@ export async function callGemini(options: GeminiCallOptions): Promise<GeminiCall
     }
   }
 
-  const url = `${GEMINI_API_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`
+  const url = `${GEMINI_API_BASE}/${getWebsiteAiGeminiModel()}:generateContent?key=${apiKey}`
 
   const body = {
     contents: [
