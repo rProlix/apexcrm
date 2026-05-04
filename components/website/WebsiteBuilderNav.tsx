@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutGrid, FileText, Navigation, Palette, Settings,
-  Download, Wand2, Sparkles,
+  Download, Wand2, Sparkles, ImageIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -25,8 +25,9 @@ const TABS: Tab[] = [
   { href: '/website/navigation', label: 'Navigation',  icon: Navigation },
   { href: '/website/theme',      label: 'Theme',       icon: Palette },
   { href: '/website/settings',   label: 'Settings',    icon: Settings },
-  { href: '/website/ai-autofill',label: 'AI Autofill', icon: Sparkles,  badge: 'AI' },
-  { href: '/website/import',     label: 'Import',      icon: Download,  ownerOnly: true },
+  { href: '/website/ai-autofill',label: 'AI Autofill', icon: Sparkles,   badge: 'AI' },
+  { href: '/website/ai-images',  label: 'AI Images',   icon: ImageIcon,  badge: 'NEW' },
+  { href: '/website/import',     label: 'Import',       icon: Download,  ownerOnly: true },
 ]
 
 interface Props {

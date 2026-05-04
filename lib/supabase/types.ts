@@ -1563,6 +1563,128 @@ export interface Database {
         Update: Record<string, never>
         Relationships: []
       }
+      website_image_plans: {
+        Row: {
+          id:                     string
+          tenant_id:              string
+          page_id:                string | null
+          section_id:             string | null
+          plan_group_id:          string | null
+          placement_key:          string
+          section_type:           string | null
+          image_role:             string
+          title:                  string | null
+          reason:                 string | null
+          business_goal:          string | null
+          image_description:      string | null
+          visual_style:           string | null
+          prompt:                 string
+          negative_prompt:        string | null
+          aspect_ratio:           string | null
+          width:                  number | null
+          height:                 number | null
+          priority:               number
+          use_existing_if_avail:  boolean
+          selected_source:        string
+          existing_asset_url:     string | null
+          generated_asset_url:    string | null
+          generated_storage_path: string | null
+          generated_alt_text:     string | null
+          status:                 string
+          created_by:             string | null
+          created_at:             string
+          updated_at:             string
+        }
+        Insert: {
+          tenant_id:              string
+          placement_key:          string
+          image_role:             string
+          prompt:                 string
+          page_id?:               string | null
+          section_id?:            string | null
+          plan_group_id?:         string | null
+          section_type?:          string | null
+          title?:                 string | null
+          reason?:                string | null
+          business_goal?:         string | null
+          image_description?:     string | null
+          visual_style?:          string | null
+          negative_prompt?:       string | null
+          aspect_ratio?:          string | null
+          width?:                 number | null
+          height?:                number | null
+          priority?:              number
+          use_existing_if_avail?: boolean
+          selected_source?:       string
+          existing_asset_url?:    string | null
+          status?:                string
+          created_by?:            string | null
+        }
+        Update: {
+          title?:                 string | null
+          reason?:                string | null
+          prompt?:                string
+          negative_prompt?:       string | null
+          aspect_ratio?:          string | null
+          status?:                string
+          selected_source?:       string
+          generated_asset_url?:   string | null
+          generated_storage_path?: string | null
+          generated_alt_text?:    string | null
+          existing_asset_url?:    string | null
+          updated_at?:            string
+        }
+        Relationships: []
+      }
+      website_image_jobs: {
+        Row: {
+          id:                  string
+          tenant_id:           string
+          plan_id:             string | null
+          status:              string
+          model:               string
+          prompt:              string | null
+          negative_prompt:     string | null
+          aspect_ratio:        string | null
+          image_role:          string | null
+          placement_key:       string | null
+          storage_path:        string | null
+          public_url:          string | null
+          alt_text:            string | null
+          generation_metadata: Json
+          error_message:       string | null
+          created_by:          string | null
+          created_at:          string
+          updated_at:          string
+        }
+        Insert: {
+          tenant_id:           string
+          plan_id?:            string | null
+          status?:             string
+          model?:              string
+          prompt?:             string | null
+          negative_prompt?:    string | null
+          aspect_ratio?:       string | null
+          image_role?:         string | null
+          placement_key?:      string | null
+          storage_path?:       string | null
+          public_url?:         string | null
+          alt_text?:           string | null
+          generation_metadata?: Json
+          error_message?:      string | null
+          created_by?:         string | null
+        }
+        Update: {
+          status?:             string
+          storage_path?:       string | null
+          public_url?:         string | null
+          alt_text?:           string | null
+          generation_metadata?: Json
+          error_message?:      string | null
+          updated_at?:         string
+        }
+        Relationships: []
+      }
     }
     Views:     Record<string, never>
     Functions: {
