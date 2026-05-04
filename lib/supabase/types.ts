@@ -1437,6 +1437,132 @@ export interface Database {
         }
         Relationships: []
       }
+      website_ai_import_jobs: {
+        Row: {
+          id:                     string
+          tenant_id:              string
+          created_by:             string | null
+          source_type:            string
+          raw_input:              string
+          status:                 string
+          model:                  string
+          summary:                string | null
+          detected_business_type: string | null
+          detected_content_types: string[]
+          confidence:             number | null
+          error_message:          string | null
+          token_usage:            Json
+          metadata:               Json
+          created_at:             string
+          updated_at:             string
+        }
+        Insert: {
+          tenant_id:              string
+          created_by?:            string | null
+          source_type?:           string
+          raw_input:              string
+          status?:                string
+          model?:                 string
+          summary?:               string | null
+          detected_business_type?: string | null
+          detected_content_types?: string[]
+          confidence?:            number | null
+          error_message?:         string | null
+          token_usage?:           Json
+          metadata?:              Json
+        }
+        Update: {
+          status?:                string
+          summary?:               string | null
+          detected_business_type?: string | null
+          detected_content_types?: string[]
+          confidence?:            number | null
+          error_message?:         string | null
+          token_usage?:           Json
+          metadata?:              Json
+          updated_at?:            string
+        }
+        Relationships: []
+      }
+      website_ai_suggestions: {
+        Row: {
+          id:               string
+          tenant_id:        string
+          job_id:           string
+          suggestion_type:  string
+          action:           string
+          target_page_id:   string | null
+          target_section_id: string | null
+          title:            string | null
+          description:      string | null
+          reason:           string | null
+          extracted_data:   Json
+          proposed_section: Json
+          confidence:       number
+          status:           string
+          admin_notes:      string | null
+          applied_at:       string | null
+          created_at:       string
+          updated_at:       string
+        }
+        Insert: {
+          tenant_id:        string
+          job_id:           string
+          suggestion_type:  string
+          action?:          string
+          target_page_id?:  string | null
+          target_section_id?: string | null
+          title?:           string | null
+          description?:     string | null
+          reason?:          string | null
+          extracted_data?:  Json
+          proposed_section?: Json
+          confidence?:      number
+          status?:          string
+          admin_notes?:     string | null
+          applied_at?:      string | null
+        }
+        Update: {
+          action?:          string
+          title?:           string | null
+          description?:     string | null
+          reason?:          string | null
+          extracted_data?:  Json
+          proposed_section?: Json
+          confidence?:      number
+          status?:          string
+          admin_notes?:     string | null
+          applied_at?:      string | null
+          updated_at?:      string
+        }
+        Relationships: []
+      }
+      website_ai_applied_changes: {
+        Row: {
+          id:              string
+          tenant_id:       string
+          job_id:          string
+          suggestion_id:   string | null
+          applied_by:      string | null
+          target_type:     string
+          target_id:       string | null
+          before_snapshot: Json | null
+          after_snapshot:  Json | null
+          created_at:      string
+        }
+        Insert: {
+          tenant_id:       string
+          job_id:          string
+          suggestion_id?:  string | null
+          applied_by?:     string | null
+          target_type:     string
+          target_id?:      string | null
+          before_snapshot?: Json | null
+          after_snapshot?: Json | null
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
     }
     Views:     Record<string, never>
     Functions: {

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
   Globe, FileText, Navigation, Palette, Settings,
-  CheckCircle2, Clock, ExternalLink, Zap, Eye,
+  CheckCircle2, Clock, ExternalLink, Zap, Eye, Sparkles, ArrowRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { fadeUp, staggerContainer } from '@/lib/motion'
@@ -106,7 +106,32 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
         </div>
       )}
 
-      {/* Status banner */}
+      {/* AI Autofill feature highlight */}
+      <Link href="/website/ai-autofill">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-violet-900/30 via-graphite-800/60 to-graphite-800/60 border border-violet-500/20 hover:border-violet-400/40 transition-all duration-200 hover:shadow-lg cursor-pointer px-5 py-4">
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center shrink-0">
+              <Sparkles className="h-5 w-5 text-violet-400" strokeWidth={1.75} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="text-sm font-semibold text-white group-hover:text-violet-300 transition-colors">
+                  AI Website Autofill
+                </p>
+                <span className="text-2xs font-bold px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400 uppercase tracking-wide">
+                  New
+                </span>
+              </div>
+              <p className="text-xs text-white/40 leading-relaxed">
+                Paste reviews, services, prices, hours, products, or FAQs — Gemini organizes them into website sections.
+              </p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-violet-400/50 group-hover:text-violet-400 group-hover:translate-x-1 transition-all duration-150 shrink-0" />
+          </div>
+        </div>
+      </Link>
+
+      {/* Publish status banner */}
       <div className={cn(
         'rounded-2xl border px-5 py-4 flex items-center gap-4',
         isPublished
@@ -150,25 +175,25 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
         className="grid grid-cols-2 sm:grid-cols-4 gap-4"
       >
         {[
-          { label: 'Total Pages',  value: initialPages.length, color: 'text-violet-400', bg: 'bg-violet-400/10 border-violet-400/20' },
-          { label: 'Published',    value: publishedCount,      color: 'text-emerald-400', bg: 'bg-emerald-400/10 border-emerald-400/20' },
-          { label: 'Drafts',       value: draftCount,          color: 'text-gold-400',    bg: 'bg-gold-400/10 border-gold-400/20' },
-          { label: 'Nav Items',    value: navCount,            color: 'text-blue-400',    bg: 'bg-blue-400/10 border-blue-400/20' },
+          { label: 'Total Pages',  value: initialPages.length, color: 'text-violet-400' },
+          { label: 'Published',    value: publishedCount,      color: 'text-emerald-400' },
+          { label: 'Drafts',       value: draftCount,          color: 'text-gold-400' },
+          { label: 'Nav Items',    value: navCount,            color: 'text-blue-400' },
         ].map((stat) => (
           <motion.div
             key={stat.label}
             variants={fadeUp}
             className="rounded-2xl bg-graphite-800/60 border border-surface-border px-5 py-4"
           >
-            <p className="text-2xl font-bold text-white">{stat.value}</p>
+            <p className={cn('text-2xl font-bold', stat.color)}>{stat.value}</p>
             <p className="text-xs text-white/40 mt-1">{stat.label}</p>
           </motion.div>
         ))}
       </motion.div>
 
-      {/* Nav grid */}
+      {/* Section shortcuts */}
       <div>
-        <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest mb-4">Manage</h2>
+        <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest mb-4">Builder Sections</h2>
         <motion.div
           variants={staggerContainer(0.05)}
           initial="hidden"
@@ -183,7 +208,7 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
               description: 'Create, edit, and manage your site pages and content sections',
               color:       'text-violet-400',
               bg:          'bg-violet-400/10 border-violet-400/20',
-              badge:       `${initialPages.length} pages`,
+              badge:       initialPages.length ? `${initialPages.length} pages` : null,
             },
             {
               href:        '/website/navigation',
@@ -192,7 +217,7 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
               description: 'Configure header and footer links for your public site',
               color:       'text-blue-400',
               bg:          'bg-blue-400/10 border-blue-400/20',
-              badge:       `${navCount} links`,
+              badge:       navCount ? `${navCount} links` : null,
             },
             {
               href:        '/website/theme',
@@ -201,7 +226,7 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
               description: 'Customize colors, fonts, logo, and brand identity',
               color:       'text-pink-400',
               bg:          'bg-pink-400/10 border-pink-400/20',
-              badge:       null,
+              badge:       null as string | null,
             },
             {
               href:        '/website/settings',
@@ -210,7 +235,7 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
               description: 'Domain configuration, SEO defaults, and site metadata',
               color:       'text-gold-400',
               bg:          'bg-gold-400/10 border-gold-400/20',
-              badge:       null,
+              badge:       null as string | null,
             },
           ].map((item) => (
             <motion.div key={item.href} variants={fadeUp}>
@@ -246,7 +271,7 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
       {initialPages.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest">Pages</h2>
+            <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest">Recent Pages</h2>
             <Link href="/website/pages" className="text-xs text-gold-400 hover:text-gold-300 transition-colors">
               Manage all →
             </Link>
@@ -287,7 +312,7 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
       )}
 
       {initialPages.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 text-center rounded-2xl border border-dashed border-surface-border">
+        <div className="flex flex-col items-center justify-center py-16 text-center rounded-2xl border border-dashed border-surface-border">
           <div className="h-16 w-16 rounded-2xl bg-violet-400/10 border border-violet-400/20 flex items-center justify-center mb-4">
             <Globe className="h-8 w-8 text-violet-400/60" strokeWidth={1.5} />
           </div>
