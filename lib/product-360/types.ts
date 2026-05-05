@@ -7,6 +7,7 @@ export type P360Status =
   | 'draft'
   | 'queued'
   | 'generating'
+  | 'processing'
   | 'ready'
   | 'failed'
   | 'archived'
@@ -58,10 +59,16 @@ export interface P360Package {
   starts_at:            string | null
   /** Alias for promo_ends_at (added migration 034). */
   ends_at:              string | null
-  // ── Frame counts ───────────────────────────────────────────────────────────
+  // ── Frame counts & progress ────────────────────────────────────────────────
   frame_count:          number
   target_frame_count:   number
+  /** Actual frame rows in DB (updated during generation, ground truth). */
+  frames_done:          number
+  /** 0-100 progress, updated after each batch of frames during generation. */
+  progress_percent:     number
   // ── Media ──────────────────────────────────────────────────────────────────
+  /** Canonical preview thumbnail (middle frame). Prefer over cover_frame_url. */
+  preview_image_url:    string | null
   cover_frame_url:      string | null
   model_url:            string | null
   ar_model_url:         string | null
@@ -76,6 +83,8 @@ export interface P360Package {
   generation_model:     string | null
   generation_job_id:    string | null
   generation_error:     string | null
+  /** Timestamp of the last successful generation completion. */
+  last_generated_at:    string | null
   // ── Config blobs ───────────────────────────────────────────────────────────
   settings:             Record<string, unknown>
   hotspot_config:       P360HotspotConfig[]
@@ -217,9 +226,10 @@ export interface P360PackageWithFrames extends P360Package {
 }
 
 export interface P360PackageSummary extends P360Package {
-  frames_done:  number
-  product_name: string | null
-  /** Populated when loading packages alongside products */
+  /** Overrides the DB column — always reflects count of actual frame rows. */
+  frames_done:       number
+  product_name:      string | null
+  /** Populated when loading packages alongside products. */
   product_image_url?: string | null
 }
 

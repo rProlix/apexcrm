@@ -11,11 +11,13 @@ import { getSupabaseServerClient }  from '@/lib/supabase/server'
 import { requireP360Provider }      from '@/lib/ai/360/provider'
 import { buildFullFramePlan, buildMasterPrompt } from '@/lib/ai/360/promptBuilder'
 import { uploadFrame }              from './storage'
+import { finalizePackage }          from './finalize'
 import type { P360GenerationConfig, P360ProductDescriptor } from '@/lib/ai/360/types'
 
 export interface GeneratePackageResult {
   success:          boolean
   framesGenerated:  number
+  previewUrl?:      string | null
   errorMessage?:    string
 }
 
@@ -30,7 +32,8 @@ export interface RegenerateFrameResult {
 /**
  * Generate all frames for a 360° package.
  * Called by POST /api/product-360/packages/[id]/generate.
- * Async — caller should fire-and-forget or await.
+ * Awaitable — the route handler must await this to ensure DB finalization completes.
+ * Status lifecycle: queued → generating → [frame loop] → processing → ready (or failed).
  */
 export async function generatePackage(packageId: string): Promise<GeneratePackageResult> {
   const supabase = getSupabaseServerClient()
@@ -111,16 +114,21 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
 
   const masterPrompt = buildMasterPrompt(productDescriptor, genConfig)
   const framePlan    = buildFullFramePlan(productDescriptor, genConfig)
+  const totalFrames  = framePlan.length
 
-  // ── Mark generating ──────────────────────────────────────────────────────────
+  console.info(`[p360:generate] pkg=${packageId} starting ${totalFrames} frames via ${provider.name}`)
+
+  // ── Mark generating — reset progress counters ────────────────────────────────
   await db
     .from('product_360_packages')
     .update({
-      status:             'generating',
-      generation_error:   null,
+      status:              'generating',
+      generation_error:    null,
       generation_provider: provider.name,
-      ai_model:           provider.model,
-      updated_at:         new Date().toISOString(),
+      ai_model:            provider.model,
+      frames_done:         0,
+      progress_percent:    0,
+      updated_at:          new Date().toISOString(),
     })
     .eq('id', packageId)
 
@@ -154,7 +162,6 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
         height:         genConfig.outputHeight ?? 1024,
       })
 
-      // Determine content type and extension
       const mimeType = result.mimeType ?? 'image/png'
       const ext      = mimeType.includes('jpeg') ? 'jpg' : 'png'
 
@@ -162,27 +169,21 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
       let storagePath: string
 
       if (result.imageBuffer) {
-        // Direct buffer upload
         const { imageUrl, storagePath: sp } = await uploadFrame({
-          tenantId,
-          productId,
-          packageId,
+          tenantId, productId, packageId,
           frameIndex:  frame.frameIndex,
           buffer:      result.imageBuffer,
           contentType: mimeType,
           ext,
         })
-        uploadedUrl  = imageUrl
-        storagePath  = sp
+        uploadedUrl = imageUrl
+        storagePath = sp
       } else if (result.imageUrl) {
-        // Fetch from URL and re-upload to our storage
         const fetchRes = await fetch(result.imageUrl)
         if (!fetchRes.ok) throw new Error(`Frame fetch failed (HTTP ${fetchRes.status})`)
         const buf = Buffer.from(await fetchRes.arrayBuffer())
         const { imageUrl, storagePath: sp } = await uploadFrame({
-          tenantId,
-          productId,
-          packageId,
+          tenantId, productId, packageId,
           frameIndex:  frame.frameIndex,
           buffer:      buf,
           contentType: fetchRes.headers.get('content-type') ?? mimeType,
@@ -194,7 +195,7 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
         throw new Error(`Frame ${frame.frameIndex}: provider returned neither buffer nor URL`)
       }
 
-      // Upsert frame record
+      // Persist frame row — upsert so reruns don't create duplicates
       await db
         .from('product_360_frames')
         .upsert({
@@ -211,6 +212,21 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
 
       framesGenerated++
 
+      console.info(`[p360:generate] pkg=${packageId} frame ${framesGenerated}/${totalFrames} done`)
+
+      // ── Update progress in DB every 3 frames (or on the final frame) ────────
+      if (framesGenerated % 3 === 0 || framesGenerated === totalFrames) {
+        const progressPct = Math.min(100, Math.round((framesGenerated / totalFrames) * 100))
+        await db
+          .from('product_360_packages')
+          .update({
+            frames_done:      framesGenerated,
+            progress_percent: progressPct,
+            updated_at:       new Date().toISOString(),
+          })
+          .eq('id', packageId)
+      }
+
       // Update job progress
       if (jobId) {
         await db
@@ -218,41 +234,46 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
           .update({ frames_completed: framesGenerated })
           .eq('id', jobId)
       }
-
-      // Set cover from first frame
-      if (frame.frameIndex === 0) {
-        await db
-          .from('product_360_packages')
-          .update({ cover_frame_url: uploadedUrl })
-          .eq('id', packageId)
-      }
     }
 
-    // ── Mark ready ───────────────────────────────────────────────────────────
+    // ── All frames generated — transition to processing, then finalize ────────
     await db
       .from('product_360_packages')
       .update({
-        status:      'ready',
-        frame_count: framesGenerated,
-        updated_at:  new Date().toISOString(),
+        status:           'processing',
+        frames_done:      framesGenerated,
+        progress_percent: 100,
+        frame_count:      framesGenerated,
+        updated_at:       new Date().toISOString(),
       })
       .eq('id', packageId)
+
+    console.info(`[p360:generate] pkg=${packageId} → processing, calling finalize…`)
+
+    const fin = await finalizePackage(packageId)
 
     if (jobId) {
       await db
         .from('product_360_generation_jobs')
         .update({
-          status:           'completed',
+          status:           fin.success ? 'completed' : 'failed',
           frames_completed: framesGenerated,
+          error_message:    fin.errorMessage ?? null,
           completed_at:     new Date().toISOString(),
         })
         .eq('id', jobId)
     }
 
-    return { success: true, framesGenerated }
+    if (!fin.success) {
+      return { success: false, framesGenerated, previewUrl: null, errorMessage: fin.errorMessage }
+    }
+
+    console.info(`[p360:generate] pkg=${packageId} → ready (${framesGenerated} frames)`)
+    return { success: true, framesGenerated, previewUrl: fin.previewUrl }
 
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown generation error'
+    console.error(`[p360:generate] pkg=${packageId} failed after ${framesGenerated} frames:`, err)
     await markFailed(packageId, errorMessage)
 
     if (jobId) {
@@ -266,7 +287,7 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
         .eq('id', jobId)
     }
 
-    return { success: false, framesGenerated, errorMessage }
+    return { success: false, framesGenerated, previewUrl: null, errorMessage }
   }
 }
 

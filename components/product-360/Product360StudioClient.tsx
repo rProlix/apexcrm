@@ -35,14 +35,20 @@ const STATUS_STYLES: Record<string, string> = {
   draft:      'text-white/40 bg-white/4 border-white/8',
   queued:     'text-sky-400 bg-sky-400/10 border-sky-400/20',
   generating: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+  processing: 'text-violet-400 bg-violet-400/10 border-violet-400/20',
   ready:      'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
   failed:     'text-red-400 bg-red-400/10 border-red-400/20',
   archived:   'text-white/20 bg-white/3 border-white/5',
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft', queued: 'Queued', generating: 'Generating…',
-  ready: 'Ready', failed: 'Failed', archived: 'Archived',
+  draft:      'Draft',
+  queued:     'Queued',
+  generating: 'Generating…',
+  processing: 'Processing…',
+  ready:      'Ready',
+  failed:     'Failed',
+  archived:   'Archived',
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -142,25 +148,46 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
   }, [prodSearch, tenantId, fetchProducts])
 
   // ── Generation polling ────────────────────────────────────────────────────
+  // Polls every 8 s while any package is in queued / generating / processing.
+  // Stops automatically when all in-progress packages reach a terminal state.
 
   useEffect(() => {
-    const inProgress = packages.filter(p => p.status === 'generating' || p.status === 'queued')
+    const inProgress = packages.filter(
+      p => p.status === 'queued' || p.status === 'generating' || p.status === 'processing',
+    )
     if (!inProgress.length) return
+
     const timer = setInterval(async () => {
       for (const pkg of inProgress) {
-        const res  = await fetch(`/api/product-360/packages/${pkg.id}/generation-status?tenantId=${tenantId}`)
-        if (res.ok) {
-          const d = await res.json()
-          setPackages(prev => prev.map(p =>
-            p.id === pkg.id
-              ? { ...p, status: d.status, frames_done: d.framesCompleted ?? p.frames_done, generation_error: d.error }
-              : p,
-          ))
+        const res = await fetch(
+          `/api/product-360/packages/${pkg.id}/generation-status?tenantId=${tenantId}`,
+        )
+        if (!res.ok) continue
+        const d = await res.json()
+        const terminalStatuses = ['ready', 'failed', 'archived']
+        setPackages(prev => prev.map(p =>
+          p.id === pkg.id
+            ? {
+                ...p,
+                status:            d.status,
+                frames_done:       d.framesCompleted    ?? p.frames_done,
+                progress_percent:  d.progressPercent    ?? p.progress_percent,
+                preview_image_url: d.previewUrl         ?? p.preview_image_url,
+                cover_frame_url:   d.previewUrl         ?? p.cover_frame_url,
+                generation_error:  d.error              ?? null,
+              }
+            : p,
+        ))
+        // When the package reaches terminal status, refresh full list from DB
+        if (terminalStatuses.includes(d.status)) {
+          fetchPackages(tenantId, selectedProd?.id)
         }
       }
     }, 8_000)
+
     return () => clearInterval(timer)
-  }, [packages, tenantId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packages, tenantId, selectedProd?.id])
 
   // ── Product select ────────────────────────────────────────────────────────
 
@@ -179,6 +206,12 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
   // ── Actions ───────────────────────────────────────────────────────────────
 
   async function handleGenerate(pkgId: string) {
+    // Optimistic update before the fetch so polling triggers immediately
+    setPackages(prev => prev.map(p =>
+      p.id === pkgId
+        ? { ...p, status: 'queued' as const, frames_done: 0, progress_percent: 0, generation_error: null }
+        : p,
+    ))
     setGeneratingId(pkgId)
     try {
       const res  = await fetch(`/api/product-360/packages/${pkgId}/generate`, {
@@ -189,28 +222,63 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
       const json = await res.json()
       if (!res.ok) {
         setPackages(prev => prev.map(p =>
-          p.id === pkgId ? { ...p, status: 'failed' as const, generation_error: json.error } : p,
+          p.id === pkgId
+            ? { ...p, status: 'failed' as const, generation_error: json.error ?? 'Generation failed' }
+            : p,
         ))
         return
       }
-      setPackages(prev => prev.map(p => p.id === pkgId ? { ...p, status: 'queued' as const } : p))
+      // Route now returns final status — update and then refresh from DB
+      setPackages(prev => prev.map(p =>
+        p.id === pkgId
+          ? {
+              ...p,
+              status:            json.status ?? 'ready',
+              frames_done:       json.framesGenerated ?? p.frames_done,
+              progress_percent:  json.status === 'ready' ? 100 : p.progress_percent,
+              preview_image_url: json.previewUrl ?? p.preview_image_url,
+              cover_frame_url:   json.previewUrl ?? p.cover_frame_url,
+            }
+          : p,
+      ))
+    } catch {
+      setPackages(prev => prev.map(p =>
+        p.id === pkgId ? { ...p, status: 'failed' as const, generation_error: 'Network error' } : p,
+      ))
     } finally {
       setGeneratingId(null)
+      // Always refresh from DB to get authoritative state
+      fetchPackages(tenantId, selectedProd?.id)
     }
   }
 
   async function handleRegenerate(pkgId: string) {
     if (!confirm('Regenerate all frames? This will overwrite existing frames.')) return
+    setPackages(prev => prev.map(p =>
+      p.id === pkgId
+        ? { ...p, status: 'queued' as const, frames_done: 0, progress_percent: 0, generation_error: null }
+        : p,
+    ))
     setGeneratingId(pkgId)
     try {
-      await fetch(`/api/product-360/packages/${pkgId}/regenerate`, {
+      const res  = await fetch(`/api/product-360/packages/${pkgId}/regenerate`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ tenantId }),
       })
-      setPackages(prev => prev.map(p => p.id === pkgId ? { ...p, status: 'queued' as const } : p))
+      const json = await res.json()
+      if (!res.ok) {
+        setPackages(prev => prev.map(p =>
+          p.id === pkgId ? { ...p, status: 'failed' as const, generation_error: json.error ?? 'Regeneration failed' } : p,
+        ))
+      }
+    } catch {
+      setPackages(prev => prev.map(p =>
+        p.id === pkgId ? { ...p, status: 'failed' as const, generation_error: 'Network error' } : p,
+      ))
     } finally {
       setGeneratingId(null)
+      fetchPackages(tenantId, selectedProd?.id)
     }
   }
 
@@ -642,11 +710,26 @@ function PackageCard({
   pkg, onGenerate, onRegenerate, onToggleEnabled, onSetDefault,
   onArchive, onPreview, onDuplicate, onUpload, generatingId, previewLoading,
 }: PackageCardProps) {
-  const isGenerating = pkg.status === 'generating' || pkg.status === 'queued'
-  const canGenerate  = pkg.package_type === 'ai_generated' || pkg.package_type === 'hybrid'
-  const progressPct  = pkg.target_frame_count > 0
-    ? Math.min(100, Math.round(((pkg.frames_done ?? 0) / pkg.target_frame_count) * 100))
-    : 0
+  const isActiveGeneration = pkg.status === 'generating' || pkg.status === 'queued' || pkg.status === 'processing'
+  const canGenerate        = pkg.package_type === 'ai_generated' || pkg.package_type === 'hybrid'
+
+  // Use DB progress_percent if available; compute as fallback
+  const progressPct = pkg.progress_percent > 0
+    ? pkg.progress_percent
+    : pkg.target_frame_count > 0
+      ? Math.min(100, Math.round(((pkg.frames_done ?? 0) / pkg.target_frame_count) * 100))
+      : 0
+
+  // Package is at 100% but DB hasn't flipped to 'ready' yet
+  const isFinalizing = isActiveGeneration && progressPct >= 100
+
+  // Prefer the canonical preview URL; fall back to legacy cover_frame_url
+  const previewUrl = pkg.preview_image_url ?? pkg.cover_frame_url ?? null
+
+  // Status label: override with "Finalizing…" if applicable
+  const statusLabel = isFinalizing
+    ? 'Finalizing…'
+    : STATUS_LABELS[pkg.status] ?? pkg.status
 
   return (
     <div className="premium-panel premium-border rounded-2xl p-4 space-y-3 group">
@@ -654,35 +737,45 @@ function PackageCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
             <span className={`inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border ${STATUS_STYLES[pkg.status] ?? STATUS_STYLES.draft}`}>
-              {isGenerating && <Loader2 className="h-2.5 w-2.5 mr-1 animate-spin" />}
-              {STATUS_LABELS[pkg.status] ?? pkg.status}
+              {isActiveGeneration && <Loader2 className="h-2.5 w-2.5 mr-1 animate-spin" />}
+              {statusLabel}
             </span>
-            {(pkg.is_primary || pkg.is_default) && <span className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">Primary</span>}
-            {pkg.is_enabled  && pkg.status === 'ready' && <span className="text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">Live</span>}
-            {pkg.preset      && <span className="text-[10px] text-sky-400 bg-sky-400/10 border border-sky-400/20 px-2 py-0.5 rounded-full">{pkg.preset}</span>}
-            {pkg.promo_tag   && <span className="text-[10px] text-fuchsia-400 bg-fuchsia-400/10 border border-fuchsia-400/20 px-2 py-0.5 rounded-full">{pkg.promo_tag}</span>}
+            {(pkg.is_primary || pkg.is_default) && (
+              <span className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">Primary</span>
+            )}
+            {pkg.is_enabled && pkg.status === 'ready' && (
+              <span className="text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">Live</span>
+            )}
+            {pkg.preset    && <span className="text-[10px] text-sky-400 bg-sky-400/10 border border-sky-400/20 px-2 py-0.5 rounded-full">{pkg.preset}</span>}
+            {pkg.promo_tag && <span className="text-[10px] text-fuchsia-400 bg-fuchsia-400/10 border border-fuchsia-400/20 px-2 py-0.5 rounded-full">{pkg.promo_tag}</span>}
           </div>
           <h3 className="text-sm font-semibold text-white truncate">{pkg.name}</h3>
           {pkg.product_name && <p className="text-xs text-white/30 truncate">{pkg.product_name}</p>}
           {/* Preset chips */}
           {(pkg.lighting_preset || pkg.background_preset || pkg.camera_preset) && (
             <div className="flex items-center gap-1 mt-1 flex-wrap">
-              {pkg.lighting_preset    && <PresetChip label={pkg.lighting_preset.replace(/_/g, ' ')} />}
-              {pkg.background_preset  && <PresetChip label={pkg.background_preset.replace(/_/g, ' ')} />}
-              {pkg.camera_preset      && <PresetChip label={pkg.camera_preset.replace(/_/g, ' ')} />}
+              {pkg.lighting_preset   && <PresetChip label={pkg.lighting_preset.replace(/_/g, ' ')} />}
+              {pkg.background_preset && <PresetChip label={pkg.background_preset.replace(/_/g, ' ')} />}
+              {pkg.camera_preset     && <PresetChip label={pkg.camera_preset.replace(/_/g, ' ')} />}
             </div>
           )}
+          {pkg.last_generated_at && pkg.status === 'ready' && (
+            <p className="text-[10px] text-white/20 mt-0.5">
+              Generated {new Date(pkg.last_generated_at).toLocaleDateString()}
+            </p>
+          )}
         </div>
-        {pkg.cover_frame_url && (
+        {/* Preview thumbnail — uses preview_image_url (middle frame) or cover_frame_url */}
+        {previewUrl && (
           <div className="h-12 w-12 rounded-lg overflow-hidden border border-white/8 shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={pkg.cover_frame_url} alt={pkg.name} className="w-full h-full object-cover" />
+            <img src={previewUrl} alt={pkg.name} className="w-full h-full object-cover" />
           </div>
         )}
       </div>
 
-      {/* Progress */}
-      {pkg.target_frame_count > 0 && (
+      {/* Progress bar — only visible during generation or when not all frames are done */}
+      {pkg.target_frame_count > 0 && (isActiveGeneration || progressPct < 100) && (
         <div className="space-y-1">
           <div className="flex justify-between text-[10px] text-white/30">
             <span>{pkg.frames_done ?? 0} / {pkg.target_frame_count} frames</span>
@@ -690,7 +783,13 @@ function PackageCard({
           </div>
           <div className="h-1 rounded-full bg-white/8 overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${pkg.status === 'ready' ? 'bg-emerald-400' : 'bg-fuchsia-400'}`}
+              className={`h-full rounded-full transition-all duration-500 ${
+                pkg.status === 'ready'
+                  ? 'bg-emerald-400'
+                  : isFinalizing
+                    ? 'bg-violet-400'
+                    : 'bg-fuchsia-400'
+              }`}
               style={{ width: `${progressPct}%` }}
             />
           </div>

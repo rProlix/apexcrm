@@ -1,11 +1,22 @@
 // app/api/product-360/packages/[packageId]/generate/route.ts
-import { NextRequest, NextResponse }  from 'next/server'
-import { resolveP360ApiUser }         from '@/lib/product-360/auth'
-import { getSupabaseServerClient }    from '@/lib/supabase/server'
-import { generatePackage }            from '@/lib/product-360/generationService'
-import { getP360Provider }            from '@/lib/ai/360/provider'
+//
+// POST — start generation for a package.
+//
+// This route AWAITS generatePackage() synchronously so the Vercel function
+// stays alive until generation completes. maxDuration = 300 (5 min) gives
+// enough headroom for 24 Gemini frames.
+//
+// Fire-and-forget was removed: it caused packages to stay stuck in "queued"
+// when the function was killed by Vercel before the DB finalization ran.
 
-export const dynamic = 'force-dynamic'
+import { NextRequest, NextResponse } from 'next/server'
+import { resolveP360ApiUser }        from '@/lib/product-360/auth'
+import { getSupabaseServerClient }   from '@/lib/supabase/server'
+import { generatePackage }           from '@/lib/product-360/generationService'
+import { getP360Provider }           from '@/lib/ai/360/provider'
+
+export const dynamic    = 'force-dynamic'
+export const maxDuration = 300  // seconds — Vercel Pro/Enterprise
 
 type Ctx = { params: Promise<{ packageId: string }> }
 
@@ -18,7 +29,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   let body: Record<string, unknown> = {}
-  try { body = await req.json() } catch { /* ok, body optional */ }
+  try { body = await req.json() } catch { /* body optional */ }
 
   const tenantId = user.isOwner
     ? (body.tenantId as string | undefined) ?? user.tenantId
@@ -30,6 +41,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
+  // ── Validate package belongs to this tenant ─────────────────────────────
   const { data: pkg } = await db
     .from('product_360_packages')
     .select('id, status, product_id')
@@ -40,10 +52,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!pkg) return NextResponse.json({ error: 'Package not found' }, { status: 404 })
 
   const currentStatus = (pkg as Record<string, unknown>).status as string
-  if (currentStatus === 'generating' || currentStatus === 'queued') {
+  if (currentStatus === 'generating' || currentStatus === 'processing') {
     return NextResponse.json({ error: 'Generation already in progress' }, { status: 409 })
   }
 
+  // ── Verify AI provider is configured ───────────────────────────────────
   const provider = getP360Provider()
   if (!provider) {
     return NextResponse.json({
@@ -51,15 +64,38 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }, { status: 503 })
   }
 
+  // ── Set queued immediately so the UI sees state change ──────────────────
   await db
     .from('product_360_packages')
-    .update({ status: 'queued', generation_error: null, updated_at: new Date().toISOString() })
+    .update({
+      status:           'queued',
+      generation_error: null,
+      frames_done:      0,
+      progress_percent: 0,
+      updated_at:       new Date().toISOString(),
+    })
     .eq('id', packageId)
 
-  // Fire-and-forget
-  generatePackage(packageId).catch(err => {
-    console.error(`[p360:generate] packageId=${packageId}`, err)
-  })
+  console.info(`[p360:generate/route] pkg=${packageId} queued, starting generation…`)
 
-  return NextResponse.json({ success: true, status: 'queued', packageId })
+  // ── Run generation synchronously so finalization is guaranteed ──────────
+  const result = await generatePackage(packageId)
+
+  if (!result.success) {
+    console.error(`[p360:generate/route] pkg=${packageId} failed: ${result.errorMessage}`)
+    return NextResponse.json({
+      success:    false,
+      status:     'failed',
+      error:      result.errorMessage ?? 'Generation failed',
+      packageId,
+    }, { status: 500 })
+  }
+
+  return NextResponse.json({
+    success:        true,
+    status:         'ready',
+    packageId,
+    framesGenerated: result.framesGenerated,
+    previewUrl:     result.previewUrl ?? null,
+  })
 }
