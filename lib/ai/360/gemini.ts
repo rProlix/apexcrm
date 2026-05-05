@@ -98,19 +98,19 @@ async function callGeminiGenerateContent(
   //
   // Valid generationConfig fields for image-capable models:
   //   responseModalities — ["IMAGE"] or ["IMAGE","TEXT"] to request image output.
-  //   responseMimeType   — "image/png" or "image/jpeg" (optional; defaults to png).
   //
   // NOT valid (HTTP 400 if included):
-  //   imageWidth / imageHeight — these are NOT generationConfig fields.
-  //   Image dimensions are controlled by the prompt text instead, e.g.
-  //   "…a 1024×1024 studio photograph…"
+  //   responseMimeType: 'image/png' — responseMimeType controls the MIME type of the
+  //     TEXT part of the response, not the image part. Setting it to an image MIME type
+  //     causes HTTP 400 because the model only accepts 'text/plain' for that field.
+  //     Image output is requested via responseModalities, not responseMimeType.
+  //   imageWidth / imageHeight — not valid generationConfig fields; use prompt text instead.
   const requestBody = {
     contents: [
       { parts: [{ text: prompt }] },
     ],
     generationConfig: {
       responseModalities: ['IMAGE', 'TEXT'],
-      responseMimeType:   'image/png',
     },
   }
 

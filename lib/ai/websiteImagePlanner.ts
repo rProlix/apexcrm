@@ -2,100 +2,77 @@
 // Uses the EXISTING Gemini text model to plan what images a website needs.
 // The text autofill model (geminiConfig.ts) is used here for planning —
 // NO image generation happens in this file.
+//
+// Fix: removed responseMimeType: 'application/json' from generationConfig.
+// gemini-3-flash-preview only allows 'text/plain', so sending 'application/json'
+// caused HTTP 400. The model is now prompted to return strict JSON in plain text,
+// which parsePlannerResult already handles (it strips code fences).
+//
 // SERVER-ONLY.
 
 import { getWebsiteAiGeminiModel } from '@/lib/ai/geminiConfig'
+import { callGeminiText }          from '@/lib/ai/geminiRequest'
 import { buildImagePlannerPrompt } from '@/lib/ai/websiteImagePrompts'
 import type { ImagePlannerContext, ImagePlannerResult, ImagePlanItem } from '@/lib/ai/websiteImageTypes'
-
-const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
-const TIMEOUT_MS      = 60_000
 
 export async function planWebsiteImages(
   ctx: ImagePlannerContext,
 ): Promise<{ result: ImagePlannerResult | null; error?: string }> {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) {
+  if (!process.env.GEMINI_API_KEY) {
     return { result: null, error: 'GEMINI_API_KEY is not set. Add it to your environment variables.' }
   }
 
   if (!ctx.sections.length && !ctx.pages.length) {
     return {
-      result: { plan_group_id: crypto.randomUUID(), plans: [], warnings: ['No pages or sections found. Run AI Autofill first to generate website content.'] },
+      result: {
+        plan_group_id: crypto.randomUUID(),
+        plans:         [],
+        warnings:      ['No pages or sections found. Run AI Autofill first to generate website content.'],
+      },
     }
   }
 
   const prompt = buildImagePlannerPrompt(ctx)
-  const url    = `${GEMINI_API_BASE}/${getWebsiteAiGeminiModel()}:generateContent?key=${apiKey}`
-  const body   = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature:      0.3,
-      maxOutputTokens:  8192,
-      responseMimeType: 'application/json',
-    },
+  const model  = getWebsiteAiGeminiModel()
+
+  const { text, error } = await callGeminiText({
+    model,
+    prompt,
+    feature:         'image-planner',
+    temperature:     0.3,
+    maxOutputTokens: 8192,
+    timeoutMs:       60_000,
+    // expectJson is intentionally false — parsePlannerResult (below) handles
+    // code fence stripping and mapping to the ImagePlanItem schema.
+  })
+
+  if (error) {
+    return { result: null, error }
   }
 
-  const controller = new AbortController()
-  const timer      = setTimeout(() => controller.abort(), TIMEOUT_MS)
-  let response: Response
-
-  try {
-    response = await fetch(url, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(body),
-      signal:  controller.signal,
-    })
-  } catch (err: unknown) {
-    clearTimeout(timer)
-    return {
-      result: null,
-      error:  err instanceof Error && err.name === 'AbortError'
-        ? 'Image planner timed out. Try again.'
-        : `Image planner request failed: ${err instanceof Error ? err.message : String(err)}`,
-    }
-  } finally {
-    clearTimeout(timer)
+  if (!text) {
+    return { result: null, error: 'No image plan was generated.' }
   }
 
-  if (!response.ok) {
-    let text = ''
-    try { text = await response.text() } catch { /* ignore */ }
-    return { result: null, error: `Gemini API error ${response.status}: ${text.slice(0, 200)}` }
-  }
-
-  let json: Record<string, unknown>
-  try { json = await response.json() as Record<string, unknown> } catch {
-    return { result: null, error: 'Gemini returned unreadable data.' }
-  }
-
-  const candidates = json.candidates as Array<Record<string, unknown>> | undefined
-  const rawText    = extractText(candidates)
-  if (!rawText) return { result: null, error: 'No image plan was generated.' }
-
-  return parsePlannerResult(rawText)
+  return parsePlannerResult(text)
 }
 
-function extractText(candidates?: Array<Record<string, unknown>>): string {
-  if (!candidates?.length) return ''
-  const first   = candidates[0]
-  const content = first?.content as Record<string, unknown> | undefined
-  const parts   = content?.parts as Array<Record<string, unknown>> | undefined
-  if (!parts?.length) return ''
-  return parts.map(p => (p?.text as string) ?? '').join('')
-}
+// ─── Response parsing ─────────────────────────────────────────────────────────
 
 function parsePlannerResult(raw: string): { result: ImagePlannerResult | null; error?: string } {
   let cleaned = raw.trim()
-  // strip markdown fences if present
+  // Strip markdown code fences if Gemini wrapped the JSON
   cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '')
+  // Find JSON boundaries in case there is surrounding prose
+  const start = cleaned.indexOf('{')
+  const end   = cleaned.lastIndexOf('}')
+  if (start !== -1 && end > start) cleaned = cleaned.slice(start, end + 1)
 
   let parsed: Record<string, unknown>
   try {
     parsed = JSON.parse(cleaned) as Record<string, unknown>
   } catch {
-    // attempt trailing-comma repair
+    // Attempt trailing-comma repair
     try {
       const repaired = cleaned.replace(/,\s*([}\]])/g, '$1')
       parsed = JSON.parse(repaired) as Record<string, unknown>
