@@ -88,25 +88,29 @@ function extractImageFromResponse(json: GeminiResponse): { b64: string; mimeType
 }
 
 async function callGeminiGenerateContent(
-  model:          string,
-  prompt:         string,
-  width:          number,
-  height:         number,
-  signal:         AbortSignal,
+  model:  string,
+  prompt: string,
+  signal: AbortSignal,
 ): Promise<{ b64: string; mimeType: string }> {
   const apiKey = getApiKey()
 
+  // Gemini generateContent request for image output.
+  //
+  // Valid generationConfig fields for image-capable models:
+  //   responseModalities — ["IMAGE"] or ["IMAGE","TEXT"] to request image output.
+  //   responseMimeType   — "image/png" or "image/jpeg" (optional; defaults to png).
+  //
+  // NOT valid (HTTP 400 if included):
+  //   imageWidth / imageHeight — these are NOT generationConfig fields.
+  //   Image dimensions are controlled by the prompt text instead, e.g.
+  //   "…a 1024×1024 studio photograph…"
   const requestBody = {
     contents: [
-      {
-        parts: [{ text: prompt }],
-      },
+      { parts: [{ text: prompt }] },
     ],
     generationConfig: {
       responseModalities: ['IMAGE', 'TEXT'],
-      // Gemini image generation config (supported on image-capable models)
-      ...(width  ? { imageWidth:  width  } : {}),
-      ...(height ? { imageHeight: height } : {}),
+      responseMimeType:   'image/png',
     },
   }
 
@@ -140,9 +144,17 @@ export const geminiProvider: P360ImageProvider = {
 
   async generateFrame(params: P360GenerateFrameParams): Promise<P360GenerateFrameResult> {
     const model     = getModel()
-    const w         = params.width  ?? 1024
-    const h         = params.height ?? 1024
     const timeoutMs = params.timeoutMs ?? TIMEOUT_MS
+
+    // Gemini does not accept width/height in generationConfig.
+    // Encode the desired output size in the prompt so the model targets those
+    // dimensions. The actual pixel dimensions depend on the model's output.
+    const w = params.width  ?? 1024
+    const h = params.height ?? 1024
+    const sizeHint = `Output a ${w}×${h} image. `
+    const fullPrompt = params.prompt.startsWith(sizeHint)
+      ? params.prompt
+      : sizeHint + params.prompt
 
     const controller = new AbortController()
     const timer      = setTimeout(() => controller.abort(), timeoutMs)
@@ -150,8 +162,7 @@ export const geminiProvider: P360ImageProvider = {
     try {
       const { b64, mimeType } = await callGeminiGenerateContent(
         model,
-        params.prompt,
-        w, h,
+        fullPrompt,
         controller.signal,
       )
 
