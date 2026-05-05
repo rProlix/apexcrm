@@ -65,9 +65,11 @@ export interface ImagenImage {
 }
 
 export interface ImagenGenerateResult {
-  images:  ImagenImage[]
-  error?:  string
-  model:   string
+  images:      ImagenImage[]
+  error?:      string
+  model:       string
+  /** HTTP status code of the failed response (0 = network/timeout). Undefined on success. */
+  statusCode?: number
 }
 
 // ─── Imagen response shape ────────────────────────────────────────────────────
@@ -222,7 +224,9 @@ function parseImagenResponse(result: DoImagenResult, model: string): ImagenGener
       ? `Imagen API HTTP ${result.status} [model: ${model}]: ${errText.slice(0, 300)}`
       : errText  // timeout / network error
 
-    if (result.status === 400 && errText.includes('negativePrompt')) {
+    if (result.status === 429) {
+      friendlyMsg = `Imagen API HTTP 429 [model: ${model}]: ${errText.slice(0, 300)}`
+    } else if (result.status === 400 && errText.includes('negativePrompt')) {
       friendlyMsg = `Imagen rejected negativePrompt field [model: ${model}]. Use mergeNegativePromptIntoPrompt().`
     } else if (result.status === 400 && errText.includes('text output')) {
       friendlyMsg = `Model (${model}) only supports text output. Image generation needs imagen-4.0-ultra-generate-001.`
@@ -233,7 +237,7 @@ function parseImagenResponse(result: DoImagenResult, model: string): ImagenGener
     }
 
     console.error(`[imagenGenerate] ${friendlyMsg}`)
-    return { images: [], error: friendlyMsg, model }
+    return { images: [], error: friendlyMsg, model, statusCode: result.status || undefined }
   }
 
   const json = result.json

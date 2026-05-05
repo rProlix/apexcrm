@@ -34,23 +34,31 @@ interface Props {
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<string, string> = {
-  draft:      'text-white/40 bg-white/4 border-white/8',
-  queued:     'text-sky-400 bg-sky-400/10 border-sky-400/20',
-  generating: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
-  processing: 'text-violet-400 bg-violet-400/10 border-violet-400/20',
-  ready:      'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
-  failed:     'text-red-400 bg-red-400/10 border-red-400/20',
-  archived:   'text-white/20 bg-white/3 border-white/5',
+  draft:        'text-white/40 bg-white/4 border-white/8',
+  queued:       'text-sky-400 bg-sky-400/10 border-sky-400/20',
+  planning:     'text-sky-400 bg-sky-400/10 border-sky-400/20',
+  generating:   'text-amber-400 bg-amber-400/10 border-amber-400/20',
+  processing:   'text-violet-400 bg-violet-400/10 border-violet-400/20',
+  paused_quota: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
+  ready:        'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+  completed:    'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+  failed:       'text-red-400 bg-red-400/10 border-red-400/20',
+  cancelled:    'text-white/30 bg-white/4 border-white/8',
+  archived:     'text-white/20 bg-white/3 border-white/5',
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  draft:      'Draft',
-  queued:     'Queued',
-  generating: 'Generating…',
-  processing: 'Processing…',
-  ready:      'Ready',
-  failed:     'Failed',
-  archived:   'Archived',
+  draft:        'Draft',
+  queued:       'Queued',
+  planning:     'Planning…',
+  generating:   'Generating…',
+  processing:   'Processing…',
+  paused_quota: 'Quota Paused',
+  ready:        'Ready',
+  completed:    'Completed',
+  failed:       'Failed',
+  cancelled:    'Cancelled',
+  archived:     'Archived',
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -163,7 +171,7 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
 
   useEffect(() => {
     const inProgress = packages.filter(
-      p => p.status === 'queued' || p.status === 'generating' || p.status === 'processing',
+      p => p.status === 'queued' || p.status === 'planning' || p.status === 'generating' || p.status === 'processing',
     )
     if (!inProgress.length) return
 
@@ -184,24 +192,22 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
         const serverProgress  = (d.progressPercent  as number) ?? 0
         const serverPreview   = (d.previewUrl       as string | null) ?? null
         const serverFrameUrls = (d.completedFrameUrls as string[] | undefined) ?? []
-        const terminalStatuses = ['ready', 'completed', 'failed', 'archived']
+        // Terminal = stop polling
+        const terminalStatuses = ['ready', 'completed', 'failed', 'paused_quota', 'cancelled', 'archived']
 
-        // Monotonic update: never let displayed progress go backward
         setPackages(prev => prev.map(p => {
           if (p.id !== pkg.id) return p
           return {
             ...p,
             status:            d.status as P360PackageSummary['status'],
-            // Math.max guarantees progress never regresses in the UI
             frames_done:       Math.max(p.frames_done      ?? 0, serverFrames),
             progress_percent:  Math.max(p.progress_percent ?? 0, serverProgress),
             preview_image_url: serverPreview ?? p.preview_image_url,
             cover_frame_url:   serverPreview ?? p.cover_frame_url,
-            generation_error:  (d.error as string | null) ?? null,
+            generation_error:  (d.error     as string | null) ?? p.generation_error,
           }
         }))
 
-        // Track completed frame URLs for the in-progress sequence preview
         if (serverFrameUrls.length > 0) {
           setPackageFrameUrls(prev => ({
             ...prev,
@@ -209,7 +215,6 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
           }))
         }
 
-        // When the package reaches terminal status, refresh full list from DB
         if (terminalStatuses.includes(d.status as string)) {
           fetchPackages(tenantId, selectedProd?.id)
         }
@@ -236,11 +241,20 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
-  async function handleGenerate(pkgId: string) {
-    // Optimistic update before the fetch so polling triggers immediately
+  async function handleGenerate(pkgId: string, opts?: { forceResume?: boolean }) {
+    const currentPkg = packages.find(p => p.id === pkgId)
+    const isResume   = currentPkg?.status === 'paused_quota' || currentPkg?.status === 'failed'
+
+    // Optimistic update — preserve frames_done on resume
     setPackages(prev => prev.map(p =>
       p.id === pkgId
-        ? { ...p, status: 'queued' as const, frames_done: 0, progress_percent: 0, generation_error: null }
+        ? {
+            ...p,
+            status:           'queued' as const,
+            frames_done:      isResume ? (p.frames_done ?? 0) : 0,
+            progress_percent: isResume ? (p.progress_percent ?? 0) : 0,
+            generation_error: null,
+          }
         : p,
     ))
     setGeneratingId(pkgId)
@@ -248,27 +262,33 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
       const res  = await fetch(`/api/product-360/packages/${pkgId}/generate`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ tenantId }),
+        body:    JSON.stringify({ tenantId, ...(opts?.forceResume ? { forceResume: true } : {}) }),
       })
-      const json = await res.json()
+      const json = await res.json() as Record<string, unknown>
+
       if (!res.ok) {
+        // New response shape: { ok: false, error: { type, title, message, retryable } }
+        const errObj = (json.error as Record<string, unknown> | undefined) ?? {}
+        const errType  = errObj.type as string | undefined
+        const errMsg   = (errObj.message as string | undefined) ?? 'Generation failed'
+        const newStatus = errType === 'quota_exceeded' ? 'paused_quota' as const : 'failed' as const
         setPackages(prev => prev.map(p =>
-          p.id === pkgId
-            ? { ...p, status: 'failed' as const, generation_error: json.error ?? 'Generation failed' }
-            : p,
+          p.id === pkgId ? { ...p, status: newStatus, generation_error: errMsg } : p,
         ))
         return
       }
-      // Route now returns final status — update and then refresh from DB
+
+      // { ok: true, data: { status, packageId, framesGenerated, previewUrl } }
+      const data = (json.data as Record<string, unknown> | undefined) ?? json
       setPackages(prev => prev.map(p =>
         p.id === pkgId
           ? {
               ...p,
-              status:            json.status ?? 'ready',
-              frames_done:       json.framesGenerated ?? p.frames_done,
-              progress_percent:  json.status === 'ready' ? 100 : p.progress_percent,
-              preview_image_url: json.previewUrl ?? p.preview_image_url,
-              cover_frame_url:   json.previewUrl ?? p.cover_frame_url,
+              status:            ((data.status as P360PackageSummary['status']) ?? 'ready'),
+              frames_done:       (data.framesGenerated as number) ?? p.frames_done,
+              progress_percent:  (data.status as string) === 'ready' ? 100 : p.progress_percent,
+              preview_image_url: (data.previewUrl as string | null) ?? p.preview_image_url,
+              cover_frame_url:   (data.previewUrl as string | null) ?? p.cover_frame_url,
             }
           : p,
       ))
@@ -278,7 +298,6 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
       ))
     } finally {
       setGeneratingId(null)
-      // Always refresh from DB to get authoritative state
       fetchPackages(tenantId, selectedProd?.id)
     }
   }
@@ -638,15 +657,18 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
                 {(() => {
                   const isInProgress = (
                     previewPkg.status === 'queued' ||
+                    previewPkg.status === 'planning' ||
                     previewPkg.status === 'generating' ||
                     previewPkg.status === 'processing'
                   )
+                  const isPausedOrFailed = previewPkg.status === 'paused_quota' || previewPkg.status === 'failed'
                   const liveUrls  = packageFrameUrls[previewPkg.id] ?? []
                   const frameUrls = previewPkg.frames.map(f => f.image_url).filter(Boolean) as string[]
-                  const allUrls   = isInProgress ? liveUrls : frameUrls
 
-                  // While generating: use the lightweight sequence preview (no Three.js)
-                  // to avoid the iOS Safari WebGL crash on partial/uninitialised context
+                  // Prioritise live polling URLs during active generation
+                  const displayUrls = liveUrls.length > 0 ? liveUrls : frameUrls
+
+                  // While generating: lightweight sequence preview
                   if (isInProgress) {
                     const inProgressPkg = packages.find(p => p.id === previewPkg.id)
                     return (
@@ -660,11 +682,44 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
                     )
                   }
 
+                  // Paused or failed with ≥ 6 frames: show partial preview
+                  if (isPausedOrFailed && displayUrls.length >= 6) {
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 px-2">
+                          <AlertCircle className="h-3 w-3 text-orange-400 shrink-0" />
+                          <p className="text-[11px] text-orange-400">
+                            Partial preview — {displayUrls.length} of {previewPkg.target_frame_count} frames
+                          </p>
+                        </div>
+                        <Product360SequencePreview
+                          frameUrls={displayUrls}
+                          isGenerating={false}
+                          productName={previewPkg.name}
+                        />
+                      </div>
+                    )
+                  }
+
+                  // Paused/failed with < 6 frames
+                  if (isPausedOrFailed) {
+                    return (
+                      <div className="aspect-square rounded-2xl bg-orange-400/5 border border-orange-400/20 flex flex-col items-center justify-center gap-3 p-6 text-center">
+                        <AlertCircle className="h-8 w-8 text-orange-400/50" />
+                        <p className="text-xs text-orange-400/80">
+                          Only {displayUrls.length} frame{displayUrls.length !== 1 ? 's' : ''} generated.
+                          At least 6 are needed for a preview.
+                        </p>
+                        <p className="text-[10px] text-white/30">Resume generation to continue.</p>
+                      </div>
+                    )
+                  }
+
                   // Completed: premium Three.js viewer wrapped in error boundary
-                  if (allUrls.length > 0) {
+                  if (displayUrls.length > 0) {
                     return (
                       <Product360ViewerErrorBoundary
-                        frameUrls={allUrls}
+                        frameUrls={displayUrls}
                         productName={previewPkg.name}
                       >
                         <Product360ViewerClient
@@ -763,7 +818,7 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
 interface PackageCardProps {
   pkg:                P360PackageSummary
   completedFrameUrls?: string[]
-  onGenerate:         (id: string) => void
+  onGenerate:         (id: string, opts?: { forceResume?: boolean }) => void
   onRegenerate:       (id: string) => void
   onToggleEnabled:    (pkg: P360PackageSummary) => void
   onSetDefault:       (pkg: P360PackageSummary) => void
@@ -779,7 +834,7 @@ function PackageCard({
   pkg, completedFrameUrls, onGenerate, onRegenerate, onToggleEnabled, onSetDefault,
   onArchive, onPreview, onDuplicate, onUpload, generatingId, previewLoading,
 }: PackageCardProps) {
-  const isActiveGeneration = pkg.status === 'generating' || pkg.status === 'queued' || pkg.status === 'processing'
+  const isActiveGeneration = pkg.status === 'generating' || pkg.status === 'queued' || pkg.status === 'processing' || pkg.status === 'planning'
   const canGenerate        = pkg.package_type === 'ai_generated' || pkg.package_type === 'hybrid'
 
   // Use DB progress_percent if available; compute as fallback
@@ -872,8 +927,8 @@ function PackageCard({
         ) : null}
       </div>
 
-      {/* Progress bar — only visible during generation or when not all frames are done */}
-      {pkg.target_frame_count > 0 && (isActiveGeneration || progressPct < 100) && (
+      {/* Progress bar */}
+      {pkg.target_frame_count > 0 && (isActiveGeneration || pkg.status === 'paused_quota' || progressPct < 100) && (
         <div className="space-y-1">
           <div className="flex justify-between text-[10px] text-white/30">
             <span>{pkg.frames_done ?? 0} / {pkg.target_frame_count} frames</span>
@@ -882,11 +937,13 @@ function PackageCard({
           <div className="h-1 rounded-full bg-white/8 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
-                pkg.status === 'ready'
+                pkg.status === 'ready' || pkg.status === 'completed'
                   ? 'bg-emerald-400'
-                  : isFinalizing
-                    ? 'bg-violet-400'
-                    : 'bg-fuchsia-400'
+                  : pkg.status === 'paused_quota'
+                    ? 'bg-orange-400'
+                    : isFinalizing
+                      ? 'bg-violet-400'
+                      : 'bg-fuchsia-400'
               }`}
               style={{ width: `${progressPct}%` }}
             />
@@ -894,29 +951,76 @@ function PackageCard({
         </div>
       )}
 
-      {/* Error */}
-      {pkg.generation_error && (
+      {/* Quota warning card */}
+      {pkg.status === 'paused_quota' && (
+        <div className="rounded-lg bg-orange-400/8 border border-orange-400/20 px-3 py-2.5 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <AlertCircle className="h-3 w-3 text-orange-400 shrink-0" />
+            <p className="text-xs font-semibold text-orange-400">Image quota reached</p>
+          </div>
+          <p className="text-[10px] text-orange-300/70 leading-relaxed">
+            Generation paused after {pkg.frames_done ?? 0} / {pkg.target_frame_count} frames.
+            {(pkg.frames_done ?? 0) >= 6
+              ? ' Partial preview is available below.'
+              : ' Upgrade your Google Cloud billing or wait for quota reset, then resume.'}
+          </p>
+        </div>
+      )}
+
+      {/* Standard error */}
+      {pkg.generation_error && pkg.status !== 'paused_quota' && (
         <div className="flex items-start gap-2 rounded-lg bg-red-500/8 border border-red-500/15 px-3 py-2">
           <AlertCircle className="h-3 w-3 text-red-400 mt-0.5 shrink-0" />
           <p className="text-xs text-red-400 line-clamp-2">{pkg.generation_error}</p>
         </div>
       )}
 
+      {/* Partial frames available hint */}
+      {(pkg.status === 'paused_quota' || pkg.status === 'failed') && (pkg.frames_done ?? 0) >= 6 && (
+        <p className="text-[10px] text-teal-400/70 flex items-center gap-1">
+          <Check className="h-2.5 w-2.5 shrink-0" />
+          {pkg.frames_done} frames ready — partial 360° preview available
+        </p>
+      )}
+
       {/* Actions */}
       <div className="flex items-center gap-1 flex-wrap">
         <ActionBtn onClick={() => onPreview(pkg.id)} disabled={previewLoading} icon={<Eye className="h-3 w-3" />} label="Preview" />
 
-        {canGenerate && (pkg.status === 'draft' || pkg.status === 'failed') && (
+        {/* Generate: draft or cancelled */}
+        {canGenerate && (pkg.status === 'draft' || pkg.status === 'cancelled') && (
           <ActionBtn
             onClick={() => onGenerate(pkg.id)}
             disabled={generatingId === pkg.id}
             icon={generatingId === pkg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-            label={pkg.status === 'failed' ? 'Retry' : 'Generate'}
+            label="Generate"
             highlight
           />
         )}
 
-        {canGenerate && pkg.status === 'ready' && (
+        {/* Retry: failed */}
+        {canGenerate && pkg.status === 'failed' && (
+          <ActionBtn
+            onClick={() => onGenerate(pkg.id)}
+            disabled={generatingId === pkg.id}
+            icon={generatingId === pkg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            label="Retry"
+            highlight
+          />
+        )}
+
+        {/* Resume: paused_quota */}
+        {canGenerate && pkg.status === 'paused_quota' && (
+          <ActionBtn
+            onClick={() => onGenerate(pkg.id, { forceResume: true })}
+            disabled={generatingId === pkg.id}
+            icon={generatingId === pkg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            label="Resume"
+            highlight
+          />
+        )}
+
+        {canGenerate && (pkg.status === 'ready' || pkg.status === 'completed') && (
           <ActionBtn
             onClick={() => onRegenerate(pkg.id)}
             disabled={generatingId === pkg.id}

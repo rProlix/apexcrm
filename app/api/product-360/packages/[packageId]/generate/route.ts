@@ -1,31 +1,41 @@
 // app/api/product-360/packages/[packageId]/generate/route.ts
 //
-// POST — start generation for a package.
+// POST — start (or resume) generation for a 360° package.
 //
 // This route AWAITS generatePackage() synchronously so the Vercel function
 // stays alive until generation completes. maxDuration = 300 (5 min) gives
-// enough headroom for 24 Gemini frames.
+// enough headroom for 24 Imagen frames at ~1.5 s throttle delay each.
 //
-// Fire-and-forget was removed: it caused packages to stay stuck in "queued"
-// when the function was killed by Vercel before the DB finalization ran.
+// Response shapes:
+//   Success  → { ok: true,  data: { status, packageId, framesGenerated, previewUrl } }
+//   Quota    → { ok: false, error: { type: 'quota_exceeded', title, message, retryable, retryAt } }
+//   Failure  → { ok: false, error: { type, title, message, retryable } }
+//
+// Resume behaviour:
+//   Packages in status 'paused_quota' or 'failed' CAN be re-submitted to this
+//   route. The generation service will skip already-completed frames and
+//   continue from where it left off.
 
-import { NextRequest, NextResponse } from 'next/server'
-import { resolveP360ApiUser }        from '@/lib/product-360/auth'
-import { getSupabaseServerClient }   from '@/lib/supabase/server'
-import { generatePackage }           from '@/lib/product-360/generationService'
-import { getP360Provider }           from '@/lib/ai/360/provider'
+import { NextRequest, NextResponse }  from 'next/server'
+import { resolveP360ApiUser }         from '@/lib/product-360/auth'
+import { getSupabaseServerClient }    from '@/lib/supabase/server'
+import { generatePackage }            from '@/lib/product-360/generationService'
+import { getP360Provider }            from '@/lib/ai/360/provider'
 
-export const dynamic    = 'force-dynamic'
+export const dynamic     = 'force-dynamic'
 export const maxDuration = 300  // seconds — Vercel Pro/Enterprise
 
 type Ctx = { params: Promise<{ packageId: string }> }
 
+// Statuses from which generation (or resume) may start
+const RESUMABLE_STATUSES = new Set(['draft', 'failed', 'paused_quota', 'cancelled'])
+
 export async function POST(req: NextRequest, ctx: Ctx) {
   const { packageId } = await ctx.params
   const user = await resolveP360ApiUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ ok: false, error: { type: 'auth_error', title: 'Unauthorized', message: 'Unauthorized', retryable: false } }, { status: 401 })
   if (user.role !== 'owner' && user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return NextResponse.json({ ok: false, error: { type: 'auth_error', title: 'Forbidden', message: 'Only owners and admins can generate 360° packages', retryable: false } }, { status: 403 })
   }
 
   let body: Record<string, unknown> = {}
@@ -35,67 +45,127 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     ? (body.tenantId as string | undefined) ?? user.tenantId
     : user.tenantId
 
-  if (!tenantId) return NextResponse.json({ error: 'Could not resolve tenant' }, { status: 400 })
+  if (!tenantId) return NextResponse.json({ ok: false, error: { type: 'invalid_request', title: 'Missing tenant', message: 'Could not resolve tenant', retryable: false } }, { status: 400 })
 
   const supabase = getSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
-  // ── Validate package belongs to this tenant ─────────────────────────────
+  // ── Validate package ────────────────────────────────────────────────────────
   const { data: pkg } = await db
     .from('product_360_packages')
-    .select('id, status, product_id')
+    .select('id, status, product_id, frames_done, target_frame_count, next_retry_at')
     .eq('id', packageId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
-  if (!pkg) return NextResponse.json({ error: 'Package not found' }, { status: 404 })
-
-  const currentStatus = (pkg as Record<string, unknown>).status as string
-  if (currentStatus === 'generating' || currentStatus === 'processing') {
-    return NextResponse.json({ error: 'Generation already in progress' }, { status: 409 })
+  if (!pkg) {
+    return NextResponse.json({ ok: false, error: { type: 'invalid_request', title: 'Not found', message: 'Package not found', retryable: false } }, { status: 404 })
   }
 
-  // ── Verify AI provider is configured ───────────────────────────────────
+  const currentStatus = (pkg as Record<string, unknown>).status as string
+
+  if (currentStatus === 'generating' || currentStatus === 'processing') {
+    return NextResponse.json({
+      ok: false,
+      error: { type: 'invalid_request', title: 'Already running', message: 'Generation is already in progress for this package', retryable: false },
+    }, { status: 409 })
+  }
+
+  if (!RESUMABLE_STATUSES.has(currentStatus) && currentStatus !== 'queued') {
+    return NextResponse.json({
+      ok: false,
+      error: { type: 'invalid_request', title: 'Cannot generate', message: `Package is in status "${currentStatus}" and cannot be started. Archive it and create a new package.`, retryable: false },
+    }, { status: 409 })
+  }
+
+  // ── Check next_retry_at for paused_quota packages ───────────────────────────
+  const nextRetryAt = (pkg as Record<string, unknown>).next_retry_at as string | null
+  if (currentStatus === 'paused_quota' && nextRetryAt) {
+    const retryMs = new Date(nextRetryAt).getTime()
+    const nowMs   = Date.now()
+    if (retryMs > nowMs && !body.forceResume) {
+      const waitSec = Math.ceil((retryMs - nowMs) / 1000)
+      return NextResponse.json({
+        ok: false,
+        error: {
+          type:      'quota_exceeded',
+          title:     'Too soon to retry',
+          message:   `Quota still limited. Try again in ${waitSec}s (or send forceResume: true to override).`,
+          retryable: true,
+          retryAt:   nextRetryAt,
+        },
+      }, { status: 429 })
+    }
+  }
+
+  // ── Verify AI provider is configured ───────────────────────────────────────
   const provider = getP360Provider()
   if (!provider) {
     return NextResponse.json({
-      error: 'AI generation is not configured. Set GEMINI_API_KEY in environment variables.',
+      ok: false,
+      error: {
+        type:      'auth_error',
+        title:     'AI not configured',
+        message:   'Set GEMINI_API_KEY in your environment variables to enable AI generation.',
+        retryable: false,
+      },
     }, { status: 503 })
   }
 
-  // ── Set queued immediately so the UI sees state change ──────────────────
+  // ── Set queued so the UI sees state change immediately ──────────────────────
+  const existingDone = (pkg as Record<string, unknown>).frames_done as number ?? 0
   await db
     .from('product_360_packages')
     .update({
       status:           'queued',
       generation_error: null,
-      frames_done:      0,
-      progress_percent: 0,
+      // Preserve frames_done from prior completed work (resume path)
+      frames_done:      existingDone,
       updated_at:       new Date().toISOString(),
     })
     .eq('id', packageId)
 
-  console.info(`[p360:generate/route] pkg=${packageId} queued, starting generation…`)
+  console.info(`[p360:generate/route] pkg=${packageId} queued (status was: ${currentStatus}), starting generation…`)
 
-  // ── Run generation synchronously so finalization is guaranteed ──────────
+  // ── Run generation synchronously ────────────────────────────────────────────
   const result = await generatePackage(packageId)
+
+  // ── 429 quota pause ────────────────────────────────────────────────────────
+  if (result.pausedForQuota) {
+    return NextResponse.json({
+      ok: false,
+      error: {
+        type:            'quota_exceeded',
+        title:           'Image generation quota reached',
+        message:         result.errorMessage ?? 'Quota exceeded. Generation paused.',
+        retryable:       true,
+        framesGenerated: result.framesGenerated,
+        retryAt:         result.retryAt ?? null,
+      },
+    }, { status: 429 })
+  }
 
   if (!result.success) {
     console.error(`[p360:generate/route] pkg=${packageId} failed: ${result.errorMessage}`)
     return NextResponse.json({
-      success:    false,
-      status:     'failed',
-      error:      result.errorMessage ?? 'Generation failed',
-      packageId,
+      ok: false,
+      error: {
+        type:      'unknown',
+        title:     'Generation failed',
+        message:   result.errorMessage ?? 'Generation failed',
+        retryable: false,
+      },
     }, { status: 500 })
   }
 
   return NextResponse.json({
-    success:        true,
-    status:         'ready',
-    packageId,
-    framesGenerated: result.framesGenerated,
-    previewUrl:     result.previewUrl ?? null,
+    ok: true,
+    data: {
+      status:          'ready',
+      packageId,
+      framesGenerated: result.framesGenerated,
+      previewUrl:      result.previewUrl ?? null,
+    },
   })
 }

@@ -6,10 +6,14 @@
 export type P360Status =
   | 'draft'
   | 'queued'
+  | 'planning'
   | 'generating'
   | 'processing'
+  | 'paused_quota'
   | 'ready'
+  | 'completed'
   | 'failed'
+  | 'cancelled'
   | 'archived'
 
 export type P360PackageType =
@@ -85,6 +89,17 @@ export interface P360Package {
   generation_error:     string | null
   /** Timestamp of the last successful generation completion. */
   last_generated_at:    string | null
+  // ── Error tracking (added migration 038) ────────────────────────────────────
+  /** Normalized error type from the last failed/paused generation attempt. */
+  last_error_type:           string | null
+  /** ISO timestamp of the last generation error. */
+  last_error_at:             string | null
+  /** Earliest time this package can be retried. */
+  next_retry_at:             string | null
+  /** Number of resume attempts. */
+  retry_count:               number
+  generation_started_at:     string | null
+  generation_completed_at:   string | null
   // ── Locked scene spec (added migration 037) ────────────────────────────────
   /** URL of the canonical 0° master frame used as a visual anchor for all frames. */
   master_frame_url:          string | null

@@ -1,13 +1,8 @@
 // lib/ai/360/imagenProvider.ts
 // P360ImageProvider implementation backed by Google Imagen.
 //
-// This replaces the previous Gemini generateContent-based approach which
-// caused HTTP 400 "This model only supports text output" because
-// gemini-2.5-flash-lite is a text-only model and cannot generate images.
-//
-// The correct architecture:
-//   Text planning  → gemini-2.5-flash-lite (via lib/ai/geminiText.ts)
-//   Image generation → imagen-4.0-ultra-generate-001 (this file)
+// Text planning  → gemini-2.5-flash-lite (via lib/ai/geminiText.ts)
+// Image generation → imagen-4.0-ultra-generate-001 (this file)
 //
 // SERVER-ONLY. Never import from client components.
 
@@ -18,7 +13,6 @@ const DEFAULT_MODEL = 'imagen-4.0-ultra-generate-001'
 
 // Imagen 4 removed negativePrompt support.
 // generateWithImagen() merges these into the positive prompt automatically.
-// Kept here only as documentation of what we want to avoid.
 const AVOID_HINTS = [
   'text', 'watermarks', 'logos', 'blurry', 'distorted',
   'extra hands', 'extra people', 'extra objects', 'low quality',
@@ -28,6 +22,23 @@ const AVOID_HINTS = [
 function getModel(): string {
   return (process.env.P360_IMAGEN_MODEL ?? DEFAULT_MODEL).trim()
 }
+
+// ─── Typed error for quota/permission failures ─────────────────────────────
+
+/**
+ * Thrown by generateFrame() when the provider returns an HTTP error that
+ * should be handled specially (e.g. 429 → pause the package).
+ */
+export class ImagenApiError extends Error {
+  readonly statusCode: number
+  constructor(message: string, statusCode: number) {
+    super(message)
+    this.name       = 'ImagenApiError'
+    this.statusCode = statusCode
+  }
+}
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
 
 export const imagenProvider: P360ImageProvider = {
   name:  'imagen',
@@ -41,11 +52,9 @@ export const imagenProvider: P360ImageProvider = {
   },
 
   async generateFrame(params: P360GenerateFrameParams): Promise<P360GenerateFrameResult> {
-    const model      = getModel()
+    const model       = getModel()
     const aspectRatio = deriveAspectRatio(params.width, params.height)
 
-    // negativePrompt is merged into the positive prompt by generateWithImagen().
-    // Imagen 4 does not accept negativePrompt as a separate field.
     const result = await generateWithImagen({
       prompt:                  params.prompt,
       negativePrompt:          params.negativePrompt ?? AVOID_HINTS,
@@ -58,14 +67,16 @@ export const imagenProvider: P360ImageProvider = {
     })
 
     if (result.error || !result.images.length) {
-      // Translate Imagen errors into user-friendly messages
       let msg = result.error ?? 'Imagen returned no images'
       if (msg.includes('text output') || msg.includes('text only')) {
-        msg = `The selected model (${model}) only supports text output. ` +
-              `Image generation requires an Imagen model such as imagen-4.0-ultra-generate-001. ` +
-              `Set P360_IMAGEN_MODEL=imagen-4.0-ultra-generate-001 in your environment variables.`
+        msg =
+          `The selected model (${model}) only supports text output. ` +
+          `Image generation requires an Imagen model such as imagen-4.0-ultra-generate-001. ` +
+          `Set P360_IMAGEN_MODEL=imagen-4.0-ultra-generate-001 in your environment variables.`
       }
-      throw new Error(msg)
+      // Throw a typed error that carries the HTTP status code so the caller can
+      // distinguish quota errors (429) from fatal errors (400, 401, 403).
+      throw new ImagenApiError(msg, result.statusCode ?? 0)
     }
 
     const img         = result.images[0]

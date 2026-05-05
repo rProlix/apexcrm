@@ -46,7 +46,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       'id', 'status', 'frame_count', 'target_frame_count',
       'frames_done', 'progress_percent',
       'preview_image_url', 'cover_frame_url',
-      'generation_error', 'updated_at',
+      'generation_error', 'last_error_type', 'next_retry_at',
+      'updated_at',
     ].join(', '))
     .eq('id', packageId)
     .eq('tenant_id', tenantId)
@@ -123,18 +124,16 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   return NextResponse.json({
     packageId,
     status,
-    // Number of completed frames (from DB rows — more accurate than frames_done column)
     framesCompleted,
     targetFrameCount: targetCount,
     progressPercent,
     previewUrl,
-    // Ordered URLs for the in-progress sequence preview
     completedFrameUrls,
-    // Full frame rows for the viewer
-    frames: frameRows,
-    // Timestamp for client-side stale detection
+    frames:    frameRows,
     updatedAt,
-    error:     p.generation_error ?? null,
+    error:     p.generation_error    ?? null,
+    errorType: p.last_error_type     ?? null,
+    retryAt:   p.next_retry_at       ?? null,
     latestJob: job ?? null,
   })
 }
