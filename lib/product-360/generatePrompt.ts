@@ -6,7 +6,8 @@ export interface PromptParams {
   productDescription: string
   angleDegrees:       number
   frameCount?:        number
-  negativePrompt?:    string
+  /** Use avoidRules/qualityRules instead — negativePrompt is not sent to Imagen */
+  avoidRules?:        string
   styleNotes?:        string
 }
 

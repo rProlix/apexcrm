@@ -10,6 +10,11 @@ import {
 } from '@/lib/ai/websiteImageConfig'
 import { enhancePromptForImagen } from '@/lib/ai/websiteImagePrompts'
 import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
+import {
+  mergeNegativePromptIntoPrompt,
+  stripUnsupportedImagenFields,
+} from '@/lib/ai/promptSafety'
+import { assertNoUnsupportedImagenFields } from '@/lib/ai/assertNoUnsupportedImagenFields'
 
 const IMAGEN_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 const TIMEOUT_MS      = 120_000
@@ -99,19 +104,23 @@ export async function generateWebsiteImage(
   }
 
   // ── Build prompt ──────────────────────────────────────────────────────────
-  const finalPrompt    = enhancePromptForImagen(opts.plan.prompt, opts.plan.image_role, opts.businessType)
-  const negativePrompt = opts.plan.negative_prompt ?? 'text, watermark, logo, blurry, distorted, ugly'
+  // Imagen 4 removed negativePrompt support (HTTP 400 INVALID_ARGUMENT).
+  // Merge any avoidance constraints into the positive prompt instead.
+  const basePrompt  = enhancePromptForImagen(opts.plan.prompt, opts.plan.image_role, opts.businessType)
+  const finalPrompt = mergeNegativePromptIntoPrompt(basePrompt, opts.plan.negative_prompt)
 
   const url  = `${IMAGEN_API_BASE}/${model}:predict?key=[REDACTED]`
-  const body = {
+  const rawBody = {
     instances: [{ prompt: finalPrompt }],
     parameters: {
       sampleCount:      1,
       aspectRatio:      opts.plan.aspect_ratio ?? '16:9',
-      negativePrompt,
       personGeneration: 'dont_allow',
     },
   }
+  // Defensive sanitizer + regression guard
+  const body = stripUnsupportedImagenFields(rawBody)
+  assertNoUnsupportedImagenFields(body)
 
   log('3_imagen_request_sent', {
     jobId,

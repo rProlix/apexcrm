@@ -14,11 +14,15 @@
 import type { P360ImageProvider, P360GenerateFrameParams, P360GenerateFrameResult } from './types'
 import { generateWithImagen, deriveAspectRatio } from '@/lib/ai/imagenGenerate'
 
-const DEFAULT_MODEL   = 'imagen-4.0-ultra-generate-001'
-const NEGATIVE_PROMPT = [
-  'text', 'watermarks', 'logos', 'signatures', 'blurry', 'distorted',
-  'hands', 'people', 'faces', 'extra objects', 'low quality',
-  'jpeg artifacts', 'noise', 'grainy', 'overexposed', 'underexposed',
+const DEFAULT_MODEL = 'imagen-4.0-ultra-generate-001'
+
+// Imagen 4 removed negativePrompt support.
+// generateWithImagen() merges these into the positive prompt automatically.
+// Kept here only as documentation of what we want to avoid.
+const AVOID_HINTS = [
+  'text', 'watermarks', 'logos', 'blurry', 'distorted',
+  'extra hands', 'extra people', 'extra objects', 'low quality',
+  'overexposed', 'underexposed',
 ].join(', ')
 
 function getModel(): string {
@@ -40,9 +44,11 @@ export const imagenProvider: P360ImageProvider = {
     const model      = getModel()
     const aspectRatio = deriveAspectRatio(params.width, params.height)
 
+    // negativePrompt is merged into the positive prompt by generateWithImagen().
+    // Imagen 4 does not accept negativePrompt as a separate field.
     const result = await generateWithImagen({
       prompt:          params.prompt,
-      negativePrompt:  params.negativePrompt ?? NEGATIVE_PROMPT,
+      negativePrompt:  params.negativePrompt ?? AVOID_HINTS,
       aspectRatio,
       numberOfImages:  1,
       model,

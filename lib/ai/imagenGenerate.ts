@@ -1,16 +1,27 @@
 // lib/ai/imagenGenerate.ts
 // Google Imagen image generation via the `:predict` REST endpoint.
 //
-// This is the ONLY module that should call an image-generation API for the
-// 360 Product Studio. Text-only Gemini models (gemini-2.5-flash-lite,
-// gemini-3-flash-preview) CANNOT be used for image generation — they return
-// HTTP 400 "This model only supports text output."
+// ⚠️  negativePrompt is NOT sent to the API.
+//     Imagen 4 removed negativePrompt support (HTTP 400 INVALID_ARGUMENT).
+//     Any negativePrompt passed to generateWithImagen() is merged into the
+//     positive prompt via mergeNegativePromptIntoPrompt() before the request.
+//
+// This is the ONLY module that should call the Imagen image-generation API.
+// Text-only Gemini models (gemini-2.5-flash-lite, gemini-3-flash-preview)
+// cannot generate images and must not be used here.
 //
 // Required env vars:
-//   GEMINI_API_KEY   — preferred (same key used across the whole project)
+//   GEMINI_API_KEY   — preferred
 //   GOOGLE_API_KEY   — fallback
 //
 // SERVER-ONLY. Never import from client components.
+
+import {
+  mergeNegativePromptIntoPrompt,
+  stripUnsupportedImagenFields,
+  type ImagenRequestPayload,
+} from './promptSafety'
+import { assertNoUnsupportedImagenFields } from './assertNoUnsupportedImagenFields'
 
 const IMAGEN_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 const DEFAULT_MODEL   = 'imagen-4.0-ultra-generate-001'
@@ -21,22 +32,19 @@ const DEFAULT_TIMEOUT = 120_000
 export interface ImagenGenerateOptions {
   /** The image description prompt */
   prompt:          string
-  /** Negative prompt — things to avoid in the image */
+  /**
+   * Optional constraints to avoid — merged into the positive prompt.
+   * NOT sent to Imagen as a separate field (Imagen removed negativePrompt support).
+   */
   negativePrompt?: string
   /**
-   * Aspect ratio string. Imagen 4 supports: "1:1" | "9:16" | "16:9" | "4:3" | "3:4"
+   * Aspect ratio. Imagen 4 accepts: "1:1" | "9:16" | "16:9" | "4:3" | "3:4"
    * Default: "1:1" (square — used for 360 product frames)
    */
   aspectRatio?:    '1:1' | '9:16' | '16:9' | '4:3' | '3:4'
-  /**
-   * Number of images to generate (1–4 depending on model tier).
-   * Default: 1
-   */
+  /** Number of images (1–4 depending on model tier). Default: 1 */
   numberOfImages?: number
-  /**
-   * Override the default imagen model.
-   * Default: imagen-4.0-ultra-generate-001
-   */
+  /** Override default model. Default: imagen-4.0-ultra-generate-001 */
   model?:          string
   timeoutMs?:      number
 }
@@ -48,18 +56,15 @@ export interface ImagenImage {
 }
 
 export interface ImagenGenerateResult {
-  /** Generated images. Usually 1 unless numberOfImages > 1. */
   images:  ImagenImage[]
-  /** Set only when the call fails. Images will be empty. */
   error?:  string
-  /** Model that was used */
   model:   string
 }
 
 // ─── Imagen response shape ────────────────────────────────────────────────────
 
 interface ImagenPrediction {
-  bytesBase64Encoded?: string
+  bytesBase64Encoded?:   string
   bytes_base64_encoded?: string
   imageBytes?:           string
   image_bytes?:          string
@@ -77,17 +82,10 @@ interface ImagenResponse {
 /**
  * Generate one or more images with Google Imagen via the `:predict` endpoint.
  *
- * - Always uses the `:predict` endpoint, NEVER `:generateContent`.
+ * - Always uses `:predict`, NEVER `:generateContent`.
+ * - negativePrompt is merged into prompt text — NOT sent as a separate field.
  * - Never logs API keys.
  * - Returns { images: [], error } on failure — does not throw.
- *
- * @example
- *   const { images, error } = await generateWithImagen({
- *     prompt:      'A sleek black coffee mug on a white marble surface',
- *     aspectRatio: '1:1',
- *   })
- *   if (error) throw new Error(error)
- *   const buffer = Buffer.from(images[0].base64, 'base64')
  */
 export async function generateWithImagen(
   opts: ImagenGenerateOptions,
@@ -104,17 +102,32 @@ export async function generateWithImagen(
     }
   }
 
-  const body = {
-    instances: [{ prompt: opts.prompt }],
+  // Merge negativePrompt INTO the positive prompt — Imagen 4 no longer accepts
+  // negativePrompt as a separate parameters field (HTTP 400 INVALID_ARGUMENT).
+  const finalPrompt = mergeNegativePromptIntoPrompt(opts.prompt, opts.negativePrompt)
+  if (opts.negativePrompt) {
+    console.info('[imagenGenerate] Folded negativePrompt into positive prompt (Imagen 4 does not support negativePrompt).')
+  }
+
+  const payload: ImagenRequestPayload = {
+    instances: [{ prompt: finalPrompt }],
     parameters: {
       sampleCount:      opts.numberOfImages ?? 1,
       aspectRatio:      opts.aspectRatio    ?? '1:1',
-      negativePrompt:   opts.negativePrompt ?? 'text, watermarks, logos, blurry, distorted, ugly, low quality',
       personGeneration: 'dont_allow',
     },
   }
 
-  console.info(`[imagenGenerate] model=${model} aspectRatio=${body.parameters.aspectRatio} promptLen=${opts.prompt.length}`)
+  // Defensive sanitizer — removes negativePrompt/negative_prompt if present
+  const sanitizedBody = stripUnsupportedImagenFields(payload) as ImagenRequestPayload
+
+  // Runtime regression guard — throws if any banned key slipped through
+  assertNoUnsupportedImagenFields(sanitizedBody)
+
+  console.info(
+    `[imagenGenerate] model=${model} aspectRatio=${sanitizedBody.parameters?.aspectRatio} ` +
+    `promptLen=${finalPrompt.length} payloadKeys=${Object.keys(sanitizedBody.parameters ?? {}).join(',')}`,
+  )
 
   const controller = new AbortController()
   const timeoutMs  = opts.timeoutMs ?? DEFAULT_TIMEOUT
@@ -127,7 +140,7 @@ export async function generateWithImagen(
       {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
+        body:    JSON.stringify(sanitizedBody),
         signal:  controller.signal,
       },
     )
@@ -149,17 +162,22 @@ export async function generateWithImagen(
     let errText = ''
     try { errText = await response.text() } catch { /* ignore */ }
 
-    // User-friendly error messages for common 400 cases
     let friendlyMsg = `Imagen API HTTP ${response.status} [model: ${model}]: ${errText.slice(0, 300)}`
-    if (response.status === 400 && errText.includes('text output')) {
-      friendlyMsg = `The configured model (${model}) only supports text output. ` +
+    if (response.status === 400 && errText.includes('negativePrompt')) {
+      friendlyMsg =
+        `Imagen rejected negativePrompt field [model: ${model}]. ` +
+        `This field is no longer supported. Check that imagenGenerate.ts merges ` +
+        `negativePrompt into the prompt via mergeNegativePromptIntoPrompt().`
+    } else if (response.status === 400 && errText.includes('text output')) {
+      friendlyMsg =
+        `The configured model (${model}) only supports text output. ` +
         `Image generation requires an Imagen model such as imagen-4.0-ultra-generate-001.`
-    }
-    if (response.status === 400 && errText.includes('INVALID_ARGUMENT')) {
-      friendlyMsg = `Imagen API rejected the request (INVALID_ARGUMENT) [model: ${model}]: ${errText.slice(0, 200)}`
-    }
-    if (response.status === 403) {
-      friendlyMsg = `Imagen API access denied. Check that GEMINI_API_KEY has Imagen API enabled in Google Cloud Console.`
+    } else if (response.status === 400 && errText.includes('INVALID_ARGUMENT')) {
+      friendlyMsg = `Imagen API rejected the request (INVALID_ARGUMENT) [model: ${model}]: ${errText.slice(0, 300)}`
+    } else if (response.status === 403) {
+      friendlyMsg =
+        `Imagen API access denied. Check that GEMINI_API_KEY has the Imagen API ` +
+        `enabled in Google Cloud Console.`
     }
 
     console.error(`[imagenGenerate] ${friendlyMsg}`)
@@ -228,7 +246,6 @@ function getApiKey(): string | undefined {
 
 /**
  * Derive the closest Imagen aspect ratio from pixel dimensions.
- * Used when the caller provides width/height instead of a ratio string.
  */
 export function deriveAspectRatio(
   width:  number | null | undefined,
