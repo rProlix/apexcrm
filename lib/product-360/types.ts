@@ -100,6 +100,17 @@ export interface P360Package {
   retry_count:               number
   generation_started_at:     string | null
   generation_completed_at:   string | null
+  // ── Cancel support (added migration 040) ────────────────────────────────────
+  /** True when a cancel was requested — checked by the generation loop before each frame. */
+  cancel_requested:          boolean
+  /** ISO timestamp when the cancel was first requested. */
+  cancel_requested_at:       string | null
+  /** ISO timestamp when the package transitioned to 'cancelled' status. */
+  cancelled_at:              string | null
+  /** Human-readable error message from the last failure (stored for display after refresh). */
+  last_error_message:        string | null
+  /** Raw/technical error detail for collapsible "View details" UI. */
+  last_error_details:        string | null
   // ── Locked scene spec (added migration 037) ────────────────────────────────
   /** URL of the canonical 0° master frame used as a visual anchor for all frames. */
   master_frame_url:          string | null

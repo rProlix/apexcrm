@@ -71,6 +71,8 @@ export interface GeneratePackageResult {
   pausedForQuota?:  boolean
   /** ISO timestamp: earliest the package can be retried (from Retry-After). */
   retryAt?:         string | null
+  /** True when generation was stopped by a user-initiated cancel request. */
+  cancelled?:       boolean
 }
 
 export interface RegenerateFrameResult {
@@ -268,6 +270,20 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
 
   try {
     // ══════════════════════════════════════════════════════════════════
+    // CANCEL CHECK — Before we start any expensive work, verify the user
+    //               hasn't already requested a stop.
+    // ══════════════════════════════════════════════════════════════════
+    if (await checkCancellation(packageId, db)) {
+      console.info(`[p360:generate] pkg=${packageId} — cancel detected before generation start`)
+      await db.from('product_360_packages').update({
+        frames_done:      framesGenerated,
+        progress_percent: framesGenerated > 0 ? Math.round((framesGenerated / totalFrames) * 100) : 0,
+        updated_at:       new Date().toISOString(),
+      }).eq('id', packageId)
+      return { success: false, framesGenerated, cancelled: true }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
     // STAGE A — Generate the master frame (frame 0, angle 0°)
     //           Skip if already completed.
     // ══════════════════════════════════════════════════════════════════
@@ -340,6 +356,20 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
         continue
       }
 
+      // ── CANCEL CHECK — poll DB before every expensive API call ───────────
+      if (await checkCancellation(packageId, db)) {
+        console.info(
+          `[p360:generate] pkg=${packageId} — cancel detected before frame ${frameIndex}` +
+          ` (${framesGenerated}/${totalFrames} frames saved)`,
+        )
+        await db.from('product_360_packages').update({
+          frames_done:      framesGenerated,
+          progress_percent: Math.round((framesGenerated / totalFrames) * 100),
+          updated_at:       new Date().toISOString(),
+        }).eq('id', packageId)
+        return { success: false, framesGenerated, cancelled: true }
+      }
+
       const angleDeg      = getFrameAngle(frameIndex, totalFrames)
       const shotDirection = getShotDirection(angleDeg)
 
@@ -406,6 +436,20 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
         await db.from('product_360_generation_jobs')
           .update({ frames_completed: framesGenerated }).eq('id', jobId)
       }
+    }
+
+    // ── Cancel check before finalize ─────────────────────────────────────────
+    if (await checkCancellation(packageId, db)) {
+      console.info(
+        `[p360:generate] pkg=${packageId} — cancel detected after all frames, before finalize` +
+        ` (${framesGenerated} frames saved)`,
+      )
+      await db.from('product_360_packages').update({
+        frames_done: framesGenerated,
+        progress_percent: 100,
+        updated_at: new Date().toISOString(),
+      }).eq('id', packageId)
+      return { success: false, framesGenerated, cancelled: true }
     }
 
     // ── All frames done — finalize ────────────────────────────────────────────
@@ -647,6 +691,25 @@ export async function regenerateSingleFrame(
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Checks whether a user has requested cancellation for this package.
+ * Queries the DB on every call — intentionally avoids caching so that a cancel
+ * request made from another browser tab or session is always honoured.
+ *
+ * Returns true when the generation loop should stop immediately.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function checkCancellation(packageId: string, db: any): Promise<boolean> {
+  const { data } = await db
+    .from('product_360_packages')
+    .select('cancel_requested, status')
+    .eq('id', packageId)
+    .maybeSingle()
+
+  if (!data) return false
+  return !!(data.cancel_requested) || data.status === 'cancelled'
+}
 
 async function markFailed(packageId: string, errorMessage: string): Promise<void> {
   const supabase = getSupabaseServerClient()

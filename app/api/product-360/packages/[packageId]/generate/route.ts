@@ -114,15 +114,19 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   // ── Set queued so the UI sees state change immediately ──────────────────────
+  // Also clear cancel_requested so the generation loop doesn't exit immediately.
   const existingDone = (pkg as Record<string, unknown>).frames_done as number ?? 0
   await db
     .from('product_360_packages')
     .update({
-      status:           'queued',
-      generation_error: null,
+      status:              'queued',
+      generation_error:    null,
+      cancel_requested:    false,
+      cancel_requested_at: null,
+      cancelled_at:        null,
       // Preserve frames_done from prior completed work (resume path)
-      frames_done:      existingDone,
-      updated_at:       new Date().toISOString(),
+      frames_done:         existingDone,
+      updated_at:          new Date().toISOString(),
     })
     .eq('id', packageId)
 
@@ -130,6 +134,20 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   // ── Run generation synchronously ────────────────────────────────────────────
   const result = await generatePackage(packageId)
+
+  // ── User-requested cancellation ───────────────────────────────────────────
+  if (result.cancelled) {
+    console.info(`[p360:generate/route] pkg=${packageId} — generation stopped by user (${result.framesGenerated} frames saved)`)
+    return NextResponse.json({
+      ok: true,
+      data: {
+        status:          'cancelled',
+        packageId,
+        framesGenerated: result.framesGenerated,
+        message:         `Generation stopped. ${result.framesGenerated} frame${result.framesGenerated !== 1 ? 's' : ''} were saved.`,
+      },
+    })
+  }
 
   // ── 429 quota pause ────────────────────────────────────────────────────────
   if (result.pausedForQuota) {

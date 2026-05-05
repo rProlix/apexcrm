@@ -8,7 +8,7 @@ import {
   Star, StarOff, RefreshCw, AlertCircle, X, Loader2,
   Search, Package, ChevronDown, Copy, Archive,
   SlidersHorizontal, ChevronRight, Image as ImageIcon,
-  Check, Lock, Sparkles,
+  Check, Lock, Sparkles, Square, Clock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import Product360ViewerClient from './Product360ViewerClient'
@@ -57,9 +57,13 @@ const STATUS_LABELS: Record<string, string> = {
   ready:        'Ready',
   completed:    'Completed',
   failed:       'Failed',
-  cancelled:    'Cancelled',
+  cancelled:    'Stopped',
   archived:     'Archived',
 }
+
+// How long (ms) a generating/queued package can go without a DB update
+// before we consider it stale and warn the user.
+const STALE_THRESHOLD_MS = 10 * 60 * 1000  // 10 minutes
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -100,6 +104,11 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
   const [showDuplicate, setShowDuplicate] = useState<P360PackageSummary | null>(null)
   const [dupName,      setDupName]      = useState('')
   const [dupLoading,   setDupLoading]   = useState(false)
+
+  // Cancel generation
+  const [cancelTarget,  setCancelTarget]  = useState<string | null>(null)
+  const [cancellingId,  setCancellingId]  = useState<string | null>(null)
+  const [cancelError,   setCancelError]   = useState<string | null>(null)
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
@@ -379,6 +388,40 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
     await fetch(`/api/product-360/packages/${pkg.id}?tenantId=${tenantId}`, { method: 'DELETE' })
   }
 
+  async function handleCancelGeneration(pkgId: string) {
+    setCancelTarget(null)
+    setCancelError(null)
+    setCancellingId(pkgId)
+
+    // Optimistic UI: mark as cancelled immediately so polling stops
+    setPackages(prev => prev.map(p =>
+      p.id === pkgId ? { ...p, status: 'cancelled' as const } : p,
+    ))
+
+    try {
+      const res  = await fetch(`/api/product-360/packages/${pkgId}/cancel`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ tenantId }),
+      })
+      const json = await res.json() as Record<string, unknown>
+      if (!res.ok) {
+        // Revert optimistic update
+        fetchPackages(tenantId, selectedProd?.id)
+        const errObj = (json.error as Record<string, unknown> | undefined) ?? {}
+        setCancelError((errObj.message as string) ?? 'Failed to stop generation. Please try again.')
+      } else {
+        // Reload to get accurate frames_done count
+        fetchPackages(tenantId, selectedProd?.id)
+      }
+    } catch {
+      fetchPackages(tenantId, selectedProd?.id)
+      setCancelError('Network error — could not stop generation. Please try again.')
+    } finally {
+      setCancellingId(null)
+    }
+  }
+
   async function handlePreview(pkgId: string) {
     setPreviewLoading(true)
     try {
@@ -613,6 +656,18 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
             </div>
           )}
 
+          {cancelError && (
+            <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+                <p className="text-xs text-red-400">{cancelError}</p>
+              </div>
+              <button onClick={() => setCancelError(null)} className="text-red-400/50 hover:text-red-400 transition-colors shrink-0">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
           {pkgLoading ? (
             Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-28 rounded-2xl bg-white/4 border border-white/8 animate-pulse" />
@@ -636,7 +691,9 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
                 onPreview={handlePreview}
                 onDuplicate={p => { setShowDuplicate(p); setDupName(`${p.name} (Copy)`) }}
                 onUpload={pkgId => { setUploadingFor(pkgId); setUploadIdx(0); fileInputRef.current?.click() }}
+                onCancel={id => setCancelTarget(id)}
                 generatingId={generatingId}
+                cancellingId={cancellingId}
                 previewLoading={previewLoading}
               />
             ))
@@ -777,6 +834,55 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
         />
       )}
 
+      {/* Cancel Generation Confirmation Modal */}
+      {cancelTarget && (() => {
+        const targetPkg = packages.find(p => p.id === cancelTarget)
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm premium-panel premium-border rounded-2xl p-6 shadow-panel-lg space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+                  <Square className="h-4 w-4 text-red-400" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white">Stop 360° generation?</h2>
+                  {targetPkg && <p className="text-xs text-white/40 truncate max-w-[200px]">{targetPkg.name}</p>}
+                </div>
+              </div>
+              <p className="text-xs text-white/60 leading-relaxed">
+                This will stop generating new frames. Any frames already generated will be saved and the package can be resumed later.
+              </p>
+              {targetPkg && (targetPkg.frames_done ?? 0) > 0 && (
+                <div className="flex items-center gap-2 rounded-lg bg-teal-400/8 border border-teal-400/15 px-3 py-2">
+                  <Check className="h-3 w-3 text-teal-400 shrink-0" />
+                  <p className="text-[11px] text-teal-400">
+                    {targetPkg.frames_done} of {targetPkg.target_frame_count} frames already saved
+                  </p>
+                </div>
+              )}
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setCancelTarget(null)}
+                  className="flex-1 h-9 rounded-xl text-sm font-medium text-white/60 bg-white/6 border border-white/10 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  Keep Generating
+                </button>
+                <button
+                  onClick={() => handleCancelGeneration(cancelTarget)}
+                  disabled={cancellingId === cancelTarget}
+                  className="flex-1 h-9 rounded-xl text-sm font-medium text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  {cancellingId === cancelTarget
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Stopping…</>
+                    : <><Square className="h-3.5 w-3.5" /> Stop Generation</>
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Duplicate Modal */}
       {showDuplicate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -826,15 +932,22 @@ interface PackageCardProps {
   onPreview:          (id: string) => void
   onDuplicate:        (pkg: P360PackageSummary) => void
   onUpload:           (id: string) => void
+  onCancel:           (id: string) => void
   generatingId:       string | null
+  cancellingId:       string | null
   previewLoading:     boolean
 }
 
 function PackageCard({
   pkg, completedFrameUrls, onGenerate, onRegenerate, onToggleEnabled, onSetDefault,
-  onArchive, onPreview, onDuplicate, onUpload, generatingId, previewLoading,
+  onArchive, onPreview, onDuplicate, onUpload, onCancel, generatingId, cancellingId, previewLoading,
 }: PackageCardProps) {
   const isActiveGeneration = pkg.status === 'generating' || pkg.status === 'queued' || pkg.status === 'processing' || pkg.status === 'planning'
+
+  // Stale detection: generating/queued but no DB update for > 10 min
+  const updatedAtMs   = pkg.updated_at ? new Date(pkg.updated_at).getTime() : 0
+  const msSinceUpdate = Date.now() - updatedAtMs
+  const isStale       = isActiveGeneration && msSinceUpdate > STALE_THRESHOLD_MS
   const canGenerate        = pkg.package_type === 'ai_generated' || pkg.package_type === 'hybrid'
 
   // Use DB progress_percent if available; compute as fallback
@@ -967,8 +1080,38 @@ function PackageCard({
         </div>
       )}
 
+      {/* Stale generation warning */}
+      {isStale && (
+        <div className="rounded-lg bg-yellow-500/8 border border-yellow-500/15 px-3 py-2.5 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3 w-3 text-yellow-400 shrink-0" />
+            <p className="text-xs font-semibold text-yellow-400">Generation appears stuck</p>
+          </div>
+          <p className="text-[10px] text-yellow-300/70 leading-relaxed">
+            No progress for {Math.round(msSinceUpdate / 60000)} min. You can stop and retry.
+          </p>
+        </div>
+      )}
+
+      {/* Cancelled info */}
+      {pkg.status === 'cancelled' && (
+        <div className="rounded-lg bg-white/4 border border-white/10 px-3 py-2.5 space-y-0.5">
+          <div className="flex items-center gap-1.5">
+            <Square className="h-3 w-3 text-white/30 shrink-0" />
+            <p className="text-xs text-white/50">Generation stopped</p>
+          </div>
+          {(pkg.frames_done ?? 0) > 0 ? (
+            <p className="text-[10px] text-white/30">
+              {pkg.frames_done} frame{pkg.frames_done !== 1 ? 's' : ''} saved — resume to complete the spin.
+            </p>
+          ) : (
+            <p className="text-[10px] text-white/30">No frames were generated yet.</p>
+          )}
+        </div>
+      )}
+
       {/* Standard error */}
-      {pkg.generation_error && pkg.status !== 'paused_quota' && (
+      {pkg.generation_error && pkg.status !== 'paused_quota' && pkg.status !== 'cancelled' && (
         <div className="flex items-start gap-2 rounded-lg bg-red-500/8 border border-red-500/15 px-3 py-2">
           <AlertCircle className="h-3 w-3 text-red-400 mt-0.5 shrink-0" />
           <p className="text-xs text-red-400 line-clamp-2">{pkg.generation_error}</p>
@@ -987,13 +1130,35 @@ function PackageCard({
       <div className="flex items-center gap-1 flex-wrap">
         <ActionBtn onClick={() => onPreview(pkg.id)} disabled={previewLoading} icon={<Eye className="h-3 w-3" />} label="Preview" />
 
-        {/* Generate: draft or cancelled */}
-        {canGenerate && (pkg.status === 'draft' || pkg.status === 'cancelled') && (
+        {/* Stop Generation: queued / generating / processing / planning */}
+        {isActiveGeneration && (
+          <ActionBtn
+            onClick={() => onCancel(pkg.id)}
+            disabled={cancellingId === pkg.id}
+            icon={cancellingId === pkg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Square className="h-3 w-3" />}
+            label={cancellingId === pkg.id ? 'Stopping…' : isStale ? 'Stop Stuck' : 'Stop'}
+            danger
+          />
+        )}
+
+        {/* Generate: draft */}
+        {canGenerate && pkg.status === 'draft' && (
           <ActionBtn
             onClick={() => onGenerate(pkg.id)}
             disabled={generatingId === pkg.id}
             icon={generatingId === pkg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
             label="Generate"
+            highlight
+          />
+        )}
+
+        {/* Resume: cancelled — uses the generate endpoint with resume behaviour */}
+        {canGenerate && pkg.status === 'cancelled' && (
+          <ActionBtn
+            onClick={() => onGenerate(pkg.id)}
+            disabled={generatingId === pkg.id}
+            icon={generatingId === pkg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+            label={(pkg.frames_done ?? 0) > 0 ? 'Resume' : 'Generate'}
             highlight
           />
         )}
@@ -1073,7 +1238,7 @@ function PresetChip({ label }: { label: string }) {
 }
 
 function ActionBtn({
-  onClick, disabled, icon, label, highlight, active, activeClass,
+  onClick, disabled, icon, label, highlight, active, activeClass, danger,
 }: {
   onClick: () => void
   disabled?: boolean
@@ -1082,13 +1247,16 @@ function ActionBtn({
   highlight?: boolean
   active?: boolean
   activeClass?: string
+  danger?: boolean
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       className={`h-7 px-2 rounded-lg text-[11px] transition-colors flex items-center gap-1 disabled:opacity-40 border ${
-        active && activeClass
+        danger
+          ? 'text-red-400 bg-red-400/8 border-red-400/20 hover:bg-red-400/15'
+          : active && activeClass
           ? activeClass
           : highlight
           ? 'text-fuchsia-400 bg-fuchsia-400/8 border-fuchsia-400/20 hover:bg-fuchsia-400/15'
