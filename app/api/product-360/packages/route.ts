@@ -60,6 +60,10 @@ export async function POST(req: NextRequest) {
       name,
       description:          body.description         as string | undefined,
       packageType:          body.packageType          as string | undefined,
+      preset:               (body.preset             as string | null) ?? null,
+      isPrimary:            !!(body.is_primary ?? body.isPrimary),
+      startsAt:             (body.starts_at ?? body.startsAt ?? body.promo_starts_at) as string | null ?? null,
+      endsAt:               (body.ends_at   ?? body.endsAt   ?? body.promo_ends_at)   as string | null ?? null,
       generationPrompt:     body.generationPrompt     as string | undefined,
       generationNotes:      body.generationNotes      as string | undefined,
       negativePrompt:       body.negativePrompt       as string | undefined,
@@ -79,7 +83,7 @@ export async function POST(req: NextRequest) {
       outputWidth:          (body.outputWidth         as number | null) ?? null,
       outputHeight:         (body.outputHeight        as number | null) ?? null,
       promoTag:             (body.promoTag            as string | null) ?? null,
-      aiModel:              (body.aiModel             as string | undefined),
+      aiModel:              ((body.aiModel ?? body.generation_model) as string | undefined),
     })
     return NextResponse.json({ package: pkg }, { status: 201 })
   } catch (err) {

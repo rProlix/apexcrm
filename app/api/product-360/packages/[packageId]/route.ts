@@ -44,16 +44,25 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
   const allowed = [
-    'name','slug','description','status','is_enabled','is_default',
-    'package_type','promo_starts_at','promo_ends_at','generation_prompt',
-    'generation_notes','negative_prompt','target_frame_count','settings',
+    'name','slug','description','status','is_enabled',
+    // Both is_default and is_primary are accepted; packageService normalises them.
+    'is_default','is_primary',
+    // Generic preset label
+    'preset',
+    'package_type',
+    // Promo: accept both canonical and alias names; packageService normalises.
+    'promo_starts_at','promo_ends_at','starts_at','ends_at',
+    'generation_prompt','generation_notes','negative_prompt',
+    'target_frame_count','settings',
     'lighting_config','camera_config','hotspot_config','cover_frame_url',
     'model_url','ar_model_url',
     // Presets (migration 033)
     'lighting_preset','background_preset','category_preset','camera_preset',
     'camera_distance','camera_height','fov','zoom','shadow_strength',
     'reflection_intensity','turn_direction','output_width','output_height',
-    'promo_tag','ai_model',
+    'promo_tag',
+    // AI model: both names accepted
+    'ai_model','generation_model',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of allowed) {

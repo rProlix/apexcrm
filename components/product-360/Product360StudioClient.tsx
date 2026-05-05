@@ -225,16 +225,34 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
   }
 
   async function handleSetDefault(pkg: P360PackageSummary) {
-    const newVal = !pkg.is_default
-    setPackages(prev => prev.map(p => ({
-      ...p,
-      is_default: p.id === pkg.id ? newVal : (p.product_id === pkg.product_id ? false : p.is_default),
-    })))
-    await fetch(`/api/product-360/packages/${pkg.id}`, {
-      method:  'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ is_default: newVal }),
-    })
+    // If already primary, toggle off via PATCH; otherwise use /set-primary which
+    // atomically unsets all other primaries for the same product.
+    const currentlyPrimary = pkg.is_primary || pkg.is_default
+    if (currentlyPrimary) {
+      // Toggle off
+      setPackages(prev => prev.map(p => p.id === pkg.id
+        ? { ...p, is_primary: false, is_default: false } : p,
+      ))
+      await fetch(`/api/product-360/packages/${pkg.id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ is_primary: false, is_default: false }),
+      })
+    } else {
+      // Set as primary via the dedicated endpoint (handles atomically unsetting others)
+      setPackages(prev => prev.map(p => ({
+        ...p,
+        is_primary: p.id === pkg.id,
+        is_default: p.id === pkg.id,
+      })))
+      const res = await fetch(`/api/product-360/packages/${pkg.id}/set-primary?tenantId=${tenantId}`, {
+        method: 'POST',
+      })
+      if (!res.ok) {
+        // Revert optimistic update on failure
+        fetchPackages(tenantId, selectedProd?.id)
+      }
+    }
   }
 
   async function handleArchive(pkg: P360PackageSummary) {
@@ -639,8 +657,9 @@ function PackageCard({
               {isGenerating && <Loader2 className="h-2.5 w-2.5 mr-1 animate-spin" />}
               {STATUS_LABELS[pkg.status] ?? pkg.status}
             </span>
-            {pkg.is_default  && <span className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">Default</span>}
+            {(pkg.is_primary || pkg.is_default) && <span className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">Primary</span>}
             {pkg.is_enabled  && pkg.status === 'ready' && <span className="text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">Live</span>}
+            {pkg.preset      && <span className="text-[10px] text-sky-400 bg-sky-400/10 border border-sky-400/20 px-2 py-0.5 rounded-full">{pkg.preset}</span>}
             {pkg.promo_tag   && <span className="text-[10px] text-fuchsia-400 bg-fuchsia-400/10 border border-fuchsia-400/20 px-2 py-0.5 rounded-full">{pkg.promo_tag}</span>}
           </div>
           <h3 className="text-sm font-semibold text-white truncate">{pkg.name}</h3>
@@ -724,9 +743,9 @@ function PackageCard({
         {pkg.status === 'ready' && (
           <ActionBtn
             onClick={() => onSetDefault(pkg)}
-            icon={pkg.is_default ? <Star className="h-3 w-3 fill-current" /> : <StarOff className="h-3 w-3" />}
-            label="Default"
-            active={pkg.is_default}
+            icon={(pkg.is_primary || pkg.is_default) ? <Star className="h-3 w-3 fill-current" /> : <StarOff className="h-3 w-3" />}
+            label="Primary"
+            active={pkg.is_primary || pkg.is_default}
             activeClass="text-amber-400 bg-amber-400/8 border-amber-400/20"
           />
         )}
@@ -852,6 +871,8 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
   const [product,    setProduct]    = useState(defaultProduct?.id ?? '')
   const [name,       setName]       = useState('')
   const [desc,       setDesc]       = useState('')
+  const [preset,     setPreset]     = useState('')
+  const [isPrimary,  setIsPrimary]  = useState(false)
   const [prompt,     setPrompt]     = useState('')
   const [notes,      setNotes]      = useState('')
   const [type,       setType]       = useState<'ai_generated' | 'uploaded_frames'>('ai_generated')
@@ -881,15 +902,17 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
           tenantId,
           productId:         product,
           name:              name.trim(),
-          description:       desc.trim()   || undefined,
+          description:       desc.trim()    || undefined,
+          preset:            preset.trim()  || null,
+          is_primary:        isPrimary,
           packageType:       type,
-          generationPrompt:  prompt.trim() || undefined,
-          generationNotes:   notes.trim()  || undefined,
+          generationPrompt:  prompt.trim()  || undefined,
+          generationNotes:   notes.trim()   || undefined,
           targetFrameCount:  frames,
-          lightingPreset:    lighting   || null,
-          backgroundPreset:  background || null,
-          categoryPreset:    category   || null,
-          cameraPreset:      camera     || null,
+          lightingPreset:    lighting    || null,
+          backgroundPreset:  background  || null,
+          categoryPreset:    category    || null,
+          cameraPreset:      camera      || null,
           turnDirection:     direction,
           shadowStrength:    shadow,
           reflectionIntensity: reflection,
@@ -944,6 +967,25 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
           <Field label="Description">
             <input type="text" value={desc} onChange={e => setDesc(e.target.value)}
               placeholder="Optional description" className="store-input" />
+          </Field>
+
+          {/* Preset label */}
+          <Field label="Preset Label">
+            <input type="text" value={preset} onChange={e => setPreset(e.target.value)}
+              placeholder="e.g. standard, premium, holiday…" className="store-input" />
+          </Field>
+
+          {/* Primary flag */}
+          <Field label="Set as Primary">
+            <label className="flex items-center gap-2.5 cursor-pointer h-9 px-3 rounded-xl bg-white/4 border border-white/8 select-none">
+              <input
+                type="checkbox"
+                checked={isPrimary}
+                onChange={e => setIsPrimary(e.target.checked)}
+                className="w-3.5 h-3.5 rounded accent-fuchsia-400"
+              />
+              <span className="text-xs text-white/60">Make this the primary package for the product</span>
+            </label>
           </Field>
 
           {/* Frame source */}

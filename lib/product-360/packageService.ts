@@ -20,10 +20,15 @@ export async function listPackages(opts: {
 }): Promise<P360PackageSummary[]> {
   const supabase = db()
 
-  // Step 1 — load packages (no embedded aggregates: safer across PostgREST versions)
+  // Step 1 — load packages.
+  // Use the explicit FK hint !product_360_packages_product_id_fkey to avoid
+  // PostgREST relationship-ambiguity error caused by two FK paths existing
+  // between product_360_packages and products:
+  //   Path A (forward):  product_360_packages.product_id → products(id)
+  //   Path B (reverse):  products.spin_package_id → product_360_packages(id)
   let q = s(supabase)
     .from('product_360_packages')
-    .select('*, product:products(name)')
+    .select('*, product:products!product_360_packages_product_id_fkey(name)')
     .eq('tenant_id', opts.tenantId)
     .order('created_at', { ascending: false })
 
@@ -106,11 +111,19 @@ export interface CreatePackageOpts {
   name:                 string
   description?:         string
   packageType?:         string
+  /** Generic preset shorthand label (e.g. "standard", "premium") */
+  preset?:              string | null
   generationPrompt?:    string
   generationNotes?:     string
   negativePrompt?:      string
   targetFrameCount?:    number
   settings?:            Record<string, unknown>
+  /** Whether this is the primary package for the product (alias: is_default) */
+  isPrimary?:           boolean
+  /** Promo window start */
+  startsAt?:            string | null
+  /** Promo window end */
+  endsAt?:              string | null
   // Presets
   lightingPreset?:      string | null
   backgroundPreset?:    string | null
@@ -150,9 +163,16 @@ export async function createPackage(opts: CreatePackageOpts): Promise<P360Packag
       settings:             opts.settings ?? {},
       status:               'draft',
       is_enabled:           false,
-      is_default:           false,
+      is_default:           opts.isPrimary            ?? false,
+      is_primary:           opts.isPrimary            ?? false,
+      preset:               opts.preset               ?? null,
+      starts_at:            opts.startsAt             ?? null,
+      ends_at:              opts.endsAt               ?? null,
+      promo_starts_at:      opts.startsAt             ?? null,
+      promo_ends_at:        opts.endsAt               ?? null,
       generation_provider:  'gemini',
       ai_model:             opts.aiModel ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
+      generation_model:     opts.aiModel ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
       // Presets
       lighting_preset:      opts.lightingPreset      ?? null,
       background_preset:    opts.backgroundPreset     ?? null,
@@ -181,21 +201,39 @@ export async function updatePackage(
   tenantId:  string,
   updates:   Partial<Pick<P360Package,
     'name' | 'slug' | 'description' | 'status' | 'is_enabled' | 'is_default' |
-    'package_type' | 'promo_starts_at' | 'promo_ends_at' | 'generation_prompt' |
-    'generation_notes' | 'negative_prompt' | 'target_frame_count' | 'settings' |
+    'is_primary' | 'preset' |
+    'package_type' | 'promo_starts_at' | 'promo_ends_at' | 'starts_at' | 'ends_at' |
+    'generation_prompt' | 'generation_notes' | 'negative_prompt' |
+    'target_frame_count' | 'settings' |
     'lighting_config' | 'camera_config' | 'hotspot_config' | 'cover_frame_url' |
     'model_url' | 'ar_model_url' |
     'lighting_preset' | 'background_preset' | 'category_preset' | 'camera_preset' |
     'camera_distance' | 'camera_height' | 'fov' | 'zoom' | 'shadow_strength' |
     'reflection_intensity' | 'turn_direction' | 'output_width' | 'output_height' |
-    'promo_tag' | 'ai_model'
+    'promo_tag' | 'ai_model' | 'generation_model'
   >>,
 ): Promise<P360Package> {
   const supabase = db()
 
-  // If setting is_default=true, unset default on all other packages for same tenant/product
-  if (updates.is_default) {
-    // Get the package to find its product_id
+  // Normalise is_primary ↔ is_default so callers can use either name.
+  if (updates.is_primary !== undefined && updates.is_default === undefined) {
+    updates = { ...updates, is_default: updates.is_primary }
+  }
+  if (updates.is_default !== undefined && updates.is_primary === undefined) {
+    updates = { ...updates, is_primary: updates.is_default }
+  }
+
+  // Normalise starts_at / ends_at ↔ promo columns.
+  if (updates.starts_at !== undefined && updates.promo_starts_at === undefined) {
+    updates = { ...updates, promo_starts_at: updates.starts_at }
+  }
+  if (updates.ends_at !== undefined && updates.promo_ends_at === undefined) {
+    updates = { ...updates, promo_ends_at: updates.ends_at }
+  }
+
+  // If setting is_default/is_primary=true, unset primary on all other packages
+  // for the same tenant+product (enforces one primary per product).
+  if (updates.is_default || updates.is_primary) {
     const { data: existing } = await s(supabase)
       .from('product_360_packages')
       .select('product_id')
@@ -205,7 +243,7 @@ export async function updatePackage(
     if (existing?.product_id) {
       await s(supabase)
         .from('product_360_packages')
-        .update({ is_default: false })
+        .update({ is_default: false, is_primary: false })
         .eq('tenant_id', tenantId)
         .eq('product_id', existing.product_id)
         .neq('id', packageId)
@@ -259,8 +297,11 @@ export async function duplicatePackage(
       status:               'draft',
       is_enabled:           false,
       is_default:           false,
+      is_primary:           false,
+      preset:               src.preset ?? null,
       generation_provider:  'gemini',
       ai_model:             src.ai_model ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
+      generation_model:     src.ai_model ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
       lighting_preset:      src.lighting_preset,
       background_preset:    src.background_preset,
       category_preset:      src.category_preset,
@@ -299,6 +340,55 @@ export async function archivePackage(
 
   // Best-effort storage cleanup
   await deletePackageStorage(tenantId, productId, packageId)
+}
+
+/**
+ * Sets one package as the primary (is_primary = is_default = true) for its
+ * product and clears the flag on all other packages for the same tenant+product.
+ * Tenant-scoped — safe to call from owner and admin routes.
+ */
+export async function setPrimaryPackage(
+  packageId: string,
+  tenantId:  string,
+): Promise<P360Package> {
+  const supabase = db()
+
+  // Find the package to get its product_id.
+  const { data: pkg, error: fetchErr } = await s(supabase)
+    .from('product_360_packages')
+    .select('product_id')
+    .eq('id', packageId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+
+  if (fetchErr) throw new Error(`setPrimaryPackage fetch: ${fetchErr.message}`)
+  if (!pkg)     throw new Error('Package not found')
+
+  // Unset primary on all other packages for this tenant+product.
+  if (pkg.product_id) {
+    const { error: clearErr } = await s(supabase)
+      .from('product_360_packages')
+      .update({ is_primary: false, is_default: false, updated_at: new Date().toISOString() })
+      .eq('tenant_id', tenantId)
+      .eq('product_id', pkg.product_id)
+      .neq('id', packageId)
+
+    if (clearErr) {
+      console.warn('[setPrimaryPackage] Could not clear other primaries:', clearErr.message)
+    }
+  }
+
+  // Set this package as primary.
+  const { data, error } = await s(supabase)
+    .from('product_360_packages')
+    .update({ is_primary: true, is_default: true, updated_at: new Date().toISOString() })
+    .eq('id', packageId)
+    .eq('tenant_id', tenantId)
+    .select('*')
+    .single()
+
+  if (error) throw new Error(`setPrimaryPackage update: ${error.message}`)
+  return data as P360Package
 }
 
 // ─── Products (store module bridge) ──────────────────────────────────────────

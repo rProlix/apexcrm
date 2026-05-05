@@ -43,23 +43,40 @@ export interface P360Package {
   description:          string | null
   status:               P360Status
   is_enabled:           boolean
+  /** Canonical "default/primary" flag. Use is_primary for new code. */
   is_default:           boolean
+  /** Alias for is_default (added migration 034). Both are kept in sync. */
+  is_primary:           boolean
   package_type:         P360PackageType
+  /** Generic preset label (e.g. "standard", "premium"). See also specific preset columns. */
+  preset:               string | null
+  // ── Promo scheduling (canonical column names) ──────────────────────────────
   promo_starts_at:      string | null
   promo_ends_at:        string | null
   promo_tag:            string | null
+  /** Alias for promo_starts_at (added migration 034). */
+  starts_at:            string | null
+  /** Alias for promo_ends_at (added migration 034). */
+  ends_at:              string | null
+  // ── Frame counts ───────────────────────────────────────────────────────────
   frame_count:          number
   target_frame_count:   number
+  // ── Media ──────────────────────────────────────────────────────────────────
   cover_frame_url:      string | null
   model_url:            string | null
   ar_model_url:         string | null
+  // ── Generation ─────────────────────────────────────────────────────────────
   generation_prompt:    string | null
   generation_notes:     string | null
   negative_prompt:      string | null
   generation_provider:  string
+  /** Canonical AI model column (e.g. "gemini-2.5-flash-lite"). */
   ai_model:             string
+  /** Alias for ai_model (added migration 034). */
+  generation_model:     string | null
   generation_job_id:    string | null
   generation_error:     string | null
+  // ── Config blobs ───────────────────────────────────────────────────────────
   settings:             Record<string, unknown>
   hotspot_config:       P360HotspotConfig[]
   lighting_config:      P360LightingConfig
@@ -78,6 +95,7 @@ export interface P360Package {
   turn_direction:       'clockwise' | 'counter_clockwise'
   output_width:         number | null
   output_height:        number | null
+  // ── Timestamps ─────────────────────────────────────────────────────────────
   created_at:           string
   updated_at:           string
 }
