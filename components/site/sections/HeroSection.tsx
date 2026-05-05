@@ -10,8 +10,15 @@ export function HeroSection({ content }: Props) {
   const {
     headline, subheadline, ctaLabel, ctaHref,
     ctaSecondaryLabel, ctaSecondaryHref,
-    backgroundImage, overlay, overlayOpacity = 40, align = 'center',
+    backgroundImage: _backgroundImage, overlay, overlayOpacity = 40, align = 'center',
   } = content
+
+  // Support both camelCase (current) and snake_case (legacy data) field names.
+  const raw = content as unknown as Record<string, unknown>
+  const backgroundImage = _backgroundImage
+    ?? (raw.background_image as string | undefined)
+    ?? (raw.imageUrl as string | undefined)
+    ?? (raw.image_url as string | undefined)
 
   const textAlign = align === 'center' ? 'center' : align === 'right' ? 'right' : 'left'
   const alignItems = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'

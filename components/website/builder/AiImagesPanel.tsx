@@ -108,6 +108,28 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
     }
   }, [])
 
+  const handleGenerateAndApply = useCallback(async (id: string) => {
+    setLoadingPlan(id)
+    optimisticallyUpdateStatus(id, 'generating')
+    try {
+      const json = await apiPost(
+        `/api/website/ai-images/plans/${id}/generate-and-apply`,
+      ) as { plan: WebsiteImagePlan; applied: boolean; applySkipped?: boolean }
+      if (json.plan) replacePlan(json.plan)
+      const msg = json.applied
+        ? 'Image generated and applied to your website!'
+        : json.applySkipped
+        ? 'Image generated (no section linked — apply manually when ready).'
+        : 'Image generated.'
+      showToast('success', msg)
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Generate + Apply failed.')
+      await loadPlans()
+    } finally {
+      setLoadingPlan(null)
+    }
+  }, [])
+
   const handleReject = useCallback(async (id: string) => {
     setLoadingPlan(id)
     try {
@@ -297,6 +319,7 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
               onGenerate={id => void handleGenerate(id)}
               onRegenerate={(id, p) => void handleRegenerate(id, p)}
               onApply={id => void handleApply(id)}
+              onGenerateAndApply={id => void handleGenerateAndApply(id)}
               onReject={id => void handleReject(id)}
               onApprove={id => void handleApprove(id)}
             />
@@ -319,6 +342,7 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
                 onGenerate={() => {}}
                 onRegenerate={() => {}}
                 onApply={() => {}}
+                onGenerateAndApply={() => {}}
                 onReject={() => {}}
                 onApprove={() => {}}
               />

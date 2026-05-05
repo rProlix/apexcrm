@@ -5,7 +5,13 @@ import type { AboutContent } from '@/lib/website/types'
 interface Props { content: AboutContent }
 
 export function AboutSection({ content }: Props) {
-  const { headline, body, image, teamItems = [] } = content
+  const { headline, body, image: _image, teamItems = [] } = content
+
+  // Support both camelCase (current) and snake_case (legacy data) field names.
+  const raw = content as unknown as Record<string, unknown>
+  const image = _image
+    ?? (raw.image_url as string | undefined)
+    ?? (raw.imageUrl as string | undefined)
 
   return (
     <section style={{ padding: '5rem 1.5rem', background: 'var(--color-surface)' }}>

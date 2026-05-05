@@ -13,6 +13,7 @@ import { ContactSection }          from './sections/ContactSection'
 import { AboutSection }            from './sections/AboutSection'
 import { ProductGridSection }      from './sections/ProductGridSection'
 import { Product360ViewerSection } from './sections/Product360ViewerSection'
+import { ImageGallerySection }     from './sections/ImageGallerySection'
 import type { SiteSection }        from '@/lib/website/types'
 
 interface Props {
@@ -58,6 +59,9 @@ export async function SectionRenderer({ section, tenantId }: Props) {
 
     case 'product_360_viewer':
       return <Product360ViewerSection content={c as never} tenantId={tenantId} />
+
+    case 'image_gallery':
+      return <ImageGallerySection content={c as never} />
 
     default:
       return null

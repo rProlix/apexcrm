@@ -7,13 +7,20 @@ interface Props { content: CtaContent }
 export function CtaSection({ content }: Props) {
   const { headline, body, ctaLabel, ctaHref, align = 'center' } = content
 
+  // backgroundImage is set by the AI image builder.
+  const raw = content as unknown as Record<string, unknown>
+  const backgroundImage = (raw.backgroundImage ?? raw.background_image) as string | undefined
+
   const textAlign = align === 'center' ? 'center' : align === 'right' ? 'right' : 'left'
   const alignItems = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'
 
   return (
     <section style={{
       padding:    '5rem 1.5rem',
-      background: 'var(--color-primary)',
+      background: backgroundImage
+        ? `url(${backgroundImage}) center/cover no-repeat`
+        : 'var(--color-primary)',
+      position: 'relative',
     }}>
       <div style={{
         maxWidth:       800,

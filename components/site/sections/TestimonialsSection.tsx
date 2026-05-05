@@ -7,10 +7,20 @@ interface Props { content: TestimonialsContent }
 export function TestimonialsSection({ content }: Props) {
   const { headline, items = [] } = content
 
+  // backgroundImage is set by the AI image builder.
+  const raw = content as unknown as Record<string, unknown>
+  const backgroundImage = (raw.backgroundImage ?? raw.background_image) as string | undefined
+
   if (items.length === 0) return null
 
   return (
-    <section style={{ padding: '5rem 1.5rem', background: 'var(--color-surface)' }}>
+    <section style={{
+      padding:    '5rem 1.5rem',
+      background: backgroundImage
+        ? `url(${backgroundImage}) center/cover no-repeat`
+        : 'var(--color-surface)',
+      position: 'relative',
+    }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         {headline && (
           <h2 style={{

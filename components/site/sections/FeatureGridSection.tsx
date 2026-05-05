@@ -7,12 +7,28 @@ interface Props { content: FeatureGridContent }
 export function FeatureGridSection({ content }: Props) {
   const { headline, subtitle, columns = 3, items = [] } = content
 
+  // bannerImage is set by the AI image builder when it generates a section banner.
+  const raw = content as unknown as Record<string, unknown>
+  const bannerImage = (raw.bannerImage ?? raw.banner_image) as string | undefined
+
   const gridCols = columns === 2 ? 'repeat(2, 1fr)'
     : columns === 4 ? 'repeat(auto-fit, minmax(220px, 1fr))'
     : 'repeat(auto-fit, minmax(260px, 1fr))'
 
   return (
     <section style={{ padding: '5rem 1.5rem', background: 'var(--color-bg)' }}>
+      {bannerImage && (
+        <div style={{ width: '100%', maxHeight: 360, overflow: 'hidden', marginBottom: '0' }}>
+          <Image
+            src={bannerImage}
+            alt={headline || 'Services'}
+            width={1200}
+            height={360}
+            unoptimized
+            style={{ width: '100%', height: 360, objectFit: 'cover' }}
+          />
+        </div>
+      )}
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         {(headline || subtitle) && (
           <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
