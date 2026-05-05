@@ -85,6 +85,17 @@ export interface P360Package {
   generation_error:     string | null
   /** Timestamp of the last successful generation completion. */
   last_generated_at:    string | null
+  // ── Locked scene spec (added migration 037) ────────────────────────────────
+  /** URL of the canonical 0° master frame used as a visual anchor for all frames. */
+  master_frame_url:          string | null
+  /** True once the master frame has been successfully generated. */
+  master_frame_generated:    boolean
+  /** Frozen scene blueprint JSON (subject, camera, lighting, background, rules). */
+  scene_blueprint:           Record<string, unknown> | null
+  /** The full locked scene description template used for all non-master frames. */
+  locked_generation_prompt:  string | null
+  /** 'standard' or 'strict' (default). Controls how forceful the locking language is. */
+  consistency_mode:          'standard' | 'strict'
   // ── Config blobs ───────────────────────────────────────────────────────────
   settings:             Record<string, unknown>
   hotspot_config:       P360HotspotConfig[]
@@ -110,20 +121,30 @@ export interface P360Package {
 }
 
 export interface P360Frame {
-  id:            string
-  package_id:    string
-  tenant_id:     string
-  product_id:    string | null
-  frame_index:   number
-  angle_degrees: number
-  image_url:     string
-  storage_path:  string | null
-  width:         number | null
-  height:        number | null
-  file_size:     number | null
-  alt_text:      string | null
-  metadata:      Record<string, unknown>
-  created_at:    string
+  id:                  string
+  package_id:          string
+  tenant_id:           string
+  product_id:          string | null
+  frame_index:         number
+  angle_degrees:       number
+  image_url:           string
+  storage_path:        string | null
+  width:               number | null
+  height:              number | null
+  file_size:           number | null
+  alt_text:            string | null
+  metadata:            Record<string, unknown>
+  prompt_used:         string | null
+  /** True for frame_index=0 — this is the canonical visual reference. */
+  is_master_frame:     boolean
+  /** How many times this frame has been generated (1 = first attempt). */
+  generation_attempt:  number
+  /** True if consistency checks flagged this frame as too different from the master. */
+  needs_regeneration:  boolean
+  /** Optional 0–1 score from post-processing consistency checks. */
+  consistency_score:   number | null
+  created_at:          string
+  updated_at:          string
 }
 
 export interface P360Hotspot {

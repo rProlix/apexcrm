@@ -11,6 +11,13 @@ export interface P360GenerateFrameParams {
   width?:          number
   height?:         number
   timeoutMs?:      number
+  /**
+   * Optional base64-encoded master reference image.
+   * When provided, passed to the image generation API for image-conditioned
+   * generation (visual consistency anchoring across 360° frames).
+   */
+  referenceImageBase64?:   string
+  referenceImageMimeType?: string
 }
 
 export interface P360GenerateFrameResult {

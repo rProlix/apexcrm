@@ -8,7 +8,7 @@ import {
   Star, StarOff, RefreshCw, AlertCircle, X, Loader2,
   Search, Package, ChevronDown, Copy, Archive,
   SlidersHorizontal, ChevronRight, Image as ImageIcon,
-  Check,
+  Check, Lock, Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import Product360ViewerClient from './Product360ViewerClient'
@@ -815,6 +815,13 @@ function PackageCard({
             {pkg.is_enabled && pkg.status === 'ready' && (
               <span className="text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">Live</span>
             )}
+            {/* Scene lock badge — shown once the master frame exists */}
+            {(pkg as P360Package & { master_frame_generated?: boolean }).master_frame_generated && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-teal-400 bg-teal-400/10 border border-teal-400/20 px-2 py-0.5 rounded-full">
+                <Lock className="h-2.5 w-2.5" />
+                Scene Locked
+              </span>
+            )}
             {pkg.preset    && <span className="text-[10px] text-sky-400 bg-sky-400/10 border border-sky-400/20 px-2 py-0.5 rounded-full">{pkg.preset}</span>}
             {pkg.promo_tag && <span className="text-[10px] text-fuchsia-400 bg-fuchsia-400/10 border border-fuchsia-400/20 px-2 py-0.5 rounded-full">{pkg.promo_tag}</span>}
           </div>
@@ -832,6 +839,16 @@ function PackageCard({
             <p className="text-[10px] text-white/20 mt-0.5">
               Generated {new Date(pkg.last_generated_at).toLocaleDateString()}
             </p>
+          )}
+          {/* Stage-A master frame indicator during active generation */}
+          {isActiveGeneration && (pkg as P360Package & { master_frame_generated?: boolean }).master_frame_generated && (
+            <p className="flex items-center gap-1 text-[10px] text-teal-400 mt-0.5">
+              <Sparkles className="h-2.5 w-2.5 shrink-0" />
+              Master frame captured — generating locked frames…
+            </p>
+          )}
+          {isActiveGeneration && !(pkg as P360Package & { master_frame_generated?: boolean }).master_frame_generated && (
+            <p className="text-[10px] text-amber-400/70 mt-0.5">Generating master reference frame…</p>
           )}
         </div>
         {/* Thumbnail / live preview */}
@@ -983,18 +1000,70 @@ function ActionBtn({
 // ─── Package Detail Info ──────────────────────────────────────────────────────
 
 function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
+  const pkgExt = pkg as P360Package & {
+    master_frame_url?:       string | null
+    master_frame_generated?: boolean
+    consistency_mode?:       string | null
+    locked_generation_prompt?: string | null
+  }
+  const hasMasterFrame = !!(pkgExt.master_frame_generated && pkgExt.master_frame_url)
+
   return (
-    <div className="rounded-xl bg-white/3 border border-white/6 p-3 space-y-1.5 text-[11px]">
-      <Row label="AI Model"     value={pkg.ai_model ?? 'gemini-2.5-flash-lite'} />
+    <div className="rounded-xl bg-white/3 border border-white/6 p-3 space-y-2 text-[11px]">
+
+      {/* Scene lock status */}
+      <div className="flex items-center justify-between pb-1.5 border-b border-white/6">
+        <span className="text-[10px] text-white/30 uppercase tracking-wider">Consistency Mode</span>
+        <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+          hasMasterFrame
+            ? 'text-teal-400 bg-teal-400/10 border-teal-400/20'
+            : 'text-white/30 bg-white/4 border-white/8'
+        }`}>
+          {hasMasterFrame && <Lock className="h-2.5 w-2.5" />}
+          {hasMasterFrame ? `Strict Locked` : 'Not yet locked'}
+        </span>
+      </div>
+
+      {/* Master frame thumbnail */}
+      {hasMasterFrame && (
+        <div className="space-y-1">
+          <p className="text-[10px] text-white/30 uppercase tracking-wider flex items-center gap-1">
+            <Sparkles className="h-2.5 w-2.5" />
+            Master Frame
+          </p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={pkgExt.master_frame_url!}
+            alt="Master reference frame (0° front view)"
+            className="w-full rounded-lg border border-teal-400/20 object-cover aspect-square"
+          />
+          <p className="text-[9px] text-teal-400/60 text-center">0° front view — visual blueprint for all frames</p>
+        </div>
+      )}
+
+      <Row label="AI Model"     value={pkg.ai_model ?? 'imagen-4.0-ultra-generate-001'} />
       <Row label="Type"         value={pkg.package_type.replace(/_/g, ' ')} />
       <Row label="Frames"       value={`${pkg.frame_count} / ${pkg.target_frame_count}`} />
       {pkg.lighting_preset    && <Row label="Lighting"    value={pkg.lighting_preset.replace(/_/g, ' ')} />}
       {pkg.background_preset  && <Row label="Background"  value={pkg.background_preset.replace(/_/g, ' ')} />}
       {pkg.camera_preset      && <Row label="Camera"      value={pkg.camera_preset.replace(/_/g, ' ')} />}
       {pkg.turn_direction     && <Row label="Direction"   value={pkg.turn_direction.replace(/_/g, ' ')} />}
+
+      {pkgExt.locked_generation_prompt && (
+        <div>
+          <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1 flex items-center gap-1">
+            <Lock className="h-2.5 w-2.5" />
+            Locked Scene Spec
+          </p>
+          <p className="text-white/30 line-clamp-3 text-[10px] font-mono bg-white/3 rounded p-2">
+            {pkgExt.locked_generation_prompt.slice(0, 200)}…
+          </p>
+        </div>
+      )}
+
       {pkg.generation_prompt && (
         <div>
-          <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Prompt</p>
+          <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Custom Prompt</p>
           <p className="text-white/50 line-clamp-3">{pkg.generation_prompt}</p>
         </div>
       )}

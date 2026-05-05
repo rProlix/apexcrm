@@ -47,12 +47,14 @@ export const imagenProvider: P360ImageProvider = {
     // negativePrompt is merged into the positive prompt by generateWithImagen().
     // Imagen 4 does not accept negativePrompt as a separate field.
     const result = await generateWithImagen({
-      prompt:          params.prompt,
-      negativePrompt:  params.negativePrompt ?? AVOID_HINTS,
+      prompt:                  params.prompt,
+      negativePrompt:          params.negativePrompt ?? AVOID_HINTS,
       aspectRatio,
-      numberOfImages:  1,
+      numberOfImages:          1,
       model,
-      timeoutMs:       params.timeoutMs,
+      timeoutMs:               params.timeoutMs,
+      referenceImageBase64:    params.referenceImageBase64,
+      referenceImageMimeType:  params.referenceImageMimeType,
     })
 
     if (result.error || !result.images.length) {
