@@ -1,7 +1,7 @@
 // app/api/product-360/packages/route.ts
 import { NextRequest, NextResponse }               from 'next/server'
 import { resolveP360ApiUser, resolveTenantId }     from '@/lib/product-360/auth'
-import { listPackages, createPackage }             from '@/lib/product-360/packageService'
+import { listPackages, createPackage, P360ApiError } from '@/lib/product-360/packageService'
 
 export const dynamic = 'force-dynamic'
 
@@ -85,8 +85,22 @@ export async function POST(req: NextRequest) {
       promoTag:             (body.promoTag            as string | null) ?? null,
       aiModel:              ((body.aiModel ?? body.generation_model) as string | undefined),
     })
-    return NextResponse.json({ package: pkg }, { status: 201 })
+    return NextResponse.json({ ok: true, data: { package: pkg } }, { status: 201 })
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed to create package' }, { status: 500 })
+    if (err instanceof P360ApiError) {
+      const ae = err.apiError
+      const status =
+        ae.type === 'not_found'  ? 404 :
+        ae.type === 'forbidden'  ? 403 :
+        ae.type === 'validation_error' || ae.type === 'constraint_error' ? 422 : 500
+      console.error('[/api/product-360/packages POST] P360ApiError:', ae)
+      return NextResponse.json({ ok: false, error: ae }, { status })
+    }
+    const msg = err instanceof Error ? err.message : 'Failed to create package'
+    console.error('[/api/product-360/packages POST] Unexpected error:', msg)
+    return NextResponse.json(
+      { ok: false, error: { type: 'internal', title: 'Package creation failed', message: msg } },
+      { status: 500 },
+    )
   }
 }

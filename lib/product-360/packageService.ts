@@ -142,57 +142,75 @@ export interface CreatePackageOpts {
   aiModel?:             string
 }
 
+export class P360ApiError extends Error {
+  constructor(
+    public readonly apiError: import('./validators').P360ApiError,
+  ) {
+    super(apiError.message)
+    this.name = 'P360ApiError'
+  }
+}
+
 export async function createPackage(opts: CreatePackageOpts): Promise<P360Package> {
+  // Validate and normalise input BEFORE touching the database.
+  const { normalizeCreatePackageInput, mapDbErrorToApiError } = await import('./validators')
+  const validation = normalizeCreatePackageInput(opts)
+  if (!validation.ok) throw new P360ApiError(validation.error)
+
+  const validated = validation.data
   const supabase  = db()
-  const slug      = generateSlug(opts.name)
+  const slug      = generateSlug(validated.name)
 
   const { data, error } = await s(supabase)
     .from('product_360_packages')
     .insert({
-      tenant_id:            opts.tenantId,
-      product_id:           opts.productId,
-      created_by:           opts.createdBy,
-      name:                 opts.name,
+      tenant_id:            validated.tenantId,
+      product_id:           validated.productId,
+      created_by:           validated.createdBy,
+      name:                 validated.name,
       slug,
-      description:          opts.description     ?? null,
-      package_type:         opts.packageType     ?? 'ai_generated',
-      generation_prompt:    opts.generationPrompt ?? null,
-      generation_notes:     opts.generationNotes  ?? null,
-      negative_prompt:      opts.negativePrompt   ?? null,
-      target_frame_count:   opts.targetFrameCount ?? 36,
-      settings:             opts.settings ?? {},
+      description:          validated.description     ?? null,
+      package_type:         validated.packageType     ?? 'ai_generated',
+      generation_prompt:    validated.generationPrompt ?? null,
+      generation_notes:     validated.generationNotes  ?? null,
+      negative_prompt:      validated.negativePrompt   ?? null,
+      target_frame_count:   validated.targetFrameCount ?? 36,
+      settings:             validated.settings ?? {},
       status:               'draft',
       is_enabled:           false,
-      is_default:           opts.isPrimary            ?? false,
-      is_primary:           opts.isPrimary            ?? false,
-      preset:               opts.preset               ?? null,
-      starts_at:            opts.startsAt             ?? null,
-      ends_at:              opts.endsAt               ?? null,
-      promo_starts_at:      opts.startsAt             ?? null,
-      promo_ends_at:        opts.endsAt               ?? null,
+      is_default:           validated.isPrimary            ?? false,
+      is_primary:           validated.isPrimary            ?? false,
+      preset:               validated.preset               ?? null,
+      starts_at:            validated.startsAt             ?? null,
+      ends_at:              validated.endsAt               ?? null,
+      promo_starts_at:      validated.startsAt             ?? null,
+      promo_ends_at:        validated.endsAt               ?? null,
       generation_provider:  'gemini',
-      ai_model:             opts.aiModel ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
-      generation_model:     opts.aiModel ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
+      ai_model:             validated.aiModel ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
+      generation_model:     validated.aiModel ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
       // Presets
-      lighting_preset:      opts.lightingPreset      ?? null,
-      background_preset:    opts.backgroundPreset     ?? null,
-      category_preset:      opts.categoryPreset       ?? null,
-      camera_preset:        opts.cameraPreset         ?? null,
-      camera_distance:      opts.cameraDistance       ?? null,
-      camera_height:        opts.cameraHeight         ?? null,
-      fov:                  opts.fov                  ?? null,
-      zoom:                 opts.zoom                 ?? null,
-      shadow_strength:      opts.shadowStrength       ?? null,
-      reflection_intensity: opts.reflectionIntensity  ?? null,
-      turn_direction:       opts.turnDirection        ?? 'clockwise',
-      output_width:         opts.outputWidth          ?? null,
-      output_height:        opts.outputHeight         ?? null,
-      promo_tag:            opts.promoTag             ?? null,
+      lighting_preset:      validated.lightingPreset      ?? null,
+      background_preset:    validated.backgroundPreset     ?? null,
+      category_preset:      validated.categoryPreset       ?? null,
+      camera_preset:        validated.cameraPreset         ?? null,
+      camera_distance:      validated.cameraDistance       ?? null,
+      camera_height:        validated.cameraHeight         ?? null,
+      fov:                  validated.fov                  ?? null,
+      zoom:                 validated.zoom                 ?? null,
+      shadow_strength:      validated.shadowStrength       ?? null,
+      reflection_intensity: validated.reflectionIntensity  ?? null,
+      turn_direction:       validated.turnDirection        ?? 'clockwise',
+      output_width:         validated.outputWidth          ?? null,
+      output_height:        validated.outputHeight         ?? null,
+      promo_tag:            validated.promoTag             ?? null,
     })
     .select('*')
     .single()
 
-  if (error) throw new Error(`createPackage: ${error.message}`)
+  if (error) {
+    const apiError = mapDbErrorToApiError(error.message)
+    throw new P360ApiError(apiError)
+  }
   return data as P360Package
 }
 

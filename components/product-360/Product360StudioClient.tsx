@@ -1240,13 +1240,26 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
   const [promoTag,   setPromoTag]   = useState('')
   const [showPresets, setShowPresets] = useState(false)
 
-  const [creating,   setCreating]   = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
+  const [creating,     setCreating]     = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
+  const [errorTitle,   setErrorTitle]   = useState<string | null>(null)
+  const [errorDetails, setErrorDetails] = useState<string | null>(null)
+  const [fieldError,   setFieldError]   = useState<Record<string, string>>({})
+
+  function clearErrors() {
+    setError(null)
+    setErrorTitle(null)
+    setErrorDetails(null)
+    setFieldError({})
+  }
 
   async function handleSubmit() {
-    if (!product || !name.trim()) { setError('Product and name are required.'); return }
+    if (!product || !name.trim()) {
+      setFieldError({ ...((!product) ? { productId: 'Please select a product.' } : {}), ...((!name.trim()) ? { name: 'Please enter a package name.' } : {}) })
+      return
+    }
     setCreating(true)
-    setError(null)
+    clearErrors()
     try {
       const res = await fetch('/api/product-360/packages', {
         method:  'POST',
@@ -1273,10 +1286,26 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
         }),
       })
       const json = await res.json()
-      if (!res.ok) { setError(json.error ?? 'Failed to create'); return }
-      onCreated({ ...json.package, frames_done: 0, product_name: products.find(p => p.id === product)?.name ?? null })
+      if (!res.ok) {
+        // Structured error from the new API shape
+        const apiErr = json.error
+        if (apiErr && typeof apiErr === 'object') {
+          setErrorTitle(apiErr.title ?? 'Package creation failed')
+          setError(apiErr.message ?? 'An error occurred.')
+          if (apiErr.details) setErrorDetails(apiErr.details)
+          if (apiErr.field)   setFieldError({ [apiErr.field]: apiErr.message ?? 'Invalid value' })
+        } else {
+          setErrorTitle('Package creation failed')
+          setError(typeof apiErr === 'string' ? apiErr : 'An unknown error occurred.')
+        }
+        return
+      }
+      // Support both legacy { package } and new { ok, data: { package } } shapes
+      const pkg = json.data?.package ?? json.package
+      onCreated({ ...pkg, frames_done: 0, product_name: products.find(p => p.id === product)?.name ?? null })
     } catch {
-      setError('Network error. Please try again.')
+      setErrorTitle('Network error')
+      setError('Could not reach the server. Please check your connection and try again.')
     } finally {
       setCreating(false)
     }
@@ -1298,22 +1327,37 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
         </div>
 
         {error && (
-          <div className="mb-4 rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-400">{error}</div>
+          <div className="mb-4 rounded-xl bg-red-500/10 border border-red-500/20 p-3.5 space-y-1">
+            {errorTitle && <p className="text-xs font-semibold text-red-400">{errorTitle}</p>}
+            <p className="text-xs text-red-400/80">{error}</p>
+            {errorDetails && (
+              <details className="mt-1">
+                <summary className="text-[10px] text-red-400/50 cursor-pointer hover:text-red-400/70 select-none">
+                  Technical details
+                </summary>
+                <p className="mt-1 text-[10px] font-mono text-red-400/40 break-all">{errorDetails}</p>
+              </details>
+            )}
+          </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Product */}
           <Field label="Product" className="sm:col-span-2">
-            <select value={product} onChange={e => setProduct(e.target.value)} className="store-input">
+            <select value={product} onChange={e => { setProduct(e.target.value); setFieldError(fe => ({ ...fe, productId: '' })) }}
+              className={`store-input ${fieldError.productId ? 'border-red-500/40' : ''}`}>
               <option value="">Select a product…</option>
               {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
+            {fieldError.productId && <p className="text-[10px] text-red-400 mt-1">{fieldError.productId}</p>}
           </Field>
 
           {/* Name */}
           <Field label="Package Name">
-            <input type="text" value={name} onChange={e => setName(e.target.value)}
-              placeholder="e.g. Standard View, Summer Promo…" className="store-input" />
+            <input type="text" value={name} onChange={e => { setName(e.target.value); setFieldError(fe => ({ ...fe, name: '' })) }}
+              placeholder="e.g. Standard View, Summer Promo…"
+              className={`store-input ${fieldError.name ? 'border-red-500/40' : ''}`} />
+            {fieldError.name && <p className="text-[10px] text-red-400 mt-1">{fieldError.name}</p>}
           </Field>
 
           {/* Description */}
@@ -1361,16 +1405,15 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
           <Field label="Camera Preset">
             <select value={camera} onChange={e => {
               setCamera(e.target.value)
-              const preset = CAMERA_PRESETS.find(p => p.value === e.target.value)
-              if (preset) {
-                if (e.target.value.includes('18')) setFrames(18)
-                else if (e.target.value.includes('24')) setFrames(24)
-                else if (e.target.value.includes('36')) setFrames(36)
-              }
-            }} className="store-input">
+              setFieldError(fe => ({ ...fe, camera_preset: '' }))
+              if (e.target.value.includes('18')) setFrames(18)
+              else if (e.target.value.includes('24')) setFrames(24)
+              else if (e.target.value.includes('36')) setFrames(36)
+            }} className={`store-input ${fieldError.camera_preset ? 'border-red-500/40' : ''}`}>
               <option value="">Choose preset…</option>
               {CAMERA_PRESETS.map(p => <option key={p.value} value={p.value}>{p.icon} {p.label}</option>)}
             </select>
+            {fieldError.camera_preset && <p className="text-[10px] text-red-400 mt-1">{fieldError.camera_preset}</p>}
           </Field>
 
           {/* Frame count */}
@@ -1414,16 +1457,20 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
             {showPresets && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/6">
                 <Field label="Lighting">
-                  <select value={lighting} onChange={e => setLighting(e.target.value)} className="store-input">
+                  <select value={lighting} onChange={e => { setLighting(e.target.value); setFieldError(fe => ({ ...fe, lighting_preset: '' })) }}
+                    className={`store-input ${fieldError.lighting_preset ? 'border-red-500/40' : ''}`}>
                     <option value="">Auto</option>
                     {LIGHTING_PRESETS.map(p => <option key={p.value} value={p.value}>{p.icon} {p.label}</option>)}
                   </select>
+                  {fieldError.lighting_preset && <p className="text-[10px] text-red-400 mt-1">{fieldError.lighting_preset}</p>}
                 </Field>
                 <Field label="Background">
-                  <select value={background} onChange={e => setBackground(e.target.value)} className="store-input">
+                  <select value={background} onChange={e => { setBackground(e.target.value); setFieldError(fe => ({ ...fe, background_preset: '' })) }}
+                    className={`store-input ${fieldError.background_preset ? 'border-red-500/40' : ''}`}>
                     <option value="">Auto</option>
                     {BACKGROUND_PRESETS.map(p => <option key={p.value} value={p.value}>{p.icon} {p.label}</option>)}
                   </select>
+                  {fieldError.background_preset && <p className="text-[10px] text-red-400 mt-1">{fieldError.background_preset}</p>}
                 </Field>
                 <Field label="Product Category">
                   <select value={category} onChange={e => setCategory(e.target.value)} className="store-input">
