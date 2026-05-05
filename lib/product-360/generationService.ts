@@ -118,6 +118,8 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
 
   console.info(`[p360:generate] pkg=${packageId} starting ${totalFrames} frames via ${provider.name}`)
 
+  const plannerModel = (process.env.GEMINI_360_PLANNER_MODEL ?? 'gemini-2.5-flash-lite').trim()
+
   // ── Mark generating — reset progress counters ────────────────────────────────
   await db
     .from('product_360_packages')
@@ -126,6 +128,7 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
       generation_error:    null,
       generation_provider: provider.name,
       ai_model:            provider.model,
+      planner_model:       plannerModel,
       frames_done:         0,
       progress_percent:    0,
       updated_at:          new Date().toISOString(),
@@ -206,6 +209,7 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
           angle_degrees: frame.angleDeg,
           image_url:     uploadedUrl,
           storage_path:  storagePath,
+          prompt_used:   frame.prompt,
           alt_text:      `${productDescriptor.name} – ${frame.shotDirection} view`,
           metadata:      { angleDeg: frame.angleDeg, shotDirection: frame.shotDirection },
         }, { onConflict: 'package_id,frame_index' })
@@ -272,7 +276,20 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
     return { success: true, framesGenerated, previewUrl: fin.previewUrl }
 
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown generation error'
+    let errorMessage = err instanceof Error ? err.message : 'Unknown generation error'
+    // Translate common API errors into user-friendly messages
+    if (errorMessage.includes('text output') || errorMessage.includes('text only')) {
+      errorMessage = 'The selected AI model only supports text output. ' +
+        'Image generation requires an Imagen model (imagen-4.0-ultra-generate-001). ' +
+        'Check your PRODUCT_360_AI_PROVIDER and P360_IMAGEN_MODEL environment variables.'
+    } else if (errorMessage.includes('GEMINI_API_KEY') || errorMessage.includes('GOOGLE_API_KEY') || errorMessage.includes('Missing')) {
+      errorMessage = 'Missing Gemini/Google API key on the server. ' +
+        'Add GEMINI_API_KEY to your Vercel Production and Preview environment variables.'
+    } else if (errorMessage.includes('upload') || errorMessage.includes('Storage')) {
+      errorMessage = 'Image generated but failed to upload to Supabase Storage. ' + errorMessage
+    } else if (errorMessage.includes('403') || errorMessage.includes('access denied')) {
+      errorMessage = 'Imagen API access denied. Ensure GEMINI_API_KEY has the Imagen API enabled in Google Cloud Console.'
+    }
     console.error(`[p360:generate] pkg=${packageId} failed after ${framesGenerated} frames:`, err)
     await markFailed(packageId, errorMessage)
 
