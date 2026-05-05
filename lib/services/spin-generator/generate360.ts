@@ -6,8 +6,9 @@
 
 import { getSupabaseServerClient }    from '@/lib/supabase/server'
 import { generateImage }              from '@/lib/services/midjourney/client'
+import { STORAGE_BUCKETS }            from '@/lib/storage/buckets'
 
-const BUCKET = 'product-360'
+const BUCKET = STORAGE_BUCKETS.SPIN_360_ASSETS
 
 // ─── Prompt builder ───────────────────────────────────────────────────────────
 
@@ -49,7 +50,7 @@ async function uploadFrame(
 
   const buffer  = await res.arrayBuffer()
   const label   = String(frameIndex + 1).padStart(3, '0')
-  const path    = `${tenantId}/${productId}/${spinId}/frame_${label}.png`
+  const path    = `tenants/${tenantId}/360/${productId}/${spinId}/frame_${label}.png`
 
   const { error } = await supabase.storage
     .from(BUCKET)
@@ -78,7 +79,7 @@ export interface Generate360Result {
  * Designed to be called from the `/api/ai/generate-360/[id]/run` endpoint.
  * Each frame is:
  *  1. Prompted via Midjourney (with angle-lock descriptors)
- *  2. Downloaded and uploaded to Supabase Storage (product-360 bucket)
+ *  2. Downloaded and uploaded to Supabase Storage (spin-360-assets bucket)
  *  3. Appended to `image_urls` in the DB so the UI shows live progress
  *
  * Skips frames whose index already has a URL (safe for retries).
@@ -166,7 +167,7 @@ export async function delete360SpinFrames(
   spinId:    string,
 ): Promise<void> {
   const supabase = getSupabaseServerClient()
-  const prefix   = `${tenantId}/${productId}/${spinId}/`
+  const prefix   = `tenants/${tenantId}/360/${productId}/${spinId}/`
   const { data }  = await supabase.storage.from(BUCKET).list(prefix)
   if (!data?.length) return
   await supabase.storage.from(BUCKET).remove(data.map(f => `${prefix}${f.name}`))

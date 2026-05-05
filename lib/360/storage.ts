@@ -1,15 +1,16 @@
 // lib/360/storage.ts
 // Supabase Storage helpers for the product_360_spin module.
-// All frames live in the `product-360-spins` bucket.
+// All frames live in the `spin-360-assets` bucket (canonical).
 //
-// Path format: {tenantId}/{packageId}/frame_{frameIndex:02d}.png
+// Path format: tenants/{tenantId}/360/{packageId}/frame_{frameIndex:03d}.png
 //
 // IMPORTANT: these helpers run on the server only.
 // Never import this file from a client component.
 
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { STORAGE_BUCKETS }         from '@/lib/storage/buckets'
 
-export const BUCKET = 'product-360-spins'
+export const BUCKET = STORAGE_BUCKETS.SPIN_360_ASSETS
 
 // ─── Path helpers ─────────────────────────────────────────────────────────────
 
@@ -23,13 +24,13 @@ export function get360FramePath(
   frameIndex: number,
 ): string {
   const padded = String(frameIndex).padStart(3, '0')
-  return `${tenantId}/${packageId}/frame_${padded}.png`
+  return `tenants/${tenantId}/360/${packageId}/frame_${padded}.png`
 }
 
 // ─── Public URL ───────────────────────────────────────────────────────────────
 
 /**
- * Returns the public URL for a given storage path in the product-360-spins bucket.
+ * Returns the public URL for a given storage path in the spin-360-assets bucket.
  * Does NOT verify the bucket exists — use gracefully.
  */
 export function get360PublicUrl(storagePath: string): string {
@@ -115,7 +116,7 @@ export async function delete360PackageStorage(
 ): Promise<boolean> {
   try {
     const supabase = getSupabaseServerClient()
-    const prefix   = `${tenantId}/${packageId}/`
+    const prefix   = `tenants/${tenantId}/360/${packageId}/`
 
     const { data, error: listErr } = await supabase.storage.from(BUCKET).list(prefix)
     if (listErr) {
@@ -124,7 +125,7 @@ export async function delete360PackageStorage(
     }
     if (!data?.length) return true
 
-    const paths = data.map(f => `${prefix}${f.name}`)
+    const paths = data.map((f: { name: string }) => `${prefix}${f.name}`)
     const { error: delErr } = await supabase.storage.from(BUCKET).remove(paths)
     if (delErr) {
       console.warn(`[delete360PackageStorage] remove failed: ${delErr.message}`)

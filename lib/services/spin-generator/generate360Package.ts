@@ -4,11 +4,12 @@
 // Writes frames into product_360_frames (per-row) rather than a JSONB array.
 // This enables incremental progress tracking and selective frame retries.
 
-import { getSupabaseServerClient }           from '@/lib/supabase/server'
-import { generateImage }                     from '@/lib/services/midjourney/client'
+import { getSupabaseServerClient }                 from '@/lib/supabase/server'
+import { generateImage }                           from '@/lib/services/midjourney/client'
 import { build360FramePrompt, buildAngleSequence } from './generate360'
+import { STORAGE_BUCKETS }                         from '@/lib/storage/buckets'
 
-const BUCKET = 'product-360-spins'
+const BUCKET = STORAGE_BUCKETS.SPIN_360_ASSETS
 
 // ─── Storage ─────────────────────────────────────────────────────────────────
 
@@ -23,8 +24,8 @@ async function uploadPackageFrame(
   if (!res.ok) throw new Error(`Failed to fetch frame (${res.status}): ${sourceUrl}`)
 
   const buffer = await res.arrayBuffer()
-  const label  = String(frameIndex + 1).padStart(2, '0')
-  const path   = `${tenantId}/${packageId}/frame_${label}.png`
+  const label  = String(frameIndex + 1).padStart(3, '0')
+  const path   = `tenants/${tenantId}/360/${packageId}/frame_${label}.png`
 
   const { error } = await supabase.storage
     .from(BUCKET)
@@ -55,7 +56,7 @@ const MAX_RETRIES = 2
  * For each angle:
  *   1. Builds the Midjourney prompt with angle-lock descriptors
  *   2. Generates the image via ImagineAPI (Midjourney proxy)
- *   3. Uploads the result to Supabase Storage (product-360-spins bucket)
+ *   3. Uploads the result to Supabase Storage (spin-360-assets bucket)
  *   4. Inserts a row into product_360_frames immediately for live progress
  *
  * Skips frames already in product_360_frames (safe for retries).
@@ -126,7 +127,7 @@ export async function generatePackage360(packageId: string): Promise<GeneratePac
       package_id:   packageId,
       frame_index:  i,
       image_url:    publicUrl,
-      storage_path: `${pkg.tenant_id}/${packageId}/frame_${String(i + 1).padStart(2, '0')}.png`,
+      storage_path: `tenants/${pkg.tenant_id}/360/${packageId}/frame_${String(i + 1).padStart(3, '0')}.png`,
     })
     framesDone++
   }

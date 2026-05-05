@@ -1,15 +1,13 @@
 // lib/services/spin-generator/storage.ts
-// Supabase Storage helpers for the spin-images bucket.
-//
-// Bucket name: "spin-images"  (public, created once in Supabase dashboard or
-// via migration / bootstrap script)
+// Supabase Storage helpers for the spin-360-assets bucket.
 //
 // Path convention:
-//   {tenantId}/{productId}/{spinPackageId}/frame_{NNN}.jpg
+//   tenants/{tenantId}/360/{productId}/{spinPackageId}/frame_{NNN}.jpg
 
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { STORAGE_BUCKETS }         from '@/lib/storage/buckets'
 
-const BUCKET = 'spin-images'
+const BUCKET = STORAGE_BUCKETS.SPIN_360_ASSETS
 
 /**
  * Downloads an image from an external URL and uploads it to Supabase Storage.
@@ -32,7 +30,7 @@ export async function storeFrameFromUrl(
   const buffer      = await res.arrayBuffer()
   const uint8Array  = new Uint8Array(buffer)
   const frameLabel  = String(frameIndex).padStart(3, '0')
-  const storagePath = `${tenantId}/${productId}/${packageId}/frame_${frameLabel}.jpg`
+  const storagePath = `tenants/${tenantId}/360/${productId}/${packageId}/frame_${frameLabel}.jpg`
 
   const { error } = await supabase.storage
     .from(BUCKET)
@@ -61,7 +59,7 @@ export async function deletePackageFrames(
   packageId: string,
 ): Promise<void> {
   const supabase    = getSupabaseServerClient()
-  const prefix      = `${tenantId}/${productId}/${packageId}/`
+  const prefix      = `tenants/${tenantId}/360/${productId}/${packageId}/`
 
   const { data: files, error: listErr } = await supabase.storage
     .from(BUCKET)

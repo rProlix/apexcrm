@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
       bucketOk    = !!found
       bucketDetail = found
         ? `Bucket "${WEBSITE_IMAGE_BUCKET}" exists (public: ${found.public})`
-        : `Bucket "${WEBSITE_IMAGE_BUCKET}" NOT FOUND — run migration 031_website_assets_bucket.sql`
+        : `Bucket "${WEBSITE_IMAGE_BUCKET}" NOT FOUND — run migration 032_storage_buckets_and_policies.sql`
     }
   } catch (err) {
     bucketDetail = `Exception: ${err instanceof Error ? err.message : String(err)}`

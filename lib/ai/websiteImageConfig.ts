@@ -3,8 +3,10 @@
 // Server-side only — never import in client components.
 // The existing text autofill model is in lib/ai/geminiConfig.ts and is untouched.
 
-/** Storage bucket name for all AI-generated website images. */
-export const WEBSITE_IMAGE_BUCKET = 'website-assets'
+import { STORAGE_BUCKETS } from '@/lib/storage/buckets'
+
+/** Storage bucket for all AI-generated website images. */
+export const WEBSITE_IMAGE_BUCKET = STORAGE_BUCKETS.WEBSITE_ASSETS
 
 /** Imagen model used for website image generation. */
 export const WEBSITE_IMAGE_MODEL = 'imagen-4.0-ultra-generate-001' as const

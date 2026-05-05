@@ -3,11 +3,12 @@
 // Used by section editors (hero background, about image, etc.)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserContext } from '@/lib/auth/getUserContext'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getUserContext }            from '@/lib/auth/getUserContext'
+import { getSupabaseServerClient }  from '@/lib/supabase/server'
+import { STORAGE_BUCKETS, MAX_FILE_SIZE_BYTES } from '@/lib/storage/buckets'
 
-const BUCKET = 'website-assets'
-const MAX_SIZE_MB = 10
+const BUCKET     = STORAGE_BUCKETS.WEBSITE_ASSETS
+const MAX_SIZE_MB = MAX_FILE_SIZE_BYTES[BUCKET] / 1024 / 1024
 
 function forbidden() {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

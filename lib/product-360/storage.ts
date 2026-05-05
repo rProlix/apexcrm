@@ -1,13 +1,14 @@
 // lib/product-360/storage.ts
 // Supabase Storage helpers for the product_360 module.
-// Bucket: product-360
-// Path:   tenant/{tenantId}/products/{productId}/packages/{packageId}/frames/frame_001.webp
+// Bucket: spin-360-assets (canonical — see lib/storage/buckets.ts)
+// Path:   tenants/{tenantId}/360/{productId}/packages/{packageId}/frames/frame_001.webp
 //
 // SERVER-ONLY. Never import from client components.
 
-import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getSupabaseServerClient }  from '@/lib/supabase/server'
+import { STORAGE_BUCKETS }          from '@/lib/storage/buckets'
 
-export const P360_BUCKET = 'product-360'
+export const P360_BUCKET = STORAGE_BUCKETS.SPIN_360_ASSETS
 
 // ─── Path helpers ─────────────────────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ export function getFramePath(
   ext = 'webp',
 ): string {
   const padded = String(frameIndex).padStart(3, '0')
-  return `tenant/${tenantId}/products/${productId}/packages/${packageId}/frames/frame_${padded}.${ext}`
+  return `tenants/${tenantId}/360/${productId}/packages/${packageId}/frames/frame_${padded}.${ext}`
 }
 
 export function getCoverPath(
@@ -27,7 +28,7 @@ export function getCoverPath(
   productId: string,
   packageId: string,
 ): string {
-  return `tenant/${tenantId}/products/${productId}/packages/${packageId}/cover.webp`
+  return `tenants/${tenantId}/360/${productId}/packages/${packageId}/cover.webp`
 }
 
 export function getModelPath(
@@ -36,7 +37,7 @@ export function getModelPath(
   packageId: string,
   filename = 'model.glb',
 ): string {
-  return `tenant/${tenantId}/products/${productId}/packages/${packageId}/models/${filename}`
+  return `tenants/${tenantId}/360/${productId}/packages/${packageId}/models/${filename}`
 }
 
 // ─── Public URL ───────────────────────────────────────────────────────────────
@@ -82,7 +83,7 @@ export async function uploadFrame(params: UploadFrameParams): Promise<UploadResu
     if (msg.includes('bucket') || msg.includes('not found')) {
       throw new Error(
         `Storage bucket "${P360_BUCKET}" is not configured. ` +
-        `Create it in Supabase Storage → New bucket → "product-360" (public).`,
+        `Run migration 032_storage_buckets_and_policies.sql to create all required buckets.`,
       )
     }
     throw new Error(`Storage upload failed: ${error.message}`)
@@ -121,7 +122,7 @@ export async function deletePackageStorage(
 ): Promise<boolean> {
   try {
     const supabase = getSupabaseServerClient()
-    const prefix   = `tenant/${tenantId}/products/${productId}/packages/${packageId}/`
+    const prefix   = `tenants/${tenantId}/360/${productId}/packages/${packageId}/`
 
     const { data, error: listErr } = await supabase.storage.from(P360_BUCKET).list(prefix, { limit: 1000 })
     if (listErr) {
@@ -130,7 +131,7 @@ export async function deletePackageStorage(
     }
     if (!data?.length) return true
 
-    const paths = data.map(f => `${prefix}${f.name}`)
+    const paths = data.map((f: { name: string }) => `${prefix}${f.name}`)
     const { error: delErr } = await supabase.storage.from(P360_BUCKET).remove(paths)
     if (delErr) {
       console.warn(`[p360:deletePackageStorage] remove error: ${delErr.message}`)
