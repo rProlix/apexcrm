@@ -12,6 +12,8 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import Product360ViewerClient from './Product360ViewerClient'
+import Product360SequencePreview from './Product360SequencePreview'
+import { Product360ViewerErrorBoundary } from './Product360ViewerErrorBoundary'
 import type { P360Package, P360Frame, P360PackageSummary, P360StoreProduct } from '@/lib/product-360/types'
 import {
   LIGHTING_PRESETS, BACKGROUND_PRESETS, CAMERA_PRESETS,
@@ -76,6 +78,8 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
   // Preview
   const [previewPkg,      setPreviewPkg]      = useState<(P360Package & { frames: P360Frame[] }) | null>(null)
   const [previewLoading,  setPreviewLoading]  = useState(false)
+  // Completed frame URLs per package — populated by polling, used for in-progress sequence preview
+  const [packageFrameUrls, setPackageFrameUrls] = useState<Record<string, string[]>>({})
 
   // Actions
   const [generatingId, setGeneratingId] = useState<string | null>(null)
@@ -150,6 +154,12 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
   // ── Generation polling ────────────────────────────────────────────────────
   // Polls every 8 s while any package is in queued / generating / processing.
   // Stops automatically when all in-progress packages reach a terminal state.
+  //
+  // Monotonic progress guarantee:
+  //   frames_done and progress_percent are only ever allowed to INCREASE.
+  //   If the server returns a lower value (stale response or batch-update lag),
+  //   the client keeps the higher value it already has.
+  //   This prevents the "jumps backward from 20/24 to 18/24" regression.
 
   useEffect(() => {
     const inProgress = packages.filter(
@@ -159,27 +169,48 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
 
     const timer = setInterval(async () => {
       for (const pkg of inProgress) {
-        const res = await fetch(
-          `/api/product-360/packages/${pkg.id}/generation-status?tenantId=${tenantId}`,
-        )
-        if (!res.ok) continue
-        const d = await res.json()
-        const terminalStatuses = ['ready', 'failed', 'archived']
-        setPackages(prev => prev.map(p =>
-          p.id === pkg.id
-            ? {
-                ...p,
-                status:            d.status,
-                frames_done:       d.framesCompleted    ?? p.frames_done,
-                progress_percent:  d.progressPercent    ?? p.progress_percent,
-                preview_image_url: d.previewUrl         ?? p.preview_image_url,
-                cover_frame_url:   d.previewUrl         ?? p.cover_frame_url,
-                generation_error:  d.error              ?? null,
-              }
-            : p,
-        ))
+        let d: Record<string, unknown>
+        try {
+          const res = await fetch(
+            `/api/product-360/packages/${pkg.id}/generation-status?tenantId=${tenantId}`,
+          )
+          if (!res.ok) continue
+          d = await res.json()
+        } catch {
+          continue
+        }
+
+        const serverFrames    = (d.framesCompleted  as number) ?? 0
+        const serverProgress  = (d.progressPercent  as number) ?? 0
+        const serverPreview   = (d.previewUrl       as string | null) ?? null
+        const serverFrameUrls = (d.completedFrameUrls as string[] | undefined) ?? []
+        const terminalStatuses = ['ready', 'completed', 'failed', 'archived']
+
+        // Monotonic update: never let displayed progress go backward
+        setPackages(prev => prev.map(p => {
+          if (p.id !== pkg.id) return p
+          return {
+            ...p,
+            status:            d.status as P360PackageSummary['status'],
+            // Math.max guarantees progress never regresses in the UI
+            frames_done:       Math.max(p.frames_done      ?? 0, serverFrames),
+            progress_percent:  Math.max(p.progress_percent ?? 0, serverProgress),
+            preview_image_url: serverPreview ?? p.preview_image_url,
+            cover_frame_url:   serverPreview ?? p.cover_frame_url,
+            generation_error:  (d.error as string | null) ?? null,
+          }
+        }))
+
+        // Track completed frame URLs for the in-progress sequence preview
+        if (serverFrameUrls.length > 0) {
+          setPackageFrameUrls(prev => ({
+            ...prev,
+            [pkg.id]: serverFrameUrls,
+          }))
+        }
+
         // When the package reaches terminal status, refresh full list from DB
-        if (terminalStatuses.includes(d.status)) {
+        if (terminalStatuses.includes(d.status as string)) {
           fetchPackages(tenantId, selectedProd?.id)
         }
       }
@@ -577,6 +608,7 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
               <PackageCard
                 key={pkg.id}
                 pkg={pkg}
+                completedFrameUrls={packageFrameUrls[pkg.id]}
                 onGenerate={handleGenerate}
                 onRegenerate={handleRegenerate}
                 onToggleEnabled={handleToggleEnabled}
@@ -603,19 +635,55 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                {(previewPkg.frames?.length ?? 0) > 0 ? (
-                  <Product360ViewerClient
-                    frames={previewPkg.frames}
-                    hotspots={[]}
-                    viewerSettings={{ autoRotate: false, showControls: true, enableHotspots: false }}
-                    packageName={previewPkg.name}
-                    showLabel
-                  />
-                ) : (
-                  <div className="aspect-square rounded-2xl bg-white/4 border border-white/8 flex items-center justify-center">
-                    <p className="text-xs text-white/30">No frames yet</p>
-                  </div>
-                )}
+                {(() => {
+                  const isInProgress = (
+                    previewPkg.status === 'queued' ||
+                    previewPkg.status === 'generating' ||
+                    previewPkg.status === 'processing'
+                  )
+                  const liveUrls  = packageFrameUrls[previewPkg.id] ?? []
+                  const frameUrls = previewPkg.frames.map(f => f.image_url).filter(Boolean) as string[]
+                  const allUrls   = isInProgress ? liveUrls : frameUrls
+
+                  // While generating: use the lightweight sequence preview (no Three.js)
+                  // to avoid the iOS Safari WebGL crash on partial/uninitialised context
+                  if (isInProgress) {
+                    const inProgressPkg = packages.find(p => p.id === previewPkg.id)
+                    return (
+                      <Product360SequencePreview
+                        frameUrls={liveUrls}
+                        isGenerating
+                        framesCompleted={inProgressPkg?.frames_done}
+                        framesTotal={inProgressPkg?.target_frame_count}
+                        productName={previewPkg.name}
+                      />
+                    )
+                  }
+
+                  // Completed: premium Three.js viewer wrapped in error boundary
+                  if (allUrls.length > 0) {
+                    return (
+                      <Product360ViewerErrorBoundary
+                        frameUrls={allUrls}
+                        productName={previewPkg.name}
+                      >
+                        <Product360ViewerClient
+                          frames={previewPkg.frames}
+                          hotspots={[]}
+                          viewerSettings={{ autoRotate: false, showControls: true, enableHotspots: false }}
+                          packageName={previewPkg.name}
+                          showLabel
+                        />
+                      </Product360ViewerErrorBoundary>
+                    )
+                  }
+
+                  return (
+                    <div className="aspect-square rounded-2xl bg-white/4 border border-white/8 flex items-center justify-center">
+                      <p className="text-xs text-white/30">No frames yet</p>
+                    </div>
+                  )
+                })()}
                 <PackageDetailInfo pkg={previewPkg} />
               </>
             ) : (
@@ -693,21 +761,22 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
 // ─── Package Card ──────────────────────────────────────────────────────────────
 
 interface PackageCardProps {
-  pkg:             P360PackageSummary
-  onGenerate:      (id: string) => void
-  onRegenerate:    (id: string) => void
-  onToggleEnabled: (pkg: P360PackageSummary) => void
-  onSetDefault:    (pkg: P360PackageSummary) => void
-  onArchive:       (pkg: P360PackageSummary) => void
-  onPreview:       (id: string) => void
-  onDuplicate:     (pkg: P360PackageSummary) => void
-  onUpload:        (id: string) => void
-  generatingId:    string | null
-  previewLoading:  boolean
+  pkg:                P360PackageSummary
+  completedFrameUrls?: string[]
+  onGenerate:         (id: string) => void
+  onRegenerate:       (id: string) => void
+  onToggleEnabled:    (pkg: P360PackageSummary) => void
+  onSetDefault:       (pkg: P360PackageSummary) => void
+  onArchive:          (pkg: P360PackageSummary) => void
+  onPreview:          (id: string) => void
+  onDuplicate:        (pkg: P360PackageSummary) => void
+  onUpload:           (id: string) => void
+  generatingId:       string | null
+  previewLoading:     boolean
 }
 
 function PackageCard({
-  pkg, onGenerate, onRegenerate, onToggleEnabled, onSetDefault,
+  pkg, completedFrameUrls, onGenerate, onRegenerate, onToggleEnabled, onSetDefault,
   onArchive, onPreview, onDuplicate, onUpload, generatingId, previewLoading,
 }: PackageCardProps) {
   const isActiveGeneration = pkg.status === 'generating' || pkg.status === 'queued' || pkg.status === 'processing'
@@ -765,13 +834,25 @@ function PackageCard({
             </p>
           )}
         </div>
-        {/* Preview thumbnail — uses preview_image_url (middle frame) or cover_frame_url */}
-        {previewUrl && (
+        {/* Thumbnail / live preview */}
+        {isActiveGeneration && (completedFrameUrls?.length ?? 0) > 0 ? (
+          // While generating: show a tiny interactive sequence scrubber
+          <div className="h-12 w-12 rounded-lg overflow-hidden border border-white/8 shrink-0">
+            <Product360SequencePreview
+              frameUrls={completedFrameUrls!}
+              isGenerating
+              framesCompleted={pkg.frames_done ?? 0}
+              framesTotal={pkg.target_frame_count}
+              className="!rounded-none !aspect-auto h-12 w-12"
+              sensitivity={4}
+            />
+          </div>
+        ) : previewUrl ? (
           <div className="h-12 w-12 rounded-lg overflow-hidden border border-white/8 shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={previewUrl} alt={pkg.name} className="w-full h-full object-cover" />
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Progress bar — only visible during generation or when not all frames are done */}

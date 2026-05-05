@@ -18,6 +18,8 @@ import {
 } from 'react'
 import * as THREE from 'three'
 import type { P360Frame, P360Hotspot, P360ViewerSettings, P360LightingConfig, P360CameraConfig } from '@/lib/product-360/types'
+import { getWebGLSupport } from '@/lib/viewer/webgl'
+import Product360SequencePreview from './Product360SequencePreview'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -110,16 +112,27 @@ export function Product360Viewer({
     lastPinchDist: 0,
   })
 
-  const [progress,     setProgress]    = useState(0)
-  const [isReady,      setIsReady]     = useState(false)
-  const [showHint,     setShowHint]    = useState(true)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [activeHotspot, setActiveHotspot] = useState<P360Hotspot | null>(null)
+  const [progress,           setProgress]          = useState(0)
+  const [isReady,            setIsReady]           = useState(false)
+  const [showHint,           setShowHint]          = useState(true)
+  const [isFullscreen,       setIsFullscreen]      = useState(false)
+  const [activeHotspot,      setActiveHotspot]     = useState<P360Hotspot | null>(null)
+  /** Set to true when WebGL is unavailable or Three.js renderer throws. */
+  const [fallbackToSequence, setFallbackToSequence] = useState(false)
 
   const sorted = [...frames].sort((a, b) => a.frame_index - b.frame_index)
 
   // ── Three.js init ──────────────────────────────────────────────────────────
   const initScene = useCallback(() => {
+    // ── WebGL capability check (must happen before new THREE.WebGLRenderer) ──
+    // On iOS Safari / mobile webviews, getShaderPrecisionFormat can throw or
+    // return null even after a context is returned. Check first and throw a
+    // clean error so the caller can fall back to the sequence preview.
+    const webGLCheck = getWebGLSupport()
+    if (!webGLCheck.supported) {
+      throw new Error(`WebGL not supported on this device: ${webGLCheck.reason}`)
+    }
+
     const canvas    = canvasRef.current
     const container = containerRef.current
     if (!canvas || !container) return
@@ -344,12 +357,28 @@ export function Product360Viewer({
   useEffect(() => {
     if (sorted.length === 0) return
 
-    initScene()
+    // Attempt Three.js initialisation; fall back to sequence preview on any error.
+    // Common failure modes:
+    //   - WebGL unavailable (iOS < 15, old Android WebView, GPU blocklist)
+    //   - getShaderPrecisionFormat throws or returns null
+    //   - canvas not yet mounted
+    try {
+      initScene()
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err)
+      console.warn(`[360-viewer] Three.js init failed — switching to sequence fallback. Reason: ${reason}`)
+      setFallbackToSequence(true)
+      return
+    }
+
     loadTextures().then(() => {
       showFrame(stateRef.current.currentFrame)
       setIsReady(true)
       startRenderLoop()
       if (viewerSettings.autoRotate) startAutoRotate()
+    }).catch(err => {
+      console.warn('[360-viewer] Texture loading failed:', err)
+      setFallbackToSequence(true)
     })
 
     const ro = new ResizeObserver(handleResize)
@@ -388,6 +417,25 @@ export function Product360Viewer({
     h.is_enabled &&
     (h.frame_index === null || h.frame_index === stateRef.current.currentFrame)
   )
+
+  // ── Fallback: no Three.js ─────────────────────────────────────────────────
+  // Rendered when WebGL is unavailable, getShaderPrecisionFormat throws,
+  // or any other Three.js initialization error occurs.
+  if (fallbackToSequence) {
+    const frameUrls = sorted.map(f => f.image_url).filter(Boolean) as string[]
+    return (
+      <div className={className}>
+        <div className="mb-1.5 text-[10px] text-amber-400/70 bg-amber-400/10 border border-amber-400/20 rounded-xl px-3 py-1.5">
+          Safe preview mode — WebGL not available on this device.
+        </div>
+        <Product360SequencePreview
+          frameUrls={frameUrls}
+          productName={productName}
+          autoSpin={viewerSettings.autoRotate}
+        />
+      </div>
+    )
+  }
 
   if (sorted.length === 0) {
     return (
