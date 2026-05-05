@@ -34,35 +34,52 @@ export type P360HotspotAction =
 // ─── Core domain models ───────────────────────────────────────────────────────
 
 export interface P360Package {
-  id:                  string
-  tenant_id:           string
-  product_id:          string | null
-  created_by:          string | null
-  name:                string
-  slug:                string
-  description:         string | null
-  status:              P360Status
-  is_enabled:          boolean
-  is_default:          boolean
-  package_type:        P360PackageType
-  promo_starts_at:     string | null
-  promo_ends_at:       string | null
-  frame_count:         number
-  target_frame_count:  number
-  cover_frame_url:     string | null
-  model_url:           string | null
-  ar_model_url:        string | null
-  generation_prompt:   string | null
-  negative_prompt:     string | null
-  generation_provider: string
-  generation_job_id:   string | null
-  generation_error:    string | null
-  settings:            Record<string, unknown>
-  hotspot_config:      P360HotspotConfig[]
-  lighting_config:     P360LightingConfig
-  camera_config:       P360CameraConfig
-  created_at:          string
-  updated_at:          string
+  id:                   string
+  tenant_id:            string
+  product_id:           string | null
+  created_by:           string | null
+  name:                 string
+  slug:                 string
+  description:          string | null
+  status:               P360Status
+  is_enabled:           boolean
+  is_default:           boolean
+  package_type:         P360PackageType
+  promo_starts_at:      string | null
+  promo_ends_at:        string | null
+  promo_tag:            string | null
+  frame_count:          number
+  target_frame_count:   number
+  cover_frame_url:      string | null
+  model_url:            string | null
+  ar_model_url:         string | null
+  generation_prompt:    string | null
+  generation_notes:     string | null
+  negative_prompt:      string | null
+  generation_provider:  string
+  ai_model:             string
+  generation_job_id:    string | null
+  generation_error:     string | null
+  settings:             Record<string, unknown>
+  hotspot_config:       P360HotspotConfig[]
+  lighting_config:      P360LightingConfig
+  camera_config:        P360CameraConfig
+  // ── Presets (added in migration 033) ────────────────────────────────────────
+  lighting_preset:      string | null
+  background_preset:    string | null
+  category_preset:      string | null
+  camera_preset:        string | null
+  camera_distance:      number | null
+  camera_height:        number | null
+  fov:                  number | null
+  zoom:                 number | null
+  shadow_strength:      number | null
+  reflection_intensity: number | null
+  turn_direction:       'clockwise' | 'counter_clockwise'
+  output_width:         number | null
+  output_height:        number | null
+  created_at:           string
+  updated_at:           string
 }
 
 export interface P360Frame {
@@ -184,6 +201,31 @@ export interface P360PackageWithFrames extends P360Package {
 export interface P360PackageSummary extends P360Package {
   frames_done:  number
   product_name: string | null
+  /** Populated when loading packages alongside products */
+  product_image_url?: string | null
+}
+
+/**
+ * Store product as seen by the 360 module.
+ * Only contains columns that actually exist in the products table (005_ecommerce.sql).
+ * products table: id, tenant_id, name, description, price, currency, inventory_count, is_active, created_at
+ * product_images table: id, tenant_id, product_id, image_url, created_at
+ */
+export interface P360StoreProduct {
+  id:              string
+  tenant_id:       string
+  name:            string
+  description:     string | null
+  price:           number | null
+  currency:        string | null
+  is_active:       boolean
+  /** First image URL from product_images, or null if no images */
+  image_url:       string | null
+  /** Whether this product has at least one ready+enabled 360 package */
+  has_active_360:  boolean
+  /** Count of non-archived 360 packages for this product */
+  package_count:   number
+  created_at:      string
 }
 
 /** Minimal public payload — no private fields. Only enabled/ready packages. */

@@ -3,13 +3,12 @@ import { NextRequest, NextResponse }  from 'next/server'
 import { resolveP360ApiUser }         from '@/lib/product-360/auth'
 import { getSupabaseServerClient }    from '@/lib/supabase/server'
 import { generatePackage }            from '@/lib/product-360/generationService'
-import { getConfiguredProvider }      from '@/lib/product-360/providers/imagineMidjourney'
+import { getP360Provider }            from '@/lib/ai/360/provider'
 
 export const dynamic = 'force-dynamic'
 
 type Ctx = { params: Promise<{ packageId: string }> }
 
-// POST /api/product-360/packages/[packageId]/generate
 export async function POST(req: NextRequest, ctx: Ctx) {
   const { packageId } = await ctx.params
   const user = await resolveP360ApiUser(req)
@@ -18,17 +17,22 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  let body: Record<string, unknown> = {}
+  try { body = await req.json() } catch { /* ok, body optional */ }
+
   const tenantId = user.isOwner
-    ? ((await req.json().catch(() => ({}))) as Record<string, unknown>).tenantId as string ?? user.tenantId
+    ? (body.tenantId as string | undefined) ?? user.tenantId
     : user.tenantId
 
-  const supabase = getSupabaseServerClient()
+  if (!tenantId) return NextResponse.json({ error: 'Could not resolve tenant' }, { status: 400 })
 
-  // Verify package belongs to tenant
+  const supabase = getSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: pkg } = await (supabase as any)
+  const db = supabase as any
+
+  const { data: pkg } = await db
     .from('product_360_packages')
-    .select('id, status, product_id, generation_prompt, target_frame_count')
+    .select('id, status, product_id')
     .eq('id', packageId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -40,20 +44,19 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: 'Generation already in progress' }, { status: 409 })
   }
 
-  if (!getConfiguredProvider()) {
+  const provider = getP360Provider()
+  if (!provider) {
     return NextResponse.json({
-      error: 'AI generation is not configured. Set IMAGINE_API_TOKEN in environment variables.',
+      error: 'AI generation is not configured. Set GEMINI_API_KEY in environment variables.',
     }, { status: 503 })
   }
 
-  // Set to queued
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any)
+  await db
     .from('product_360_packages')
     .update({ status: 'queued', generation_error: null, updated_at: new Date().toISOString() })
     .eq('id', packageId)
 
-  // Fire-and-forget generation (do not await — respond immediately)
+  // Fire-and-forget
   generatePackage(packageId).catch(err => {
     console.error(`[p360:generate] packageId=${packageId}`, err)
   })

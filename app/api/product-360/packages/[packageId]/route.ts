@@ -46,8 +46,14 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const allowed = [
     'name','slug','description','status','is_enabled','is_default',
     'package_type','promo_starts_at','promo_ends_at','generation_prompt',
-    'negative_prompt','target_frame_count','settings','lighting_config',
-    'camera_config','hotspot_config','cover_frame_url','model_url','ar_model_url',
+    'generation_notes','negative_prompt','target_frame_count','settings',
+    'lighting_config','camera_config','hotspot_config','cover_frame_url',
+    'model_url','ar_model_url',
+    // Presets (migration 033)
+    'lighting_preset','background_preset','category_preset','camera_preset',
+    'camera_distance','camera_height','fov','zoom','shadow_strength',
+    'reflection_intensity','turn_direction','output_width','output_height',
+    'promo_tag','ai_model',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of allowed) {

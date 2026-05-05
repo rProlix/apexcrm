@@ -1,12 +1,12 @@
 // app/api/product-360/packages/route.ts
-import { NextRequest, NextResponse } from 'next/server'
-import { resolveP360ApiUser, resolveTenantId } from '@/lib/product-360/auth'
-import { listPackages, createPackage }          from '@/lib/product-360/packageService'
+import { NextRequest, NextResponse }               from 'next/server'
+import { resolveP360ApiUser, resolveTenantId }     from '@/lib/product-360/auth'
+import { listPackages, createPackage }             from '@/lib/product-360/packageService'
 
 export const dynamic = 'force-dynamic'
 
 // GET /api/product-360/packages
-// Query params: tenantId (owner only), productId
+// Query: tenantId (owner only), productId, archived
 export async function GET(req: NextRequest) {
   const user = await resolveP360ApiUser(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -18,14 +18,16 @@ export async function GET(req: NextRequest) {
   const tenantId = resolveTenantId(user, searchParams.get('tenantId'))
   if (!tenantId) return NextResponse.json({ error: 'Could not resolve tenant' }, { status: 400 })
 
-  const productId        = searchParams.get('productId') ?? undefined
-  const includeArchived  = searchParams.get('archived') === 'true'
-
   try {
-    const packages = await listPackages({ tenantId, productId, includeArchived })
+    const packages = await listPackages({
+      tenantId,
+      productId:       searchParams.get('productId') ?? undefined,
+      includeArchived: searchParams.get('archived') === 'true',
+    })
     return NextResponse.json({ packages })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Failed to list packages'
+    console.error('[/api/product-360/packages GET] Error:', msg, { tenantId, role: user.role })
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown>
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
-  const tenantId = resolveTenantId(user, body.tenantId as string | null)
+  const tenantId  = resolveTenantId(user, body.tenantId as string | null)
   if (!tenantId) return NextResponse.json({ error: 'Could not resolve tenant' }, { status: 400 })
 
   const productId = body.productId as string | undefined
@@ -54,18 +56,33 @@ export async function POST(req: NextRequest) {
     const pkg = await createPackage({
       tenantId,
       productId,
-      createdBy:         user.userId,
+      createdBy:            user.userId,
       name,
-      description:       body.description       as string | undefined,
-      packageType:       body.packageType        as string | undefined,
-      generationPrompt:  body.generationPrompt   as string | undefined,
-      negativePrompt:    body.negativePrompt     as string | undefined,
-      targetFrameCount:  body.targetFrameCount   as number | undefined,
-      settings:          body.settings           as Record<string, unknown> | undefined,
+      description:          body.description         as string | undefined,
+      packageType:          body.packageType          as string | undefined,
+      generationPrompt:     body.generationPrompt     as string | undefined,
+      generationNotes:      body.generationNotes      as string | undefined,
+      negativePrompt:       body.negativePrompt       as string | undefined,
+      targetFrameCount:     body.targetFrameCount     as number | undefined,
+      settings:             body.settings             as Record<string, unknown> | undefined,
+      lightingPreset:       (body.lightingPreset      as string | null) ?? null,
+      backgroundPreset:     (body.backgroundPreset    as string | null) ?? null,
+      categoryPreset:       (body.categoryPreset      as string | null) ?? null,
+      cameraPreset:         (body.cameraPreset        as string | null) ?? null,
+      cameraDistance:       (body.cameraDistance      as number | null) ?? null,
+      cameraHeight:         (body.cameraHeight        as number | null) ?? null,
+      fov:                  (body.fov                 as number | null) ?? null,
+      zoom:                 (body.zoom                as number | null) ?? null,
+      shadowStrength:       (body.shadowStrength      as number | null) ?? null,
+      reflectionIntensity:  (body.reflectionIntensity as number | null) ?? null,
+      turnDirection:        (body.turnDirection as 'clockwise' | 'counter_clockwise' | undefined),
+      outputWidth:          (body.outputWidth         as number | null) ?? null,
+      outputHeight:         (body.outputHeight        as number | null) ?? null,
+      promoTag:             (body.promoTag            as string | null) ?? null,
+      aiModel:              (body.aiModel             as string | undefined),
     })
     return NextResponse.json({ package: pkg }, { status: 201 })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Failed to create package'
-    return NextResponse.json({ error: msg }, { status: 500 })
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed to create package' }, { status: 500 })
   }
 }

@@ -1,11 +1,17 @@
 // lib/product-360/generationService.ts
-// Orchestrates AI frame generation for a 360° package.
+// Orchestrates AI frame generation for a 360° package using Gemini.
 // Runs server-side only. Never import from client components.
+//
+// Required env vars:
+//   GEMINI_API_KEY          — Google AI API key
+//   GEMINI_360_MODEL        — model (default: gemini-2.5-flash-lite)
+//   PRODUCT_360_AI_PROVIDER — provider override (default: gemini)
 
 import { getSupabaseServerClient }  from '@/lib/supabase/server'
-import { buildFramePrompt, buildAngleSequence } from './generatePrompt'
-import { getConfiguredProvider }    from './providers/imagineMidjourney'
-import { fetchAndUploadFrame }      from './storage'
+import { requireP360Provider }      from '@/lib/ai/360/provider'
+import { buildFullFramePlan, buildMasterPrompt } from '@/lib/ai/360/promptBuilder'
+import { uploadFrame }              from './storage'
+import type { P360GenerationConfig, P360ProductDescriptor } from '@/lib/ai/360/types'
 
 export interface GeneratePackageResult {
   success:          boolean
@@ -13,18 +19,36 @@ export interface GeneratePackageResult {
   errorMessage?:    string
 }
 
+export interface RegenerateFrameResult {
+  success:     boolean
+  imageUrl?:   string
+  errorMessage?: string
+}
+
+// ─── Main generation pipeline ─────────────────────────────────────────────────
+
 /**
- * Main generation pipeline. Called by the POST /generate API route.
- * Runs asynchronously — caller should fire-and-forget or await depending on context.
+ * Generate all frames for a 360° package.
+ * Called by POST /api/product-360/packages/[id]/generate.
+ * Async — caller should fire-and-forget or await.
  */
 export async function generatePackage(packageId: string): Promise<GeneratePackageResult> {
   const supabase = getSupabaseServerClient()
-
-  // Load the package
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: pkg, error: pkgErr } = await (supabase as any)
+  const db = supabase as any
+
+  // ── Load package ────────────────────────────────────────────────────────────
+  const { data: pkg, error: pkgErr } = await db
     .from('product_360_packages')
-    .select('id, tenant_id, product_id, name, description, generation_prompt, negative_prompt, target_frame_count, generation_provider')
+    .select([
+      'id', 'tenant_id', 'product_id', 'name', 'description',
+      'generation_prompt', 'generation_notes', 'negative_prompt',
+      'target_frame_count', 'generation_provider', 'ai_model',
+      'lighting_preset', 'background_preset', 'category_preset', 'camera_preset',
+      'camera_distance', 'camera_height', 'fov', 'zoom',
+      'shadow_strength', 'reflection_intensity', 'turn_direction',
+      'output_width', 'output_height',
+    ].join(', '))
     .eq('id', packageId)
     .maybeSingle()
 
@@ -32,46 +56,86 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
     return { success: false, framesGenerated: 0, errorMessage: 'Package not found' }
   }
 
-  const tenantId   = pkg.tenant_id  as string
-  const productId  = pkg.product_id as string | null
-  const frameCount = (pkg.target_frame_count as number) || 36
-  const prompt     = (pkg.generation_prompt as string) || ''
-  const name       = (pkg.name as string) || 'Unnamed product'
-  const description = (pkg.description as string) || ''
+  const tenantId  = pkg.tenant_id  as string
+  const productId = pkg.product_id as string | null
 
   if (!productId) {
     await markFailed(packageId, 'Package has no product attached.')
     return { success: false, framesGenerated: 0, errorMessage: 'No product attached' }
   }
 
-  // Check provider
-  const provider = getConfiguredProvider()
-  if (!provider) {
-    const msg = 'AI generation provider not configured. Set IMAGINE_API_TOKEN in environment variables.'
+  // ── Load product info ────────────────────────────────────────────────────────
+  const { data: product } = await db
+    .from('products')
+    .select('name, description, category, attributes')
+    .eq('id', productId)
+    .maybeSingle()
+
+  const productDescriptor: P360ProductDescriptor = {
+    name:        (pkg.name as string) || (product?.name as string) || 'Product',
+    description: (product?.description as string) || (pkg.description as string) || '',
+    category:    (product?.category as string) || (pkg.category_preset as string) || undefined,
+    attributes:  (product?.attributes as Record<string, string | number | boolean>) || undefined,
+  }
+
+  // ── Check provider ───────────────────────────────────────────────────────────
+  let provider
+  try {
+    provider = requireP360Provider()
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'AI provider not configured'
     await markFailed(packageId, msg)
     return { success: false, framesGenerated: 0, errorMessage: msg }
   }
 
-  // Mark generating
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any)
+  // ── Build generation config ──────────────────────────────────────────────────
+  const genConfig: P360GenerationConfig = {
+    frameCount:          (pkg.target_frame_count as number) || 36,
+    lightingPreset:      (pkg.lighting_preset    as string | null),
+    backgroundPreset:    (pkg.background_preset  as string | null),
+    categoryPreset:      (pkg.category_preset    as string | null),
+    cameraPreset:        (pkg.camera_preset      as string | null),
+    cameraDistance:      (pkg.camera_distance    as number | null),
+    cameraHeight:        (pkg.camera_height      as number | null),
+    fov:                 (pkg.fov                as number | null),
+    shadowStrength:      (pkg.shadow_strength    as number | null),
+    reflectionIntensity: (pkg.reflection_intensity as number | null),
+    turnDirection:       ((pkg.turn_direction as string) === 'counter_clockwise'
+                          ? 'counter_clockwise'
+                          : 'clockwise'),
+    outputWidth:         (pkg.output_width  as number | null),
+    outputHeight:        (pkg.output_height as number | null),
+    generationNotes:     (pkg.generation_notes as string | null),
+    customPrompt:        (pkg.generation_prompt as string | null) || null,
+  }
+
+  const masterPrompt = buildMasterPrompt(productDescriptor, genConfig)
+  const framePlan    = buildFullFramePlan(productDescriptor, genConfig)
+
+  // ── Mark generating ──────────────────────────────────────────────────────────
+  await db
     .from('product_360_packages')
-    .update({ status: 'generating', generation_error: null, updated_at: new Date().toISOString() })
+    .update({
+      status:             'generating',
+      generation_error:   null,
+      generation_provider: provider.name,
+      ai_model:           provider.model,
+      updated_at:         new Date().toISOString(),
+    })
     .eq('id', packageId)
 
-  // Create generation job record
-  const jobPrompt = prompt || `${name}. ${description}`
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: jobRow } = await (supabase as any)
+  // ── Create generation job record ─────────────────────────────────────────────
+  const { data: jobRow } = await db
     .from('product_360_generation_jobs')
     .insert({
       tenant_id:          tenantId,
       package_id:         packageId,
       product_id:         productId,
       provider:           provider.name,
+      ai_model:           provider.model,
       status:             'running',
-      prompt:             jobPrompt,
-      target_frame_count: frameCount,
+      prompt:             masterPrompt,
+      target_frame_count: genConfig.frameCount,
       started_at:         new Date().toISOString(),
     })
     .select('id')
@@ -79,71 +143,93 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
 
   const jobId = (jobRow as { id: string } | null)?.id
 
-  const angles = buildAngleSequence(frameCount)
   let framesGenerated = 0
 
   try {
-    for (let i = 0; i < angles.length; i++) {
-      const angle = angles[i]
-      const framePrompt = buildFramePrompt({
-        productName:        name,
-        productDescription: description,
-        angleDegrees:       angle,
+    for (const frame of framePlan) {
+      const result = await provider.generateFrame({
+        prompt:         frame.prompt,
+        negativePrompt: (pkg.negative_prompt as string | undefined) || undefined,
+        width:          genConfig.outputWidth  ?? 1024,
+        height:         genConfig.outputHeight ?? 1024,
       })
 
-      const result = await provider.generate({ prompt: framePrompt })
+      // Determine content type and extension
+      const mimeType = result.mimeType ?? 'image/png'
+      const ext      = mimeType.includes('jpeg') ? 'jpg' : 'png'
 
-      if (!result.imageUrl) {
-        throw new Error(`Frame ${i} generation returned no image URL`)
+      let uploadedUrl: string
+      let storagePath: string
+
+      if (result.imageBuffer) {
+        // Direct buffer upload
+        const { imageUrl, storagePath: sp } = await uploadFrame({
+          tenantId,
+          productId,
+          packageId,
+          frameIndex:  frame.frameIndex,
+          buffer:      result.imageBuffer,
+          contentType: mimeType,
+          ext,
+        })
+        uploadedUrl  = imageUrl
+        storagePath  = sp
+      } else if (result.imageUrl) {
+        // Fetch from URL and re-upload to our storage
+        const fetchRes = await fetch(result.imageUrl)
+        if (!fetchRes.ok) throw new Error(`Frame fetch failed (HTTP ${fetchRes.status})`)
+        const buf = Buffer.from(await fetchRes.arrayBuffer())
+        const { imageUrl, storagePath: sp } = await uploadFrame({
+          tenantId,
+          productId,
+          packageId,
+          frameIndex:  frame.frameIndex,
+          buffer:      buf,
+          contentType: fetchRes.headers.get('content-type') ?? mimeType,
+          ext,
+        })
+        uploadedUrl = imageUrl
+        storagePath = sp
+      } else {
+        throw new Error(`Frame ${frame.frameIndex}: provider returned neither buffer nor URL`)
       }
 
-      // Upload to Supabase Storage
-      const { imageUrl, storagePath } = await fetchAndUploadFrame({
-        tenantId,
-        productId,
-        packageId,
-        frameIndex: i,
-        sourceUrl:  result.imageUrl,
-      })
-
-      // Insert frame record
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
+      // Upsert frame record
+      await db
         .from('product_360_frames')
         .upsert({
           package_id:    packageId,
           tenant_id:     tenantId,
           product_id:    productId,
-          frame_index:   i,
-          angle_degrees: angle,
-          image_url:     imageUrl,
+          frame_index:   frame.frameIndex,
+          angle_degrees: frame.angleDeg,
+          image_url:     uploadedUrl,
           storage_path:  storagePath,
+          alt_text:      `${productDescriptor.name} – ${frame.shotDirection} view`,
+          metadata:      { angleDeg: frame.angleDeg, shotDirection: frame.shotDirection },
         }, { onConflict: 'package_id,frame_index' })
 
       framesGenerated++
 
       // Update job progress
       if (jobId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any)
+        await db
           .from('product_360_generation_jobs')
           .update({ frames_completed: framesGenerated })
           .eq('id', jobId)
       }
 
-      // Update cover from first frame
-      if (i === 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any)
+      // Set cover from first frame
+      if (frame.frameIndex === 0) {
+        await db
           .from('product_360_packages')
-          .update({ cover_frame_url: imageUrl })
+          .update({ cover_frame_url: uploadedUrl })
           .eq('id', packageId)
       }
     }
 
-    // Mark ready
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    // ── Mark ready ───────────────────────────────────────────────────────────
+    await db
       .from('product_360_packages')
       .update({
         status:      'ready',
@@ -153,13 +239,12 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
       .eq('id', packageId)
 
     if (jobId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
+      await db
         .from('product_360_generation_jobs')
         .update({
-          status:          'completed',
+          status:           'completed',
           frames_completed: framesGenerated,
-          completed_at:    new Date().toISOString(),
+          completed_at:     new Date().toISOString(),
         })
         .eq('id', jobId)
     }
@@ -171,8 +256,7 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
     await markFailed(packageId, errorMessage)
 
     if (jobId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
+      await db
         .from('product_360_generation_jobs')
         .update({
           status:        'failed',
@@ -185,6 +269,113 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
     return { success: false, framesGenerated, errorMessage }
   }
 }
+
+// ─── Single-frame regeneration ────────────────────────────────────────────────
+
+export async function regenerateSingleFrame(
+  packageId: string,
+  frameId:   string,
+): Promise<RegenerateFrameResult> {
+  const supabase = getSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any
+
+  // Load package + frame
+  const [{ data: pkg }, { data: frame }] = await Promise.all([
+    db.from('product_360_packages')
+      .select('id, tenant_id, product_id, name, generation_prompt, generation_notes, negative_prompt, ai_model, lighting_preset, background_preset, category_preset, camera_preset, camera_distance, camera_height, fov, shadow_strength, reflection_intensity, turn_direction, output_width, output_height, target_frame_count')
+      .eq('id', packageId).maybeSingle(),
+    db.from('product_360_frames')
+      .select('id, frame_index, angle_degrees, storage_path')
+      .eq('id', frameId).eq('package_id', packageId).maybeSingle(),
+  ])
+
+  if (!pkg || !frame) return { success: false, errorMessage: 'Package or frame not found' }
+
+  const tenantId  = pkg.tenant_id  as string
+  const productId = pkg.product_id as string
+
+  const { data: product } = await db
+    .from('products')
+    .select('name, description, category, attributes')
+    .eq('id', productId).maybeSingle()
+
+  const productDescriptor: P360ProductDescriptor = {
+    name:        (pkg.name as string) || (product?.name as string) || 'Product',
+    description: (product?.description as string) || '',
+    category:    (product?.category as string) || undefined,
+    attributes:  (product?.attributes as Record<string, string | number | boolean>) || undefined,
+  }
+
+  const genConfig: P360GenerationConfig = {
+    frameCount:          (pkg.target_frame_count as number) || 36,
+    lightingPreset:      pkg.lighting_preset    as string | null,
+    backgroundPreset:    pkg.background_preset  as string | null,
+    categoryPreset:      pkg.category_preset    as string | null,
+    cameraPreset:        pkg.camera_preset      as string | null,
+    cameraDistance:      pkg.camera_distance    as number | null,
+    cameraHeight:        pkg.camera_height      as number | null,
+    fov:                 pkg.fov                as number | null,
+    shadowStrength:      pkg.shadow_strength    as number | null,
+    reflectionIntensity: pkg.reflection_intensity as number | null,
+    turnDirection:       (pkg.turn_direction as string) === 'counter_clockwise' ? 'counter_clockwise' : 'clockwise',
+    outputWidth:         pkg.output_width  as number | null,
+    outputHeight:        pkg.output_height as number | null,
+    generationNotes:     pkg.generation_notes as string | null,
+    customPrompt:        (pkg.generation_prompt as string | null) || null,
+  }
+
+  const frameIndex = frame.frame_index as number
+  const angleDeg   = frame.angle_degrees as number
+  const framePlan  = buildFullFramePlan(productDescriptor, genConfig)
+  const targetFrame = framePlan.find(f => f.frameIndex === frameIndex) ?? framePlan[0]
+
+  let provider
+  try { provider = requireP360Provider() } catch (err) {
+    return { success: false, errorMessage: err instanceof Error ? err.message : 'No provider' }
+  }
+
+  try {
+    const result = await provider.generateFrame({
+      prompt:         targetFrame.prompt,
+      negativePrompt: pkg.negative_prompt as string | undefined || undefined,
+      width:          genConfig.outputWidth  ?? 1024,
+      height:         genConfig.outputHeight ?? 1024,
+    })
+
+    const mimeType = result.mimeType ?? 'image/png'
+    const ext      = mimeType.includes('jpeg') ? 'jpg' : 'png'
+
+    let uploadedUrl: string
+    let storagePath: string
+
+    if (result.imageBuffer) {
+      const up = await uploadFrame({ tenantId, productId, packageId, frameIndex, buffer: result.imageBuffer, contentType: mimeType, ext })
+      uploadedUrl = up.imageUrl; storagePath = up.storagePath
+    } else if (result.imageUrl) {
+      const r = await fetch(result.imageUrl)
+      const buf = Buffer.from(await r.arrayBuffer())
+      const up = await uploadFrame({ tenantId, productId, packageId, frameIndex, buffer: buf, contentType: r.headers.get('content-type') ?? mimeType, ext })
+      uploadedUrl = up.imageUrl; storagePath = up.storagePath
+    } else {
+      throw new Error('Provider returned no image data')
+    }
+
+    await db.from('product_360_frames').update({
+      image_url:    uploadedUrl,
+      storage_path: storagePath,
+      angle_degrees: angleDeg,
+      alt_text:     `${productDescriptor.name} – ${targetFrame.shotDirection} view`,
+      updated_at:   new Date().toISOString(),
+    }).eq('id', frameId)
+
+    return { success: true, imageUrl: uploadedUrl }
+  } catch (err) {
+    return { success: false, errorMessage: err instanceof Error ? err.message : 'Regeneration failed' }
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function markFailed(packageId: string, errorMessage: string): Promise<void> {
   const supabase = getSupabaseServerClient()
