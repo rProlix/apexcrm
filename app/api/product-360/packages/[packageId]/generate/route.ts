@@ -27,8 +27,9 @@ export const maxDuration = 300  // seconds — Vercel Pro/Enterprise
 
 type Ctx = { params: Promise<{ packageId: string }> }
 
-// Statuses from which generation (or resume) may start
-const RESUMABLE_STATUSES = new Set(['draft', 'failed', 'paused_quota', 'cancelled'])
+// Statuses from which generation (or resume) may start.
+// Includes 'planning' so a package that was interrupted mid-plan can be retried.
+const RESUMABLE_STATUSES = new Set(['draft', 'failed', 'paused_quota', 'cancelled', 'planning'])
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const { packageId } = await ctx.params
@@ -145,7 +146,60 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   console.info(`[p360:generate/route] pkg=${packageId} provider="${provider.name}" model="${provider.model}", starting…`)
 
-  // ── Run generation synchronously ────────────────────────────────────────────
+  // ── Pump mode: return immediately so the client drives frame-by-frame gen ────
+  //
+  // When `body.pumpMode === true` (or the client sends `mode: 'pump'`) the route:
+  //   1. Creates all frame rows upfront with status='queued'
+  //   2. Returns immediately with { status: 'queued', pumpMode: true }
+  //   3. The caller is expected to POST /pump repeatedly until done
+  //
+  // This is required on Vercel Hobby (10 s limit) and is the preferred path on
+  // all plans because the browser retains control and shows real-time progress.
+  //
+  // When `body.pumpMode` is falsy (legacy / synchronous path) the route awaits
+  // the full generation via generatePackage() — useful for scripts / cron jobs.
+
+  const pumpMode = !!(body.pumpMode || body.mode === 'pump')
+
+  if (pumpMode) {
+    // Pre-create all frame rows so the pump can pick them up without re-querying
+    // the package for target_frame_count on every pump call.
+    const targetCount = (pkg as Record<string, unknown>).target_frame_count as number ?? 12
+    const totalFrames = Math.min(targetCount, parseInt(process.env.MAX_360_FRAMES_PER_PACKAGE ?? '24', 10) || 24)
+
+    const framesToCreate = Array.from({ length: totalFrames }, (_, i) => ({
+      package_id:  packageId,
+      tenant_id:   tenantId,
+      product_id:  (pkg as Record<string, unknown>).product_id as string | null,
+      frame_index: i,
+      angle_degrees: Math.round((i / totalFrames) * 360),
+      status:         'queued',
+      is_master_frame: i === 0,
+      generation_attempt: 1,
+      updated_at:  new Date().toISOString(),
+    }))
+
+    // Upsert — only creates rows that don't already exist (existing rows keep status)
+    if (framesToCreate.length > 0) {
+      await db.from('product_360_frames')
+        .upsert(framesToCreate, { onConflict: 'package_id,frame_index', ignoreDuplicates: true })
+    }
+
+    console.info(`[p360:generate/route] pkg=${packageId} pump mode — ${totalFrames} frame rows seeded, returning queued`)
+    return NextResponse.json({
+      ok: true,
+      data: {
+        status:       'queued',
+        packageId,
+        pumpMode:     true,
+        totalFrames,
+        framesSeeded: totalFrames,
+        message:      'Package queued. Call POST /pump to process frames one at a time.',
+      },
+    })
+  }
+
+  // ── Synchronous mode: run entire generation in this request ──────────────────
   const result = await generatePackage(packageId)
 
   // ── User-requested cancellation ───────────────────────────────────────────

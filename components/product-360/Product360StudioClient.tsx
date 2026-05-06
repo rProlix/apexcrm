@@ -258,13 +258,92 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
     fetchPackages(tenantId)
   }
 
+  // ── Pump loop active tracking ─────────────────────────────────────────────
+  const pumpActiveRef = useRef<Set<string>>(new Set())
+
+  // ── Core pump loop ────────────────────────────────────────────────────────
+  // Calls /pump repeatedly (one frame per request) until done or error.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  async function runPumpLoop(pkgId: string) {
+    if (pumpActiveRef.current.has(pkgId)) return
+    pumpActiveRef.current.add(pkgId)
+    const MAX_ITERS = 200
+    try {
+      for (let i = 0; i < MAX_ITERS; i++) {
+        const snapshot = packages.find(p => p.id === pkgId)
+        if (snapshot?.status === 'cancelled') break
+
+        let pumpRes: Response, pumpJson: Record<string, unknown>
+        try {
+          pumpRes  = await fetch(`/api/product-360/packages/${pkgId}/pump`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ tenantId }),
+          })
+          pumpJson = await pumpRes.json() as Record<string, unknown>
+        } catch {
+          setPackages(prev => prev.map(p =>
+            p.id === pkgId ? { ...p, status: 'failed' as const, generation_error: 'Network error during generation' } : p,
+          ))
+          break
+        }
+
+        if (!pumpRes.ok) {
+          const errObj  = (pumpJson.error as Record<string, unknown> | undefined) ?? {}
+          const errType = errObj.type as string | undefined
+          const errMsg  = (errObj.message as string | undefined) ?? 'Generation error'
+          const st      = errType === 'quota_exceeded' ? 'paused_quota' as const : 'failed' as const
+          setPackages(prev => prev.map(p =>
+            p.id === pkgId ? { ...p, status: st, generation_error: errMsg } : p,
+          ))
+          break
+        }
+
+        const d             = (pumpJson.data as Record<string, unknown> | undefined) ?? {}
+        const done          = !!(d.done)
+        const pkgStatus     = d.packageStatus  as P360PackageSummary['status'] | undefined
+        const progressPct   = (d.progressPercent as number | undefined) ?? 0
+        const remaining     = d.remainingFrames as number | undefined
+        const previewUrl    = (d.previewUrl as string | null | undefined) ?? null
+        const newFrameUrl   = (d.imageUrl   as string | null | undefined) ?? null
+
+        setPackages(prev => prev.map(p => {
+          if (p.id !== pkgId) return p
+          const target    = p.target_frame_count ?? 0
+          const framesNow = remaining !== undefined ? target - remaining : p.frames_done ?? 0
+          return {
+            ...p,
+            status:            pkgStatus ?? p.status,
+            frames_done:       Math.max(p.frames_done ?? 0, framesNow),
+            progress_percent:  Math.max(p.progress_percent ?? 0, progressPct),
+            preview_image_url: previewUrl ?? p.preview_image_url,
+            cover_frame_url:   previewUrl ?? p.cover_frame_url,
+          }
+        }))
+
+        if (newFrameUrl) {
+          setPackageFrameUrls(prev => {
+            const existing = prev[pkgId] ?? []
+            if (existing.includes(newFrameUrl)) return prev
+            return { ...prev, [pkgId]: [...existing, newFrameUrl] }
+          })
+        }
+
+        if (done) { fetchPackages(tenantId, selectedProd?.id); break }
+        await new Promise<void>(r => setTimeout(r, 400))
+      }
+    } finally {
+      pumpActiveRef.current.delete(pkgId)
+      setGeneratingId(null)
+    }
+  }
+
   // ── Actions ───────────────────────────────────────────────────────────────
 
   async function handleGenerate(pkgId: string, opts?: { forceResume?: boolean }) {
     const currentPkg = packages.find(p => p.id === pkgId)
     const isResume   = currentPkg?.status === 'paused_quota' || currentPkg?.status === 'failed'
 
-    // Optimistic update — preserve frames_done on resume
     setPackages(prev => prev.map(p =>
       p.id === pkgId
         ? {
@@ -281,24 +360,38 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
       const res  = await fetch(`/api/product-360/packages/${pkgId}/generate`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ tenantId, ...(opts?.forceResume ? { forceResume: true } : {}) }),
+        body:    JSON.stringify({
+          tenantId,
+          pumpMode: true,
+          ...(opts?.forceResume ? { forceResume: true } : {}),
+        }),
       })
       const json = await res.json() as Record<string, unknown>
 
       if (!res.ok) {
-        // New response shape: { ok: false, error: { type, title, message, retryable } }
-        const errObj = (json.error as Record<string, unknown> | undefined) ?? {}
-        const errType  = errObj.type as string | undefined
-        const errMsg   = (errObj.message as string | undefined) ?? 'Generation failed'
+        const errObj    = (json.error as Record<string, unknown> | undefined) ?? {}
+        const errType   = errObj.type  as string | undefined
+        const errMsg    = (errObj.message as string | undefined) ?? 'Generation failed'
         const newStatus = errType === 'quota_exceeded' ? 'paused_quota' as const : 'failed' as const
         setPackages(prev => prev.map(p =>
           p.id === pkgId ? { ...p, status: newStatus, generation_error: errMsg } : p,
         ))
+        setGeneratingId(null)
         return
       }
 
-      // { ok: true, data: { status, packageId, framesGenerated, previewUrl } }
       const data = (json.data as Record<string, unknown> | undefined) ?? json
+
+      if (data.pumpMode) {
+        // Pump mode: route returned immediately — client drives generation
+        setPackages(prev => prev.map(p =>
+          p.id === pkgId ? { ...p, status: 'generating' as const } : p,
+        ))
+        runPumpLoop(pkgId)  // clears generatingId in its finally
+        return
+      }
+
+      // Synchronous legacy mode
       setPackages(prev => prev.map(p =>
         p.id === pkgId
           ? {
@@ -316,8 +409,10 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
         p.id === pkgId ? { ...p, status: 'failed' as const, generation_error: 'Network error' } : p,
       ))
     } finally {
-      setGeneratingId(null)
-      fetchPackages(tenantId, selectedProd?.id)
+      if (!pumpActiveRef.current.has(pkgId)) {
+        setGeneratingId(null)
+        fetchPackages(tenantId, selectedProd?.id)
+      }
     }
   }
 
@@ -956,6 +1051,10 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
                 <PackageDetailInfo pkg={previewPkg} />
                 {previewPkg.frames.length > 0 && (
                   <FrameStatusGrid frames={previewPkg.frames} />
+                )}
+                {/* Debug panel — owner/admin only */}
+                {isOwner && (
+                  <PackageDebugPanel pkg={previewPkg} />
                 )}
               </>
             ) : (
@@ -1637,6 +1736,69 @@ const FRAME_STATUS_LABELS: Record<string, string> = {
   pending: 'Pending', queued: 'Queued', generating: 'Generating',
   completed: 'Done', failed: 'Failed', cancelled: 'Stopped',
   skipped: 'Skipped', archived: 'Archived',
+}
+
+// ─── Debug Panel ─────────────────────────────────────────────────────────────
+
+function PackageDebugPanel({ pkg }: { pkg: P360Package & { frames: P360Frame[] } }) {
+  const [open, setOpen] = useState(false)
+
+  const framesByStatus = pkg.frames.reduce<Record<string, number>>((acc, f) => {
+    const st = (f.status as string) || (f.image_url ? 'completed' : 'pending')
+    acc[st] = (acc[st] ?? 0) + 1
+    return acc
+  }, {})
+
+  const rows: [string, string | number | boolean | null | undefined][] = [
+    ['Package ID',             pkg.id],
+    ['Product ID',             pkg.product_id],
+    ['Tenant ID',              pkg.tenant_id],
+    ['Status',                 pkg.status],
+    ['cancel_requested',       String(pkg.cancel_requested ?? false)],
+    ['frames_done',            pkg.frames_done ?? 0],
+    ['progress_percent',       `${pkg.progress_percent ?? 0}%`],
+    ['target_frame_count',     pkg.target_frame_count ?? 0],
+    ['actual frame rows',      pkg.frames.length],
+    ['queued frames',          framesByStatus.queued ?? 0],
+    ['generating frames',      framesByStatus.generating ?? 0],
+    ['completed frames',       framesByStatus.completed ?? 0],
+    ['failed frames',          framesByStatus.failed ?? 0],
+    ['last_error_type',        pkg.last_error_type ?? '—'],
+    ['last_error_message',     pkg.last_error_message ?? '—'],
+    ['generation_started_at',  pkg.generation_started_at ?? '—'],
+    ['generation_completed_at',pkg.generation_completed_at ?? '—'],
+    ['last_generated_at',      pkg.last_generated_at ?? '—'],
+    ['last_generation_heartbeat', pkg.last_generation_heartbeat ?? '—'],
+    ['next_retry_at',          pkg.next_retry_at ?? '—'],
+    ['provider / model',       `${pkg.generation_provider ?? '—'} / ${pkg.ai_model ?? '—'}`],
+  ]
+
+  return (
+    <div className="rounded-xl bg-white/3 border border-white/6 overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-2 text-[10px] text-white/30 uppercase tracking-wider hover:text-white/50 transition-colors"
+      >
+        <span>Debug / Diagnostic</span>
+        <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="px-3 pb-3 space-y-1">
+          {rows.map(([label, value]) => (
+            <div key={label} className="flex gap-2 text-[10px]">
+              <span className="text-white/30 w-44 shrink-0">{label}</span>
+              <span className="text-white/60 break-all font-mono">{String(value ?? '—')}</span>
+            </div>
+          ))}
+          {pkg.generation_error && (
+            <div className="mt-2 rounded-lg bg-red-500/8 border border-red-500/15 px-2 py-1.5">
+              <p className="text-[10px] text-red-400 font-mono break-all">{pkg.generation_error}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function FrameStatusGrid({ frames }: { frames: P360Frame[] }) {

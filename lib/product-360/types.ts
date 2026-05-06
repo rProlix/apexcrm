@@ -110,6 +110,8 @@ export interface P360Package {
   retry_count:               number
   generation_started_at:     string | null
   generation_completed_at:   string | null
+  /** Written every few frames by the generation loop; used for stale detection. */
+  last_generation_heartbeat: string | null
   // ── Cancel support (added migration 040) ────────────────────────────────────
   /** True when a cancel was requested — checked by the generation loop before each frame. */
   cancel_requested:          boolean

@@ -213,25 +213,61 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
 
   console.info(`[p360:generate] pkg=${packageId} resuming: ${alreadyDone} frames already completed`)
 
-  // ── Mark generating (preserve frames_done from already-completed frames) ────
-  await db
+  // ── Mark generating ─────────────────────────────────────────────────────────
+  //
+  // CRITICAL FIX: split into two updates:
+  //
+  //   1. MANDATORY — only columns that exist since the earliest migration.
+  //      Check the error return. If this fails the package stays 'queued' and
+  //      the generation loop is pointless — abort immediately.
+  //
+  //   2. OPTIONAL — extended metadata columns added by later migrations.
+  //      Non-fatal: if a column is missing (migrations not yet applied) we log
+  //      a warning but let generation proceed.  Migration 043 adds them all.
+  //
+  const { error: genStatusErr } = await db
     .from('product_360_packages')
     .update({
-      status:                    'generating',
+      status:           'generating',
+      frames_done:      alreadyDone,
+      progress_percent: alreadyDone > 0 ? Math.round((alreadyDone / totalFrames) * 100) : 0,
+      updated_at:       new Date().toISOString(),
+    })
+    .eq('id', packageId)
+
+  if (genStatusErr) {
+    console.error(
+      `[p360:generate] pkg=${packageId} CRITICAL: DB update to 'generating' failed — ` +
+      `package will stay in 'queued' unless this is fixed. Error: ${genStatusErr.message}. ` +
+      `Run migration 043 to ensure all required columns exist.`,
+    )
+    await markFailed(packageId, `DB error transitioning to generating: ${genStatusErr.message}`)
+    return { success: false, framesGenerated: 0, errorMessage: genStatusErr.message }
+  }
+
+  // Extended metadata — best-effort (non-fatal if migration 036/037/038/042 not yet applied)
+  const { error: extErr } = await db
+    .from('product_360_packages')
+    .update({
       generation_error:          null,
       last_error_type:           null,
       last_error_at:             null,
       generation_provider:       provider.name,
       ai_model:                  provider.model,
       planner_model:             plannerModel,
-      frames_done:               alreadyDone,
-      progress_percent:          alreadyDone > 0 ? Math.round((alreadyDone / totalFrames) * 100) : 0,
       scene_blueprint:           blueprint,
       locked_generation_prompt:  lockedPrompt,
       generation_started_at:     new Date().toISOString(),
-      updated_at:                new Date().toISOString(),
     })
     .eq('id', packageId)
+
+  if (extErr) {
+    console.warn(
+      `[p360:generate] pkg=${packageId} Extended metadata update failed (non-fatal — ` +
+      `generation will proceed): ${extErr.message}. ` +
+      `Run migration 043 to add missing columns.`,
+    )
+  }
 
   // ── Create generation job record ─────────────────────────────────────────────
   const { data: jobRow } = await db

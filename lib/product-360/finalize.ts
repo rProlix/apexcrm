@@ -128,9 +128,10 @@ async function markPackageFailed(packageId: string, errorMessage: string): Promi
   await (supabase as any)
     .from('product_360_packages')
     .update({
-      status:           'failed',
-      generation_error: errorMessage,
-      updated_at:       new Date().toISOString(),
+      status:             'failed',
+      generation_error:   errorMessage,
+      last_error_message: errorMessage,
+      updated_at:         new Date().toISOString(),
     })
     .eq('id', packageId)
 }
