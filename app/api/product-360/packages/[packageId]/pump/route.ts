@@ -25,13 +25,15 @@ import { normalizeAiError }                from '@/lib/ai/normalizeAiError'
 import { normalizeProductSubject }         from '@/lib/ai/360/normalizeProduct'
 import {
   normalizeSceneBlueprint,
+  enrichBlueprintWithAnalysis,
   buildLockedGenerationPrompt,
   buildMasterFramePrompt,
   buildLockedFramePrompt,
   getFrameAngle,
   getShotDirection,
 } from '@/lib/ai/360/buildLockedFramePrompt'
-import type { P360GenerationConfig } from '@/lib/ai/360/types'
+import { analyzeMasterFrame }                from '@/lib/ai/360/masterFrameAnalyzer'
+import type { P360GenerationConfig }          from '@/lib/ai/360/types'
 
 export const dynamic     = 'force-dynamic'
 export const maxDuration = 120   // one Imagen call: 10–60 s on average
@@ -369,7 +371,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   const framePrompt = isMasterFrame
     ? buildMasterFramePrompt(subject, genConfig, blueprint)
-    : buildLockedFramePrompt(lockedPrompt, angleDeg, nextFrameIndex, totalFrames, shotDirection)
+    : buildLockedFramePrompt(lockedPrompt, blueprint, angleDeg, nextFrameIndex, totalFrames, shotDirection, 0)
 
   console.info(
     `[P360] pump:frame-selected frameIndex=${nextFrameIndex} angle=${angleDeg}° isMaster=${isMasterFrame}`,
@@ -385,6 +387,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     status:                'generating',
     generation_started_at: new Date().toISOString(),
     is_master_frame:       isMasterFrame,
+    generation_attempt:    1,
     updated_at:            new Date().toISOString(),
   }, { onConflict: 'package_id,frame_index' })
 
@@ -403,19 +406,90 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
   }
 
+  // ── Auto-retry helper ─────────────────────────────────────────────────────
+  const MAX_FRAME_RETRIES = parseInt(process.env.P360_FRAME_MAX_RETRIES ?? '2', 10) || 2
+  let lastFrameError: Error | null = null
+  let result = null
+  let actualAttempt = 0
+
+  for (let attempt = 0; attempt <= MAX_FRAME_RETRIES; attempt++) {
+    actualAttempt = attempt
+    if (attempt > 0) {
+      console.info(`[P360] pump:retry attempt=${attempt + 1} frame=${nextFrameIndex}`)
+      // Update frame record with retry count
+      await db.from('product_360_frames').update({
+        generation_attempt: attempt + 1,
+        updated_at:         new Date().toISOString(),
+      }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
+    }
+
+    // Build progressively stricter prompt on retries
+    const retryPrompt = isMasterFrame
+      ? buildMasterFramePrompt(subject, genConfig, blueprint)
+      : buildLockedFramePrompt(lockedPrompt, blueprint, angleDeg, nextFrameIndex, totalFrames, shotDirection, attempt)
+
+    try {
+      console.info(`[P360] pump:provider:start model="${provider.model}" frame=${nextFrameIndex} attempt=${attempt + 1}`)
+
+      result = await provider.generateFrame({
+        prompt:                 retryPrompt,
+        width:                  genConfig.outputWidth  ?? 1024,
+        height:                 genConfig.outputHeight ?? 1024,
+        referenceImageBase64:   masterBase64,
+        referenceImageMimeType: masterMime,
+      })
+
+      // Success — break retry loop
+      lastFrameError = null
+      break
+    } catch (e) {
+      lastFrameError = e instanceof Error ? e : new Error(String(e))
+      // Don't retry quota errors — they need to pause the whole package
+      if (lastFrameError.message.includes('429') || lastFrameError.message.includes('quota')) throw lastFrameError
+      console.warn(`[P360] pump:retry:attempt=${attempt + 1} failed: ${lastFrameError.message}`)
+      if (attempt < MAX_FRAME_RETRIES) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
+    }
+  }
+
+  // All retries exhausted
+  if (!result) {
+    throw lastFrameError ?? new Error('Frame generation failed after all retry attempts')
+  }
+
+  // ── After master frame: run vision analysis to enrich blueprint ───────────
+  if (isMasterFrame && result.imageBuffer) {
+    try {
+      const masterBase64ForAnalysis = result.imageBuffer.toString('base64')
+      const masterMimeForAnalysis   = result.mimeType ?? 'image/png'
+      const analysis = await analyzeMasterFrame(masterBase64ForAnalysis, masterMimeForAnalysis)
+
+      if (analysis) {
+        const enrichedBlueprint = enrichBlueprintWithAnalysis(blueprint, analysis)
+        const enrichedLockedPrompt = buildLockedGenerationPrompt(subject, genConfig, enrichedBlueprint)
+
+        await db.from('product_360_packages').update({
+          scene_blueprint:          enrichedBlueprint,
+          locked_generation_prompt: enrichedLockedPrompt,
+          master_frame_analysis:    analysis,
+          analysis_version:         2,
+          updated_at:               new Date().toISOString(),
+        }).eq('id', packageId)
+
+        console.info(
+          `[P360] pump:blueprint-enriched analysisVersion=2 ` +
+          `vessel="${analysis.vesselExact.slice(0, 60)}"`,
+        )
+      } else {
+        console.info('[P360] pump:blueprint analysis skipped (API unavailable or failed)')
+      }
+    } catch (analysisErr) {
+      console.warn(`[P360] pump:blueprint-analysis-error: ${analysisErr instanceof Error ? analysisErr.message : analysisErr}`)
+    }
+  }
+
+  console.info(`[P360] pump:provider:success frame=${nextFrameIndex} attempt=${actualAttempt + 1}`)
+
   try {
-    console.info(`[P360] pump:provider:start model="${provider.model}" frame=${nextFrameIndex}`)
-
-    const result = await provider.generateFrame({
-      prompt:                 framePrompt,
-      width:                  genConfig.outputWidth  ?? 1024,
-      height:                 genConfig.outputHeight ?? 1024,
-      referenceImageBase64:   masterBase64,
-      referenceImageMimeType: masterMime,
-    })
-
-    console.info(`[P360] pump:provider:success frame=${nextFrameIndex}`)
-
     const mimeType = result.mimeType ?? 'image/png'
     const ext      = mimeType.includes('jpeg') ? 'jpg' : 'png'
     let   uploadedUrl: string, storagePath: string
@@ -456,9 +530,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       image_url:               uploadedUrl,
       storage_path:            storagePath,
       status:                  'completed',
-      prompt_used:             framePrompt.slice(0, 4000),
+      prompt_used:             (isMasterFrame
+        ? buildMasterFramePrompt(subject, genConfig, blueprint)
+        : buildLockedFramePrompt(lockedPrompt, blueprint, angleDeg, nextFrameIndex, totalFrames, shotDirection, actualAttempt)
+      ).slice(0, 4000),
       is_master_frame:         isMasterFrame,
-      generation_attempt:      1,
+      generation_attempt:      actualAttempt + 1,
       alt_text:                `${blueprint.subject.name} – ${shotDirection} view`,
       generation_finished_at:  new Date().toISOString(),
       updated_at:              new Date().toISOString(),

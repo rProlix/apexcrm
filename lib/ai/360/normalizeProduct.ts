@@ -42,21 +42,52 @@ export type NormalizedCategory =
 // ─── Keyword maps ──────────────────────────────────────────────────────────────
 
 const VESSEL_MAP: Array<[RegExp, string]> = [
-  [/\bbowl\b/,       'bowl'],
-  [/\bplate\b/,      'plate'],
-  [/\bcup\b/,        'cup'],
-  [/\bmug\b/,        'mug'],
-  [/\bglass\b/,      'glass'],
-  [/\bbottle\b/,     'bottle'],
-  [/\bjar\b/,        'jar'],
-  [/\bcan\b/,        'can'],
-  [/\bbox\b/,        'box'],
-  [/\bbag\b/,        'bag'],
-  [/\bpouch\b/,      'pouch'],
-  [/\btray\b/,       'tray'],
-  [/\btube\b/,       'tube'],
-  [/\bpacket\b/,     'packet'],
-  [/\bcontainer\b/,  'container'],
+  // Food vessels (check most specific first)
+  [/\bbowl\b/,         'bowl'],
+  [/\bplate\b/,        'plate'],
+  [/\bcup\b/,          'cup'],
+  [/\bmug\b/,          'mug'],
+  [/\bglass\b/,        'glass'],
+  [/\bbottle\b/,       'bottle'],
+  [/\bjar\b/,          'jar'],
+  [/\bcan\b/,          'can'],
+  [/\btin\b/,          'tin can'],
+  [/\bbox\b/,          'box'],
+  [/\bbag\b/,          'bag'],
+  [/\bpouch\b/,        'pouch'],
+  [/\btray\b/,         'tray'],
+  [/\btube\b/,         'tube'],
+  [/\bpacket\b/,       'packet'],
+  [/\bsachet\b/,       'sachet'],
+  [/\bcontainer\b/,    'container'],
+  [/\bcasserole\b/,    'casserole dish'],
+  [/\bskillet\b/,      'skillet'],
+  [/\bcup\b/,          'cup'],
+  [/\bflask\b/,        'flask'],
+]
+
+// Food-specific vessel overrides based on dish name
+const FOOD_VESSEL_OVERRIDES: Array<[RegExp, string]> = [
+  [/\bpho\b/,          'bowl'],
+  [/\bramen\b/,        'bowl'],
+  [/\budon\b/,         'bowl'],
+  [/\bsoup\b/,         'bowl'],
+  [/\bnoodle\b/,       'bowl'],
+  [/\bhotpot\b/,       'pot'],
+  [/\bcurry\b/,        'bowl'],
+  [/\bstew\b/,         'bowl'],
+  [/\bporridge\b/,     'bowl'],
+  [/\bcongee\b/,       'bowl'],
+  [/\bsalad\b/,        'bowl'],
+  [/\blatte\b/,        'cup'],
+  [/\bcappuccino\b/,   'cup'],
+  [/\bespresso\b/,     'cup'],
+  [/\bcoffee\b/,       'cup'],
+  [/\btea\b/,          'cup'],
+  [/\bsmoothie\b/,     'glass'],
+  [/\bjuice\b/,        'glass'],
+  [/\bcocktail\b/,     'glass'],
+  [/\bbeer\b/,         'glass'],
 ]
 
 const GARNISH_WORDS = [
@@ -109,9 +140,20 @@ export function normalizeProductSubject(
   const fullText       = `${name} ${rawDescription}`.toLowerCase()
 
   // ── Vessel ────────────────────────────────────────────────────────────────
-  let vessel = 'container'
-  for (const [rx, label] of VESSEL_MAP) {
+  // Check food-specific overrides first (highest specificity for known dishes)
+  let vessel = ''
+  for (const [rx, label] of FOOD_VESSEL_OVERRIDES) {
     if (rx.test(fullText)) { vessel = label; break }
+  }
+  // Fall back to generic vessel detection
+  if (!vessel) {
+    for (const [rx, label] of VESSEL_MAP) {
+      if (rx.test(fullText)) { vessel = label; break }
+    }
+  }
+  // Final fallback based on category
+  if (!vessel) {
+    vessel = 'container'
   }
 
   // ── Category ──────────────────────────────────────────────────────────────

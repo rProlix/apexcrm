@@ -40,12 +40,14 @@ import { finalizePackage }          from './finalize'
 import { normalizeProductSubject }  from '@/lib/ai/360/normalizeProduct'
 import {
   normalizeSceneBlueprint,
+  enrichBlueprintWithAnalysis,
   buildLockedGenerationPrompt,
   buildMasterFramePrompt,
   buildLockedFramePrompt,
   getFrameAngle,
   getShotDirection,
 } from '@/lib/ai/360/buildLockedFramePrompt'
+import { analyzeMasterFrame } from '@/lib/ai/360/masterFrameAnalyzer'
 import { normalizeAiError } from '@/lib/ai/normalizeAiError'
 import type { P360GenerationConfig, P360ProductDescriptor } from '@/lib/ai/360/types'
 
@@ -183,7 +185,7 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
   // in the prompt builders.  normalizeSceneBlueprint deep-merges with safe defaults.
   const blueprint = normalizeSceneBlueprint(pkg.scene_blueprint, subject, genConfig)
 
-  const lockedPrompt: string =
+  let lockedPrompt: string =
     (typeof pkg.locked_generation_prompt === 'string' && (pkg.locked_generation_prompt as string).trim().length > 50)
       ? (pkg.locked_generation_prompt as string)
       : buildLockedGenerationPrompt(subject, genConfig, blueprint)
@@ -398,6 +400,41 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
       completedIndices.add(0)
       console.info(`[p360:generate] pkg=${packageId} STAGE A complete: ${masterUrl}`)
 
+      // ── Stage B.5: Enrich blueprint with vision analysis of master frame ──────
+      // Best-effort: if Gemini API key is set, analyze the master frame to get
+      // exact locked details (vessel color/material, garnish positions, etc.)
+      // These details are injected into all subsequent frame prompts for better
+      // consistency than text-only description alone.
+      try {
+        const analysis = await analyzeMasterFrame(masterFrameBase64, masterFrameMime)
+        if (analysis) {
+          const enrichedBlueprint    = enrichBlueprintWithAnalysis(blueprint, analysis)
+          const enrichedLockedPrompt = buildLockedGenerationPrompt(subject, genConfig, enrichedBlueprint)
+
+          await db.from('product_360_packages').update({
+            scene_blueprint:          enrichedBlueprint,
+            locked_generation_prompt: enrichedLockedPrompt,
+            master_frame_analysis:    analysis,
+            analysis_version:         2,
+            updated_at:               new Date().toISOString(),
+          }).eq('id', packageId)
+
+          // Use enriched versions for remaining frames
+          Object.assign(blueprint, enrichedBlueprint)
+          lockedPrompt = enrichedLockedPrompt
+
+          console.info(
+            `[p360:generate] pkg=${packageId} blueprint enriched with vision analysis (v2) ` +
+            `vessel="${analysis.vesselExact.slice(0, 60)}"`,
+          )
+        }
+      } catch (analysisErr) {
+        console.warn(
+          `[p360:generate] pkg=${packageId} master frame analysis failed (non-fatal): ` +
+          `${analysisErr instanceof Error ? analysisErr.message : analysisErr}`,
+        )
+      }
+
       // Throttle before next frame
       if (totalFrames > 1) await sleep(delayMs)
     }
@@ -431,7 +468,7 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
       const shotDirection = getShotDirection(angleDeg)
 
       const framePrompt = buildLockedFramePrompt(
-        lockedPrompt, angleDeg, frameIndex, totalFrames, shotDirection,
+        lockedPrompt, blueprint, angleDeg, frameIndex, totalFrames, shotDirection, 0,
       )
 
       // Throttle: wait before each frame (except the very first after master)
@@ -702,7 +739,7 @@ export async function regenerateSingleFrame(
 
   const framePrompt = isMasterFrame
     ? buildMasterFramePrompt(subject, genConfig, bp)
-    : buildLockedFramePrompt(storedLocked, getFrameAngle(frameIndex, genConfig.frameCount), frameIndex, genConfig.frameCount, getShotDirection(getFrameAngle(frameIndex, genConfig.frameCount)))
+    : buildLockedFramePrompt(storedLocked, bp, getFrameAngle(frameIndex, genConfig.frameCount), frameIndex, genConfig.frameCount, getShotDirection(getFrameAngle(frameIndex, genConfig.frameCount)), 0)
 
   // Fetch master frame as reference if not regenerating the master
   let masterBase64: string | undefined, masterMime = 'image/png'

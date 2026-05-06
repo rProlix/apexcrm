@@ -62,7 +62,7 @@ export interface GeminiTextResult<T = string> {
 
 // ─── Internal types ───────────────────────────────────────────────────────────
 
-interface GeminiPart      { text?: string }
+interface GeminiPart      { text?: string; inlineData?: { mimeType: string; data: string } }
 interface GeminiContent   { parts: GeminiPart[] }
 interface GeminiCandidate { content?: GeminiContent }
 interface GeminiApiResponse {
@@ -199,6 +199,91 @@ export async function callGeminiText<T = string>(
   }
 
   return { text, data: null, tokenUsage }
+}
+
+// ─── Multimodal support ───────────────────────────────────────────────────────
+
+export interface GeminiMultimodalPart {
+  text?:       string
+  inlineData?: { mimeType: string; data: string }
+}
+
+/**
+ * Call a Gemini model with multimodal input (image + text).
+ * Used for vision tasks such as analyzing the master 360° frame.
+ *
+ * Never throws — returns { error } on failure.
+ */
+export async function callGeminiMultimodal(opts: {
+  model:        string
+  parts:        GeminiMultimodalPart[]
+  temperature?: number
+  feature?:     string
+  timeoutMs?:   number
+}): Promise<GeminiTextResult<string>> {
+  const apiKey  = process.env.GEMINI_API_KEY?.trim()
+  const feature = opts.feature ?? 'multimodal'
+
+  if (!apiKey) {
+    return { text: '', data: null, tokenUsage: {},
+      error: `GEMINI_API_KEY is not set [feature: ${feature}]` }
+  }
+
+  const url = `${GEMINI_API_BASE}/${opts.model}:generateContent?key=${apiKey}`
+
+  const generationConfig: Record<string, unknown> = {}
+  if (opts.temperature !== undefined) generationConfig.temperature = opts.temperature
+
+  const body = {
+    contents: [{ parts: opts.parts }],
+    generationConfig: Object.keys(generationConfig).length ? generationConfig : undefined,
+  }
+
+  console.info(`[geminiRequest] ${feature} → ${opts.model} (multimodal, parts=${opts.parts.length})`)
+
+  const controller = new AbortController()
+  const timeoutMs  = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const timer      = setTimeout(() => controller.abort(), timeoutMs)
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
+      signal:  controller.signal,
+    })
+  } catch (err) {
+    clearTimeout(timer)
+    const isAbort = err instanceof Error && err.name === 'AbortError'
+    return { text: '', data: null, tokenUsage: {},
+      error: isAbort
+        ? `Gemini multimodal timed out after ${timeoutMs / 1000}s [${feature}]`
+        : `Gemini multimodal request failed: ${err instanceof Error ? err.message : String(err)}` }
+  } finally {
+    clearTimeout(timer)
+  }
+
+  if (!response.ok) {
+    let errText = ''
+    try { errText = await response.text() } catch { /* ignore */ }
+    return { text: errText, data: null, tokenUsage: {},
+      error: `Gemini multimodal HTTP ${response.status} [${feature}]: ${errText.slice(0, 300)}` }
+  }
+
+  let json: GeminiApiResponse
+  try { json = await response.json() as GeminiApiResponse } catch {
+    return { text: '', data: null, tokenUsage: {},
+      error: `Gemini multimodal returned unreadable response [${feature}]` }
+  }
+
+  if (json.error) {
+    return { text: '', data: null, tokenUsage: {},
+      error: `Gemini multimodal API error ${json.error.code}: ${json.error.message} [${feature}]` }
+  }
+
+  const text = extractTextFromCandidates(json.candidates)
+  return { text, data: text || null, tokenUsage: json.usageMetadata ?? {} }
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────

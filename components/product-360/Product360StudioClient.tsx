@@ -1397,6 +1397,20 @@ function PackageCard({
                 Scene Locked
               </span>
             )}
+            {/* Blueprint analysis version badge */}
+            {(pkg as P360Package & { analysis_version?: number }).analysis_version === 2 && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-violet-400 bg-violet-400/10 border border-violet-400/20 px-2 py-0.5 rounded-full" title="Blueprint grounded from Gemini vision analysis of the master frame">
+                <Sparkles className="h-2.5 w-2.5" />
+                Vision-grounded
+              </span>
+            )}
+            {/* Consistency mode badge */}
+            {(pkg as P360Package & { consistency_mode?: string }).consistency_mode === 'strict' &&
+             (pkg as P360Package & { master_frame_generated?: boolean }).master_frame_generated && (
+              <span className="text-[10px] text-fuchsia-400 bg-fuchsia-400/10 border border-fuchsia-400/20 px-2 py-0.5 rounded-full" title="Strict mode: every frame validated against master">
+                Strict Mode
+              </span>
+            )}
             {pkg.preset    && <span className="text-[10px] text-sky-400 bg-sky-400/10 border border-sky-400/20 px-2 py-0.5 rounded-full">{pkg.preset}</span>}
             {pkg.promo_tag && <span className="text-[10px] text-fuchsia-400 bg-fuchsia-400/10 border border-fuchsia-400/20 px-2 py-0.5 rounded-full">{pkg.promo_tag}</span>}
           </div>
@@ -1741,12 +1755,16 @@ function ActionBtn({
 
 function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
   const pkgExt = pkg as P360Package & {
-    master_frame_url?:       string | null
-    master_frame_generated?: boolean
-    consistency_mode?:       string | null
+    master_frame_url?:         string | null
+    master_frame_generated?:   boolean
+    consistency_mode?:         string | null
     locked_generation_prompt?: string | null
+    analysis_version?:         number
+    master_frame_analysis?:    Record<string, unknown> | null
   }
-  const hasMasterFrame = !!(pkgExt.master_frame_generated && pkgExt.master_frame_url)
+  const hasMasterFrame    = !!(pkgExt.master_frame_generated && pkgExt.master_frame_url)
+  const isVisionGrounded  = pkgExt.analysis_version === 2
+  const hasBlueprint      = !!(pkgExt.locked_generation_prompt && pkgExt.locked_generation_prompt.length > 50)
 
   return (
     <div className="rounded-xl bg-white/3 border border-white/6 p-3 space-y-2 text-[11px]">
@@ -1760,9 +1778,37 @@ function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
             : 'text-white/30 bg-white/4 border-white/8'
         }`}>
           {hasMasterFrame && <Lock className="h-2.5 w-2.5" />}
-          {hasMasterFrame ? `Strict Locked` : 'Not yet locked'}
+          {hasMasterFrame ? 'Strict Locked' : 'Not yet locked'}
         </span>
       </div>
+
+      {/* Blueprint status row */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-white/30 uppercase tracking-wider">Blueprint</span>
+        <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+          isVisionGrounded
+            ? 'text-violet-400 bg-violet-400/10 border-violet-400/20'
+            : hasBlueprint
+            ? 'text-sky-400 bg-sky-400/10 border-sky-400/20'
+            : 'text-white/30 bg-white/4 border-white/8'
+        }`}>
+          {isVisionGrounded
+            ? <><Sparkles className="h-2.5 w-2.5" />Vision-grounded</>
+            : hasBlueprint
+            ? <><Lock className="h-2.5 w-2.5" />Text-based</>
+            : 'Not built yet'}
+        </span>
+      </div>
+
+      {/* Vision analysis vessel detail */}
+      {isVisionGrounded && !!pkgExt.master_frame_analysis?.vesselExact && (
+        <div className="rounded-lg bg-violet-400/5 border border-violet-400/15 p-2 space-y-0.5">
+          <p className="text-[9px] text-violet-400/60 uppercase tracking-wider">Locked vessel (from vision)</p>
+          <p className="text-[10px] text-white/50 line-clamp-2">
+            {pkgExt.master_frame_analysis!.vesselExact as string}
+          </p>
+        </div>
+      )}
 
       {/* Master frame thumbnail */}
       {hasMasterFrame && (
@@ -1777,7 +1823,10 @@ function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
             alt="Master reference frame (0° front view)"
             className="w-full rounded-lg border border-teal-400/20 object-cover aspect-square"
           />
-          <p className="text-[9px] text-teal-400/60 text-center">0° front view — visual blueprint for all frames</p>
+          <p className="text-[9px] text-teal-400/60 text-center">
+            0° front view — visual anchor for all frames
+            {isVisionGrounded && ' · Gemini-analyzed ✓'}
+          </p>
         </div>
       )}
 
@@ -1942,7 +1991,7 @@ function FrameStatusGrid({ frames }: { frames: P360Frame[] }) {
             <div
               key={f.id}
               className={`relative rounded border aspect-square overflow-hidden ${FRAME_STATUS_STYLES[st] ?? FRAME_STATUS_STYLES.pending}`}
-              title={`Frame ${f.frame_index} · ${FRAME_STATUS_LABELS[st] ?? st}${f.angle_degrees != null ? ` · ${f.angle_degrees}°` : ''}`}
+              title={`Frame ${f.frame_index}${f.angle_degrees != null ? ` · ${f.angle_degrees}°` : ''} · ${FRAME_STATUS_LABELS[st] ?? st}${(f as P360Frame & { generation_attempt?: number }).generation_attempt != null && (f as P360Frame & { generation_attempt?: number }).generation_attempt! > 1 ? ` · Attempt ${(f as P360Frame & { generation_attempt?: number }).generation_attempt}` : ''}${(f as P360Frame & { is_master_frame?: boolean }).is_master_frame ? ' · MASTER' : ''}`}
             >
               {f.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -1950,6 +1999,19 @@ function FrameStatusGrid({ frames }: { frames: P360Frame[] }) {
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <span className="text-[8px] text-white/30 font-mono">{f.frame_index}</span>
+                </div>
+              )}
+              {/* Master frame crown indicator */}
+              {(f as P360Frame & { is_master_frame?: boolean }).is_master_frame && f.image_url && (
+                <div className="absolute top-0.5 left-0.5 h-3 w-3 flex items-center justify-center rounded-full bg-amber-400/80" title="Master reference frame">
+                  <span className="text-[6px]">★</span>
+                </div>
+              )}
+              {/* Retry indicator — shown when frame needed more than 1 attempt */}
+              {(f as P360Frame & { generation_attempt?: number }).generation_attempt != null &&
+               (f as P360Frame & { generation_attempt?: number }).generation_attempt! > 1 && (
+                <div className="absolute bottom-0.5 right-0.5 bg-orange-400/80 rounded-full h-3 w-3 flex items-center justify-center" title={`Generated on attempt ${(f as P360Frame & { generation_attempt?: number }).generation_attempt}`}>
+                  <span className="text-[6px] font-bold">{(f as P360Frame & { generation_attempt?: number }).generation_attempt}</span>
                 </div>
               )}
               {/* Status dot overlay for non-completed frames */}
