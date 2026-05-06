@@ -1404,7 +1404,12 @@ function PackageCard({
                 Vision-grounded
               </span>
             )}
-            {/* Consistency mode badge */}
+            {/* Consistency mode badges */}
+            {(pkg as P360Package & { consistency_mode?: string }).consistency_mode === 'ultra_strict' && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-orange-400 bg-orange-400/10 border border-orange-400/20 px-2 py-0.5 rounded-full" title="Ultra Strict: locked scene contract, drift detection, auto-regeneration">
+                🔒 Ultra Strict
+              </span>
+            )}
             {(pkg as P360Package & { consistency_mode?: string }).consistency_mode === 'strict' &&
              (pkg as P360Package & { master_frame_generated?: boolean }).master_frame_generated && (
               <span className="text-[10px] text-fuchsia-400 bg-fuchsia-400/10 border border-fuchsia-400/20 px-2 py-0.5 rounded-full" title="Strict mode: every frame validated against master">
@@ -1761,26 +1766,131 @@ function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
     locked_generation_prompt?: string | null
     analysis_version?:         number
     master_frame_analysis?:    Record<string, unknown> | null
+    scene_blueprint?:          Record<string, unknown> | null
   }
   const hasMasterFrame    = !!(pkgExt.master_frame_generated && pkgExt.master_frame_url)
   const isVisionGrounded  = pkgExt.analysis_version === 2
   const hasBlueprint      = !!(pkgExt.locked_generation_prompt && pkgExt.locked_generation_prompt.length > 50)
+  const consistencyMode   = pkgExt.consistency_mode ?? 'strict'
+  const isUltraStrict     = consistencyMode === 'ultra_strict'
+
+  // Extract locked scene from scene_blueprint if available
+  const lockedScene       = (pkgExt.scene_blueprint?.lockedScene ?? null) as Record<string, unknown> | null
+  const hasLockedSceneUI  = !!(lockedScene?.productVariant)
+  const lockedVariant     = lockedScene?.productVariant as string | undefined
+  const lockedFoodDetails = lockedScene?.foodDetails as Record<string, unknown> | null | undefined
+  const lockedVessel      = lockedScene?.vessel as Record<string, unknown> | null | undefined
+  const lockedEnv         = lockedScene?.environment as Record<string, unknown> | null | undefined
+  const lockedCamera      = lockedScene?.camera as Record<string, unknown> | null | undefined
+  const lockedLighting    = lockedScene?.lighting as Record<string, unknown> | null | undefined
+  const toppings          = (lockedFoodDetails?.toppings ?? []) as Array<Record<string, unknown>>
 
   return (
     <div className="rounded-xl bg-white/3 border border-white/6 p-3 space-y-2 text-[11px]">
 
-      {/* Scene lock status */}
+      {/* Consistency mode status */}
       <div className="flex items-center justify-between pb-1.5 border-b border-white/6">
         <span className="text-[10px] text-white/30 uppercase tracking-wider">Consistency Mode</span>
         <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
-          hasMasterFrame
+          isUltraStrict
+            ? 'text-orange-400 bg-orange-400/10 border-orange-400/20'
+            : hasMasterFrame
             ? 'text-teal-400 bg-teal-400/10 border-teal-400/20'
             : 'text-white/30 bg-white/4 border-white/8'
         }`}>
-          {hasMasterFrame && <Lock className="h-2.5 w-2.5" />}
-          {hasMasterFrame ? 'Strict Locked' : 'Not yet locked'}
+          {isUltraStrict
+            ? <><Lock className="h-2.5 w-2.5" />Ultra Strict</>
+            : hasMasterFrame
+            ? <><Lock className="h-2.5 w-2.5" />Strict Locked</>
+            : 'Not yet locked'}
         </span>
       </div>
+
+      {/* Ultra strict explanation */}
+      {isUltraStrict && (
+        <div className="rounded-lg bg-orange-400/5 border border-orange-400/15 p-2">
+          <p className="text-[9px] text-orange-400/80 leading-relaxed">
+            Ultra Strict locks the exact product, plate/bowl, toppings, table, wall, lighting, crop, and atmosphere.
+            Only camera angle changes.
+          </p>
+        </div>
+      )}
+
+      {/* Locked scene contract status */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-white/30 uppercase tracking-wider">Scene Contract</span>
+        <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+          hasLockedSceneUI
+            ? (lockedScene?.analysisSource === 'gemini_vision_enriched'
+              ? 'text-violet-400 bg-violet-400/10 border-violet-400/20'
+              : 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20')
+            : 'text-white/30 bg-white/4 border-white/8'
+        }`}>
+          {hasLockedSceneUI
+            ? (lockedScene?.analysisSource === 'gemini_vision_enriched'
+              ? <><Sparkles className="h-2.5 w-2.5" />Vision-enriched</>
+              : <><Lock className="h-2.5 w-2.5" />Locked</>)
+            : 'Not built yet'}
+        </span>
+      </div>
+
+      {/* Locked product variant */}
+      {hasLockedSceneUI && lockedVariant && (
+        <div className="rounded-lg bg-emerald-400/5 border border-emerald-400/15 p-2 space-y-1">
+          <p className="text-[9px] text-emerald-400/60 uppercase tracking-wider">Locked Product Variant</p>
+          <p className="text-[10px] text-white/80 font-medium leading-snug">{lockedVariant}</p>
+        </div>
+      )}
+
+      {/* Locked toppings / food details */}
+      {lockedFoodDetails && toppings.length > 0 && (
+        <div className="rounded-lg bg-white/3 border border-white/6 p-2 space-y-1">
+          <p className="text-[9px] text-white/30 uppercase tracking-wider">Locked Toppings / Ingredients</p>
+          <div className="space-y-0.5">
+            {toppings.slice(0, 8).map((t, i) => (
+              <p key={i} className="text-[10px] text-white/50">
+                <span className="text-white/70">•</span> {String(t.name ?? '')}
+                {t.count ? <span className="text-white/30"> — {String(t.count)}</span> : null}
+              </p>
+            ))}
+            {toppings.length > 8 && (
+              <p className="text-[9px] text-white/30">+{toppings.length - 8} more</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Locked vessel + environment */}
+      {hasLockedSceneUI && (lockedVessel || lockedEnv) && (
+        <div className="rounded-lg bg-white/3 border border-white/6 p-2 space-y-1">
+          <p className="text-[9px] text-white/30 uppercase tracking-wider">Locked Scene Variables</p>
+          {!!(lockedVessel?.type) && (
+            <p className="text-[10px] text-white/50">
+              <span className="text-white/30">Vessel</span> {String(lockedVessel!.color ?? '')} {String(lockedVessel!.type ?? '')}
+            </p>
+          )}
+          {!!(lockedEnv?.tableSurfaceType) && (
+            <p className="text-[10px] text-white/50">
+              <span className="text-white/30">Table</span> {String(lockedEnv!.tableSurfaceType)} {String(lockedEnv!.tableSurfaceColor ?? '')}
+            </p>
+          )}
+          {!!(lockedEnv?.wallOrBackgroundColor) && (
+            <p className="text-[10px] text-white/50">
+              <span className="text-white/30">Background</span> {String(lockedEnv!.wallOrBackgroundColor)}
+            </p>
+          )}
+          {!!(lockedLighting?.keyLightPosition) && (
+            <p className="text-[10px] text-white/50">
+              <span className="text-white/30">Lighting</span> {String(lockedLighting!.keyLightPosition)}
+            </p>
+          )}
+          {!!(lockedCamera?.zoom) && (
+            <p className="text-[10px] text-white/50">
+              <span className="text-white/30">Crop/Zoom</span> {String(lockedCamera!.zoom)}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Blueprint status row */}
       <div className="flex items-center justify-between">
@@ -2014,6 +2124,26 @@ function FrameStatusGrid({ frames }: { frames: P360Frame[] }) {
                   <span className="text-[6px] font-bold">{(f as P360Frame & { generation_attempt?: number }).generation_attempt}</span>
                 </div>
               )}
+              {/* Consistency score indicator — shown when validation ran */}
+              {(f as P360Frame & { consistency_score?: number | null }).consistency_score != null && (
+                <div
+                  className={`absolute top-0.5 right-0.5 h-2.5 w-2.5 rounded-full border border-black/20 ${
+                    (f as P360Frame & { consistency_score?: number }).consistency_score! >= 0.8
+                      ? 'bg-emerald-400'
+                      : (f as P360Frame & { consistency_score?: number }).consistency_score! >= 0.5
+                      ? 'bg-amber-400'
+                      : 'bg-red-400'
+                  }`}
+                  title={`Consistency: ${Math.round(((f as P360Frame & { consistency_score?: number }).consistency_score ?? 0) * 100)}%`}
+                />
+              )}
+              {/* Drift warning indicator */}
+              {(f as P360Frame & { error_message?: string | null }).error_message && (
+                <div className="absolute bottom-0.5 left-0.5 h-2.5 w-2.5 rounded-full bg-red-500/80 flex items-center justify-center border border-black/20"
+                  title={(f as P360Frame & { error_message?: string }).error_message ?? 'Consistency issue'}>
+                  <span className="text-[5px] font-bold text-white">!</span>
+                </div>
+              )}
               {/* Status dot overlay for non-completed frames */}
               {st !== 'completed' && (
                 <div className={`absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full ${
@@ -2091,11 +2221,12 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
   const [background, setBackground] = useState('')
   const [category,   setCategory]   = useState('')
   const [camera,     setCamera]     = useState('')
-  const [direction,  setDirection]  = useState<'clockwise' | 'counter_clockwise'>('clockwise')
-  const [shadow,     setShadow]     = useState(0.5)
-  const [reflection, setReflection] = useState(0.3)
-  const [promoTag,   setPromoTag]   = useState('')
-  const [showPresets, setShowPresets] = useState(false)
+  const [direction,        setDirection]        = useState<'clockwise' | 'counter_clockwise'>('clockwise')
+  const [consistencyMode_, setConsistencyMode_] = useState<'standard' | 'strict' | 'ultra_strict'>('ultra_strict')
+  const [shadow,           setShadow]           = useState(0.5)
+  const [reflection,       setReflection]       = useState(0.3)
+  const [promoTag,         setPromoTag]         = useState('')
+  const [showPresets,      setShowPresets]       = useState(false)
 
   const [creating,     setCreating]     = useState(false)
   const [error,        setError]        = useState<string | null>(null)
@@ -2137,6 +2268,7 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
           categoryPreset:    category    || null,
           cameraPreset:      camera      || null,
           turnDirection:     direction,
+          consistencyMode:   consistencyMode_,
           shadowStrength:    shadow,
           reflectionIntensity: reflection,
           promoTag:          promoTag.trim() || null,
@@ -2257,6 +2389,37 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
               ))}
             </div>
           </Field>
+
+          {/* Consistency Mode */}
+          {type === 'ai_generated' && (
+            <Field label="Consistency Mode" className="sm:col-span-2">
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { value: 'standard',     label: 'Standard',     desc: 'Basic prompt locking' },
+                  { value: 'strict',       label: 'Strict',       desc: 'Stronger prompts + master frame' },
+                  { value: 'ultra_strict', label: 'Ultra Strict', desc: 'Locked scene contract + drift detection' },
+                ] as const).map(m => (
+                  <button key={m.value} type="button" onClick={() => setConsistencyMode_(m.value)}
+                    className={`h-auto py-2 px-2.5 rounded-xl text-xs font-medium border transition-colors flex flex-col items-start gap-0.5 ${
+                      consistencyMode_ === m.value
+                        ? (m.value === 'ultra_strict'
+                          ? 'bg-orange-400/10 border-orange-400/30 text-orange-400'
+                          : 'bg-fuchsia-400/10 border-fuchsia-400/30 text-fuchsia-400')
+                        : 'bg-white/4 border-white/8 text-white/40 hover:text-white hover:bg-white/8'
+                    }`}>
+                    <span>{m.value === 'ultra_strict' ? '🔒 ' : ''}{m.label}</span>
+                    <span className="text-[9px] font-normal opacity-60 leading-tight">{m.desc}</span>
+                  </button>
+                ))}
+              </div>
+              {consistencyMode_ === 'ultra_strict' && (
+                <p className="text-[10px] text-orange-400/70 mt-1.5 leading-relaxed">
+                  Ultra Strict locks the exact product, plate/bowl, toppings, table, wall, lighting, crop, and atmosphere.
+                  Only camera angle changes. Recommended for food.
+                </p>
+              )}
+            </Field>
+          )}
 
           {/* Camera preset → frames */}
           <Field label="Camera Preset">

@@ -19,6 +19,11 @@
 
 import type { P360GenerationConfig } from './types'
 import type { NormalizedProductSubject } from './normalizeProduct'
+import {
+  serializeLockedSceneToPrompt,
+  buildCorrectivePrompt,
+  type Product360LockedScene,
+} from '../../product-360/lockedSceneVariables'
 
 // ─── Scene blueprint type ─────────────────────────────────────────────────────
 
@@ -108,8 +113,13 @@ export interface Product360SceneBlueprint {
   consistencyRules: string[] | Product360ConsistencyRuleSet
   // ── Vision-grounded exact details (set after master frame analysis) ────────
   masterFrameAnalysis?: MasterFrameAnalysisEmbed
+  // ── Locked scene contract (set by sceneContractBuilder BEFORE frame 0) ────
+  /** Full Product360LockedScene contract — the single source of truth for
+   *  all frame prompts. When present, all frame prompts are built from this
+   *  instead of the looser subject/environment fields above. */
+  lockedScene?: import('../../product-360/lockedSceneVariables').Product360LockedScene
   // ── Meta ──────────────────────────────────────────────────────────────────
-  consistencyMode:  'standard' | 'strict'
+  consistencyMode:  'standard' | 'strict' | 'ultra_strict'
   productCategory:  string
   createdAt:        string
   analysisVersion:  number    // 1=text-only, 2=vision-grounded from Gemini
@@ -608,6 +618,13 @@ export function buildLockedGenerationPrompt(
   config:    P360GenerationConfig,
   blueprint: Product360SceneBlueprint,
 ): string {
+  // ── Locked scene contract takes highest priority ────────────────────────────
+  // When a Product360LockedScene has been built by sceneContractBuilder,
+  // use it directly. It is far more specific and prevents product variant drift.
+  if (blueprint.lockedScene?.productVariant) {
+    return serializeLockedSceneToPrompt(blueprint.lockedScene as Product360LockedScene)
+  }
+
   const analysis = blueprint.masterFrameAnalysis
   const isFood   = blueprint.productCategory === 'food_bowl' || subject.productCategory === 'food_bowl'
   const isBev    = blueprint.productCategory === 'beverage'  || subject.productCategory === 'beverage'
@@ -828,7 +845,28 @@ export function buildMasterFramePrompt(
   const isFood = blueprint.productCategory === 'food_bowl' || subject.productCategory === 'food_bowl'
   const isBev  = blueprint.productCategory === 'beverage'  || subject.productCategory === 'beverage'
 
+  // When a locked scene contract is available, prepend it so the master frame
+  // is forced to match the planned scene from the start.
+  const lockedScenePreamble = blueprint.lockedScene?.productVariant
+    ? [
+        '╔══════════════════════════════════════════════════════════════════════╗',
+        '║  PRE-PLANNED LOCKED SCENE — MASTER FRAME MUST MATCH THIS EXACTLY   ║',
+        '╚══════════════════════════════════════════════════════════════════════╝',
+        '',
+        'The following scene contract was planned BEFORE this frame was generated.',
+        'You MUST render exactly this product — not a variation, not a different version.',
+        '',
+        serializeLockedSceneToPrompt(blueprint.lockedScene as Product360LockedScene),
+        '',
+        '═══════════════════════════════════════════════════════════════════════',
+        'MASTER FRAME TECHNICAL REQUIREMENTS (angle: 0° front view):',
+        '═══════════════════════════════════════════════════════════════════════',
+        '',
+      ].join('\n')
+    : ''
+
   const lines: string[] = [
+    lockedScenePreamble,
     '╔════════════════════════════════════════════════════════════════════╗',
     '║  MASTER REFERENCE FRAME — 0° FRONT VIEW — VISUAL GROUND TRUTH     ║',
     '╚════════════════════════════════════════════════════════════════════╝',
@@ -960,7 +998,55 @@ export function buildLockedFramePrompt(
   totalFrames:     number,
   shotDirection:   string,
   retryAttempt:    number = 0,
+  driftDetails?:   string,
 ): string {
+  // ── When a locked scene contract exists, use it for maximum enforcement ──────
+  // This is the primary path for all new packages.
+  if (blueprint.lockedScene?.productVariant) {
+    const ls = blueprint.lockedScene as Product360LockedScene
+
+    // On a retry with detected drift: use the corrective prompt
+    if (retryAttempt > 0 && driftDetails) {
+      return buildCorrectivePrompt(ls, angleDeg, frameIndex, totalFrames, driftDetails)
+    }
+
+    // Standard frame: locked scene header + angle instruction
+    const retryBanner = retryAttempt > 0 ? [
+      '',
+      `⚠ GENERATION ATTEMPT ${retryAttempt + 1} — STRICT ENFORCEMENT MODE ⚠`,
+      'A previous attempt failed quality checks. This attempt requires exact adherence.',
+      `Product must be: "${ls.productVariant}"`,
+      '',
+    ].join('\n') : ''
+
+    return [
+      retryBanner,
+      `╔═══════════════════════════════════════════════════════════════════════╗`,
+      `║  FRAME ${String(frameIndex + 1).padStart(2)}/${totalFrames}  │  ORBIT: ${angleDeg}°  │  ${shotDirection.toUpperCase()} VIEW${' '.repeat(Math.max(0, 25 - String(angleDeg).length - shotDirection.length))}║`,
+      `╚═══════════════════════════════════════════════════════════════════════╝`,
+      '',
+      '▶ THIS IS NOT A NEW PRODUCT IMAGE.',
+      '▶ This is the SAME locked product scene photographed from a different angle.',
+      '▶ THE ONLY CHANGE IS THE CAMERA ORBIT ANGLE.',
+      '',
+      serializeLockedSceneToPrompt(ls),
+      '',
+      '═══════════════════════════════════════════════════════════════════════',
+      `CURRENT FRAME INSTRUCTION:`,
+      '═══════════════════════════════════════════════════════════════════════',
+      '',
+      `Frame ${frameIndex + 1} of ${totalFrames} in this 360° spin sequence.`,
+      `Camera orbit angle: ${angleDeg}° (${shotDirection} view)`,
+      `The turntable has rotated ${angleDeg}° clockwise from the front position.`,
+      'The product, vessel, table, background, and lighting are ALL unchanged.',
+      '',
+      'Render this exact physical scene from the specified camera angle.',
+      'Ultra-realistic professional product photography, 6K sharp detail.',
+      'No text, no watermarks, no people. Premium commercial quality.',
+    ].filter(l => l !== null && l !== undefined).join('\n')
+  }
+
+  // ── Legacy path: blueprint without lockedScene ───────────────────────────────
   const isFood = blueprint.productCategory === 'food_bowl'
   const analysis = blueprint.masterFrameAnalysis
 

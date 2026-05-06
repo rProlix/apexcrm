@@ -33,6 +33,12 @@ import {
   getShotDirection,
 } from '@/lib/ai/360/buildLockedFramePrompt'
 import { analyzeMasterFrame }                from '@/lib/ai/360/masterFrameAnalyzer'
+import { buildSceneContract }                from '@/lib/ai/360/sceneContractBuilder'
+import {
+  validateFrameAgainstLockedScene,
+  shouldValidateFrame,
+} from '@/lib/ai/360/frameConsistencyValidator'
+import { hasLockedScene, getLockedScene }    from '@/lib/product-360/lockedSceneVariables'
 import type { P360GenerationConfig }          from '@/lib/ai/360/types'
 
 export const dynamic     = 'force-dynamic'
@@ -264,39 +270,56 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   const subject = normalizeProductSubject(productName, productDesc, categoryPreset)
 
-  // Safe blueprint — never crashes on missing nested fields
-  const blueprint = normalizeSceneBlueprint(pkg.scene_blueprint, subject, genConfig)
+  console.info(`[P360] pump:blueprint-normalizing subject="${productName}"`)
 
-  console.info(
-    `[P360] pump:blueprint-normalized hasVessel=${!!blueprint.subject.vessel} ` +
-    `vessel="${blueprint.subject.vessel}" subject="${blueprint.subject.name}"`,
-  )
+  const consistencyMode = (pkg.consistency_mode as string) ?? 'strict'
 
-  // Persist the repaired/normalized blueprint back to the DB if the stored one
-  // was missing required nested fields (prevents repeated repair on each pump call).
-  const rawBp = pkg.scene_blueprint as Record<string, unknown> | null
-  const blueprintNeedsRepair = !rawBp
-    || typeof rawBp !== 'object'
-    || !rawBp.subject
-    || !(rawBp.subject as Record<string, unknown>).vessel
+  // ── Scene contract: build BEFORE frame 0 if missing ─────────────────────
+  //
+  // The scene contract (Product360LockedScene) is the strict per-field lock
+  // that prevents product variant drift (e.g. cheese pizza → combo pizza).
+  // It is built once per package using Gemini text, then stored in the blueprint.
+  //
+  // We run this for every package except 'standard' mode, whenever the
+  // lockedScene field is absent or empty.
+  //
+  // The call takes ~3-5 seconds and only happens on the first pump call
+  // (or on the first pump call after a schema upgrade).
 
-  if (blueprintNeedsRepair) {
-    console.info(`[P360] pump:blueprint-repair packageId=${packageId} — persisting repaired blueprint`)
-    await db.from('product_360_packages').update({
-      scene_blueprint: blueprint,
-      updated_at:      new Date().toISOString(),
-    }).eq('id', packageId)
+  let blueprint = normalizeSceneBlueprint(pkg.scene_blueprint, subject, genConfig)
+
+  if (consistencyMode !== 'standard' && !hasLockedScene(blueprint as unknown as Record<string, unknown>)) {
+    console.info(`[P360] pump:scene-contract-build start packageId=${packageId}`)
+    try {
+      const orbitDir = genConfig.turnDirection === 'counter_clockwise' ? 'counterclockwise' : 'clockwise'
+      const lockedScene = await buildSceneContract(subject, genConfig, null, totalFrames, orbitDir)
+      if (lockedScene) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(blueprint as any).lockedScene = lockedScene
+        console.info(`[P360] pump:scene-contract-built variant="${lockedScene.productVariant}"`)
+      }
+    } catch (scErr) {
+      console.warn(`[P360] pump:scene-contract-build warn: ${scErr instanceof Error ? scErr.message : scErr}`)
+    }
   }
 
   // Build (or reuse stored) locked generation prompt
-  const lockedPrompt: string =
-    (typeof pkg.locked_generation_prompt === 'string' && (pkg.locked_generation_prompt as string).trim().length > 50)
-      ? (pkg.locked_generation_prompt as string)
-      : buildLockedGenerationPrompt(subject, genConfig, blueprint)
+  // Always rebuild from blueprint to pick up the new lockedScene if just built
+  const hasStoredPrompt = typeof pkg.locked_generation_prompt === 'string' && (pkg.locked_generation_prompt as string).trim().length > 50
+  const hasNewLockedScene = hasLockedScene(blueprint as unknown as Record<string, unknown>)
 
-  // Persist locked prompt if it was missing
-  if (!pkg.locked_generation_prompt || (pkg.locked_generation_prompt as string).trim().length < 50) {
+  // Rebuild prompt if: no stored prompt, OR new lockedScene was just added (which makes it much better)
+  let lockedPrompt: string
+  if (!hasStoredPrompt || (hasNewLockedScene && !(pkg.scene_blueprint as Record<string, unknown>)?.lockedScene)) {
+    lockedPrompt = buildLockedGenerationPrompt(subject, genConfig, blueprint)
+  } else {
+    lockedPrompt = hasStoredPrompt ? (pkg.locked_generation_prompt as string) : buildLockedGenerationPrompt(subject, genConfig, blueprint)
+  }
+
+  // Persist blueprint + locked prompt (includes lockedScene if just built)
+  if (!hasStoredPrompt || hasNewLockedScene) {
     await db.from('product_360_packages').update({
+      scene_blueprint:          blueprint,
       locked_generation_prompt: lockedPrompt,
       updated_at:               new Date().toISOString(),
     }).eq('id', packageId)
@@ -406,27 +429,39 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
   }
 
-  // ── Auto-retry helper ─────────────────────────────────────────────────────
+  // ── Auto-retry + drift-detection loop ────────────────────────────────────
+  //
+  // For strict/ultra_strict packages:
+  //   1. Generate frame
+  //   2. Validate against locked scene contract (vision API)
+  //   3. If drift detected → regenerate with corrective prompt
+  //   4. If still bad after MAX_FRAME_RETRIES → mark frame failed, continue
+  //
+  // Validation is only run for non-master frames in strict/ultra_strict mode.
+  // Standard mode skips validation to save API quota.
+
   const MAX_FRAME_RETRIES = parseInt(process.env.P360_FRAME_MAX_RETRIES ?? '2', 10) || 2
+  const lockedSceneForValidation = getLockedScene(blueprint as unknown as Record<string, unknown>)
+
   let lastFrameError: Error | null = null
   let result = null
   let actualAttempt = 0
+  let lastDriftDetails: string | undefined
 
   for (let attempt = 0; attempt <= MAX_FRAME_RETRIES; attempt++) {
     actualAttempt = attempt
     if (attempt > 0) {
-      console.info(`[P360] pump:retry attempt=${attempt + 1} frame=${nextFrameIndex}`)
-      // Update frame record with retry count
+      console.info(`[P360] pump:retry attempt=${attempt + 1} frame=${nextFrameIndex} drift="${lastDriftDetails ?? ''}"`)
       await db.from('product_360_frames').update({
         generation_attempt: attempt + 1,
         updated_at:         new Date().toISOString(),
       }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
     }
 
-    // Build progressively stricter prompt on retries
+    // Build progressively stricter / drift-corrective prompt on retries
     const retryPrompt = isMasterFrame
       ? buildMasterFramePrompt(subject, genConfig, blueprint)
-      : buildLockedFramePrompt(lockedPrompt, blueprint, angleDeg, nextFrameIndex, totalFrames, shotDirection, attempt)
+      : buildLockedFramePrompt(lockedPrompt, blueprint, angleDeg, nextFrameIndex, totalFrames, shotDirection, attempt, lastDriftDetails)
 
     try {
       console.info(`[P360] pump:provider:start model="${provider.model}" frame=${nextFrameIndex} attempt=${attempt + 1}`)
@@ -439,9 +474,54 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         referenceImageMimeType: masterMime,
       })
 
-      // Success — break retry loop
       lastFrameError = null
+
+      // ── Drift detection for non-master frames ──────────────────────────
+      if (!isMasterFrame && lockedSceneForValidation && shouldValidateFrame(consistencyMode, isMasterFrame, attempt + 1)) {
+        const frameBase64 = result.imageBuffer?.toString('base64')
+        if (frameBase64) {
+          const frameMime = (result.mimeType ?? 'image/png') as 'image/png' | 'image/jpeg'
+          const validation = await validateFrameAgainstLockedScene(frameBase64, frameMime, lockedSceneForValidation)
+
+          if (validation) {
+            console.info(
+              `[P360] pump:validation frame=${nextFrameIndex} score=${validation.score} ` +
+              `passed=${validation.passed} drift=${validation.detectedVariantDrift}`,
+            )
+
+            // Save validation result to frame record
+            await db.from('product_360_frames').update({
+              consistency_score:    validation.score,
+              consistency_details:  { score: validation.score, passed: validation.passed, issues: validation.issues, driftDetails: validation.driftDetails, attempt: attempt + 1 },
+              updated_at:           new Date().toISOString(),
+            }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
+
+            if (validation.shouldRegenerate && attempt < MAX_FRAME_RETRIES) {
+              lastDriftDetails = validation.driftDetails || validation.issues.join('; ')
+              console.warn(
+                `[P360] pump:drift-detected frame=${nextFrameIndex} attempt=${attempt + 1} ` +
+                `details="${lastDriftDetails}" — regenerating`,
+              )
+              result = null   // signal that we need to retry
+              continue        // go to next attempt
+            }
+
+            if (validation.detectedVariantDrift && !validation.passed && attempt >= MAX_FRAME_RETRIES) {
+              // Final attempt still has drift — save error but allow frame to proceed
+              // (better to have a slightly inconsistent frame than a failed package)
+              await db.from('product_360_frames').update({
+                error_message: `Consistency failed: ${validation.driftDetails || validation.issues.join('; ')}`,
+                updated_at:    new Date().toISOString(),
+              }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
+              console.warn(`[P360] pump:validation-failed-final frame=${nextFrameIndex} — accepting frame with warning`)
+            }
+          }
+        }
+      }
+
+      // Frame is accepted — break retry loop
       break
+
     } catch (e) {
       lastFrameError = e instanceof Error ? e : new Error(String(e))
       // Don't retry quota errors — they need to pause the whole package
@@ -465,6 +545,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
       if (analysis) {
         const enrichedBlueprint = enrichBlueprintWithAnalysis(blueprint, analysis)
+
+        // Also mark lockedScene as vision-enriched if present
+        const existingLS = getLockedScene(enrichedBlueprint as unknown as Record<string, unknown>)
+        if (existingLS) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(enrichedBlueprint as any).lockedScene = { ...existingLS, analysisSource: 'gemini_vision_enriched' }
+        }
+
         const enrichedLockedPrompt = buildLockedGenerationPrompt(subject, genConfig, enrichedBlueprint)
 
         await db.from('product_360_packages').update({
@@ -474,6 +562,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           analysis_version:         2,
           updated_at:               new Date().toISOString(),
         }).eq('id', packageId)
+
+        // Update local blueprint for subsequent steps
+        blueprint = enrichedBlueprint
 
         console.info(
           `[P360] pump:blueprint-enriched analysisVersion=2 ` +
@@ -532,7 +623,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       status:                  'completed',
       prompt_used:             (isMasterFrame
         ? buildMasterFramePrompt(subject, genConfig, blueprint)
-        : buildLockedFramePrompt(lockedPrompt, blueprint, angleDeg, nextFrameIndex, totalFrames, shotDirection, actualAttempt)
+        : buildLockedFramePrompt(lockedPrompt, blueprint, angleDeg, nextFrameIndex, totalFrames, shotDirection, actualAttempt, lastDriftDetails)
       ).slice(0, 4000),
       is_master_frame:         isMasterFrame,
       generation_attempt:      actualAttempt + 1,

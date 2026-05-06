@@ -144,7 +144,7 @@ export interface P360Package {
   /** The full locked scene description template used for all non-master frames. */
   locked_generation_prompt:  string | null
   /** 'standard' or 'strict' (default). Controls how forceful the locking language is. */
-  consistency_mode:          'standard' | 'strict'
+  consistency_mode:          'standard' | 'strict' | 'ultra_strict'
   // ── Config blobs ───────────────────────────────────────────────────────────
   settings:             Record<string, unknown>
   hotspot_config:       P360HotspotConfig[]

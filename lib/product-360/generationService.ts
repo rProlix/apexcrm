@@ -47,7 +47,9 @@ import {
   getFrameAngle,
   getShotDirection,
 } from '@/lib/ai/360/buildLockedFramePrompt'
-import { analyzeMasterFrame } from '@/lib/ai/360/masterFrameAnalyzer'
+import { analyzeMasterFrame }  from '@/lib/ai/360/masterFrameAnalyzer'
+import { buildSceneContract }  from '@/lib/ai/360/sceneContractBuilder'
+import { hasLockedScene, getLockedScene } from '@/lib/product-360/lockedSceneVariables'
 import { normalizeAiError } from '@/lib/ai/normalizeAiError'
 import type { P360GenerationConfig, P360ProductDescriptor } from '@/lib/ai/360/types'
 
@@ -183,12 +185,36 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
   // Old blueprints in the DB may be missing nested fields (e.g. subject.vessel),
   // which causes "Cannot read properties of undefined (reading 'vessel')" crashes
   // in the prompt builders.  normalizeSceneBlueprint deep-merges with safe defaults.
-  const blueprint = normalizeSceneBlueprint(pkg.scene_blueprint, subject, genConfig)
+  let blueprint = normalizeSceneBlueprint(pkg.scene_blueprint, subject, genConfig)
 
-  let lockedPrompt: string =
-    (typeof pkg.locked_generation_prompt === 'string' && (pkg.locked_generation_prompt as string).trim().length > 50)
-      ? (pkg.locked_generation_prompt as string)
-      : buildLockedGenerationPrompt(subject, genConfig, blueprint)
+  const consistencyMode = (pkg.consistency_mode as string) ?? 'strict'
+
+  // ── Scene contract (Product360LockedScene): build once before frame 0 ──────
+  // This pre-planning step prevents product variant drift (cheese vs combo pizza).
+  // Gemini text picks ONE exact version and locks every visual detail.
+  if (consistencyMode !== 'standard' && !hasLockedScene(blueprint as unknown as Record<string, unknown>)) {
+    try {
+      const orbitDir = genConfig.turnDirection === 'counter_clockwise' ? 'counterclockwise' : 'clockwise'
+      const lockedScene = await buildSceneContract(subject, genConfig, null, totalFrames, orbitDir)
+      if (lockedScene) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(blueprint as any).lockedScene = lockedScene
+        console.info(`[p360:generate] scene-contract-built variant="${lockedScene.productVariant}"`)
+      }
+    } catch (scErr) {
+      console.warn(`[p360:generate] scene-contract-build warn: ${scErr instanceof Error ? scErr.message : scErr}`)
+    }
+  }
+
+  // Always rebuild prompt after potential lockedScene injection
+  let lockedPrompt: string
+  const hasStoredPrompt = typeof pkg.locked_generation_prompt === 'string' && (pkg.locked_generation_prompt as string).trim().length > 50
+  const hasNewLS = hasLockedScene(blueprint as unknown as Record<string, unknown>)
+  if (!hasStoredPrompt || (hasNewLS && !(pkg.scene_blueprint as Record<string, unknown>)?.lockedScene)) {
+    lockedPrompt = buildLockedGenerationPrompt(subject, genConfig, blueprint)
+  } else {
+    lockedPrompt = hasStoredPrompt ? (pkg.locked_generation_prompt as string) : buildLockedGenerationPrompt(subject, genConfig, blueprint)
+  }
 
   console.info(
     `[p360:generate] pkg=${packageId} frames=${totalFrames} delayMs=${delayMs} ` +
@@ -408,7 +434,15 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
       try {
         const analysis = await analyzeMasterFrame(masterFrameBase64, masterFrameMime)
         if (analysis) {
-          const enrichedBlueprint    = enrichBlueprintWithAnalysis(blueprint, analysis)
+          const enrichedBlueprint = enrichBlueprintWithAnalysis(blueprint, analysis)
+
+          // Mark lockedScene as vision-enriched if present
+          const existingLS = getLockedScene(enrichedBlueprint as unknown as Record<string, unknown>)
+          if (existingLS) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ;(enrichedBlueprint as any).lockedScene = { ...existingLS, analysisSource: 'gemini_vision_enriched' }
+          }
+
           const enrichedLockedPrompt = buildLockedGenerationPrompt(subject, genConfig, enrichedBlueprint)
 
           await db.from('product_360_packages').update({
