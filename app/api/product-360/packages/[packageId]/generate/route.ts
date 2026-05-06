@@ -99,38 +99,51 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
   }
 
-  // ── Verify AI provider is configured ───────────────────────────────────────
-  const provider = getP360Provider()
-  if (!provider) {
-    return NextResponse.json({
-      ok: false,
-      error: {
-        type:      'auth_error',
-        title:     'AI not configured',
-        message:   'Set GEMINI_API_KEY in your environment variables to enable AI generation.',
-        retryable: false,
-      },
-    }, { status: 503 })
-  }
-
-  // ── Set queued so the UI sees state change immediately ──────────────────────
-  // Also clear cancel_requested so the generation loop doesn't exit immediately.
+  // ── Set queued FIRST so the UI sees state change immediately ──────────────────
+  // Done before the provider check so any subsequent failure sets status → 'failed'
+  // in the DB, which fetchPackages() will pick up. Without this order, a missing
+  // API key left the package in 'draft' indefinitely with no visible error.
   const existingDone = (pkg as Record<string, unknown>).frames_done as number ?? 0
   await db
     .from('product_360_packages')
     .update({
       status:              'queued',
       generation_error:    null,
+      last_error_message:  null,
       cancel_requested:    false,
       cancel_requested_at: null,
       cancelled_at:        null,
-      // Preserve frames_done from prior completed work (resume path)
       frames_done:         existingDone,
       updated_at:          new Date().toISOString(),
     })
     .eq('id', packageId)
 
-  console.info(`[p360:generate/route] pkg=${packageId} queued (status was: ${currentStatus}), starting generation…`)
+  console.info(`[p360:generate/route] pkg=${packageId} queued (was: ${currentStatus}), verifying provider…`)
+
+  // ── Verify AI provider is configured ────────────────────────────────────────
+  // Checked AFTER the status update so failures land in DB as 'failed' (not 'draft').
+  const provider = getP360Provider()
+  if (!provider) {
+    const errMsg = 'AI image generation is not configured. Add GEMINI_API_KEY to your Vercel environment variables (Settings → Environment Variables).'
+    await db.from('product_360_packages').update({
+      status:             'failed',
+      generation_error:   errMsg,
+      last_error_message: errMsg,
+      updated_at:         new Date().toISOString(),
+    }).eq('id', packageId)
+    console.error(`[p360:generate/route] pkg=${packageId} — provider not configured, marked failed`)
+    return NextResponse.json({
+      ok: false,
+      error: {
+        type:      'auth_error',
+        title:     'AI not configured',
+        message:   errMsg,
+        retryable: false,
+      },
+    }, { status: 503 })
+  }
+
+  console.info(`[p360:generate/route] pkg=${packageId} provider="${provider.name}" model="${provider.model}", starting…`)
 
   // ── Run generation synchronously ────────────────────────────────────────────
   const result = await generatePackage(packageId)

@@ -291,12 +291,33 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
     if (!completedIndices.has(0)) {
       console.info(`[p360:generate] pkg=${packageId} STAGE A: generating master frame (0°)…`)
 
+      // Mark frame as 'generating' before the API call so the status grid is live
+      await db.from('product_360_frames').upsert({
+        package_id: packageId, tenant_id: tenantId, product_id: productId,
+        frame_index: 0, angle_degrees: 0,
+        status: 'generating',
+        generation_started_at: new Date().toISOString(),
+        is_master_frame: true,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'package_id,frame_index' })
+
       const masterPrompt = buildMasterFramePrompt(subject, genConfig, blueprint)
-      const masterResult = await provider.generateFrame({
-        prompt:  masterPrompt,
-        width:   genConfig.outputWidth  ?? 1024,
-        height:  genConfig.outputHeight ?? 1024,
-      })
+      let masterResult
+      try {
+        masterResult = await provider.generateFrame({
+          prompt:  masterPrompt,
+          width:   genConfig.outputWidth  ?? 1024,
+          height:  genConfig.outputHeight ?? 1024,
+        })
+      } catch (err) {
+        // Mark the frame as failed so the status grid shows the failure
+        await db.from('product_360_frames').update({
+          status: 'failed',
+          error_message: err instanceof Error ? err.message : 'Provider call failed',
+          updated_at: new Date().toISOString(),
+        }).eq('package_id', packageId).eq('frame_index', 0)
+        throw err  // re-throw so the outer catch handles package status
+      }
 
       const masterMime = masterResult.mimeType ?? 'image/png'
       const masterExt  = masterMime.includes('jpeg') ? 'jpg' : 'png'
@@ -325,15 +346,19 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
         package_id: packageId, tenant_id: tenantId, product_id: productId,
         frame_index: 0, angle_degrees: 0,
         image_url: masterUrl, storage_path: masterPath,
-        prompt_used: buildMasterFramePrompt(subject, genConfig, blueprint).slice(0, 4000),
+        status: 'completed',
+        prompt_used: masterPrompt.slice(0, 4000),
         is_master_frame: true, generation_attempt: 1,
         alt_text: `${subject.name} – front view (master)`,
         metadata: { angleDeg: 0, shotDirection: 'front', isMaster: true },
+        generation_finished_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       }, { onConflict: 'package_id,frame_index' })
 
       await db.from('product_360_packages').update({
         master_frame_url: masterUrl, master_frame_generated: true,
         frames_done: 1, progress_percent: Math.round((1 / totalFrames) * 100),
+        last_generation_heartbeat: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }).eq('id', packageId)
 
@@ -380,13 +405,34 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
       // Throttle: wait before each frame (except the very first after master)
       if (frameIndex > 1) await sleep(delayMs)
 
-      const frameResult = await provider.generateFrame({
-        prompt:                 framePrompt,
-        width:                  genConfig.outputWidth  ?? 1024,
-        height:                 genConfig.outputHeight ?? 1024,
-        referenceImageBase64:   masterFrameBase64,
-        referenceImageMimeType: masterFrameMime,
-      })
+      // Mark frame as 'generating' before the API call
+      await db.from('product_360_frames').upsert({
+        package_id: packageId, tenant_id: tenantId, product_id: productId,
+        frame_index: frameIndex, angle_degrees: angleDeg,
+        status: 'generating',
+        generation_started_at: new Date().toISOString(),
+        is_master_frame: false,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'package_id,frame_index' })
+
+      let frameResult
+      try {
+        frameResult = await provider.generateFrame({
+          prompt:                 framePrompt,
+          width:                  genConfig.outputWidth  ?? 1024,
+          height:                 genConfig.outputHeight ?? 1024,
+          referenceImageBase64:   masterFrameBase64,
+          referenceImageMimeType: masterFrameMime,
+        })
+      } catch (err) {
+        // Mark frame failed without stopping the package — re-throw so outer catch handles
+        await db.from('product_360_frames').update({
+          status: 'failed',
+          error_message: err instanceof Error ? err.message : 'Provider call failed',
+          updated_at: new Date().toISOString(),
+        }).eq('package_id', packageId).eq('frame_index', frameIndex)
+        throw err
+      }
 
       const mimeType = frameResult.mimeType ?? 'image/png'
       const ext      = mimeType.includes('jpeg') ? 'jpg' : 'png'
@@ -410,10 +456,13 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
         package_id: packageId, tenant_id: tenantId, product_id: productId,
         frame_index: frameIndex, angle_degrees: angleDeg,
         image_url: uploadedUrl, storage_path: storagePath,
+        status: 'completed',
         prompt_used: framePrompt.slice(0, 4000),
         is_master_frame: false, generation_attempt: 1,
         alt_text: `${subject.name} – ${shotDirection} view`,
         metadata: { angleDeg, shotDirection },
+        generation_finished_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       }, { onConflict: 'package_id,frame_index' })
 
       framesGenerated++
@@ -423,18 +472,19 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
         `[p360:generate] pkg=${packageId} frame ${framesGenerated}/${totalFrames} done (${angleDeg}°)`,
       )
 
-      // Update progress every 3 frames or on the last frame
+      // Update progress + heartbeat every 3 frames or on the last frame
       if (framesGenerated % 3 === 0 || framesGenerated === totalFrames) {
         const progressPct = Math.min(100, Math.round((framesGenerated / totalFrames) * 100))
         await db.from('product_360_packages').update({
           frames_done: framesGenerated, progress_percent: progressPct,
+          last_generation_heartbeat: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }).eq('id', packageId)
       }
 
       if (jobId) {
         await db.from('product_360_generation_jobs')
-          .update({ frames_completed: framesGenerated }).eq('id', jobId)
+          .update({ frames_completed: framesGenerated, updated_at: new Date().toISOString() }).eq('id', jobId)
       }
     }
 
@@ -716,6 +766,12 @@ async function markFailed(packageId: string, errorMessage: string): Promise<void
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase as any)
     .from('product_360_packages')
-    .update({ status: 'failed', generation_error: errorMessage, updated_at: new Date().toISOString() })
+    .update({
+      status:             'failed',
+      generation_error:   errorMessage,
+      last_error_message: errorMessage,
+      updated_at:         new Date().toISOString(),
+    })
     .eq('id', packageId)
+  console.error(`[p360:generate] pkg=${packageId} → failed: ${errorMessage}`)
 }

@@ -460,6 +460,28 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
     }
   }
 
+  async function handleRequeue(pkgId: string) {
+    setGeneratingId(pkgId)
+    try {
+      const res  = await fetch(`/api/product-360/packages/${pkgId}/requeue`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ tenantId }),
+      })
+      const json = await res.json() as Record<string, unknown>
+      if (!res.ok) {
+        const errMsg = ((json.error as Record<string, unknown> | undefined)?.message as string | undefined) ?? 'Failed to requeue package'
+        setPackages(prev => prev.map(p => p.id === pkgId ? { ...p, generation_error: errMsg } : p))
+      } else {
+        fetchPackages(tenantId, selectedProd?.id)
+      }
+    } catch {
+      setPackages(prev => prev.map(p => p.id === pkgId ? { ...p, generation_error: 'Network error' } : p))
+    } finally {
+      setGeneratingId(null)
+    }
+  }
+
   async function handleUnarchivePackage(pkgId: string) {
     setArchiveError(null)
     setUnarchivingId(pkgId)
@@ -820,6 +842,7 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
                 onSetDefault={handleSetDefault}
                 onArchive={handleArchive}
                 onUnarchive={handleUnarchivePackage}
+                onRequeue={handleRequeue}
                 onPreview={handlePreview}
                 onDuplicate={p => { setShowDuplicate(p); setDupName(`${p.name} (Copy)`) }}
                 onUpload={pkgId => { setUploadingFor(pkgId); setUploadIdx(0); fileInputRef.current?.click() }}
@@ -1125,6 +1148,7 @@ interface PackageCardProps {
   onSetDefault:       (pkg: P360PackageSummary) => void
   onArchive:          (pkg: P360PackageSummary) => void
   onUnarchive:        (id: string) => void
+  onRequeue:          (id: string) => void
   onPreview:          (id: string) => void
   onDuplicate:        (pkg: P360PackageSummary) => void
   onUpload:           (id: string) => void
@@ -1138,7 +1162,7 @@ interface PackageCardProps {
 
 function PackageCard({
   pkg, completedFrameUrls, onGenerate, onRegenerate, onToggleEnabled, onSetDefault,
-  onArchive, onUnarchive, onPreview, onDuplicate, onUpload, onCancel,
+  onArchive, onUnarchive, onRequeue, onPreview, onDuplicate, onUpload, onCancel,
   generatingId, cancellingId, archivingId, unarchivingId, previewLoading,
 }: PackageCardProps) {
   const isArchived = pkg.status === 'archived'
@@ -1310,11 +1334,19 @@ function PackageCard({
         </div>
       )}
 
-      {/* Standard error */}
-      {pkg.generation_error && pkg.status !== 'paused_quota' && pkg.status !== 'cancelled' && (
-        <div className="flex items-start gap-2 rounded-lg bg-red-500/8 border border-red-500/15 px-3 py-2">
-          <AlertCircle className="h-3 w-3 text-red-400 mt-0.5 shrink-0" />
-          <p className="text-xs text-red-400 line-clamp-2">{pkg.generation_error}</p>
+      {/* Generation error (failed / paused) */}
+      {(pkg.generation_error || (pkg as P360Package).last_error_message) &&
+        pkg.status !== 'cancelled' && (
+        <div className="rounded-lg bg-red-500/8 border border-red-500/15 px-3 py-2.5 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <AlertCircle className="h-3 w-3 text-red-400 shrink-0" />
+            <p className="text-xs font-semibold text-red-400">
+              {pkg.status === 'paused_quota' ? 'Quota exceeded' : 'Generation failed'}
+            </p>
+          </div>
+          <p className="text-[10px] text-red-300/80 leading-relaxed break-words">
+            {pkg.generation_error ?? (pkg as P360Package).last_error_message}
+          </p>
         </div>
       )}
 
@@ -1385,6 +1417,16 @@ function PackageCard({
             icon={generatingId === pkg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
             label="Retry"
             highlight
+          />
+        )}
+
+        {/* Reset Stuck: stale-generating packages that need frame reset */}
+        {isStale && (
+          <ActionBtn
+            onClick={() => onRequeue(pkg.id)}
+            disabled={generatingId === pkg.id}
+            icon={generatingId === pkg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            label="Reset Stuck"
           />
         )}
 
