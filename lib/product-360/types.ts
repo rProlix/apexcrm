@@ -16,6 +16,16 @@ export type P360Status =
   | 'cancelled'
   | 'archived'
 
+export type P360FrameStatus =
+  | 'pending'
+  | 'queued'
+  | 'generating'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'skipped'
+  | 'archived'
+
 export type P360PackageType =
   | 'ai_generated'
   | 'uploaded_frames'
@@ -111,6 +121,17 @@ export interface P360Package {
   last_error_message:        string | null
   /** Raw/technical error detail for collapsible "View details" UI. */
   last_error_details:        string | null
+  // ── Archive support (added migration 041) ────────────────────────────────────
+  /** ISO timestamp when the package was soft-archived. */
+  archived_at:               string | null
+  /** User ID who archived the package. */
+  archived_by:               string | null
+  /** Optional reason for archiving. */
+  archive_reason:            string | null
+  /** Queue ordering position within the tenant (populated by queue management). */
+  queue_position:            number | null
+  /** ISO timestamp when the package entered the 'queued' status. */
+  queued_at:                 string | null
   // ── Locked scene spec (added migration 037) ────────────────────────────────
   /** URL of the canonical 0° master frame used as a visual anchor for all frames. */
   master_frame_url:          string | null
@@ -169,8 +190,17 @@ export interface P360Frame {
   needs_regeneration:  boolean
   /** Optional 0–1 score from post-processing consistency checks. */
   consistency_score:   number | null
-  created_at:          string
-  updated_at:          string
+  // ── Frame lifecycle (added migration 041) ────────────────────────────────────
+  status:                  P360FrameStatus
+  archived_at:             string | null
+  queue_position:          number | null
+  queued_at:               string | null
+  generation_started_at:   string | null
+  generation_finished_at:  string | null
+  error_type:              string | null
+  error_message:           string | null
+  created_at:              string
+  updated_at:              string
 }
 
 export interface P360Hotspot {

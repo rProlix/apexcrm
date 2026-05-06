@@ -3,8 +3,7 @@
 // SERVER-ONLY.
 
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { deletePackageStorage }    from './storage'
-import type { P360Package, P360PackageSummary, P360PackageWithFrames, P360Frame, P360Hotspot } from './types'
+import type { P360Package, P360PackageSummary, P360PackageWithFrames, P360Frame, P360Hotspot, P360Status } from './types'
 
 const db = () => getSupabaseServerClient()
 
@@ -345,19 +344,95 @@ export async function duplicatePackage(
 }
 
 export async function archivePackage(
-  packageId: string,
-  tenantId:  string,
-  productId: string,
+  packageId:  string,
+  tenantId:   string,
+  _productId: string,  // kept for backwards-compat; storage is NO LONGER deleted on archive
+  opts?: { archivedBy?: string | null; archiveReason?: string | null },
 ): Promise<void> {
   const supabase = db()
   await s(supabase)
     .from('product_360_packages')
-    .update({ status: 'archived', is_enabled: false, updated_at: new Date().toISOString() })
+    .update({
+      status:         'archived',
+      is_enabled:     false,
+      archived_at:    new Date().toISOString(),
+      archived_by:    opts?.archivedBy    ?? null,
+      archive_reason: opts?.archiveReason ?? null,
+      updated_at:     new Date().toISOString(),
+    })
     .eq('id', packageId)
     .eq('tenant_id', tenantId)
+  // Storage images are NOT deleted — archive is soft-only.
+  // Use the hard-delete endpoint to permanently remove frames + storage.
+}
 
-  // Best-effort storage cleanup
-  await deletePackageStorage(tenantId, productId, packageId)
+/**
+ * Restore an archived package to its most appropriate pre-archive status.
+ *
+ * Restore rules (in priority order):
+ *  1. cancel_requested = true  → cancelled
+ *  2. last_error_message set   → failed
+ *  3. All frames completed     → ready
+ *  4. Some frames completed    → failed (partial, can be resumed)
+ *  5. No frames                → draft
+ */
+export async function unarchivePackage(
+  packageId: string,
+  tenantId:  string,
+): Promise<P360Package> {
+  const supabase = db()
+
+  const { data: pkg } = await s(supabase)
+    .from('product_360_packages')
+    .select('id, status, cancel_requested, last_error_message, frames_done, target_frame_count, frame_count')
+    .eq('id', packageId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+
+  if (!pkg) throw new Error('Package not found or access denied')
+  if ((pkg as Record<string, unknown>).status !== 'archived') {
+    throw new Error(`Cannot unarchive — package status is "${(pkg as Record<string, unknown>).status}"`)
+  }
+
+  // Count actual completed frames (most accurate source of truth)
+  const { data: frames } = await s(supabase)
+    .from('product_360_frames')
+    .select('id')
+    .eq('package_id', packageId)
+    .not('image_url', 'is', null)
+
+  const completedCount = (frames ?? []).length
+  const targetCount    = ((pkg as Record<string, unknown>).target_frame_count as number)
+                      || ((pkg as Record<string, unknown>).frame_count        as number)
+                      || 0
+
+  let restoreStatus: P360Status = 'draft'
+  if ((pkg as Record<string, unknown>).cancel_requested) {
+    restoreStatus = 'cancelled'
+  } else if ((pkg as Record<string, unknown>).last_error_message) {
+    restoreStatus = 'failed'
+  } else if (completedCount > 0 && targetCount > 0 && completedCount >= targetCount) {
+    restoreStatus = 'ready'
+  } else if (completedCount > 0) {
+    restoreStatus = 'failed'
+  }
+
+  const { data, error } = await s(supabase)
+    .from('product_360_packages')
+    .update({
+      status:         restoreStatus,
+      archived_at:    null,
+      archived_by:    null,
+      archive_reason: null,
+      updated_at:     new Date().toISOString(),
+    })
+    .eq('id', packageId)
+    .eq('tenant_id', tenantId)
+    .select('*')
+    .single()
+
+  if (error) throw new Error(`unarchivePackage: ${error.message}`)
+  return data as P360Package
 }
 
 /**

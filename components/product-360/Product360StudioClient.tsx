@@ -6,15 +6,15 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Rotate3D, Plus, Trash2, Zap, Upload, Eye, EyeOff,
   Star, StarOff, RefreshCw, AlertCircle, X, Loader2,
-  Search, Package, ChevronDown, Copy, Archive,
+  Search, Package, ChevronDown, Copy, Archive, ArchiveRestore,
   SlidersHorizontal, ChevronRight, Image as ImageIcon,
-  Check, Lock, Sparkles, Square, Clock,
+  Check, Lock, Sparkles, Square, Clock, LayoutGrid,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import Product360ViewerClient from './Product360ViewerClient'
 import Product360SequencePreview from './Product360SequencePreview'
 import { Product360ViewerErrorBoundary } from './Product360ViewerErrorBoundary'
-import type { P360Package, P360Frame, P360PackageSummary, P360StoreProduct } from '@/lib/product-360/types'
+import type { P360Package, P360Frame, P360PackageSummary, P360StoreProduct, P360FrameStatus } from '@/lib/product-360/types'
 import {
   LIGHTING_PRESETS, BACKGROUND_PRESETS, CAMERA_PRESETS,
   CATEGORY_PRESETS, FRAME_COUNT_OPTIONS, TURN_DIRECTION_OPTIONS,
@@ -110,6 +110,16 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
   const [cancellingId,  setCancellingId]  = useState<string | null>(null)
   const [cancelError,   setCancelError]   = useState<string | null>(null)
 
+  // Archive / unarchive
+  const [archiveTarget,    setArchiveTarget]    = useState<P360PackageSummary | null>(null)
+  const [archivingId,      setArchivingId]      = useState<string | null>(null)
+  const [unarchivingId,    setUnarchivingId]    = useState<string | null>(null)
+  const [archiveError,     setArchiveError]     = useState<string | null>(null)
+
+  // Status filter tab — controls which packages are shown in the centre column
+  type StatusFilter = 'all' | 'queued' | 'generating' | 'completed' | 'failed' | 'cancelled' | 'archived'
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+
   // ── Data fetching ─────────────────────────────────────────────────────────
 
   const fetchProducts = useCallback(async (tid: string, search: string, page: number) => {
@@ -139,7 +149,7 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
     setPkgLoading(true)
     setPkgError(null)
     try {
-      const qs = new URLSearchParams({ tenantId: tid })
+      const qs = new URLSearchParams({ tenantId: tid, archived: 'true' })
       if (productId) qs.set('productId', productId)
       const res  = await fetch(`/api/product-360/packages?${qs}`)
       const json = await res.json()
@@ -382,10 +392,8 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
     }
   }
 
-  async function handleArchive(pkg: P360PackageSummary) {
-    if (!confirm(`Archive "${pkg.name}"? This will disable the package.`)) return
-    setPackages(prev => prev.filter(p => p.id !== pkg.id))
-    await fetch(`/api/product-360/packages/${pkg.id}?tenantId=${tenantId}`, { method: 'DELETE' })
+  function handleArchive(pkg: P360PackageSummary) {
+    setArchiveTarget(pkg)
   }
 
   async function handleCancelGeneration(pkgId: string) {
@@ -419,6 +427,59 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
       setCancelError('Network error — could not stop generation. Please try again.')
     } finally {
       setCancellingId(null)
+    }
+  }
+
+  async function handleArchivePackage(pkg: P360PackageSummary, archiveReason?: string) {
+    setArchiveTarget(null)
+    setArchiveError(null)
+    setArchivingId(pkg.id)
+    // Optimistic: mark as archived in the list
+    setPackages(prev => prev.map(p =>
+      p.id === pkg.id ? { ...p, status: 'archived' as const, is_enabled: false } : p,
+    ))
+    try {
+      const res  = await fetch(`/api/product-360/packages/${pkg.id}/archive`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ tenantId, archiveReason: archiveReason ?? null }),
+      })
+      const json = await res.json() as Record<string, unknown>
+      if (!res.ok) {
+        fetchPackages(tenantId, selectedProd?.id)
+        const errObj = (json.error as Record<string, unknown> | undefined) ?? {}
+        setArchiveError((errObj.message as string) ?? 'Failed to archive package.')
+      } else {
+        fetchPackages(tenantId, selectedProd?.id)
+      }
+    } catch {
+      fetchPackages(tenantId, selectedProd?.id)
+      setArchiveError('Network error — could not archive package.')
+    } finally {
+      setArchivingId(null)
+    }
+  }
+
+  async function handleUnarchivePackage(pkgId: string) {
+    setArchiveError(null)
+    setUnarchivingId(pkgId)
+    try {
+      const res  = await fetch(`/api/product-360/packages/${pkgId}/unarchive`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ tenantId }),
+      })
+      const json = await res.json() as Record<string, unknown>
+      if (!res.ok) {
+        const errObj = (json.error as Record<string, unknown> | undefined) ?? {}
+        setArchiveError((errObj.message as string) ?? 'Failed to unarchive package.')
+      }
+      fetchPackages(tenantId, selectedProd?.id)
+    } catch {
+      setArchiveError('Network error — could not unarchive package.')
+      fetchPackages(tenantId, selectedProd?.id)
+    } finally {
+      setUnarchivingId(null)
     }
   }
 
@@ -649,6 +710,40 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
             <span className="text-[10px] text-white/30">{packages.length} total</span>
           </div>
 
+          {/* ── Status summary chips ── */}
+          {(() => {
+            const counts: Record<string, number> = {}
+            for (const p of packages) counts[p.status] = (counts[p.status] ?? 0) + 1
+            const chips = [
+              { filter: 'queued'     as const, label: 'Queue',     color: 'text-sky-400 bg-sky-400/8 border-sky-400/20',         count: (counts.queued ?? 0) + (counts.planning ?? 0) },
+              { filter: 'generating' as const, label: 'Generating', color: 'text-amber-400 bg-amber-400/8 border-amber-400/20',   count: (counts.generating ?? 0) + (counts.processing ?? 0) },
+              { filter: 'completed'  as const, label: 'Done',       color: 'text-emerald-400 bg-emerald-400/8 border-emerald-400/20', count: (counts.ready ?? 0) + (counts.completed ?? 0) },
+              { filter: 'failed'     as const, label: 'Failed',     color: 'text-red-400 bg-red-400/8 border-red-400/20',         count: counts.failed ?? 0 },
+              { filter: 'cancelled'  as const, label: 'Stopped',    color: 'text-white/40 bg-white/4 border-white/10',            count: counts.cancelled ?? 0 },
+              { filter: 'archived'   as const, label: 'Archived',   color: 'text-white/30 bg-white/3 border-white/8',             count: counts.archived ?? 0 },
+            ].filter(c => c.count > 0)
+            if (!chips.length) return null
+            return (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className={`h-6 px-2.5 rounded-full text-[10px] font-medium border transition-colors ${statusFilter === 'all' ? 'text-fuchsia-400 bg-fuchsia-400/10 border-fuchsia-400/20' : 'text-white/30 bg-white/4 border-white/8 hover:text-white'}`}
+                >
+                  All {packages.length}
+                </button>
+                {chips.map(c => (
+                  <button
+                    key={c.filter}
+                    onClick={() => setStatusFilter(c.filter)}
+                    className={`h-6 px-2.5 rounded-full text-[10px] font-medium border transition-colors ${statusFilter === c.filter ? c.color : 'text-white/30 bg-white/4 border-white/8 hover:text-white'}`}
+                  >
+                    {c.label} {c.count}
+                  </button>
+                ))}
+              </div>
+            )
+          })()}
+
           {pkgError && (
             <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
@@ -668,17 +763,53 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
             </div>
           )}
 
-          {pkgLoading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-28 rounded-2xl bg-white/4 border border-white/8 animate-pulse" />
-            ))
-          ) : packages.length === 0 ? (
-            <PackageEmptyState
-              hasProduct={!!selectedProd}
-              onAdd={() => setShowCreate(true)}
-            />
-          ) : (
-            packages.map(pkg => (
+          {archiveError && (
+            <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+                <p className="text-xs text-red-400">{archiveError}</p>
+              </div>
+              <button onClick={() => setArchiveError(null)} className="text-red-400/50 hover:text-red-400 transition-colors shrink-0">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {(() => {
+            // Filter packages by the active status tab
+            const ACTIVE_STATUSES = ['queued', 'planning', 'generating', 'processing']
+            const filtered = packages.filter(p => {
+              if (statusFilter === 'all')       return true
+              if (statusFilter === 'queued')     return ACTIVE_STATUSES.includes(p.status) && (p.status === 'queued' || p.status === 'planning')
+              if (statusFilter === 'generating') return p.status === 'generating' || p.status === 'processing'
+              if (statusFilter === 'completed')  return p.status === 'ready' || p.status === 'completed'
+              if (statusFilter === 'failed')     return p.status === 'failed' || p.status === 'paused_quota'
+              if (statusFilter === 'cancelled')  return p.status === 'cancelled'
+              if (statusFilter === 'archived')   return p.status === 'archived'
+              return true
+            })
+
+            if (pkgLoading) {
+              return Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-28 rounded-2xl bg-white/4 border border-white/8 animate-pulse" />
+              ))
+            }
+            if (filtered.length === 0) {
+              return (
+                statusFilter !== 'all'
+                  ? (
+                    <div className="py-12 text-center rounded-2xl border border-white/6 border-dashed">
+                      <LayoutGrid className="h-6 w-6 text-white/20 mx-auto mb-2" />
+                      <p className="text-xs text-white/30">No {statusFilter} packages</p>
+                      <button onClick={() => setStatusFilter('all')} className="mt-2 text-[10px] text-fuchsia-400 hover:text-fuchsia-300 underline">
+                        Show all
+                      </button>
+                    </div>
+                  )
+                  : <PackageEmptyState hasProduct={!!selectedProd} onAdd={() => setShowCreate(true)} />
+              )
+            }
+            return filtered.map(pkg => (
               <PackageCard
                 key={pkg.id}
                 pkg={pkg}
@@ -688,16 +819,19 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
                 onToggleEnabled={handleToggleEnabled}
                 onSetDefault={handleSetDefault}
                 onArchive={handleArchive}
+                onUnarchive={handleUnarchivePackage}
                 onPreview={handlePreview}
                 onDuplicate={p => { setShowDuplicate(p); setDupName(`${p.name} (Copy)`) }}
                 onUpload={pkgId => { setUploadingFor(pkgId); setUploadIdx(0); fileInputRef.current?.click() }}
                 onCancel={id => setCancelTarget(id)}
                 generatingId={generatingId}
                 cancellingId={cancellingId}
+                archivingId={archivingId}
+                unarchivingId={unarchivingId}
                 previewLoading={previewLoading}
               />
             ))
-          )}
+          })()}
         </div>
 
         {/* RIGHT: Preview + detail */}
@@ -797,6 +931,9 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
                   )
                 })()}
                 <PackageDetailInfo pkg={previewPkg} />
+                {previewPkg.frames.length > 0 && (
+                  <FrameStatusGrid frames={previewPkg.frames} />
+                )}
               </>
             ) : (
               <div className="aspect-square rounded-2xl bg-white/4 border border-white/8 flex flex-col items-center justify-center gap-3 text-center p-6">
@@ -833,6 +970,64 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
           onClose={() => setShowCreate(false)}
         />
       )}
+
+      {/* Archive Package Confirmation Modal */}
+      {archiveTarget && (() => {
+        const isGenerating = ['queued', 'planning', 'generating', 'processing'].includes(archiveTarget.status)
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm premium-panel premium-border rounded-2xl p-6 shadow-panel-lg space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-white/8 border border-white/12 flex items-center justify-center shrink-0">
+                  <Archive className="h-4 w-4 text-white/60" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white">Archive 360 package?</h2>
+                  <p className="text-xs text-white/40 truncate max-w-[200px]">{archiveTarget.name}</p>
+                </div>
+              </div>
+              {isGenerating ? (
+                <div className="flex items-start gap-2 rounded-lg bg-orange-400/8 border border-orange-400/20 px-3 py-2.5">
+                  <AlertCircle className="h-3 w-3 text-orange-400 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-orange-400 leading-relaxed">
+                    This package is currently generating. It will be force-archived and generation will be abandoned.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-white/60 leading-relaxed">
+                  This moves the package out of active views. Completed images are kept. You can unarchive it later.
+                </p>
+              )}
+              {(archiveTarget.frames_done ?? 0) > 0 && (
+                <div className="flex items-center gap-2 rounded-lg bg-teal-400/8 border border-teal-400/15 px-3 py-2">
+                  <Check className="h-3 w-3 text-teal-400 shrink-0" />
+                  <p className="text-[11px] text-teal-400">
+                    {archiveTarget.frames_done} frame{archiveTarget.frames_done !== 1 ? 's' : ''} will be preserved
+                  </p>
+                </div>
+              )}
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setArchiveTarget(null)}
+                  className="flex-1 h-9 rounded-xl text-sm font-medium text-white/60 bg-white/6 border border-white/10 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  Keep Active
+                </button>
+                <button
+                  onClick={() => handleArchivePackage(archiveTarget, isGenerating ? 'Force-archived while generating' : undefined)}
+                  disabled={archivingId === archiveTarget.id}
+                  className="flex-1 h-9 rounded-xl text-sm font-medium text-white/70 bg-white/8 border border-white/15 hover:bg-white/15 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  {archivingId === archiveTarget.id
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Archiving…</>
+                    : <><Archive className="h-3.5 w-3.5" /> Archive Package</>
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Cancel Generation Confirmation Modal */}
       {cancelTarget && (() => {
@@ -929,19 +1124,24 @@ interface PackageCardProps {
   onToggleEnabled:    (pkg: P360PackageSummary) => void
   onSetDefault:       (pkg: P360PackageSummary) => void
   onArchive:          (pkg: P360PackageSummary) => void
+  onUnarchive:        (id: string) => void
   onPreview:          (id: string) => void
   onDuplicate:        (pkg: P360PackageSummary) => void
   onUpload:           (id: string) => void
   onCancel:           (id: string) => void
   generatingId:       string | null
   cancellingId:       string | null
+  archivingId:        string | null
+  unarchivingId:      string | null
   previewLoading:     boolean
 }
 
 function PackageCard({
   pkg, completedFrameUrls, onGenerate, onRegenerate, onToggleEnabled, onSetDefault,
-  onArchive, onPreview, onDuplicate, onUpload, onCancel, generatingId, cancellingId, previewLoading,
+  onArchive, onUnarchive, onPreview, onDuplicate, onUpload, onCancel,
+  generatingId, cancellingId, archivingId, unarchivingId, previewLoading,
 }: PackageCardProps) {
+  const isArchived = pkg.status === 'archived'
   const isActiveGeneration = pkg.status === 'generating' || pkg.status === 'queued' || pkg.status === 'processing' || pkg.status === 'planning'
 
   // Stale detection: generating/queued but no DB update for > 10 min
@@ -1126,6 +1326,20 @@ function PackageCard({
         </p>
       )}
 
+      {/* Archived banner */}
+      {isArchived && (
+        <div className="rounded-lg bg-white/4 border border-white/8 px-3 py-2 flex items-center gap-2">
+          <Archive className="h-3 w-3 text-white/30 shrink-0" />
+          <p className="text-[10px] text-white/30 flex-1">
+            Archived
+            {(pkg as P360Package & { archived_at?: string | null }).archived_at
+              ? ` · ${new Date((pkg as P360Package & { archived_at?: string | null }).archived_at!).toLocaleDateString()}`
+              : ''}
+            {(pkg.frames_done ?? 0) > 0 ? ` · ${pkg.frames_done} frames preserved` : ''}
+          </p>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex items-center gap-1 flex-wrap">
         <ActionBtn onClick={() => onPreview(pkg.id)} disabled={previewLoading} icon={<Eye className="h-3 w-3" />} label="Preview" />
@@ -1216,14 +1430,33 @@ function PackageCard({
           />
         )}
 
-        <ActionBtn onClick={() => onDuplicate(pkg)} icon={<Copy className="h-3 w-3" />} label="Duplicate" />
+        {!isArchived && <ActionBtn onClick={() => onDuplicate(pkg)} icon={<Copy className="h-3 w-3" />} label="Duplicate" />}
 
-        <button
-          onClick={() => onArchive(pkg)}
-          className="ml-auto h-7 w-7 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/8 transition-colors flex items-center justify-center"
-        >
-          <Archive className="h-3 w-3" />
-        </button>
+        {/* Unarchive button for archived packages */}
+        {isArchived && (
+          <ActionBtn
+            onClick={() => onUnarchive(pkg.id)}
+            disabled={unarchivingId === pkg.id}
+            icon={unarchivingId === pkg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArchiveRestore className="h-3 w-3" />}
+            label={unarchivingId === pkg.id ? 'Restoring…' : 'Unarchive'}
+            highlight
+          />
+        )}
+
+        {/* Archive button (non-archived packages) */}
+        {!isArchived && (
+          <button
+            onClick={() => onArchive(pkg)}
+            disabled={archivingId === pkg.id}
+            className="ml-auto h-7 w-7 rounded-lg text-white/20 hover:text-white/50 hover:bg-white/8 disabled:opacity-40 transition-colors flex items-center justify-center"
+            title="Archive package"
+          >
+            {archivingId === pkg.id
+              ? <Loader2 className="h-3 w-3 animate-spin" />
+              : <Archive className="h-3 w-3" />
+            }
+          </button>
+        )}
       </div>
     </div>
   )
@@ -1341,6 +1574,102 @@ function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
       )}
       {pkg.promo_starts_at && <Row label="Promo start" value={new Date(pkg.promo_starts_at).toLocaleDateString()} />}
       {pkg.promo_ends_at   && <Row label="Promo end"   value={new Date(pkg.promo_ends_at).toLocaleDateString()} />}
+    </div>
+  )
+}
+
+// ─── Frame Status Grid ────────────────────────────────────────────────────────
+
+const FRAME_STATUS_STYLES: Record<string, string> = {
+  pending:    'bg-white/10 border-white/15',
+  queued:     'bg-sky-400/20 border-sky-400/30',
+  generating: 'bg-amber-400/20 border-amber-400/30',
+  completed:  'bg-emerald-400/20 border-emerald-400/30',
+  failed:     'bg-red-400/20 border-red-400/30',
+  cancelled:  'bg-white/8 border-white/10',
+  skipped:    'bg-white/6 border-white/8',
+  archived:   'bg-white/4 border-white/6',
+}
+
+const FRAME_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending', queued: 'Queued', generating: 'Generating',
+  completed: 'Done', failed: 'Failed', cancelled: 'Stopped',
+  skipped: 'Skipped', archived: 'Archived',
+}
+
+function FrameStatusGrid({ frames }: { frames: P360Frame[] }) {
+  const [frameFilter, setFrameFilter] = useState<string>('all')
+  if (!frames.length) return null
+
+  const statusCounts = frames.reduce<Record<string, number>>((acc, f) => {
+    const st = (f.status as string) || (f.image_url ? 'completed' : 'pending')
+    acc[st] = (acc[st] ?? 0) + 1
+    return acc
+  }, {})
+
+  const filtered = frames.filter(f => {
+    const st = (f.status as string) || (f.image_url ? 'completed' : 'pending')
+    return frameFilter === 'all' || st === frameFilter
+  })
+
+  return (
+    <div className="rounded-xl bg-white/3 border border-white/6 p-3 space-y-2.5">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-white/30 uppercase tracking-wider">Frames</p>
+        <span className="text-[10px] text-white/30">{frames.length} total</span>
+      </div>
+
+      {/* Status filter chips */}
+      <div className="flex items-center gap-1 flex-wrap">
+        <button
+          onClick={() => setFrameFilter('all')}
+          className={`h-5 px-2 rounded-full text-[9px] border transition-colors ${frameFilter === 'all' ? 'text-fuchsia-400 bg-fuchsia-400/10 border-fuchsia-400/20' : 'text-white/30 bg-white/4 border-white/8 hover:text-white'}`}
+        >All</button>
+        {Object.entries(statusCounts).map(([st, cnt]) => (
+          <button
+            key={st}
+            onClick={() => setFrameFilter(st)}
+            className={`h-5 px-2 rounded-full text-[9px] border transition-colors ${frameFilter === st ? 'text-white/70 bg-white/10 border-white/20' : 'text-white/25 bg-white/3 border-white/6 hover:text-white'}`}
+          >
+            {FRAME_STATUS_LABELS[st] ?? st} {cnt}
+          </button>
+        ))}
+      </div>
+
+      {/* Thumbnail grid */}
+      <div className="grid grid-cols-6 gap-1">
+        {filtered.slice(0, 48).map(f => {
+          const st = (f.status as P360FrameStatus) || (f.image_url ? 'completed' : 'pending')
+          return (
+            <div
+              key={f.id}
+              className={`relative rounded border aspect-square overflow-hidden ${FRAME_STATUS_STYLES[st] ?? FRAME_STATUS_STYLES.pending}`}
+              title={`Frame ${f.frame_index} · ${FRAME_STATUS_LABELS[st] ?? st}${f.angle_degrees != null ? ` · ${f.angle_degrees}°` : ''}`}
+            >
+              {f.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={f.image_url} alt={`Frame ${f.frame_index}`} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <span className="text-[8px] text-white/30 font-mono">{f.frame_index}</span>
+                </div>
+              )}
+              {/* Status dot overlay for non-completed frames */}
+              {st !== 'completed' && (
+                <div className={`absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full ${
+                  st === 'generating' ? 'bg-amber-400 animate-pulse'
+                  : st === 'failed' ? 'bg-red-400'
+                  : st === 'queued' ? 'bg-sky-400'
+                  : 'bg-white/30'
+                }`} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {filtered.length > 48 && (
+        <p className="text-[10px] text-white/30 text-center">+{filtered.length - 48} more frames</p>
+      )}
     </div>
   )
 }
