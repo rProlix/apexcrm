@@ -103,6 +103,95 @@ const CAMERA_LABELS: Record<string, string> = {
   floating_catalog_view: 'slight elevated catalog angle',
 }
 
+// ─── Blueprint normalizer ─────────────────────────────────────────────────────
+
+/**
+ * Safely normalize any value stored as scene_blueprint in the database.
+ *
+ * The DB column is `jsonb` and may contain:
+ *   - null / undefined      → build from scratch using subject + config
+ *   - '{}'                  → empty object, same treatment
+ *   - a partial old-format  → missing nested fields (common cause of .vessel crash)
+ *   - a complete blueprint  → use as-is (deep merge keeps all existing values)
+ *   - a stringified JSON    → parse first, then deep merge
+ *
+ * NEVER throws. Always returns a complete, valid SceneBlueprint.
+ *
+ * @param raw      The raw value from product_360_packages.scene_blueprint
+ * @param subject  Normalized product subject (provides vessel/name defaults)
+ * @param config   Generation config (provides lighting/background preset defaults)
+ */
+export function normalizeSceneBlueprint(
+  raw:     unknown,
+  subject: NormalizedProductSubject,
+  config:  P360GenerationConfig,
+): SceneBlueprint {
+  // Build a complete default blueprint first — this is our fallback for every field
+  const defaults = buildSceneBlueprint(subject, config)
+
+  // Null / undefined / false / 0 → use pure defaults
+  if (raw == null || raw === false || raw === 0 || raw === '') return defaults
+
+  // Stringified JSON → parse it
+  let parsed: Record<string, unknown> = {}
+  if (typeof raw === 'string') {
+    try {
+      const p = JSON.parse(raw)
+      if (p && typeof p === 'object' && !Array.isArray(p)) parsed = p as Record<string, unknown>
+    } catch { return defaults }
+  } else if (typeof raw === 'object' && !Array.isArray(raw)) {
+    parsed = raw as Record<string, unknown>
+  } else {
+    return defaults
+  }
+
+  // If the parsed object is empty, use defaults
+  if (Object.keys(parsed).length === 0) return defaults
+
+  // Deep merge: prefer existing stored values; fall back to defaults for any missing field
+  const rawSubject  = (parsed.subject   as Record<string, unknown> | null | undefined) ?? {}
+  const rawCamera   = (parsed.camera    as Record<string, unknown> | null | undefined) ?? {}
+  const rawLighting = (parsed.lighting  as Record<string, unknown> | null | undefined) ?? {}
+  const rawBg       = (parsed.background as Record<string, unknown> | null | undefined) ?? {}
+
+  const safeStr = (v: unknown, fallback: string): string =>
+    (typeof v === 'string' && v.trim().length > 0) ? v : fallback
+
+  const safeStrArr = (v: unknown, fallback: string[]): string[] =>
+    Array.isArray(v) ? (v as unknown[]).filter(x => typeof x === 'string') as string[] : fallback
+
+  return {
+    subject: {
+      name:        safeStr(rawSubject.name,        defaults.subject.name),
+      vessel:      safeStr(rawSubject.vessel,      defaults.subject.vessel),
+      ingredients: safeStrArr(rawSubject.ingredients, defaults.subject.ingredients),
+      garnish:     safeStrArr(rawSubject.garnish,     defaults.subject.garnish),
+      utensils:    safeStrArr(rawSubject.utensils,    defaults.subject.utensils),
+    },
+    camera: {
+      heightAngle: safeStr(rawCamera.heightAngle, defaults.camera.heightAngle),
+      distance:    safeStr(rawCamera.distance,    defaults.camera.distance),
+      crop:        safeStr(rawCamera.crop,        defaults.camera.crop),
+      orbitMode:   'yaw_only',
+      focalFeel:   safeStr(rawCamera.focalFeel,   defaults.camera.focalFeel),
+    },
+    lighting: {
+      style:       safeStr(rawLighting.style,       defaults.lighting.style),
+      direction:   safeStr(rawLighting.direction,   defaults.lighting.direction),
+      shadowStyle: safeStr(rawLighting.shadowStyle, defaults.lighting.shadowStyle),
+    },
+    background: {
+      style:   safeStr(rawBg.style,   defaults.background.style),
+      surface: safeStr(rawBg.surface, defaults.background.surface),
+    },
+    consistencyRules: safeStrArr(parsed.consistencyRules, defaults.consistencyRules),
+    consistencyMode: (parsed.consistencyMode === 'standard' || parsed.consistencyMode === 'strict')
+      ? (parsed.consistencyMode as 'standard' | 'strict')
+      : defaults.consistencyMode,
+    createdAt: safeStr(parsed.createdAt, defaults.createdAt),
+  }
+}
+
 // ─── Stage B: Scene blueprint ─────────────────────────────────────────────────
 
 /**

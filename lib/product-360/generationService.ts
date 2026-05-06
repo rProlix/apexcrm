@@ -39,13 +39,12 @@ import { uploadFrame }              from './storage'
 import { finalizePackage }          from './finalize'
 import { normalizeProductSubject }  from '@/lib/ai/360/normalizeProduct'
 import {
-  buildSceneBlueprint,
+  normalizeSceneBlueprint,
   buildLockedGenerationPrompt,
   buildMasterFramePrompt,
   buildLockedFramePrompt,
   getFrameAngle,
   getShotDirection,
-  type SceneBlueprint,
 } from '@/lib/ai/360/buildLockedFramePrompt'
 import { normalizeAiError } from '@/lib/ai/normalizeAiError'
 import type { P360GenerationConfig, P360ProductDescriptor } from '@/lib/ai/360/types'
@@ -98,20 +97,10 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
-  // ── Load package ────────────────────────────────────────────────────────────
+  // ── Load package (select * avoids 400 from missing columns) ─────────────────
   const { data: pkg, error: pkgErr } = await db
     .from('product_360_packages')
-    .select([
-      'id', 'tenant_id', 'product_id', 'name', 'description',
-      'generation_prompt', 'generation_notes', 'negative_prompt',
-      'target_frame_count', 'generation_provider', 'ai_model',
-      'lighting_preset', 'background_preset', 'category_preset', 'camera_preset',
-      'camera_distance', 'camera_height', 'fov', 'zoom',
-      'shadow_strength', 'reflection_intensity', 'turn_direction',
-      'output_width', 'output_height',
-      'consistency_mode', 'retry_count',
-      'scene_blueprint', 'locked_generation_prompt', 'master_frame_url',
-    ].join(', '))
+    .select('*')
     .eq('id', packageId)
     .maybeSingle()
 
@@ -127,10 +116,13 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
     return { success: false, framesGenerated: 0, errorMessage: 'No product attached' }
   }
 
-  // ── Load product info ────────────────────────────────────────────────────────
+  // ── Load product info ─────────────────────────────────────────────────────────
+  //    Only select columns present in the base products table.  Requesting columns
+  //    that don't exist (e.g. 'attributes') causes a Supabase 400 that silently
+  //    leaves product=null and strips product name/description from the prompt.
   const { data: product } = await db
     .from('products')
-    .select('name, description, category, attributes')
+    .select('name, description, category')
     .eq('id', productId)
     .maybeSingle()
 
@@ -138,7 +130,6 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
     name:        (pkg.name as string) || (product?.name as string) || 'Product',
     description: (product?.description as string) || (pkg.description as string) || '',
     category:    (product?.category as string) || (pkg.category_preset as string) || undefined,
-    attributes:  (product?.attributes as Record<string, string | number | boolean>) || undefined,
   }
 
   // ── Check provider ───────────────────────────────────────────────────────────
@@ -186,11 +177,16 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
     genConfig.categoryPreset,
   )
 
-  const blueprint: SceneBlueprint =
-    (pkg.scene_blueprint as SceneBlueprint | null) ?? buildSceneBlueprint(subject, genConfig)
+  // CRITICAL: never cast pkg.scene_blueprint to SceneBlueprint directly.
+  // Old blueprints in the DB may be missing nested fields (e.g. subject.vessel),
+  // which causes "Cannot read properties of undefined (reading 'vessel')" crashes
+  // in the prompt builders.  normalizeSceneBlueprint deep-merges with safe defaults.
+  const blueprint = normalizeSceneBlueprint(pkg.scene_blueprint, subject, genConfig)
 
   const lockedPrompt: string =
-    (pkg.locked_generation_prompt as string | null) ?? buildLockedGenerationPrompt(subject, genConfig, blueprint)
+    (typeof pkg.locked_generation_prompt === 'string' && (pkg.locked_generation_prompt as string).trim().length > 50)
+      ? (pkg.locked_generation_prompt as string)
+      : buildLockedGenerationPrompt(subject, genConfig, blueprint)
 
   console.info(
     `[p360:generate] pkg=${packageId} frames=${totalFrames} delayMs=${delayMs} ` +
@@ -654,15 +650,7 @@ export async function regenerateSingleFrame(
 
   const [{ data: pkg }, { data: frame }] = await Promise.all([
     db.from('product_360_packages')
-      .select([
-        'id', 'tenant_id', 'product_id', 'name', 'description',
-        'generation_prompt', 'generation_notes', 'negative_prompt',
-        'ai_model', 'lighting_preset', 'background_preset', 'category_preset',
-        'camera_preset', 'camera_distance', 'camera_height', 'fov',
-        'shadow_strength', 'reflection_intensity', 'turn_direction',
-        'output_width', 'output_height', 'target_frame_count',
-        'locked_generation_prompt', 'scene_blueprint', 'master_frame_url',
-      ].join(', '))
+      .select('*')
       .eq('id', packageId).maybeSingle(),
     db.from('product_360_frames')
       .select('id, frame_index, angle_degrees, generation_attempt, is_master_frame')
@@ -675,14 +663,13 @@ export async function regenerateSingleFrame(
   const productId = pkg.product_id as string
 
   const { data: product } = await db
-    .from('products').select('name, description, category, attributes')
+    .from('products').select('name, description, category')
     .eq('id', productId).maybeSingle()
 
   const productDescriptor: P360ProductDescriptor = {
     name:        (pkg.name as string) || (product?.name as string) || 'Product',
     description: (product?.description as string) || '',
     category:    (product?.category as string) || undefined,
-    attributes:  (product?.attributes as Record<string, string | number | boolean>) || undefined,
   }
 
   const totalFrames = (pkg.target_frame_count as number) || getDefaultFrames()
@@ -708,8 +695,10 @@ export async function regenerateSingleFrame(
   const isMasterFrame = (frame.is_master_frame as boolean) || frameIndex === 0
 
   const subject     = normalizeProductSubject(productDescriptor.name, productDescriptor.description, genConfig.categoryPreset)
-  const bp          = (pkg.scene_blueprint as SceneBlueprint | null) ?? buildSceneBlueprint(subject, genConfig)
-  const storedLocked = (pkg.locked_generation_prompt as string | null) ?? buildLockedGenerationPrompt(subject, genConfig, bp)
+  const bp          = normalizeSceneBlueprint(pkg.scene_blueprint, subject, genConfig)
+  const storedLocked = (typeof pkg.locked_generation_prompt === 'string' && (pkg.locked_generation_prompt as string).trim().length > 50)
+    ? (pkg.locked_generation_prompt as string)
+    : buildLockedGenerationPrompt(subject, genConfig, bp)
 
   const framePrompt = isMasterFrame
     ? buildMasterFramePrompt(subject, genConfig, bp)

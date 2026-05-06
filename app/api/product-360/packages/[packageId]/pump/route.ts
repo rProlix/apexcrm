@@ -2,19 +2,17 @@
 //
 // POST — process exactly ONE pending frame for a 360° package.
 //
-// Design intent:
-//   The /generate route can time out on Vercel Hobby (10 s) or Pro (300 s)
-//   when generating large packages. This route is a "pump": the client calls
-//   it repeatedly until it returns { done: true }, each call completing
-//   one frame safely within the function timeout.
+// Design:
+//   Each call completes one Imagen frame. The client calls this endpoint
+//   repeatedly until { ok: true, data: { hasMore: false } } is returned.
+//   This architecture is safe on all Vercel plans (no single call exceeds 120 s).
 //
-// Response shapes:
-//   Frame generated:  { ok: true, data: { done: false, processedFrameIndex, remainingFrames, packageStatus, progressPercent } }
-//   All done:         { ok: true, data: { done: true,  packageStatus: 'ready', progressPercent: 100 } }
-//   Already done:     { ok: true, data: { done: true,  packageStatus, progressPercent } }
-//   Cancelled:        { ok: true, data: { done: true,  packageStatus: 'cancelled' } }
-//   Quota exceeded:   { ok: false, error: { type: 'quota_exceeded', ... } }
-//   General failure:  { ok: false, error: { type, title, message } }
+// Error contract:
+//   { ok: false, packageId, errorCode, errorMessage, errorDetails, failedStage }
+//   HTTP status codes:
+//     400  invalid input         404  not found
+//     401  unauthenticated       409  wrong state (cancelled/archived)
+//     429  quota exceeded        500  server/provider/storage failure
 
 import { NextRequest, NextResponse }       from 'next/server'
 import { resolveP360ApiUser }              from '@/lib/product-360/auth'
@@ -26,36 +24,70 @@ import { finalizePackage }                 from '@/lib/product-360/finalize'
 import { normalizeAiError }                from '@/lib/ai/normalizeAiError'
 import { normalizeProductSubject }         from '@/lib/ai/360/normalizeProduct'
 import {
-  buildSceneBlueprint,
+  normalizeSceneBlueprint,
   buildLockedGenerationPrompt,
   buildMasterFramePrompt,
   buildLockedFramePrompt,
   getFrameAngle,
   getShotDirection,
-  type SceneBlueprint,
 } from '@/lib/ai/360/buildLockedFramePrompt'
-import type { P360GenerationConfig, P360ProductDescriptor } from '@/lib/ai/360/types'
+import type { P360GenerationConfig } from '@/lib/ai/360/types'
 
 export const dynamic     = 'force-dynamic'
-export const maxDuration = 120  // seconds — one Imagen call typically completes in 10-30 s
+export const maxDuration = 120   // one Imagen call: 10–60 s on average
 
 type Ctx = { params: Promise<{ packageId: string }> }
 
-/** Statuses from which the pump is allowed to operate. */
 const PUMPABLE = new Set([
   'queued', 'planning', 'generating', 'processing', 'paused_quota', 'failed',
 ])
 
+// ─── Structured error helper ──────────────────────────────────────────────────
+
+function pumpError(opts: {
+  packageId:    string
+  status:       number
+  errorCode:    string
+  errorMessage: string
+  errorDetails?: string
+  failedStage:  string
+}) {
+  console.error(
+    `[P360] pump:error stage=${opts.failedStage} code=${opts.errorCode} msg="${opts.errorMessage}"`,
+  )
+  return NextResponse.json({
+    ok:           false,
+    packageId:    opts.packageId,
+    errorCode:    opts.errorCode,
+    errorMessage: opts.errorMessage,
+    errorDetails: opts.errorDetails ?? null,
+    failedStage:  opts.failedStage,
+  }, { status: opts.status })
+}
+
+// ─── Main handler ─────────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest, ctx: Ctx) {
   const { packageId } = await ctx.params
+
+  console.info(`[P360] pump:start packageId=${packageId}`)
+
+  // ── Validate packageId ────────────────────────────────────────────────────
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!packageId || !UUID_RE.test(packageId)) {
+    return pumpError({ packageId: packageId ?? '', status: 400, errorCode: 'invalid_package_id',
+      errorMessage: 'packageId must be a valid UUID', failedStage: 'validation' })
+  }
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   const user = await resolveP360ApiUser(req)
   if (!user) {
-    return NextResponse.json({ ok: false, error: { type: 'auth_error', title: 'Unauthorized', message: 'Unauthorized' } }, { status: 401 })
+    return pumpError({ packageId, status: 401, errorCode: 'auth_error',
+      errorMessage: 'Unauthorized', failedStage: 'auth' })
   }
   if (user.role !== 'owner' && user.role !== 'admin') {
-    return NextResponse.json({ ok: false, error: { type: 'auth_error', title: 'Forbidden', message: 'Only owners and admins may pump generation' } }, { status: 403 })
+    return pumpError({ packageId, status: 403, errorCode: 'auth_error',
+      errorMessage: 'Only owners and admins may pump generation', failedStage: 'auth' })
   }
 
   let body: Record<string, unknown> = {}
@@ -66,63 +98,100 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     : user.tenantId
 
   if (!tenantId) {
-    return NextResponse.json({ ok: false, error: { type: 'invalid_request', title: 'Missing tenant', message: 'Could not resolve tenant' } }, { status: 400 })
+    return pumpError({ packageId, status: 400, errorCode: 'missing_tenant',
+      errorMessage: 'Could not resolve tenant from request', failedStage: 'auth' })
   }
 
   const supabase = getSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
-  // ── Load package ──────────────────────────────────────────────────────────
-  const { data: pkg } = await db
+  // ── Load package (select * avoids 400 from missing columns) ──────────────
+  const { data: pkgRaw, error: pkgErr } = await db
     .from('product_360_packages')
-    .select([
-      'id', 'tenant_id', 'product_id', 'name', 'description',
-      'status', 'cancel_requested',
-      'target_frame_count', 'frames_done', 'progress_percent',
-      'generation_prompt', 'generation_notes', 'negative_prompt',
-      'ai_model', 'lighting_preset', 'background_preset', 'category_preset', 'camera_preset',
-      'camera_distance', 'camera_height', 'fov', 'shadow_strength',
-      'reflection_intensity', 'turn_direction', 'output_width', 'output_height',
-      'scene_blueprint', 'locked_generation_prompt', 'master_frame_url',
-      'master_frame_generated', 'retry_count',
-    ].join(', '))
+    .select('*')
     .eq('id', packageId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
-  if (!pkg) {
-    return NextResponse.json({ ok: false, error: { type: 'not_found', title: 'Not found', message: 'Package not found or access denied' } }, { status: 404 })
+  if (pkgErr) {
+    console.error(`[P360] pump:error stage=package-load supabase_error="${pkgErr.message}"`)
+    // Try to record the error on the package (may fail silently)
+    await db.from('product_360_packages').update({
+      last_error_message: `DB error loading package: ${pkgErr.message}`,
+      last_error_at:      new Date().toISOString(),
+    }).eq('id', packageId)
+    return pumpError({ packageId, status: 500, errorCode: 'db_error',
+      errorMessage: `Database error loading package: ${pkgErr.message}`,
+      errorDetails: pkgErr.details ?? pkgErr.hint ?? null,
+      failedStage:  'package-load' })
+  }
+  if (!pkgRaw) {
+    return pumpError({ packageId, status: 404, errorCode: 'not_found',
+      errorMessage: 'Package not found or access denied', failedStage: 'package-load' })
   }
 
-  const currentStatus = pkg.status as string
+  // Safely read typed fields from the raw row
+  const pkg = pkgRaw as Record<string, unknown>
+  const currentStatus      = (pkg.status             as string)  ?? 'draft'
+  const cancelRequested    = !!(pkg.cancel_requested)
+  const tenantIdPkg        = (pkg.tenant_id          as string)  ?? tenantId
+  const productId          = (pkg.product_id         as string | null) ?? null
+  const retryCountPkg      = ((pkg.retry_count       as number)  ?? 0)
 
-  // ── Already finished? ─────────────────────────────────────────────────────
+  console.info(
+    `[P360] pump:package-loaded status=${currentStatus} product_id=${productId} tenant_id=${tenantIdPkg}`,
+  )
+
+  // ── Already in terminal state? ────────────────────────────────────────────
   if (currentStatus === 'ready' || currentStatus === 'completed') {
-    return NextResponse.json({ ok: true, data: { done: true, packageStatus: currentStatus, progressPercent: 100 } })
+    return NextResponse.json({
+      ok: true, packageId, hasMore: false,
+      packageStatus: currentStatus, progressPercent: 100,
+      message: 'Package generation is already complete.',
+    })
   }
   if (currentStatus === 'cancelled') {
-    return NextResponse.json({ ok: true, data: { done: true, packageStatus: 'cancelled', progressPercent: pkg.progress_percent ?? 0 } })
+    return NextResponse.json({
+      ok: true, packageId, hasMore: false, packageStatus: 'cancelled',
+      progressPercent: (pkg.progress_percent as number) ?? 0,
+      message: 'Package was cancelled.',
+    })
   }
   if (currentStatus === 'archived') {
-    return NextResponse.json({ ok: false, error: { type: 'invalid_request', title: 'Archived', message: 'Package is archived' } }, { status: 409 })
+    return pumpError({ packageId, status: 409, errorCode: 'package_archived',
+      errorMessage: 'Package is archived and cannot be generated', failedStage: 'state-check' })
   }
 
   // ── Cancel check ─────────────────────────────────────────────────────────
-  if (pkg.cancel_requested) {
+  if (cancelRequested) {
     await db.from('product_360_packages').update({
       status:       'cancelled',
       cancelled_at: new Date().toISOString(),
       updated_at:   new Date().toISOString(),
     }).eq('id', packageId)
-    return NextResponse.json({ ok: true, data: { done: true, packageStatus: 'cancelled', progressPercent: pkg.progress_percent ?? 0 } })
+    return NextResponse.json({
+      ok: true, packageId, hasMore: false, packageStatus: 'cancelled',
+      progressPercent: (pkg.progress_percent as number) ?? 0,
+      message: 'Package was cancelled by request.',
+    })
   }
 
   if (!PUMPABLE.has(currentStatus)) {
-    return NextResponse.json({
-      ok: false,
-      error: { type: 'invalid_request', title: 'Cannot pump', message: `Package status "${currentStatus}" is not pumpable` },
-    }, { status: 409 })
+    return pumpError({ packageId, status: 409, errorCode: 'invalid_state',
+      errorMessage: `Package status "${currentStatus}" is not pumpable. Valid statuses: ${[...PUMPABLE].join(', ')}`,
+      failedStage: 'state-check' })
+  }
+
+  // ── Verify product is attached ────────────────────────────────────────────
+  if (!productId) {
+    const msg = 'Package has no product attached — cannot generate'
+    await db.from('product_360_packages').update({
+      status: 'failed', generation_error: msg, last_error_message: msg,
+      last_error_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }).eq('id', packageId)
+    return pumpError({ packageId, status: 422, errorCode: 'no_product',
+      errorMessage: msg, failedStage: 'state-check' })
   }
 
   // ── Provider check ────────────────────────────────────────────────────────
@@ -132,70 +201,104 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'AI provider not configured'
     await db.from('product_360_packages').update({
-      status: 'failed', generation_error: msg, last_error_message: msg, updated_at: new Date().toISOString(),
+      status: 'failed', generation_error: msg, last_error_message: msg,
+      last_error_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }).eq('id', packageId)
-    return NextResponse.json({ ok: false, error: { type: 'auth_error', title: 'AI not configured', message: msg } }, { status: 503 })
+    return pumpError({ packageId, status: 503, errorCode: 'provider_not_configured',
+      errorMessage: msg, failedStage: 'provider-init' })
   }
 
-  const tenantIdPkg  = pkg.tenant_id  as string
-  const productId    = pkg.product_id as string | null
-
-  if (!productId) {
-    const msg = 'Package has no product attached'
-    await db.from('product_360_packages').update({
-      status: 'failed', generation_error: msg, last_error_message: msg, updated_at: new Date().toISOString(),
-    }).eq('id', packageId)
-    return NextResponse.json({ ok: false, error: { type: 'invalid_request', title: 'No product', message: msg } }, { status: 422 })
-  }
-
-  // ── Load product ──────────────────────────────────────────────────────────
-  const { data: product } = await db
+  // ── Load product (separate query — avoids FK ambiguity, no column assumptions) ─
+  //    Only request columns that exist in the base products table.
+  const { data: productRaw } = await db
     .from('products')
-    .select('name, description, category, attributes')
+    .select('name, description, category')
     .eq('id', productId)
     .maybeSingle()
 
-  const productDescriptor: P360ProductDescriptor = {
-    name:        (pkg.name as string) || (product?.name as string) || 'Product',
-    description: (product?.description as string) || (pkg.description as string) || '',
-    category:    (product?.category as string) || undefined,
-    attributes:  (product?.attributes as Record<string, string | number | boolean>) || undefined,
-  }
+  const productName  = (productRaw?.name        as string | null) || (pkg.name as string) || 'Product'
+  const productDesc  = (productRaw?.description as string | null) || (pkg.description as string) || ''
+  const productCat   = (productRaw?.category    as string | null) ?? null
 
-  const totalFrames = Math.min(
-    (pkg.target_frame_count as number) || 12,
+  console.info(`[P360] pump:product-loaded name="${productName}"`)
+
+  // ── Build normalized subject + blueprint ──────────────────────────────────
+  //
+  //   CRITICAL: never cast pkg.scene_blueprint to SceneBlueprint directly.
+  //   Old/partial blueprints stored in the DB will have undefined nested fields
+  //   (e.g. missing subject.vessel), causing "Cannot read properties of undefined"
+  //   crashes in the prompt builders.
+  //
+  //   normalizeSceneBlueprint() deep-merges the stored blob with safe defaults
+  //   derived from the current product, so every field is always populated.
+
+  const lightingPreset     = (pkg.lighting_preset    as string | null) ?? null
+  const backgroundPreset   = (pkg.background_preset  as string | null) ?? null
+  const categoryPreset     = (pkg.category_preset    as string | null) ?? productCat
+  const cameraPreset       = (pkg.camera_preset      as string | null) ?? null
+  const totalFrames        = Math.min(
+    ((pkg.target_frame_count as number) || 12),
     parseInt(process.env.MAX_360_FRAMES_PER_PACKAGE ?? '24', 10) || 24,
   )
 
   const genConfig: P360GenerationConfig = {
     frameCount:          totalFrames,
-    lightingPreset:      pkg.lighting_preset    as string | null,
-    backgroundPreset:    pkg.background_preset  as string | null,
-    categoryPreset:      pkg.category_preset    as string | null,
-    cameraPreset:        pkg.camera_preset      as string | null,
-    cameraDistance:      pkg.camera_distance    as number | null,
-    cameraHeight:        pkg.camera_height      as number | null,
-    fov:                 pkg.fov                as number | null,
-    shadowStrength:      pkg.shadow_strength    as number | null,
-    reflectionIntensity: pkg.reflection_intensity as number | null,
-    turnDirection:       (pkg.turn_direction as string) === 'counter_clockwise' ? 'counter_clockwise' : 'clockwise',
-    outputWidth:         pkg.output_width  as number | null,
-    outputHeight:        pkg.output_height as number | null,
-    generationNotes:     pkg.generation_notes as string | null,
-    customPrompt:        (pkg.generation_prompt as string | null) || null,
+    lightingPreset,
+    backgroundPreset,
+    categoryPreset,
+    cameraPreset,
+    cameraDistance:      (pkg.camera_distance    as number | null) ?? null,
+    cameraHeight:        (pkg.camera_height      as number | null) ?? null,
+    fov:                 (pkg.fov                as number | null) ?? null,
+    shadowStrength:      (pkg.shadow_strength    as number | null) ?? null,
+    reflectionIntensity: (pkg.reflection_intensity as number | null) ?? null,
+    turnDirection:       (pkg.turn_direction as string) === 'counter_clockwise'
+                           ? 'counter_clockwise' : 'clockwise',
+    outputWidth:         (pkg.output_width  as number | null) ?? null,
+    outputHeight:        (pkg.output_height as number | null) ?? null,
+    generationNotes:     (pkg.generation_notes as string | null) ?? null,
+    customPrompt:        (pkg.generation_prompt as string | null) ?? null,
   }
 
-  const subject = normalizeProductSubject(
-    productDescriptor.name,
-    productDescriptor.description,
-    genConfig.categoryPreset,
+  const subject = normalizeProductSubject(productName, productDesc, categoryPreset)
+
+  // Safe blueprint — never crashes on missing nested fields
+  const blueprint = normalizeSceneBlueprint(pkg.scene_blueprint, subject, genConfig)
+
+  console.info(
+    `[P360] pump:blueprint-normalized hasVessel=${!!blueprint.subject.vessel} ` +
+    `vessel="${blueprint.subject.vessel}" subject="${blueprint.subject.name}"`,
   )
 
-  const blueprint: SceneBlueprint =
-    (pkg.scene_blueprint as SceneBlueprint | null) ?? buildSceneBlueprint(subject, genConfig)
+  // Persist the repaired/normalized blueprint back to the DB if the stored one
+  // was missing required nested fields (prevents repeated repair on each pump call).
+  const rawBp = pkg.scene_blueprint as Record<string, unknown> | null
+  const blueprintNeedsRepair = !rawBp
+    || typeof rawBp !== 'object'
+    || !rawBp.subject
+    || !(rawBp.subject as Record<string, unknown>).vessel
 
+  if (blueprintNeedsRepair) {
+    console.info(`[P360] pump:blueprint-repair packageId=${packageId} — persisting repaired blueprint`)
+    await db.from('product_360_packages').update({
+      scene_blueprint: blueprint,
+      updated_at:      new Date().toISOString(),
+    }).eq('id', packageId)
+  }
+
+  // Build (or reuse stored) locked generation prompt
   const lockedPrompt: string =
-    (pkg.locked_generation_prompt as string | null) ?? buildLockedGenerationPrompt(subject, genConfig, blueprint)
+    (typeof pkg.locked_generation_prompt === 'string' && (pkg.locked_generation_prompt as string).trim().length > 50)
+      ? (pkg.locked_generation_prompt as string)
+      : buildLockedGenerationPrompt(subject, genConfig, blueprint)
+
+  // Persist locked prompt if it was missing
+  if (!pkg.locked_generation_prompt || (pkg.locked_generation_prompt as string).trim().length < 50) {
+    await db.from('product_360_packages').update({
+      locked_generation_prompt: lockedPrompt,
+      updated_at:               new Date().toISOString(),
+    }).eq('id', packageId)
+  }
 
   // ── Transition package to 'generating' ───────────────────────────────────
   if (currentStatus !== 'generating') {
@@ -205,33 +308,36 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       .eq('id', packageId)
 
     if (statusErr) {
-      console.error(`[p360:pump] pkg=${packageId} Failed to update to 'generating': ${statusErr.message}`)
-      return NextResponse.json({
-        ok: false,
-        error: { type: 'db_error', title: 'DB error', message: statusErr.message },
-      }, { status: 500 })
+      console.error(`[P360] pump:error stage=status-transition error="${statusErr.message}"`)
+      return pumpError({ packageId, status: 500, errorCode: 'db_error',
+        errorMessage: `Failed to transition package to generating: ${statusErr.message}`,
+        errorDetails: statusErr.details ?? null,
+        failedStage:  'status-transition' })
     }
   }
 
   // ── Find next frame to process ────────────────────────────────────────────
-  const { data: existingFrames } = await db
+  const { data: existingFrames, error: framesErr } = await db
     .from('product_360_frames')
-    .select('frame_index, image_url, status')
+    .select('frame_index, image_url')
     .eq('package_id', packageId)
     .order('frame_index', { ascending: true })
 
-  const frames = (existingFrames ?? []) as Array<{ frame_index: number; image_url: string | null; status: string }>
+  if (framesErr) {
+    console.warn(`[P360] pump:warn stage=frames-load error="${framesErr.message}" (non-fatal, assuming 0 frames)`)
+  }
+
+  const frames = (existingFrames ?? []) as Array<{ frame_index: number; image_url: string | null }>
   const completedSet = new Set(frames.filter(f => !!f.image_url).map(f => f.frame_index))
 
-  // Find the lowest missing frame index
   let nextFrameIndex = -1
   for (let i = 0; i < totalFrames; i++) {
     if (!completedSet.has(i)) { nextFrameIndex = i; break }
   }
 
-  // ── All frames already complete? ──────────────────────────────────────────
+  // ── All complete? Finalize ────────────────────────────────────────────────
   if (nextFrameIndex === -1) {
-    console.info(`[p360:pump] pkg=${packageId} all ${totalFrames} frames complete — finalizing`)
+    console.info(`[P360] pump:package-progress all ${totalFrames} frames complete — finalizing`)
     await db.from('product_360_packages').update({
       status: 'processing', frames_done: totalFrames, progress_percent: 100,
       frame_count: totalFrames, updated_at: new Date().toISOString(),
@@ -243,9 +349,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }).eq('id', packageId)
 
     if (!fin.success) {
-      return NextResponse.json({ ok: false, error: { type: 'unknown', title: 'Finalize failed', message: fin.errorMessage ?? 'Finalize failed' } }, { status: 500 })
+      return pumpError({ packageId, status: 500, errorCode: 'finalize_failed',
+        errorMessage: fin.errorMessage ?? 'Failed to finalize package',
+        failedStage:  'finalize' })
     }
-    return NextResponse.json({ ok: true, data: { done: true, packageStatus: 'ready', progressPercent: 100, previewUrl: fin.previewUrl } })
+
+    return NextResponse.json({
+      ok: true, packageId, hasMore: false, done: true,
+      packageStatus: 'ready', progressPercent: 100, framesDone: totalFrames, totalFrames,
+      previewUrl: fin.previewUrl ?? null,
+      message: `All ${totalFrames} frames generated. Package is ready.`,
+    })
   }
 
   // ── Generate the selected frame ───────────────────────────────────────────
@@ -257,21 +371,26 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     ? buildMasterFramePrompt(subject, genConfig, blueprint)
     : buildLockedFramePrompt(lockedPrompt, angleDeg, nextFrameIndex, totalFrames, shotDirection)
 
-  console.info(`[p360:pump] pkg=${packageId} frame=${nextFrameIndex}/${totalFrames} angle=${angleDeg}° isMaster=${isMasterFrame}`)
+  console.info(
+    `[P360] pump:frame-selected frameIndex=${nextFrameIndex} angle=${angleDeg}° isMaster=${isMasterFrame}`,
+  )
 
   // Mark frame as 'generating' before API call
   await db.from('product_360_frames').upsert({
-    package_id: packageId, tenant_id: tenantIdPkg, product_id: productId,
-    frame_index: nextFrameIndex, angle_degrees: angleDeg,
-    status: 'generating',
+    package_id:            packageId,
+    tenant_id:             tenantIdPkg,
+    product_id:            productId,
+    frame_index:           nextFrameIndex,
+    angle_degrees:         angleDeg,
+    status:                'generating',
     generation_started_at: new Date().toISOString(),
-    is_master_frame: isMasterFrame,
-    updated_at: new Date().toISOString(),
+    is_master_frame:       isMasterFrame,
+    updated_at:            new Date().toISOString(),
   }, { onConflict: 'package_id,frame_index' })
 
-  // Load master frame as reference image for non-master frames
+  // Load master frame as reference for non-master frames
   let masterBase64: string | undefined, masterMime = 'image/png'
-  const storedMasterUrl = pkg.master_frame_url as string | null
+  const storedMasterUrl = (pkg.master_frame_url as string | null) ?? null
   if (!isMasterFrame && storedMasterUrl) {
     try {
       const res = await fetch(storedMasterUrl)
@@ -279,10 +398,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         masterBase64 = Buffer.from(await res.arrayBuffer()).toString('base64')
         masterMime   = res.headers.get('content-type') ?? 'image/png'
       }
-    } catch { /* non-fatal — proceed without reference */ }
+    } catch (e) {
+      console.warn(`[P360] pump:warn failed to fetch master reference: ${e instanceof Error ? e.message : e}`)
+    }
   }
 
   try {
+    console.info(`[P360] pump:provider:start model="${provider.model}" frame=${nextFrameIndex}`)
+
     const result = await provider.generateFrame({
       prompt:                 framePrompt,
       width:                  genConfig.outputWidth  ?? 1024,
@@ -291,45 +414,69 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       referenceImageMimeType: masterMime,
     })
 
+    console.info(`[P360] pump:provider:success frame=${nextFrameIndex}`)
+
     const mimeType = result.mimeType ?? 'image/png'
     const ext      = mimeType.includes('jpeg') ? 'jpg' : 'png'
-    let uploadedUrl: string, storagePath: string
+    let   uploadedUrl: string, storagePath: string
+
+    const storageBucket = process.env.P360_STORAGE_BUCKET ?? 'spin-360-assets'
+    const storagePfx    = `tenants/${tenantIdPkg}/360/${productId}/packages/${packageId}/frames/frame_${String(nextFrameIndex).padStart(3, '0')}.${ext}`
+    console.info(`[P360] pump:storage:start bucket="${storageBucket}" path="${storagePfx}"`)
 
     if (result.imageBuffer) {
-      const up = await uploadFrame({ tenantId: tenantIdPkg, productId, packageId, frameIndex: nextFrameIndex, buffer: result.imageBuffer, contentType: mimeType, ext })
+      const up = await uploadFrame({
+        tenantId: tenantIdPkg, productId, packageId, frameIndex: nextFrameIndex,
+        buffer: result.imageBuffer, contentType: mimeType, ext,
+      })
       uploadedUrl = up.imageUrl; storagePath = up.storagePath
     } else if (result.imageUrl) {
       const fetchRes = await fetch(result.imageUrl)
-      if (!fetchRes.ok) throw new Error(`Frame fetch failed (HTTP ${fetchRes.status})`)
+      if (!fetchRes.ok) throw new Error(`Remote frame fetch failed: HTTP ${fetchRes.status} for ${result.imageUrl}`)
       const buf = Buffer.from(await fetchRes.arrayBuffer())
-      const up  = await uploadFrame({ tenantId: tenantIdPkg, productId, packageId, frameIndex: nextFrameIndex, buffer: buf, contentType: fetchRes.headers.get('content-type') ?? mimeType, ext })
+      const up  = await uploadFrame({
+        tenantId: tenantIdPkg, productId, packageId, frameIndex: nextFrameIndex,
+        buffer: buf, contentType: fetchRes.headers.get('content-type') ?? mimeType, ext,
+      })
       uploadedUrl = up.imageUrl; storagePath = up.storagePath
     } else {
-      throw new Error('Provider returned neither buffer nor URL')
+      throw new Error('Provider returned neither image buffer nor image URL')
     }
+
+    console.info(`[P360] pump:storage:success imageUrl="${uploadedUrl.slice(0, 80)}…"`)
+    console.info(`[P360] pump:frame-completed frameIndex=${nextFrameIndex}`)
 
     // Save completed frame
     await db.from('product_360_frames').upsert({
-      package_id: packageId, tenant_id: tenantIdPkg, product_id: productId,
-      frame_index: nextFrameIndex, angle_degrees: angleDeg,
-      image_url: uploadedUrl, storage_path: storagePath,
-      status: 'completed',
-      prompt_used: framePrompt.slice(0, 4000),
-      is_master_frame: isMasterFrame, generation_attempt: 1,
-      alt_text: `${subject.name} – ${shotDirection} view`,
-      metadata: { angleDeg, shotDirection, isMaster: isMasterFrame },
-      generation_finished_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      package_id:              packageId,
+      tenant_id:               tenantIdPkg,
+      product_id:              productId,
+      frame_index:             nextFrameIndex,
+      angle_degrees:           angleDeg,
+      image_url:               uploadedUrl,
+      storage_path:            storagePath,
+      status:                  'completed',
+      prompt_used:             framePrompt.slice(0, 4000),
+      is_master_frame:         isMasterFrame,
+      generation_attempt:      1,
+      alt_text:                `${blueprint.subject.name} – ${shotDirection} view`,
+      generation_finished_at:  new Date().toISOString(),
+      updated_at:              new Date().toISOString(),
     }, { onConflict: 'package_id,frame_index' })
 
-    const newDone       = completedSet.size + 1
-    const progressPct   = Math.min(100, Math.round((newDone / totalFrames) * 100))
+    const newDone         = completedSet.size + 1
+    const progressPercent = Math.min(100, Math.round((newDone / totalFrames) * 100))
     const remainingFrames = totalFrames - newDone
+    const hasMore         = remainingFrames > 0
 
-    // Update package master_frame_url + progress
+    console.info(
+      `[P360] pump:package-progress framesDone=${newDone} total=${totalFrames} progress=${progressPercent}%`,
+    )
+
+    // Update package progress + master frame reference
     const pkgUpdate: Record<string, unknown> = {
       frames_done:               newDone,
-      progress_percent:          progressPct,
+      progress_percent:          progressPercent,
       last_generated_at:         new Date().toISOString(),
       last_generation_heartbeat: new Date().toISOString(),
       updated_at:                new Date().toISOString(),
@@ -340,10 +487,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
     await db.from('product_360_packages').update(pkgUpdate).eq('id', packageId)
 
-    console.info(`[p360:pump] pkg=${packageId} frame=${nextFrameIndex} done (${newDone}/${totalFrames})`)
-
     // All frames done → finalize
-    if (remainingFrames === 0) {
+    if (!hasMore) {
       await db.from('product_360_packages').update({
         status: 'processing', frame_count: totalFrames, updated_at: new Date().toISOString(),
       }).eq('id', packageId)
@@ -352,30 +497,36 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         generation_completed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }).eq('id', packageId)
       if (!fin.success) {
-        return NextResponse.json({ ok: false, error: { type: 'unknown', title: 'Finalize failed', message: fin.errorMessage ?? 'Finalize failed' } }, { status: 500 })
+        return pumpError({ packageId, status: 500, errorCode: 'finalize_failed',
+          errorMessage: fin.errorMessage ?? 'Finalize failed',
+          failedStage:  'finalize' })
       }
       return NextResponse.json({
-        ok: true,
-        data: { done: true, packageStatus: 'ready', progressPercent: 100, previewUrl: fin.previewUrl },
+        ok: true, packageId, hasMore: false, done: true,
+        packageStatus: 'ready', progressPercent: 100, framesDone: totalFrames, totalFrames,
+        previewUrl: fin.previewUrl ?? null,
+        processedFrameIndex: nextFrameIndex,
+        imageUrl: uploadedUrl,
+        message: `Generation complete. ${totalFrames} frames ready.`,
       })
     }
 
     return NextResponse.json({
-      ok: true,
-      data: {
-        done:                false,
-        processedFrameIndex: nextFrameIndex,
-        remainingFrames,
-        packageStatus:       'generating',
-        progressPercent:     progressPct,
-        imageUrl:            uploadedUrl,
-      },
+      ok: true, packageId, hasMore: true, done: false,
+      packageStatus:       'generating',
+      progressPercent,
+      framesDone:          newDone,
+      totalFrames,
+      remainingFrames,
+      processedFrameIndex: nextFrameIndex,
+      imageUrl:            uploadedUrl,
+      message: `Frame ${newDone} of ${totalFrames} generated.`,
     })
 
   } catch (err) {
-    // ── 429 quota exceeded ─────────────────────────────────────────────────
+    // ── Quota exceeded ────────────────────────────────────────────────────
     if (err instanceof ImagenApiError && err.statusCode === 429) {
-      const normalized = normalizeAiError(429, err instanceof Error ? err.message : '429')
+      const normalized = normalizeAiError(429, err.message)
       const retryAt    = normalized.retryAfter
         ? new Date(Date.now() + normalized.retryAfter * 1000).toISOString()
         : null
@@ -385,48 +536,71 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
 
       await db.from('product_360_packages').update({
-        status: 'paused_quota',
+        status:             'paused_quota',
         generation_error:   normalized.message,
         last_error_type:    'quota_exceeded',
-        last_error_at:      new Date().toISOString(),
         last_error_message: normalized.message,
+        last_error_at:      new Date().toISOString(),
         next_retry_at:      retryAt,
-        retry_count:        ((pkg.retry_count as number) ?? 0) + 1,
+        retry_count:        retryCountPkg + 1,
         updated_at:         new Date().toISOString(),
       }).eq('id', packageId)
 
-      console.warn(`[p360:pump] pkg=${packageId} 429 quota paused at frame ${nextFrameIndex}`)
+      console.warn(`[P360] pump:quota packageId=${packageId} frame=${nextFrameIndex} retryAt=${retryAt}`)
+
       return NextResponse.json({
-        ok: false,
-        error: {
-          type:      'quota_exceeded',
-          title:     'Image generation quota reached',
-          message:   normalized.message,
-          retryable: true,
-          retryAt,
-        },
+        ok:           false,
+        packageId,
+        errorCode:    'quota_exceeded',
+        errorMessage: normalized.message,
+        errorDetails: `Paused at frame ${nextFrameIndex}. Retry after: ${retryAt ?? 'unknown'}`,
+        failedStage:  'provider',
+        retryAt,
       }, { status: 429 })
     }
 
-    // ── General failure ────────────────────────────────────────────────────
-    const errMsg = err instanceof Error ? err.message : 'Frame generation failed'
-    console.error(`[p360:pump] pkg=${packageId} frame=${nextFrameIndex} failed:`, errMsg)
+    // ── General failure ───────────────────────────────────────────────────
+    const errMsg = err instanceof Error ? err.message : String(err)
+    const errStack = err instanceof Error ? (err.stack ?? '').split('\n').slice(0, 5).join('\n') : ''
+
+    console.error(
+      `[P360] pump:error stage=frame-generation packageId=${packageId} frame=${nextFrameIndex} error="${errMsg}"`,
+    )
+
+    // Classify the error for better UX
+    let friendlyMessage = errMsg
+    if (errMsg.includes('text output') || errMsg.includes('text only')) {
+      friendlyMessage = 'The AI model only supports text, not image generation. Check IMAGEN_MODEL env var.'
+    } else if (errMsg.includes('GEMINI_API_KEY') || errMsg.includes('Missing')) {
+      friendlyMessage = 'Missing API key. Add GEMINI_API_KEY to your environment variables.'
+    } else if (errMsg.includes('bucket') || errMsg.includes('Storage')) {
+      friendlyMessage = `Storage upload failed. ${errMsg}`
+    } else if (errMsg.includes('403') || errMsg.includes('access denied') || errMsg.includes('PERMISSION_DENIED')) {
+      friendlyMessage = 'Imagen API access denied. Ensure your API key has the Imagen API enabled in Google Cloud Console.'
+    }
 
     await db.from('product_360_frames').update({
-      status: 'failed', error_message: errMsg, updated_at: new Date().toISOString(),
+      status:        'failed',
+      error_message: errMsg,
+      updated_at:    new Date().toISOString(),
     }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
 
     await db.from('product_360_packages').update({
       status:             'failed',
-      generation_error:   errMsg,
-      last_error_message: errMsg,
+      generation_error:   friendlyMessage,
+      last_error_message: friendlyMessage,
+      last_error_details: errStack || null,
       last_error_at:      new Date().toISOString(),
       updated_at:         new Date().toISOString(),
     }).eq('id', packageId)
 
     return NextResponse.json({
-      ok: false,
-      error: { type: 'unknown', title: 'Frame generation failed', message: errMsg },
+      ok:           false,
+      packageId,
+      errorCode:    'frame_generation_failed',
+      errorMessage: friendlyMessage,
+      errorDetails: errStack || null,
+      failedStage:  'provider',
     }, { status: 500 })
   }
 }

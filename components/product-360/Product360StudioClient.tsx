@@ -8,7 +8,7 @@ import {
   Star, StarOff, RefreshCw, AlertCircle, X, Loader2,
   Search, Package, ChevronDown, Copy, Archive, ArchiveRestore,
   SlidersHorizontal, ChevronRight, Image as ImageIcon,
-  Check, Lock, Sparkles, Square, Clock, LayoutGrid,
+  Check, Lock, Sparkles, Square, Clock, LayoutGrid, Wrench,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import Product360ViewerClient from './Product360ViewerClient'
@@ -263,6 +263,12 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
 
   // ── Core pump loop ────────────────────────────────────────────────────────
   // Calls /pump repeatedly (one frame per request) until done or error.
+  //
+  // Response format from /pump:
+  //   success: { ok: true, hasMore, done, packageStatus, progressPercent,
+  //              framesDone, totalFrames, imageUrl, previewUrl, message }
+  //   failure: { ok: false, errorCode, errorMessage, errorDetails, failedStage }
+  //
   // eslint-disable-next-line react-hooks/exhaustive-deps
   async function runPumpLoop(pkgId: string) {
     if (pumpActiveRef.current.has(pkgId)) return
@@ -273,44 +279,66 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
         const snapshot = packages.find(p => p.id === pkgId)
         if (snapshot?.status === 'cancelled') break
 
-        let pumpRes: Response, pumpJson: Record<string, unknown>
+        let pumpJson: Record<string, unknown>
         try {
-          pumpRes  = await fetch(`/api/product-360/packages/${pkgId}/pump`, {
+          const pumpRes = await fetch(`/api/product-360/packages/${pkgId}/pump`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ tenantId }),
           })
           pumpJson = await pumpRes.json() as Record<string, unknown>
         } catch {
+          // True network failure — fetch never reached the server
           setPackages(prev => prev.map(p =>
-            p.id === pkgId ? { ...p, status: 'failed' as const, generation_error: 'Network error during generation' } : p,
+            p.id === pkgId
+              ? { ...p, status: 'failed' as const, generation_error: 'Network request failed before reaching server. Check your connection and try again.' }
+              : p,
           ))
           break
         }
 
-        if (!pumpRes.ok) {
-          const errObj  = (pumpJson.error as Record<string, unknown> | undefined) ?? {}
-          const errType = errObj.type as string | undefined
-          const errMsg  = (errObj.message as string | undefined) ?? 'Generation error'
-          const st      = errType === 'quota_exceeded' ? 'paused_quota' as const : 'failed' as const
+        // New flat response format: { ok: false, errorCode, errorMessage, ... }
+        if (!pumpJson.ok) {
+          const errorCode    = (pumpJson.errorCode    as string | undefined) ?? 'unknown_error'
+          const errorMessage = (pumpJson.errorMessage as string | undefined) ?? 'Generation failed'
+          const errorDetails = (pumpJson.errorDetails as string | undefined) ?? null
+          const failedStage  = (pumpJson.failedStage  as string | undefined) ?? null
+          const retryAt      = (pumpJson.retryAt      as string | undefined) ?? null
+
+          const isQuota = errorCode === 'quota_exceeded' || pumpJson.status === 429
+          const st      = isQuota ? 'paused_quota' as const : 'failed' as const
+
+          const displayMessage = errorDetails
+            ? `${errorMessage} (stage: ${failedStage ?? 'unknown'}) — ${errorDetails}`
+            : errorMessage
+
           setPackages(prev => prev.map(p =>
-            p.id === pkgId ? { ...p, status: st, generation_error: errMsg } : p,
+            p.id === pkgId ? {
+              ...p,
+              status:           st,
+              generation_error: displayMessage,
+              ...(retryAt ? { next_retry_at: retryAt } : {}),
+            } : p,
           ))
           break
         }
 
-        const d             = (pumpJson.data as Record<string, unknown> | undefined) ?? {}
-        const done          = !!(d.done)
-        const pkgStatus     = d.packageStatus  as P360PackageSummary['status'] | undefined
-        const progressPct   = (d.progressPercent as number | undefined) ?? 0
-        const remaining     = d.remainingFrames as number | undefined
-        const previewUrl    = (d.previewUrl as string | null | undefined) ?? null
-        const newFrameUrl   = (d.imageUrl   as string | null | undefined) ?? null
+        // Success path — top-level fields (new flat format)
+        const done         = !!(pumpJson.done)
+        const hasMore      = !!(pumpJson.hasMore)
+        const pkgStatus    = pumpJson.packageStatus  as P360PackageSummary['status'] | undefined
+        const progressPct  = (pumpJson.progressPercent as number | undefined) ?? 0
+        const framesDone   = (pumpJson.framesDone    as number | undefined) ?? undefined
+        const remaining    = (pumpJson.remainingFrames as number | undefined) ?? undefined
+        const previewUrl   = (pumpJson.previewUrl    as string | null | undefined) ?? null
+        const newFrameUrl  = (pumpJson.imageUrl      as string | null | undefined) ?? null
 
         setPackages(prev => prev.map(p => {
           if (p.id !== pkgId) return p
           const target    = p.target_frame_count ?? 0
-          const framesNow = remaining !== undefined ? target - remaining : p.frames_done ?? 0
+          const framesNow = framesDone !== undefined
+            ? framesDone
+            : remaining !== undefined ? target - remaining : p.frames_done ?? 0
           return {
             ...p,
             status:            pkgStatus ?? p.status,
@@ -329,7 +357,7 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
           })
         }
 
-        if (done) { fetchPackages(tenantId, selectedProd?.id); break }
+        if (done || !hasMore) { fetchPackages(tenantId, selectedProd?.id); break }
         await new Promise<void>(r => setTimeout(r, 400))
       }
     } finally {
@@ -574,6 +602,60 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
       setPackages(prev => prev.map(p => p.id === pkgId ? { ...p, generation_error: 'Network error' } : p))
     } finally {
       setGeneratingId(null)
+    }
+  }
+
+  async function handleRepairAndResume(pkgId: string) {
+    setGeneratingId(pkgId)
+    try {
+      const res  = await fetch(`/api/product-360/packages/${pkgId}/repair`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ tenantId }),
+      })
+      const json = await res.json() as Record<string, unknown>
+      if (!res.ok || !json.ok) {
+        const errMsg = (json.errorMessage as string | undefined) ?? 'Repair failed'
+        setPackages(prev => prev.map(p => p.id === pkgId ? { ...p, generation_error: errMsg } : p))
+        setGeneratingId(null)
+        return
+      }
+      // If repair set status to 'queued', immediately start generation
+      if (json.readyToResume) {
+        setPackages(prev => prev.map(p =>
+          p.id === pkgId ? {
+            ...p,
+            status: 'queued' as const,
+            generation_error: null,
+            frames_done:      (json.diagnostics as Record<string, unknown>)?.frames
+              ? ((json.diagnostics as Record<string, unknown>).frames as Record<string, unknown>).completed as number
+              : p.frames_done,
+          } : p,
+        ))
+        // Trigger pump-mode generation
+        const genRes  = await fetch(`/api/product-360/packages/${pkgId}/generate`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ tenantId, pumpMode: true }),
+        })
+        const genJson = await genRes.json() as Record<string, unknown>
+        const genData = (genJson.data as Record<string, unknown> | undefined) ?? genJson
+        if (genJson.ok !== false && genData.pumpMode) {
+          setPackages(prev => prev.map(p =>
+            p.id === pkgId ? { ...p, status: 'generating' as const } : p,
+          ))
+          runPumpLoop(pkgId)
+          return   // generatingId cleared by pump loop's finally block
+        }
+      }
+      fetchPackages(tenantId, selectedProd?.id)
+    } catch {
+      setPackages(prev => prev.map(p =>
+        p.id === pkgId ? { ...p, generation_error: 'Network error during repair' } : p,
+      ))
+    } finally {
+      // If we didn't hand off to runPumpLoop, clear generatingId here
+      if (!pumpActiveRef.current.has(pkgId)) setGeneratingId(null)
     }
   }
 
@@ -938,6 +1020,7 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
                 onArchive={handleArchive}
                 onUnarchive={handleUnarchivePackage}
                 onRequeue={handleRequeue}
+                onRepair={handleRepairAndResume}
                 onPreview={handlePreview}
                 onDuplicate={p => { setShowDuplicate(p); setDupName(`${p.name} (Copy)`) }}
                 onUpload={pkgId => { setUploadingFor(pkgId); setUploadIdx(0); fileInputRef.current?.click() }}
@@ -1248,6 +1331,7 @@ interface PackageCardProps {
   onArchive:          (pkg: P360PackageSummary) => void
   onUnarchive:        (id: string) => void
   onRequeue:          (id: string) => void
+  onRepair:           (id: string) => void
   onPreview:          (id: string) => void
   onDuplicate:        (pkg: P360PackageSummary) => void
   onUpload:           (id: string) => void
@@ -1261,7 +1345,7 @@ interface PackageCardProps {
 
 function PackageCard({
   pkg, completedFrameUrls, onGenerate, onRegenerate, onToggleEnabled, onSetDefault,
-  onArchive, onUnarchive, onRequeue, onPreview, onDuplicate, onUpload, onCancel,
+  onArchive, onUnarchive, onRequeue, onRepair, onPreview, onDuplicate, onUpload, onCancel,
   generatingId, cancellingId, archivingId, unarchivingId, previewLoading,
 }: PackageCardProps) {
   const isArchived = pkg.status === 'archived'
@@ -1516,6 +1600,16 @@ function PackageCard({
             icon={generatingId === pkg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
             label="Retry"
             highlight
+          />
+        )}
+
+        {/* Repair & Resume: failed packages — normalizes blueprint, resets stale frames, then resumes */}
+        {canGenerate && pkg.status === 'failed' && (
+          <ActionBtn
+            onClick={() => onRepair(pkg.id)}
+            disabled={generatingId === pkg.id}
+            icon={generatingId === pkg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+            label="Repair & Resume"
           />
         )}
 
