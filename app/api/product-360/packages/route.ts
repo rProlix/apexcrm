@@ -82,8 +82,12 @@ export async function POST(req: NextRequest) {
       turnDirection:        (body.turnDirection as 'clockwise' | 'counter_clockwise' | undefined),
       outputWidth:          (body.outputWidth         as number | null) ?? null,
       outputHeight:         (body.outputHeight        as number | null) ?? null,
-      promoTag:             (body.promoTag            as string | null) ?? null,
-      aiModel:              ((body.aiModel ?? body.generation_model) as string | undefined),
+      promoTag:                (body.promoTag            as string | null) ?? null,
+      aiModel:                 ((body.aiModel ?? body.generation_model) as string | undefined),
+      generationProvider:      (body.generationProvider ?? body.generation_provider) as 'gemini' | 'leonardo' | undefined,
+      referenceImageRequired:  !!(body.referenceImageRequired ?? body.reference_image_required),
+      consistencyMode:         (body.consistencyMode ?? body.consistency_mode) as 'standard' | 'strict' | 'ultra_strict' | undefined,
+      angleStrategy:           (body.angleStrategy ?? body.angle_strategy) as string | undefined,
     })
     return NextResponse.json({ ok: true, data: { package: pkg } }, { status: 201 })
   } catch (err) {

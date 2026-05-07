@@ -134,11 +134,19 @@ export interface CreatePackageOpts {
   zoom?:                number | null
   shadowStrength?:      number | null
   reflectionIntensity?: number | null
-  turnDirection?:       'clockwise' | 'counter_clockwise'
-  outputWidth?:         number | null
-  outputHeight?:        number | null
-  promoTag?:            string | null
-  aiModel?:             string
+  turnDirection?:           'clockwise' | 'counter_clockwise'
+  outputWidth?:             number | null
+  outputHeight?:            number | null
+  promoTag?:                string | null
+  aiModel?:                 string
+  /** AI provider: 'gemini' (default) or 'leonardo' */
+  generationProvider?:      'gemini' | 'leonardo'
+  /** Whether generation requires a reference image to be uploaded first */
+  referenceImageRequired?:  boolean
+  /** Consistency enforcement level */
+  consistencyMode?:         'standard' | 'strict' | 'ultra_strict'
+  /** Angle strategy for computing orbit frames */
+  angleStrategy?:           string
 }
 
 export class P360ApiError extends Error {
@@ -184,8 +192,11 @@ export async function createPackage(opts: CreatePackageOpts): Promise<P360Packag
       ends_at:              validated.endsAt               ?? null,
       promo_starts_at:      validated.startsAt             ?? null,
       promo_ends_at:        validated.endsAt               ?? null,
-      generation_provider:  'gemini',
-      ai_model:             validated.aiModel ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
+      generation_provider:       validated.generationProvider ?? 'gemini',
+      reference_image_required:  validated.referenceImageRequired ?? false,
+      consistency_mode:          validated.consistencyMode ?? 'ultra_strict',
+      angle_strategy:            validated.angleStrategy ?? 'orbit_locked',
+      ai_model:                  validated.aiModel ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
       generation_model:     validated.aiModel ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
       // Presets
       lighting_preset:      validated.lightingPreset      ?? null,

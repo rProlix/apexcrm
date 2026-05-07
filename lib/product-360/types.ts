@@ -145,6 +145,37 @@ export interface P360Package {
   locked_generation_prompt:  string | null
   /** 'standard' or 'strict' (default). Controls how forceful the locking language is. */
   consistency_mode:          'standard' | 'strict' | 'ultra_strict'
+  // ── Provider upgrade (added migration 046) ─────────────────────────────────
+  /** URL of the owner-uploaded reference image used as visual anchor. */
+  reference_image_url:             string | null
+  /** Supabase Storage path for the reference image. */
+  reference_image_storage_path:    string | null
+  /** When true, generation refuses to start without a reference image. */
+  reference_image_required:        boolean
+  /** Override blueprintVersionId per-package (falls back to env var). */
+  leonardo_blueprint_version_id:   string | null
+  /** Active / last Leonardo Blueprint Execution ID for the package. */
+  leonardo_execution_id:           string | null
+  /** External job/execution ID from the AI provider (package-level). */
+  provider_job_id:                 string | null
+  /** Status string from the AI provider's last response. */
+  provider_status:                 string | null
+  /** Raw provider response payload (JSONB). */
+  provider_response:               Record<string, unknown>
+  /** Locked identity blueprint JSON: subject/vessel/scene/rotation/negativeRules. */
+  locked_identity_blueprint:       Record<string, unknown>
+  /** Reproducibility seed (e.g. timestamp string). */
+  consistency_seed:                string | null
+  /** How orbit angles are computed: orbit_locked | turntable | camera_orbit | reference_image_orbit. */
+  angle_strategy:                  string
+  /** Provider-specific settings blob. */
+  provider_settings:               Record<string, unknown>
+  /** Fine-grained internal stage for the current/last generation run. */
+  generation_stage:                string | null
+  /** Short error label from the last provider failure (displayed in UI). */
+  last_provider_error:             string | null
+  /** Full error details from the last provider failure. */
+  last_provider_error_details:     string | null
   // ── Config blobs ───────────────────────────────────────────────────────────
   settings:             Record<string, unknown>
   hotspot_config:       P360HotspotConfig[]

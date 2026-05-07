@@ -17,12 +17,17 @@
 import { NextRequest, NextResponse }       from 'next/server'
 import { resolveP360ApiUser }              from '@/lib/product-360/auth'
 import { getSupabaseServerClient }         from '@/lib/supabase/server'
-import { requireP360Provider }             from '@/lib/ai/360/provider'
 import { ImagenApiError }                  from '@/lib/ai/360/imagenProvider'
 import { uploadFrame }                     from '@/lib/product-360/storage'
 import { finalizePackage }                 from '@/lib/product-360/finalize'
 import { normalizeAiError }                from '@/lib/ai/normalizeAiError'
 import { normalizeProductSubject }         from '@/lib/ai/360/normalizeProduct'
+import { getProduct360Provider }           from '@/lib/product-360/providers'
+import {
+  buildIdentityBlueprint,
+  getIdentityBlueprint,
+  serializeIdentityBlueprintToTextVariables,
+} from '@/lib/product-360/identityBlueprint'
 import {
   normalizeSceneBlueprint,
   enrichBlueprintWithAnalysis,
@@ -203,13 +208,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   // ── Provider check ────────────────────────────────────────────────────────
-  let provider
-  try {
-    provider = requireP360Provider()
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'AI provider not configured'
+  const providerName    = ((pkg.generation_provider as string) || 'gemini').toLowerCase()
+  const referenceImageUrl = (pkg.reference_image_url as string | null) ?? null
+
+  const provider = getProduct360Provider(providerName)
+  if (!provider.isAvailable()) {
+    const errs = provider.configErrors()
+    const msg  = `360 provider "${providerName}" is not configured: ${errs.join('; ')}`
     await db.from('product_360_packages').update({
       status: 'failed', generation_error: msg, last_error_message: msg,
+      last_provider_error: errs[0] ?? msg,
       last_error_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }).eq('id', packageId)
     return pumpError({ packageId, status: 503, errorCode: 'provider_not_configured',
@@ -329,7 +337,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (currentStatus !== 'generating') {
     const { error: statusErr } = await db
       .from('product_360_packages')
-      .update({ status: 'generating', updated_at: new Date().toISOString() })
+      .update({
+        status:           'generating',
+        generation_stage: 'generating',
+        updated_at:       new Date().toISOString(),
+      })
       .eq('id', packageId)
 
     if (statusErr) {
@@ -341,10 +353,27 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
   }
 
+  // ── Build / reuse identity blueprint (needed for Leonardo textVariables) ─
+  let identityBp = getIdentityBlueprint(pkg.locked_identity_blueprint as Record<string, unknown> | null)
+
+  if (!identityBp) {
+    console.info(`[P360] pump:identity-blueprint-build start packageId=${packageId}`)
+    try {
+      identityBp = await buildIdentityBlueprint(productName, productDesc, genConfig)
+      await db.from('product_360_packages').update({
+        locked_identity_blueprint: identityBp as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString(),
+      }).eq('id', packageId)
+      console.info(`[P360] pump:identity-blueprint-built product="${identityBp.subject.productName}"`)
+    } catch (bpErr) {
+      console.warn(`[P360] pump:identity-blueprint-build warn: ${bpErr instanceof Error ? bpErr.message : bpErr}`)
+    }
+  }
+
   // ── Find next frame to process ────────────────────────────────────────────
   const { data: existingFrames, error: framesErr } = await db
     .from('product_360_frames')
-    .select('frame_index, image_url')
+    .select('frame_index, image_url, provider_job_id, status')
     .eq('package_id', packageId)
     .order('frame_index', { ascending: true })
 
@@ -352,8 +381,19 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     console.warn(`[P360] pump:warn stage=frames-load error="${framesErr.message}" (non-fatal, assuming 0 frames)`)
   }
 
-  const frames = (existingFrames ?? []) as Array<{ frame_index: number; image_url: string | null }>
+  const frames = (existingFrames ?? []) as Array<{
+    frame_index:      number
+    image_url:        string | null
+    provider_job_id:  string | null
+    status:           string | null
+  }>
   const completedSet = new Set(frames.filter(f => !!f.image_url).map(f => f.frame_index))
+  // Track frames that have a pending async execution (not yet complete but started)
+  const pollingFrameMap = new Map(
+    frames
+      .filter(f => !f.image_url && f.provider_job_id)
+      .map(f => [f.frame_index, f.provider_job_id as string]),
+  )
 
   let nextFrameIndex = -1
   for (let i = 0; i < totalFrames; i++) {
@@ -385,6 +425,138 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       previewUrl: fin.previewUrl ?? null,
       message: `All ${totalFrames} frames generated. Package is ready.`,
     })
+  }
+
+  // ── Handle pending Leonardo execution for this frame (poll it) ───────────
+  const pendingExecutionId = pollingFrameMap.get(nextFrameIndex) ?? null
+
+  if (pendingExecutionId && providerName === 'leonardo' && provider.pollExecution) {
+    console.info(
+      `[P360] pump:leonardo-poll frame=${nextFrameIndex} executionId=${pendingExecutionId}`,
+    )
+
+    await db.from('product_360_packages').update({
+      generation_stage: 'polling_provider',
+      updated_at:       new Date().toISOString(),
+    }).eq('id', packageId)
+
+    const pollResult = await provider.pollExecution({ executionId: pendingExecutionId })
+
+    if (pollResult.status === 'pending') {
+      // Still in progress — tell client to poll again
+      console.info(`[P360] pump:leonardo-poll still pending frame=${nextFrameIndex}`)
+      return NextResponse.json({
+        ok: true, packageId, hasMore: true, done: false,
+        packageStatus:    'generating',
+        generationStage:  'polling_provider',
+        progressPercent:  (pkg.progress_percent as number) ?? 0,
+        framesDone:       completedSet.size,
+        totalFrames,
+        remainingFrames:  totalFrames - completedSet.size,
+        processedFrameIndex: nextFrameIndex,
+        message: `Frame ${nextFrameIndex} still generating via Leonardo. Polling…`,
+      })
+    }
+
+    if (pollResult.status === 'failed') {
+      const errMsg = pollResult.error?.message ?? `Leonardo execution ${pendingExecutionId} failed`
+      console.error(`[P360] pump:leonardo-poll-failed frame=${nextFrameIndex}: ${errMsg}`)
+
+      await db.from('product_360_frames').update({
+        status: 'failed', error_message: errMsg,
+        provider_job_id: null,  // clear so retry can start a new execution
+        updated_at: new Date().toISOString(),
+      }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
+
+      await db.from('product_360_packages').update({
+        status: 'failed', generation_error: errMsg,
+        last_provider_error: pollResult.error?.code ?? 'unknown',
+        last_provider_error_details: errMsg,
+        last_error_message: errMsg,
+        last_error_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('id', packageId)
+
+      return pumpError({ packageId, status: 500, errorCode: 'provider_failed',
+        errorMessage: errMsg, failedStage: 'polling_provider' })
+    }
+
+    // COMPLETED — upload the image to Supabase and proceed
+    const isMasterFramePoll = nextFrameIndex === 0
+    const angleDegPoll      = getFrameAngle(nextFrameIndex, totalFrames)
+    const shotDirPoll       = getShotDirection(angleDegPoll)
+
+    await db.from('product_360_packages').update({
+      generation_stage: 'uploading',
+      updated_at:       new Date().toISOString(),
+    }).eq('id', packageId)
+
+    const mimePoll  = pollResult.mimeType ?? 'image/png'
+    const extPoll   = mimePoll.includes('jpeg') ? 'jpg' : 'png'
+    let   uploadedUrlPoll: string, storagePathPoll: string
+
+    if (pollResult.imageBuffer) {
+      const up = await uploadFrame({
+        tenantId: tenantIdPkg, productId, packageId, frameIndex: nextFrameIndex,
+        buffer: pollResult.imageBuffer, contentType: mimePoll, ext: extPoll,
+      })
+      uploadedUrlPoll = up.imageUrl; storagePathPoll = up.storagePath
+    } else if (pollResult.imageUrl) {
+      const fetchRes = await fetch(pollResult.imageUrl)
+      if (!fetchRes.ok) throw new Error(`Remote frame fetch failed: HTTP ${fetchRes.status}`)
+      const buf = Buffer.from(await fetchRes.arrayBuffer())
+      const up  = await uploadFrame({
+        tenantId: tenantIdPkg, productId, packageId, frameIndex: nextFrameIndex,
+        buffer: buf, contentType: fetchRes.headers.get('content-type') ?? mimePoll, ext: extPoll,
+      })
+      uploadedUrlPoll = up.imageUrl; storagePathPoll = up.storagePath
+    } else {
+      throw new Error('Leonardo poll returned completed but no image data')
+    }
+
+    await db.from('product_360_frames').upsert({
+      package_id:             packageId,
+      tenant_id:              tenantIdPkg,
+      product_id:             productId,
+      frame_index:            nextFrameIndex,
+      angle_degrees:          angleDegPoll,
+      image_url:              uploadedUrlPoll,
+      storage_path:           storagePathPoll,
+      status:                 'completed',
+      is_master_frame:        isMasterFramePoll,
+      provider_job_id:        null,   // clear now that it's done
+      alt_text:               `${productName} – ${shotDirPoll} view`,
+      generation_finished_at: new Date().toISOString(),
+      updated_at:             new Date().toISOString(),
+    }, { onConflict: 'package_id,frame_index' })
+
+    const newDonePoll      = completedSet.size + 1
+    const progressPoll     = Math.min(100, Math.round((newDonePoll / totalFrames) * 100))
+    const hasMorePoll      = newDonePoll < totalFrames
+    const pkgUpdatePoll: Record<string, unknown> = {
+      frames_done:               newDonePoll,
+      progress_percent:          progressPoll,
+      generation_stage:          hasMorePoll ? 'generating' : 'processing',
+      last_generated_at:         new Date().toISOString(),
+      last_generation_heartbeat: new Date().toISOString(),
+      updated_at:                new Date().toISOString(),
+    }
+    if (isMasterFramePoll) {
+      pkgUpdatePoll.master_frame_url       = uploadedUrlPoll
+      pkgUpdatePoll.master_frame_generated = true
+    }
+    await db.from('product_360_packages').update(pkgUpdatePoll).eq('id', packageId)
+
+    if (!hasMorePoll) {
+      await db.from('product_360_packages').update({ status: 'processing', frame_count: totalFrames, updated_at: new Date().toISOString() }).eq('id', packageId)
+      const fin = await finalizePackage(packageId)
+      await db.from('product_360_packages').update({ generation_completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', packageId)
+      if (!fin.success) {
+        return pumpError({ packageId, status: 500, errorCode: 'finalize_failed', errorMessage: fin.errorMessage ?? 'Finalize failed', failedStage: 'finalize' })
+      }
+      return NextResponse.json({ ok: true, packageId, hasMore: false, done: true, packageStatus: 'ready', progressPercent: 100, framesDone: totalFrames, totalFrames, previewUrl: fin.previewUrl ?? null, processedFrameIndex: nextFrameIndex, imageUrl: uploadedUrlPoll, message: `Generation complete. ${totalFrames} frames ready.` })
+    }
+    return NextResponse.json({ ok: true, packageId, hasMore: true, done: false, packageStatus: 'generating', generationStage: 'generating', progressPercent: progressPoll, framesDone: newDonePoll, totalFrames, remainingFrames: totalFrames - newDonePoll, processedFrameIndex: nextFrameIndex, imageUrl: uploadedUrlPoll, message: `Frame ${newDonePoll} of ${totalFrames} generated (Leonardo).` })
   }
 
   // ── Generate the selected frame ───────────────────────────────────────────
@@ -464,15 +636,82 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       : buildLockedFramePrompt(lockedPrompt, blueprint, angleDeg, nextFrameIndex, totalFrames, shotDirection, attempt, lastDriftDetails)
 
     try {
-      console.info(`[P360] pump:provider:start model="${provider.model}" frame=${nextFrameIndex} attempt=${attempt + 1}`)
+      // Build text variables for Leonardo (includes locked identity + angle)
+      const textVars = identityBp
+        ? serializeIdentityBlueprintToTextVariables(
+            identityBp,
+            angleDeg,
+            nextFrameIndex,
+            totalFrames,
+            referenceImageUrl ? 'Use the provided reference image as visual anchor.' : undefined,
+          )
+        : retryPrompt
+
+      console.info(`[P360] pump:provider:start provider="${providerName}" frame=${nextFrameIndex} attempt=${attempt + 1}`)
 
       result = await provider.generateFrame({
         prompt:                 retryPrompt,
+        angleDegrees:           angleDeg,
+        frameIndex:             nextFrameIndex,
+        totalFrames,
         width:                  genConfig.outputWidth  ?? 1024,
         height:                 genConfig.outputHeight ?? 1024,
+        referenceImageUrl:      referenceImageUrl ?? undefined,
         referenceImageBase64:   masterBase64,
         referenceImageMimeType: masterMime,
+        textVariables:          textVars,
       })
+
+      // Leonardo returns status:'pending' for async executions
+      if (result.status === 'pending' && result.pendingExecutionId) {
+        const execId = result.pendingExecutionId
+        console.info(
+          `[P360] pump:leonardo-async frame=${nextFrameIndex} executionId=${execId} — saving and returning pending`,
+        )
+
+        await db.from('product_360_frames').upsert({
+          package_id:            packageId,
+          tenant_id:             tenantIdPkg,
+          product_id:            productId,
+          frame_index:           nextFrameIndex,
+          angle_degrees:         angleDeg,
+          status:                'polling_provider',
+          provider_job_id:       execId,
+          is_master_frame:       isMasterFrame,
+          generation_attempt:    attempt + 1,
+          generation_started_at: new Date().toISOString(),
+          updated_at:            new Date().toISOString(),
+        }, { onConflict: 'package_id,frame_index' })
+
+        await db.from('product_360_packages').update({
+          generation_stage:       'polling_provider',
+          provider_job_id:        execId,
+          leonardo_execution_id:  execId,
+          last_generation_heartbeat: new Date().toISOString(),
+          updated_at:             new Date().toISOString(),
+        }).eq('id', packageId)
+
+        const frameDoneSoFar = completedSet.size
+        return NextResponse.json({
+          ok: true, packageId, hasMore: true, done: false,
+          packageStatus:    'generating',
+          generationStage:  'polling_provider',
+          progressPercent:  Math.round((frameDoneSoFar / totalFrames) * 100),
+          framesDone:       frameDoneSoFar,
+          totalFrames,
+          remainingFrames:  totalFrames - frameDoneSoFar,
+          processedFrameIndex: nextFrameIndex,
+          message: `Frame ${nextFrameIndex} submitted to Leonardo. Execution: ${execId}. Will poll on next call.`,
+        })
+      }
+
+      if (result.status === 'failed') {
+        const provErr = result.error
+        if (provErr?.isQuotaError) {
+          throw Object.assign(new Error(provErr.message), { isQuota: true })
+        }
+        throw new Error(provErr?.message ?? 'Provider returned failed status')
+      }
 
       lastFrameError = null
 
@@ -525,7 +764,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     } catch (e) {
       lastFrameError = e instanceof Error ? e : new Error(String(e))
       // Don't retry quota errors — they need to pause the whole package
-      if (lastFrameError.message.includes('429') || lastFrameError.message.includes('quota')) throw lastFrameError
+      const isQuota = (lastFrameError as { isQuota?: boolean }).isQuota
+        || lastFrameError.message.includes('429')
+        || lastFrameError.message.toLowerCase().includes('quota')
+      if (isQuota) throw lastFrameError
       console.warn(`[P360] pump:retry:attempt=${attempt + 1} failed: ${lastFrameError.message}`)
       if (attempt < MAX_FRAME_RETRIES) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
     }
@@ -704,14 +946,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
 
       await db.from('product_360_packages').update({
-        status:             'paused_quota',
-        generation_error:   normalized.message,
-        last_error_type:    'quota_exceeded',
-        last_error_message: normalized.message,
-        last_error_at:      new Date().toISOString(),
-        next_retry_at:      retryAt,
-        retry_count:        retryCountPkg + 1,
-        updated_at:         new Date().toISOString(),
+        status:                      'paused_quota',
+        generation_stage:            'paused_quota',
+        generation_error:            normalized.message,
+        last_error_type:             'quota_exceeded',
+        last_error_message:          normalized.message,
+        last_provider_error:         'quota_exceeded',
+        last_provider_error_details: normalized.message,
+        last_error_at:               new Date().toISOString(),
+        next_retry_at:               retryAt,
+        retry_count:                 retryCountPkg + 1,
+        updated_at:                  new Date().toISOString(),
       }).eq('id', packageId)
 
       console.warn(`[P360] pump:quota packageId=${packageId} frame=${nextFrameIndex} retryAt=${retryAt}`)
@@ -754,12 +999,15 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
 
     await db.from('product_360_packages').update({
-      status:             'failed',
-      generation_error:   friendlyMessage,
-      last_error_message: friendlyMessage,
-      last_error_details: errStack || null,
-      last_error_at:      new Date().toISOString(),
-      updated_at:         new Date().toISOString(),
+      status:                      'failed',
+      generation_stage:            'failed',
+      generation_error:            friendlyMessage,
+      last_error_message:          friendlyMessage,
+      last_error_details:          errStack || null,
+      last_provider_error:         friendlyMessage.slice(0, 200),
+      last_provider_error_details: errStack || null,
+      last_error_at:               new Date().toISOString(),
+      updated_at:                  new Date().toISOString(),
     }).eq('id', packageId)
 
     return NextResponse.json({

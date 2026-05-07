@@ -48,17 +48,33 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  draft:        'Draft',
-  queued:       'Queued',
-  planning:     'Planning…',
-  generating:   'Generating…',
-  processing:   'Processing…',
-  paused_quota: 'Quota Paused',
-  ready:        'Ready',
-  completed:    'Completed',
-  failed:       'Failed',
-  cancelled:    'Stopped',
-  archived:     'Archived',
+  draft:            'Draft',
+  queued:           'Queued',
+  planning:         'Planning…',
+  generating:       'Generating…',
+  polling_provider: 'Polling AI…',
+  uploading:        'Uploading…',
+  processing:       'Processing…',
+  paused_quota:     'Quota Paused',
+  ready:            'Ready',
+  completed:        'Completed',
+  failed:           'Failed',
+  cancelled:        'Stopped',
+  archived:         'Archived',
+}
+
+const STATUS_STYLES_EXTRA: Record<string, string> = {
+  polling_provider: 'text-sky-400 bg-sky-400/10 border-sky-400/20',
+  uploading:        'text-violet-400 bg-violet-400/10 border-violet-400/20',
+}
+
+function getStatusStyle(status: string): string {
+  return STATUS_STYLES[status] ?? STATUS_STYLES_EXTRA[status] ?? 'text-white/40 bg-white/4 border-white/8'
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  gemini:   'Gemini / Imagen',
+  leonardo: 'Leonardo AI',
 }
 
 // How long (ms) a generating/queued package can go without a DB update
@@ -1380,7 +1396,7 @@ function PackageCard({
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-            <span className={`inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border ${STATUS_STYLES[pkg.status] ?? STATUS_STYLES.draft}`}>
+            <span className={`inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border ${getStatusStyle(pkg.status)}`}>
               {isActiveGeneration && <Loader2 className="h-2.5 w-2.5 mr-1 animate-spin" />}
               {statusLabel}
             </span>
@@ -1414,6 +1430,18 @@ function PackageCard({
              (pkg as P360Package & { master_frame_generated?: boolean }).master_frame_generated && (
               <span className="text-[10px] text-fuchsia-400 bg-fuchsia-400/10 border border-fuchsia-400/20 px-2 py-0.5 rounded-full" title="Strict mode: every frame validated against master">
                 Strict Mode
+              </span>
+            )}
+            {/* Provider badge */}
+            {(pkg as P360Package & { generation_provider?: string }).generation_provider === 'leonardo' && (
+              <span className="text-[10px] text-indigo-400 bg-indigo-400/10 border border-indigo-400/20 px-2 py-0.5 rounded-full" title="Uses Leonardo AI Blueprint Executions">
+                🎨 Leonardo
+              </span>
+            )}
+            {/* Generation stage badge */}
+            {(pkg as P360Package & { generation_stage?: string }).generation_stage === 'polling_provider' && (
+              <span className="text-[10px] text-sky-400 bg-sky-400/10 border border-sky-400/20 px-2 py-0.5 rounded-full">
+                Polling AI…
               </span>
             )}
             {pkg.preset    && <span className="text-[10px] text-sky-400 bg-sky-400/10 border border-sky-400/20 px-2 py-0.5 rounded-full">{pkg.preset}</span>}
@@ -1760,14 +1788,36 @@ function ActionBtn({
 
 function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
   const pkgExt = pkg as P360Package & {
-    master_frame_url?:         string | null
-    master_frame_generated?:   boolean
-    consistency_mode?:         string | null
-    locked_generation_prompt?: string | null
-    analysis_version?:         number
-    master_frame_analysis?:    Record<string, unknown> | null
-    scene_blueprint?:          Record<string, unknown> | null
+    master_frame_url?:             string | null
+    master_frame_generated?:       boolean
+    consistency_mode?:             string | null
+    locked_generation_prompt?:     string | null
+    analysis_version?:             number
+    master_frame_analysis?:        Record<string, unknown> | null
+    scene_blueprint?:              Record<string, unknown> | null
+    generation_provider?:          string | null
+    reference_image_url?:          string | null
+    generation_stage?:             string | null
+    provider_job_id?:              string | null
+    leonardo_execution_id?:        string | null
+    last_provider_error?:          string | null
+    locked_identity_blueprint?:    Record<string, unknown> | null
   }
+
+  const providerName     = pkgExt.generation_provider ?? 'gemini'
+  const providerLabel    = PROVIDER_LABELS[providerName] ?? providerName
+  const hasReferenceImg  = !!(pkgExt.reference_image_url)
+  const generationStage  = pkgExt.generation_stage ?? null
+  const providerJobId    = pkgExt.provider_job_id ?? pkgExt.leonardo_execution_id ?? null
+  const lastProvErr      = pkgExt.last_provider_error ?? null
+
+  // Identity blueprint (new simpler structure)
+  const identityBp          = pkgExt.locked_identity_blueprint
+  const hasIdentityBp        = !!(identityBp && typeof identityBp === 'object' && (identityBp as Record<string, unknown>).subject)
+  const identitySubject      = hasIdentityBp ? (identityBp as Record<string, unknown>).subject as Record<string, unknown> : null
+  const identityIngredients  = Array.isArray(identitySubject?.exactIngredientsOrParts)
+    ? (identitySubject.exactIngredientsOrParts as string[])
+    : []
   const hasMasterFrame    = !!(pkgExt.master_frame_generated && pkgExt.master_frame_url)
   const isVisionGrounded  = pkgExt.analysis_version === 2
   const hasBlueprint      = !!(pkgExt.locked_generation_prompt && pkgExt.locked_generation_prompt.length > 50)
@@ -1787,6 +1837,70 @@ function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
 
   return (
     <div className="rounded-xl bg-white/3 border border-white/6 p-3 space-y-2 text-[11px]">
+
+      {/* Provider + stage */}
+      <div className="flex items-center justify-between pb-1.5 border-b border-white/6">
+        <span className="text-[10px] text-white/30 uppercase tracking-wider">Provider</span>
+        <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+          providerName === 'leonardo'
+            ? 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20'
+            : 'text-fuchsia-400 bg-fuchsia-400/10 border-fuchsia-400/20'
+        }`}>
+          {providerName === 'leonardo' ? '🎨' : '🤖'} {providerLabel}
+        </span>
+      </div>
+
+      {/* Reference image */}
+      {providerName === 'leonardo' && (
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-white/30 uppercase tracking-wider">Reference Image</span>
+          <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+            hasReferenceImg
+              ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
+              : 'text-orange-400 bg-orange-400/10 border-orange-400/20'
+          }`}>
+            {hasReferenceImg ? <><Check className="h-2.5 w-2.5" />Uploaded</> : 'Not uploaded'}
+          </span>
+        </div>
+      )}
+
+      {/* Generation stage */}
+      {generationStage && (
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-white/30 uppercase tracking-wider">Stage</span>
+          <span className="text-[10px] text-white/50 font-mono">{generationStage}</span>
+        </div>
+      )}
+
+      {/* Provider job ID */}
+      {providerJobId && (
+        <div className="rounded-lg bg-white/3 border border-white/6 p-2">
+          <p className="text-[9px] text-white/30 uppercase tracking-wider mb-0.5">Provider Job ID</p>
+          <p className="text-[10px] text-white/50 font-mono break-all">{providerJobId}</p>
+        </div>
+      )}
+
+      {/* Last provider error */}
+      {lastProvErr && (
+        <div className="rounded-lg bg-red-400/5 border border-red-400/15 p-2">
+          <p className="text-[9px] text-red-400/60 uppercase tracking-wider mb-0.5">Last Provider Error</p>
+          <p className="text-[10px] text-red-400/70 leading-snug">{lastProvErr}</p>
+        </div>
+      )}
+
+      {/* Identity blueprint */}
+      {hasIdentityBp && identitySubject && (
+        <div className="rounded-lg bg-teal-400/5 border border-teal-400/15 p-2 space-y-1">
+          <p className="text-[9px] text-teal-400/60 uppercase tracking-wider">Locked Identity Blueprint</p>
+          <p className="text-[10px] text-white/70 font-medium">{String(identitySubject.productName ?? '')}</p>
+          {identityIngredients.length > 0 && (
+            <p className="text-[10px] text-white/40 leading-snug">
+              {identityIngredients.slice(0, 5).join(', ')}
+              {identityIngredients.length > 5 && ` +${identityIngredients.length - 5} more`}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Consistency mode status */}
       <div className="flex items-center justify-between pb-1.5 border-b border-white/6">
@@ -2217,6 +2331,12 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
   const [notes,      setNotes]      = useState('')
   const [type,       setType]       = useState<'ai_generated' | 'uploaded_frames'>('ai_generated')
   const [frames,     setFrames]     = useState(36)
+  const [provider,   setProvider]   = useState<'gemini' | 'leonardo'>(
+    (process.env.NEXT_PUBLIC_360_DEFAULT_PROVIDER as 'gemini' | 'leonardo' | undefined) ?? 'gemini',
+  )
+  const [refImageFile,    setRefImageFile]    = useState<File | null>(null)
+  const [refImagePreview, setRefImagePreview] = useState<string | null>(null)
+  const refImageInputRef = useRef<HTMLInputElement>(null)
   const [lighting,   setLighting]   = useState('')
   const [background, setBackground] = useState('')
   const [category,   setCategory]   = useState('')
@@ -2254,29 +2374,30 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
           tenantId,
-          productId:         product,
-          name:              name.trim(),
-          description:       desc.trim()    || undefined,
-          preset:            preset.trim()  || null,
-          is_primary:        isPrimary,
-          packageType:       type,
-          generationPrompt:  prompt.trim()  || undefined,
-          generationNotes:   notes.trim()   || undefined,
-          targetFrameCount:  frames,
-          lightingPreset:    lighting    || null,
-          backgroundPreset:  background  || null,
-          categoryPreset:    category    || null,
-          cameraPreset:      camera      || null,
-          turnDirection:     direction,
-          consistencyMode:   consistencyMode_,
-          shadowStrength:    shadow,
-          reflectionIntensity: reflection,
-          promoTag:          promoTag.trim() || null,
+          productId:              product,
+          name:                   name.trim(),
+          description:            desc.trim()    || undefined,
+          preset:                 preset.trim()  || null,
+          is_primary:             isPrimary,
+          packageType:            type,
+          generationPrompt:       prompt.trim()  || undefined,
+          generationNotes:        notes.trim()   || undefined,
+          targetFrameCount:       frames,
+          lightingPreset:         lighting    || null,
+          backgroundPreset:       background  || null,
+          categoryPreset:         category    || null,
+          cameraPreset:           camera      || null,
+          turnDirection:          direction,
+          consistencyMode:        consistencyMode_,
+          shadowStrength:         shadow,
+          reflectionIntensity:    reflection,
+          promoTag:               promoTag.trim() || null,
+          generationProvider:     provider,
+          referenceImageRequired: provider === 'leonardo' && !refImageFile ? false : undefined,
         }),
       })
       const json = await res.json()
       if (!res.ok) {
-        // Structured error from the new API shape
         const apiErr = json.error
         if (apiErr && typeof apiErr === 'object') {
           setErrorTitle(apiErr.title ?? 'Package creation failed')
@@ -2289,8 +2410,27 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
         }
         return
       }
-      // Support both legacy { package } and new { ok, data: { package } } shapes
       const pkg = json.data?.package ?? json.package
+
+      // Upload reference image if provided
+      if (refImageFile && pkg?.id) {
+        try {
+          const fd = new FormData()
+          fd.append('image', refImageFile)
+          const upRes = await fetch(`/api/product-360/packages/${pkg.id}/upload-reference`, {
+            method: 'POST',
+            body:   fd,
+          })
+          if (!upRes.ok) {
+            const upJson = await upRes.json().catch(() => ({}))
+            console.warn('Reference image upload failed:', upJson)
+            setError(`Package created, but reference image upload failed: ${upJson?.error?.message ?? 'Unknown error'}`)
+          }
+        } catch (upErr) {
+          console.warn('Reference image upload error:', upErr)
+        }
+      }
+
       onCreated({ ...pkg, frames_done: 0, product_name: products.find(p => p.id === product)?.name ?? null })
     } catch {
       setErrorTitle('Network error')
@@ -2384,11 +2524,85 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
                       ? 'bg-fuchsia-400/10 border-fuchsia-400/30 text-fuchsia-400'
                       : 'bg-white/4 border-white/8 text-white/40 hover:text-white hover:bg-white/8'
                   }`}>
-                  {t === 'ai_generated' ? '⚡ AI Generated (Gemini)' : '📁 Manual Upload'}
+                  {t === 'ai_generated' ? '⚡ AI Generated' : '📁 Manual Upload'}
                 </button>
               ))}
             </div>
           </Field>
+
+          {/* AI Provider selector */}
+          {type === 'ai_generated' && (
+            <Field label="AI Provider" className="sm:col-span-2">
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { value: 'gemini',   label: 'Gemini / Imagen',  desc: 'Text-prompt generation, no reference required' },
+                  { value: 'leonardo', label: 'Leonardo AI',       desc: 'Blueprint Executions with reference image' },
+                ] as const).map(p => (
+                  <button key={p.value} type="button" onClick={() => setProvider(p.value)}
+                    className={`h-auto py-2.5 px-3 rounded-xl text-xs font-medium border transition-colors flex flex-col items-start gap-0.5 ${
+                      provider === p.value
+                        ? (p.value === 'leonardo'
+                          ? 'bg-indigo-400/10 border-indigo-400/30 text-indigo-400'
+                          : 'bg-fuchsia-400/10 border-fuchsia-400/30 text-fuchsia-400')
+                        : 'bg-white/4 border-white/8 text-white/40 hover:text-white hover:bg-white/8'
+                    }`}>
+                    <span>{p.value === 'gemini' ? '🤖' : '🎨'} {p.label}</span>
+                    <span className="text-[9px] font-normal opacity-60 leading-tight">{p.desc}</span>
+                  </button>
+                ))}
+              </div>
+              {provider === 'leonardo' && (
+                <p className="text-[10px] text-indigo-400/70 mt-1.5 leading-relaxed">
+                  Leonardo uses Blueprint Executions. Uploading a reference photo produces much more consistent 360° frames — strongly recommended.
+                </p>
+              )}
+            </Field>
+          )}
+
+          {/* Reference image upload */}
+          {type === 'ai_generated' && (
+            <Field label={provider === 'leonardo' ? 'Reference Image (Strongly Recommended)' : 'Reference Image (Optional)'} className="sm:col-span-2">
+              <input
+                ref={refImageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0] ?? null
+                  setRefImageFile(file)
+                  if (file) {
+                    const reader = new FileReader()
+                    reader.onload = ev => setRefImagePreview(ev.target?.result as string)
+                    reader.readAsDataURL(file)
+                  } else {
+                    setRefImagePreview(null)
+                  }
+                }}
+              />
+              {refImagePreview ? (
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={refImagePreview} alt="Reference" className="w-16 h-16 rounded-xl object-cover border border-white/10" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-white/60 truncate">{refImageFile?.name}</p>
+                    <p className="text-[10px] text-white/30">{refImageFile ? `${Math.round(refImageFile.size / 1024)} KB` : ''}</p>
+                    <button type="button" onClick={() => { setRefImageFile(null); setRefImagePreview(null); if (refImageInputRef.current) refImageInputRef.current.value = '' }}
+                      className="mt-1 text-[10px] text-red-400/60 hover:text-red-400 transition-colors">Remove</button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" onClick={() => refImageInputRef.current?.click()}
+                  className={`w-full h-16 rounded-xl border-2 border-dashed flex items-center justify-center gap-2 text-xs transition-colors ${
+                    provider === 'leonardo'
+                      ? 'border-indigo-400/30 text-indigo-400/60 hover:border-indigo-400/60 hover:text-indigo-400'
+                      : 'border-white/12 text-white/30 hover:border-white/25 hover:text-white/50'
+                  }`}>
+                  <Upload className="h-4 w-4" />
+                  {provider === 'leonardo' ? 'Upload reference photo of your product' : 'Upload reference image (optional)'}
+                </button>
+              )}
+            </Field>
+          )}
 
           {/* Consistency Mode */}
           {type === 'ai_generated' && (
