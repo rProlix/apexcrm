@@ -28,6 +28,7 @@ import {
   getIdentityBlueprint,
   serializeIdentityBlueprintToTextVariables,
 } from '@/lib/product-360/identityBlueprint'
+import { buildLeonardoDiagnostic }         from '@/lib/product-360/providers/leonardoProvider'
 import {
   normalizeSceneBlueprint,
   enrichBlueprintWithAnalysis,
@@ -62,7 +63,7 @@ function pumpError(opts: {
   status:       number
   errorCode:    string
   errorMessage: string
-  errorDetails?: string
+  errorDetails?: string | null
   failedStage:  string
 }) {
   console.error(
@@ -208,8 +209,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   // ── Provider check ────────────────────────────────────────────────────────
-  const providerName    = ((pkg.generation_provider as string) || 'gemini').toLowerCase()
-  const referenceImageUrl = (pkg.reference_image_url as string | null) ?? null
+  const providerName = ((pkg.generation_provider as string) || 'gemini').toLowerCase()
 
   const provider = getProduct360Provider(providerName)
   if (!provider.isAvailable()) {
@@ -224,6 +224,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       errorMessage: msg, failedStage: 'provider-init' })
   }
 
+  // Reference image URL — resolved with fallback chain:
+  //   package.reference_image_url → package.master_frame_url → product.image_url (resolved after product load)
+  // For Leonardo: strongly recommended; will warn but not block if absent.
+  const referenceImageUrl: string | null = (pkg.reference_image_url as string | null) ?? null
+
   // ── Load product (separate query — avoids FK ambiguity, no column assumptions) ─
   //    Only request columns that exist in the base products table.
   const { data: productRaw } = await db
@@ -235,8 +240,27 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const productName  = (productRaw?.name        as string | null) || (pkg.name as string) || 'Product'
   const productDesc  = (productRaw?.description as string | null) || (pkg.description as string) || ''
   const productCat   = (productRaw?.category    as string | null) ?? null
+  const productImageUrl = (productRaw as Record<string, unknown> | null)?.image_url as string | null
+    ?? (productRaw as Record<string, unknown> | null)?.images as string | null
+    ?? null
 
   console.info(`[P360] pump:product-loaded name="${productName}"`)
+
+  // ── Reference image fallback chain ────────────────────────────────────────
+  // Resolved here (after product load) so we can fall back to the product image.
+  const resolvedReferenceImageUrl: string | null =
+    referenceImageUrl                                                           ||  // package.reference_image_url
+    (pkg.master_frame_url as string | null)                                    ||  // first generated frame (best visual anchor)
+    (typeof productImageUrl === 'string' ? productImageUrl : null)             ||  // product image
+    null
+
+  if (providerName === 'leonardo' && !resolvedReferenceImageUrl) {
+    console.warn(
+      `[P360] pump:leonardo-no-reference packageId=${packageId} — ` +
+      `No reference image URL available (package.reference_image_url, master_frame_url, product.image_url are all null). ` +
+      `Upload a reference image for best 360 consistency.`,
+    )
+  }
 
   // ── Build normalized subject + blueprint ──────────────────────────────────
   //
@@ -373,7 +397,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // ── Find next frame to process ────────────────────────────────────────────
   const { data: existingFrames, error: framesErr } = await db
     .from('product_360_frames')
-    .select('frame_index, image_url, provider_job_id, status')
+    .select('frame_index, image_url, provider_job_id, provider_execution_id, provider_status, status')
     .eq('package_id', packageId)
     .order('frame_index', { ascending: true })
 
@@ -382,17 +406,20 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   const frames = (existingFrames ?? []) as Array<{
-    frame_index:      number
-    image_url:        string | null
-    provider_job_id:  string | null
-    status:           string | null
+    frame_index:           number
+    image_url:             string | null
+    provider_job_id:       string | null
+    provider_execution_id: string | null
+    provider_status:       string | null
+    status:                string | null
   }>
   const completedSet = new Set(frames.filter(f => !!f.image_url).map(f => f.frame_index))
   // Track frames that have a pending async execution (not yet complete but started)
+  // Prefer provider_execution_id over provider_job_id (provider_execution_id added in 047)
   const pollingFrameMap = new Map(
     frames
-      .filter(f => !f.image_url && f.provider_job_id)
-      .map(f => [f.frame_index, f.provider_job_id as string]),
+      .filter(f => !f.image_url && (f.provider_execution_id || f.provider_job_id))
+      .map(f => [f.frame_index, (f.provider_execution_id ?? f.provider_job_id) as string]),
   )
 
   let nextFrameIndex = -1
@@ -443,8 +470,15 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const pollResult = await provider.pollExecution({ executionId: pendingExecutionId })
 
     if (pollResult.status === 'pending') {
-      // Still in progress — tell client to poll again
-      console.info(`[P360] pump:leonardo-poll still pending frame=${nextFrameIndex}`)
+      // Still in progress — update frame status and tell client to poll again
+      const pendingMsg = pollResult.error?.message ?? `Frame ${nextFrameIndex} still generating via Leonardo. Pump again shortly.`
+      console.info(`[P360] pump:leonardo-poll still pending frame=${nextFrameIndex}: ${pendingMsg}`)
+
+      await db.from('product_360_frames').update({
+        provider_status: 'processing',
+        updated_at:      new Date().toISOString(),
+      }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
+
       return NextResponse.json({
         ok: true, packageId, hasMore: true, done: false,
         packageStatus:    'generating',
@@ -454,31 +488,40 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         totalFrames,
         remainingFrames:  totalFrames - completedSet.size,
         processedFrameIndex: nextFrameIndex,
-        message: `Frame ${nextFrameIndex} still generating via Leonardo. Polling…`,
+        message: pendingMsg,
       })
     }
 
     if (pollResult.status === 'failed') {
-      const errMsg = pollResult.error?.message ?? `Leonardo execution ${pendingExecutionId} failed`
+      const errMsg  = pollResult.error?.message ?? `Leonardo execution ${pendingExecutionId} failed`
+      const errCode = pollResult.error?.code     ?? 'unknown'
       console.error(`[P360] pump:leonardo-poll-failed frame=${nextFrameIndex}: ${errMsg}`)
 
       await db.from('product_360_frames').update({
-        status: 'failed', error_message: errMsg,
-        provider_job_id: null,  // clear so retry can start a new execution
-        updated_at: new Date().toISOString(),
+        status:                'failed',
+        error_message:          errMsg,
+        provider_status:        'failed',
+        provider_error_message: errMsg,
+        provider_error_details: pollResult.error?.details ?? null,
+        provider_job_id:        null,         // clear so retry can start a new execution
+        provider_execution_id:  null,
+        updated_at:             new Date().toISOString(),
       }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
 
       await db.from('product_360_packages').update({
-        status: 'failed', generation_error: errMsg,
-        last_provider_error: pollResult.error?.code ?? 'unknown',
+        status:                      'failed',
+        generation_stage:            'failed',
+        generation_error:            errMsg,
+        last_provider_error:         errCode,
         last_provider_error_details: errMsg,
-        last_error_message: errMsg,
-        last_error_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        last_error_message:          errMsg,
+        last_error_at:               new Date().toISOString(),
+        updated_at:                  new Date().toISOString(),
       }).eq('id', packageId)
 
       return pumpError({ packageId, status: 500, errorCode: 'provider_failed',
-        errorMessage: errMsg, failedStage: 'polling_provider' })
+        errorMessage: errMsg, errorDetails: pollResult.error?.details ?? null,
+        failedStage: 'polling_provider' })
     }
 
     // COMPLETED — upload the image to Supabase and proceed
@@ -502,8 +545,45 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       })
       uploadedUrlPoll = up.imageUrl; storagePathPoll = up.storagePath
     } else if (pollResult.imageUrl) {
-      const fetchRes = await fetch(pollResult.imageUrl)
-      if (!fetchRes.ok) throw new Error(`Remote frame fetch failed: HTTP ${fetchRes.status}`)
+      let fetchRes: Response
+      try {
+        fetchRes = await fetch(pollResult.imageUrl, { signal: AbortSignal.timeout(30_000) })
+        if (!fetchRes.ok) throw new Error(`Remote frame fetch failed: HTTP ${fetchRes.status}`)
+      } catch (fetchErr) {
+        const fetchMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+        // Image URL exists but download failed — save it directly as image_url without re-uploading
+        // (avoid losing the frame just because our CDN fetch timed out)
+        console.warn(`[P360] pump:poll-image-fetch-failed — saving URL directly: ${fetchMsg}`)
+        await db.from('product_360_frames').upsert({
+          package_id: packageId, tenant_id: tenantIdPkg, product_id: productId,
+          frame_index: nextFrameIndex, angle_degrees: angleDegPoll,
+          image_url: pollResult.imageUrl, status: 'completed',
+          is_master_frame: isMasterFramePoll,
+          provider: 'leonardo', provider_status: 'completed', provider_job_id: null, provider_execution_id: null,
+          alt_text: `${productName} – ${shotDirPoll} view`,
+          generation_finished_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        }, { onConflict: 'package_id,frame_index' })
+
+        const newDoneF   = completedSet.size + 1
+        const progressF  = Math.min(100, Math.round((newDoneF / totalFrames) * 100))
+        const pkgUpdF: Record<string, unknown> = {
+          frames_done: newDoneF, progress_percent: progressF,
+          generation_stage: newDoneF < totalFrames ? 'generating' : 'processing',
+          last_generated_at: new Date().toISOString(),
+          last_generation_heartbeat: new Date().toISOString(), updated_at: new Date().toISOString(),
+        }
+        if (isMasterFramePoll) { pkgUpdF.master_frame_url = pollResult.imageUrl; pkgUpdF.master_frame_generated = true }
+        await db.from('product_360_packages').update(pkgUpdF).eq('id', packageId)
+
+        if (newDoneF >= totalFrames) {
+          await db.from('product_360_packages').update({ status: 'processing', frame_count: totalFrames, updated_at: new Date().toISOString() }).eq('id', packageId)
+          const fin = await finalizePackage(packageId)
+          await db.from('product_360_packages').update({ generation_completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', packageId)
+          if (!fin.success) return pumpError({ packageId, status: 500, errorCode: 'finalize_failed', errorMessage: fin.errorMessage ?? 'Finalize failed', failedStage: 'finalize' })
+          return NextResponse.json({ ok: true, packageId, hasMore: false, done: true, packageStatus: 'ready', progressPercent: 100, framesDone: totalFrames, totalFrames, previewUrl: fin.previewUrl ?? null, processedFrameIndex: nextFrameIndex, imageUrl: pollResult.imageUrl, message: `Generation complete. ${totalFrames} frames ready.` })
+        }
+        return NextResponse.json({ ok: true, packageId, hasMore: true, done: false, packageStatus: 'generating', generationStage: 'generating', progressPercent: progressF, framesDone: newDoneF, totalFrames, remainingFrames: totalFrames - newDoneF, processedFrameIndex: nextFrameIndex, imageUrl: pollResult.imageUrl, message: `Frame ${newDoneF} of ${totalFrames} generated (Leonardo, URL-only).` })
+      }
       const buf = Buffer.from(await fetchRes.arrayBuffer())
       const up  = await uploadFrame({
         tenantId: tenantIdPkg, productId, packageId, frameIndex: nextFrameIndex,
@@ -511,7 +591,36 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       })
       uploadedUrlPoll = up.imageUrl; storagePathPoll = up.storagePath
     } else {
-      throw new Error('Leonardo poll returned completed but no image data')
+      // completed status but no image — this should not happen given the provider checks
+      // Store diagnostic and fail gracefully
+      const diagMsg = `Leonardo execution ${pendingExecutionId} reported completed but returned neither image buffer nor URL`
+      console.error(`[P360] pump:leonardo-poll-no-image frame=${nextFrameIndex}: ${diagMsg}`)
+
+      await db.from('product_360_frames').update({
+        status:                 'failed',
+        error_message:          diagMsg,
+        provider_status:        'failed',
+        provider_error_message: diagMsg,
+        provider_job_id:        null,
+        provider_execution_id:  null,
+        updated_at:             new Date().toISOString(),
+      }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
+
+      await db.from('product_360_packages').update({
+        status:                      'failed',
+        generation_stage:            'failed',
+        generation_error:            diagMsg,
+        last_provider_error:         'no_image_returned',
+        last_provider_error_details: diagMsg,
+        last_error_message:          diagMsg,
+        last_error_at:               new Date().toISOString(),
+        updated_at:                  new Date().toISOString(),
+      }).eq('id', packageId)
+
+      return pumpError({ packageId, status: 500, errorCode: 'provider_no_image',
+        errorMessage: diagMsg,
+        errorDetails: `Execution ${pendingExecutionId} reported COMPLETE but no image was extractable. Check Leonardo blueprint configuration.`,
+        failedStage: 'polling_provider' })
     }
 
     await db.from('product_360_frames').upsert({
@@ -524,7 +633,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       storage_path:           storagePathPoll,
       status:                 'completed',
       is_master_frame:        isMasterFramePoll,
-      provider_job_id:        null,   // clear now that it's done
+      provider:               'leonardo',
+      provider_job_id:        null,         // clear now that it's done
+      provider_execution_id:  null,
+      provider_status:        'completed',
       alt_text:               `${productName} – ${shotDirPoll} view`,
       generation_finished_at: new Date().toISOString(),
       updated_at:             new Date().toISOString(),
@@ -643,7 +755,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
             angleDeg,
             nextFrameIndex,
             totalFrames,
-            referenceImageUrl ? 'Use the provided reference image as visual anchor.' : undefined,
+            resolvedReferenceImageUrl ? 'Use the provided reference image as visual anchor.' : undefined,
           )
         : retryPrompt
 
@@ -656,7 +768,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         totalFrames,
         width:                  genConfig.outputWidth  ?? 1024,
         height:                 genConfig.outputHeight ?? 1024,
-        referenceImageUrl:      referenceImageUrl ?? undefined,
+        referenceImageUrl:      resolvedReferenceImageUrl ?? undefined,
         referenceImageBase64:   masterBase64,
         referenceImageMimeType: masterMime,
         textVariables:          textVars,
@@ -675,8 +787,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           product_id:            productId,
           frame_index:           nextFrameIndex,
           angle_degrees:         angleDeg,
-          status:                'polling_provider',
+          status:                'generating',
+          provider:              'leonardo',
           provider_job_id:       execId,
+          provider_execution_id: execId,
+          provider_status:       'processing',
           is_master_frame:       isMasterFrame,
           generation_attempt:    attempt + 1,
           generation_started_at: new Date().toISOString(),
@@ -838,16 +953,67 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       })
       uploadedUrl = up.imageUrl; storagePath = up.storagePath
     } else if (result.imageUrl) {
-      const fetchRes = await fetch(result.imageUrl)
-      if (!fetchRes.ok) throw new Error(`Remote frame fetch failed: HTTP ${fetchRes.status} for ${result.imageUrl}`)
-      const buf = Buffer.from(await fetchRes.arrayBuffer())
-      const up  = await uploadFrame({
-        tenantId: tenantIdPkg, productId, packageId, frameIndex: nextFrameIndex,
-        buffer: buf, contentType: fetchRes.headers.get('content-type') ?? mimeType, ext,
-      })
-      uploadedUrl = up.imageUrl; storagePath = up.storagePath
+      let fetchRes: Response
+      try {
+        fetchRes = await fetch(result.imageUrl, { signal: AbortSignal.timeout(30_000) })
+        if (!fetchRes.ok) throw new Error(`Remote frame fetch failed: HTTP ${fetchRes.status} for ${result.imageUrl}`)
+      } catch (fetchErr) {
+        // Fetch failed but we have the URL — store it directly rather than failing the frame
+        const fetchMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+        console.warn(`[P360] pump:image-fetch-warn — storing URL directly: ${fetchMsg}`)
+        // Fall through to URL-only storage
+        fetchRes = null as unknown as Response
+      }
+      if (fetchRes) {
+        const buf = Buffer.from(await fetchRes.arrayBuffer())
+        const up  = await uploadFrame({
+          tenantId: tenantIdPkg, productId, packageId, frameIndex: nextFrameIndex,
+          buffer: buf, contentType: fetchRes.headers.get('content-type') ?? mimeType, ext,
+        })
+        uploadedUrl = up.imageUrl; storagePath = up.storagePath
+      } else {
+        // Could not download — use the remote URL directly as the frame image
+        uploadedUrl = result.imageUrl; storagePath = result.imageUrl
+      }
     } else {
-      throw new Error('Provider returned neither image buffer nor image URL')
+      // Provider returned completed status but no image — structured error with diagnostics
+      const rawDiag = result.rawResponse
+        ?? (providerName === 'leonardo' ? buildLeonardoDiagnostic(null, 'generate-frame') : null)
+      const noImageMsg =
+        `Provider "${providerName}" completed but returned neither an image buffer nor an image URL. ` +
+        (rawDiag ? `Response keys: [${Object.keys(rawDiag).join(', ')}]. ` : '') +
+        `Check the provider configuration and blueprint settings.`
+
+      // Save diagnostic details on the frame and package before failing
+      await db.from('product_360_frames').update({
+        status:                 'failed',
+        error_message:          noImageMsg,
+        provider:               providerName,
+        provider_status:        'failed',
+        provider_error_message: noImageMsg,
+        provider_error_details: rawDiag ? JSON.stringify(rawDiag) : null,
+        updated_at:             new Date().toISOString(),
+      }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
+
+      await db.from('product_360_packages').update({
+        status:                      'failed',
+        generation_stage:            'failed',
+        generation_error:            noImageMsg,
+        last_provider_error:         'no_image_returned',
+        last_provider_error_details: noImageMsg,
+        last_error_message:          noImageMsg,
+        last_error_at:               new Date().toISOString(),
+        updated_at:                  new Date().toISOString(),
+      }).eq('id', packageId)
+
+      return pumpError({
+        packageId,
+        status:       500,
+        errorCode:    'provider_no_image',
+        errorMessage: noImageMsg,
+        errorDetails: rawDiag ? JSON.stringify(rawDiag) : null,
+        failedStage:  'provider',
+      })
     }
 
     console.info(`[P360] pump:storage:success imageUrl="${uploadedUrl.slice(0, 80)}…"`)
@@ -869,6 +1035,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       ).slice(0, 4000),
       is_master_frame:         isMasterFrame,
       generation_attempt:      actualAttempt + 1,
+      provider:                providerName,
+      provider_status:         'completed',
+      provider_job_id:         null,    // clear any pending execution marker
+      provider_execution_id:   null,
       alt_text:                `${blueprint.subject.name} – ${shotDirection} view`,
       generation_finished_at:  new Date().toISOString(),
       updated_at:              new Date().toISOString(),

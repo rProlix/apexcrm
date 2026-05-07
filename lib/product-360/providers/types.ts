@@ -70,6 +70,11 @@ export interface Generate360FrameResult {
    */
   status: 'completed' | 'pending' | 'failed'
   error?: ProviderError
+  /**
+   * Sanitized diagnostic payload (no secrets).
+   * Stored in product_360_frames.provider_error_details on failure.
+   */
+  rawResponse?: Record<string, unknown>
 }
 
 // ─── Polling input / result ───────────────────────────────────────────────────

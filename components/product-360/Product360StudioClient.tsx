@@ -1564,8 +1564,19 @@ function PackageCard({
         </div>
       )}
 
+      {/* Processing / provider polling hint */}
+      {(pkg.status === 'processing' || (pkg as P360Package & { generation_stage?: string }).generation_stage === 'polling_provider') &&
+        pkg.status !== 'failed' && pkg.status !== 'ready' && pkg.status !== 'completed' && (
+        <div className="rounded-lg bg-sky-500/8 border border-sky-500/15 px-3 py-2.5 flex items-start gap-2">
+          <Loader2 className="h-3 w-3 text-sky-400 shrink-0 animate-spin mt-0.5" />
+          <p className="text-[10px] text-sky-300/80 leading-relaxed">
+            The provider is still rendering this frame. You can wait or click <strong>Pump/Resume</strong> to continue polling.
+          </p>
+        </div>
+      )}
+
       {/* Generation error (failed / paused) */}
-      {(pkg.generation_error || (pkg as P360Package).last_error_message) &&
+      {(pkg.generation_error || (pkg as P360Package & { last_error_message?: string; last_provider_error_details?: string }).last_error_message) &&
         pkg.status !== 'cancelled' && (
         <div className="rounded-lg bg-red-500/8 border border-red-500/15 px-3 py-2.5 space-y-1">
           <div className="flex items-center gap-1.5">
@@ -1575,8 +1586,13 @@ function PackageCard({
             </p>
           </div>
           <p className="text-[10px] text-red-300/80 leading-relaxed break-words">
-            {pkg.generation_error ?? (pkg as P360Package).last_error_message}
+            {pkg.generation_error ?? (pkg as P360Package & { last_error_message?: string }).last_error_message}
           </p>
+          {(pkg as P360Package & { last_provider_error_details?: string }).last_provider_error_details && (
+            <ExpandableCardDetails
+              details={(pkg as P360Package & { last_provider_error_details?: string }).last_provider_error_details!}
+            />
+          )}
         </div>
       )}
 
@@ -1752,6 +1768,26 @@ function PresetChip({ label }: { label: string }) {
   )
 }
 
+// Inline expandable technical details for package cards
+function ExpandableCardDetails({ details }: { details: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="mt-1">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="text-[9px] text-red-400/50 hover:text-red-400/80 underline underline-offset-2 transition-colors"
+      >
+        {open ? 'Hide details' : 'Technical details'}
+      </button>
+      {open && (
+        <pre className="mt-1 text-[9px] text-white/30 leading-relaxed break-all whitespace-pre-wrap font-mono bg-white/3 rounded p-1.5 overflow-hidden">
+          {details}
+        </pre>
+      )}
+    </div>
+  )
+}
+
 function ActionBtn({
   onClick, disabled, icon, label, highlight, active, activeClass, danger,
 }: {
@@ -1784,6 +1820,41 @@ function ActionBtn({
   )
 }
 
+// ─── ExpandableErrorBlock ─────────────────────────────────────────────────────
+
+function ExpandableErrorBlock({
+  title,
+  message,
+  details,
+}: {
+  title:    string
+  message:  string
+  details?: string | null
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="rounded-lg bg-red-400/5 border border-red-400/15 p-2 space-y-1">
+      <p className="text-[9px] text-red-400/60 uppercase tracking-wider">{title}</p>
+      <p className="text-[10px] text-red-400/70 leading-snug break-words">{message}</p>
+      {details && (
+        <div>
+          <button
+            onClick={() => setOpen(v => !v)}
+            className="text-[9px] text-red-400/50 hover:text-red-400/80 underline underline-offset-2 transition-colors"
+          >
+            {open ? 'Hide technical details' : 'Show technical details'}
+          </button>
+          {open && (
+            <pre className="mt-1 text-[9px] text-white/30 leading-relaxed break-all whitespace-pre-wrap font-mono bg-white/3 rounded p-1.5 overflow-hidden">
+              {details}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Package Detail Info ──────────────────────────────────────────────────────
 
 function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
@@ -1801,6 +1872,8 @@ function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
     provider_job_id?:              string | null
     leonardo_execution_id?:        string | null
     last_provider_error?:          string | null
+    last_provider_error_details?:  string | null
+    last_error_details?:           string | null
     locked_identity_blueprint?:    Record<string, unknown> | null
   }
 
@@ -1810,6 +1883,7 @@ function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
   const generationStage  = pkgExt.generation_stage ?? null
   const providerJobId    = pkgExt.provider_job_id ?? pkgExt.leonardo_execution_id ?? null
   const lastProvErr      = pkgExt.last_provider_error ?? null
+  const lastProvErrDetails = pkgExt.last_provider_error_details ?? pkgExt.last_error_details ?? null
 
   // Identity blueprint (new simpler structure)
   const identityBp          = pkgExt.locked_identity_blueprint
@@ -1882,10 +1956,11 @@ function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
 
       {/* Last provider error */}
       {lastProvErr && (
-        <div className="rounded-lg bg-red-400/5 border border-red-400/15 p-2">
-          <p className="text-[9px] text-red-400/60 uppercase tracking-wider mb-0.5">Last Provider Error</p>
-          <p className="text-[10px] text-red-400/70 leading-snug">{lastProvErr}</p>
-        </div>
+        <ExpandableErrorBlock
+          title="Last Provider Error"
+          message={lastProvErr}
+          details={lastProvErrDetails}
+        />
       )}
 
       {/* Identity blueprint */}
