@@ -591,9 +591,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       })
       uploadedUrlPoll = up.imageUrl; storagePathPoll = up.storagePath
     } else {
-      // completed status but no image — this should not happen given the provider checks
-      // Store diagnostic and fail gracefully
-      const diagMsg = `Leonardo execution ${pendingExecutionId} reported completed but returned neither image buffer nor URL`
+      // pollExecution returned status:'completed' but no imageBuffer/imageUrl
+      // This means the poll timed out or the image URL was unextractable.
+      const diagMsg = `Leonardo execution ${pendingExecutionId} did not return an image after polling. ` +
+        `Check blueprint output configuration and ensure the blueprint produces image outputs.`
       console.error(`[P360] pump:leonardo-poll-no-image frame=${nextFrameIndex}: ${diagMsg}`)
 
       await db.from('product_360_frames').update({
@@ -617,9 +618,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         updated_at:                  new Date().toISOString(),
       }).eq('id', packageId)
 
-      return pumpError({ packageId, status: 500, errorCode: 'provider_no_image',
+      return pumpError({ packageId, status: 502, errorCode: 'provider_no_image',
         errorMessage: diagMsg,
-        errorDetails: `Execution ${pendingExecutionId} reported COMPLETE but no image was extractable. Check Leonardo blueprint configuration.`,
+        errorDetails: `ExecutionId: ${pendingExecutionId}. No image URL was extractable from the Leonardo response. Check blueprint output configuration.`,
         failedStage: 'polling_provider' })
     }
 
@@ -976,15 +977,23 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         uploadedUrl = result.imageUrl; storagePath = result.imageUrl
       }
     } else {
-      // Provider returned completed status but no image — structured error with diagnostics
+      // Provider returned a result with no imageBuffer and no imageUrl.
+      // This can happen when Leonardo returns a pending/array response that
+      // slipped past the pending check — build a precise message based on result.
       const rawDiag = result.rawResponse
         ?? (providerName === 'leonardo' ? buildLeonardoDiagnostic(null, 'generate-frame') : null)
-      const noImageMsg =
-        `Provider "${providerName}" completed but returned neither an image buffer nor an image URL. ` +
-        (rawDiag ? `Response keys: [${Object.keys(rawDiag).join(', ')}]. ` : '') +
-        `Check the provider configuration and blueprint settings.`
 
-      // Save diagnostic details on the frame and package before failing
+      // Use accurate wording — do NOT say "completed" if the response was pending/unknown
+      const noImageMsg = providerName === 'leonardo'
+        ? `Leonardo accepted the request but did not return an image URL or image buffer. ` +
+          `This usually means the response is still pending or the blueprint output is misconfigured. ` +
+          (rawDiag ? `Debug: shape=${rawDiag['responseShape'] ?? '?'}, keys=[${(rawDiag['topLevelKeys'] as string[] | undefined)?.join(', ') ?? '?'}]. ` : '') +
+          `Pump again to retry or check blueprint configuration.`
+        : `Provider "${providerName}" did not return an image buffer or image URL. ` +
+          `Check provider configuration and retry.`
+
+      console.error(`[P360] pump:no-image provider=${providerName} frame=${nextFrameIndex}: ${noImageMsg}`)
+
       await db.from('product_360_frames').update({
         status:                 'failed',
         error_message:          noImageMsg,
@@ -1008,7 +1017,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
       return pumpError({
         packageId,
-        status:       500,
+        status:       502,
         errorCode:    'provider_no_image',
         errorMessage: noImageMsg,
         errorDetails: rawDiag ? JSON.stringify(rawDiag) : null,
