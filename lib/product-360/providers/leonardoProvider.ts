@@ -7,12 +7,13 @@
 //   2. pollExecution() → GET /blueprint-executions/{id} → polls until image URL ready
 //
 // Configuration (env vars — all server-side only):
-//   LEONARDO_API_KEY                        Required
-//   LEONARDO_360_BLUEPRINT_VERSION_ID       Required
-//   LEONARDO_360_REFERENCE_IMAGE_NODE_ID    Required
-//   LEONARDO_360_TEXT_VARIABLES_NODE_ID     Required
-//   PRODUCT_360_PROVIDER_POLL_ATTEMPTS      Optional (default 30)
-//   PRODUCT_360_PROVIDER_POLL_DELAY_MS      Optional (default 2000)
+//   LEONARDO_API_KEY                           Required
+//   LEONARDO_360_BLUEPRINT_VERSION_ID          Required
+//   LEONARDO_360_REFERENCE_IMAGE_NODE_ID       Required
+//   LEONARDO_360_TEXT_VARIABLES_NODE_ID        Required
+//   LEONARDO_360_EXTRA_TEXT_VARIABLE_NODE_IDS  Optional  comma-separated extra text-variable node IDs
+//   PRODUCT_360_PROVIDER_POLL_ATTEMPTS         Optional  default 30
+//   PRODUCT_360_PROVIDER_POLL_DELAY_MS         Optional  default 2000
 //
 // SERVER-ONLY. Never import from client components.
 
@@ -32,11 +33,17 @@ const LEONARDO_API_BASE = 'https://cloud.leonardo.ai/api/rest/v1'
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 function getConfig() {
+  const extraRaw = process.env.LEONARDO_360_EXTRA_TEXT_VARIABLE_NODE_IDS?.trim() ?? ''
+  const extraNodeIds = extraRaw
+    ? extraRaw.split(',').map(s => s.trim()).filter(Boolean)
+    : []
+
   return {
     apiKey:               process.env.LEONARDO_API_KEY?.trim()                     ?? '',
     blueprintVersionId:   process.env.LEONARDO_360_BLUEPRINT_VERSION_ID?.trim()    ?? '',
     referenceImageNodeId: process.env.LEONARDO_360_REFERENCE_IMAGE_NODE_ID?.trim() ?? '',
     textVariablesNodeId:  process.env.LEONARDO_360_TEXT_VARIABLES_NODE_ID?.trim()  ?? '',
+    extraTextVariableNodeIds: extraNodeIds,
     maxPollAttempts:      parseInt(process.env.PRODUCT_360_PROVIDER_POLL_ATTEMPTS  ?? '30', 10) || 30,
     pollDelayMs:          parseInt(process.env.PRODUCT_360_PROVIDER_POLL_DELAY_MS  ?? '2000', 10) || 2000,
   }
@@ -45,34 +52,37 @@ function getConfig() {
 // ═════════════════════════════════════════════════════════════════════════════
 // Recursive Leonardo response normalizer
 //
-// Leonardo responses are inconsistent across API versions and blueprint types.
-// They may be:
-//   - A plain object: { blueprintExecutionJob: { id: '...' } }
-//   - An array:       [{ id: '...', status: 'PENDING' }]
-//   - An array-as-object: { "0": { id: '...', status: 'PENDING' } }
-//   - Deeply nested with outputs inside data.output.images
+// Leonardo can return:
+//   - A plain object:          { blueprintExecutionJob: { id: '...' } }
+//   - An array:                [{ id: '...', status: 'PENDING' }]
+//   - An array-as-object:      { "0": { id: '...', status: 'PENDING' } }
+//   - A GraphQL error array:   [{ extensions: {...}, locations: [...], message: '...', path: [...] }]
+//   - Deeply nested outputs:   { data: { output: { images: [{ url: '...' }] } } }
 //
-// normalizeLeonardoResponse unwraps every possible container and returns a
-// single stable view. It NEVER throws.
+// normalizeLeonardoResponse is the single entry point for all response parsing.
+// It never throws.
 // ═════════════════════════════════════════════════════════════════════════════
 
 export type LeonardoNormalizedResponse = {
-  raw:          unknown
-  candidates:   unknown[]
-  imageUrl:     string | null
-  executionId:  string | null
-  status:       string | null
-  isPending:    boolean
-  isFailed:     boolean
+  raw:           unknown
+  candidates:    unknown[]
+  imageUrl:      string | null
+  executionId:   string | null
+  status:        string | null
+  isPending:     boolean
+  isFailed:      boolean
   failureMessage: string | null
   debug: {
-    responseShape:   string
-    topLevelKeys:    string[]
-    candidateCount:  number
-    candidateKeys:   string[][]
-    hasImageUrl:     boolean
-    hasExecutionId:  boolean
-    extractedStatus: string | null
+    responseShape:        string
+    topLevelKeys:         string[]
+    candidateCount:       number
+    candidateKeys:        string[][]
+    hasImageUrl:          boolean
+    hasExecutionId:       boolean
+    extractedStatus:      string | null
+    hasApiError:          boolean
+    errorKeys:            string[][]    // candidate keys from error-shaped objects
+    errorMessagesPreview: string[]      // first 2 sanitized messages from errors
   }
 }
 
@@ -80,6 +90,59 @@ export type LeonardoNormalizedResponse = {
 export function getObjectKeysSafe(value: unknown): string[] {
   if (!value || typeof value !== 'object') return []
   return Object.keys(value as Record<string, unknown>)
+}
+
+/**
+ * Detect Leonardo/GraphQL-style API error objects.
+ * These have a `message` string plus at least one of: extensions, locations, path, errors, error.
+ */
+export function looksLikeLeonardoErrorObject(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const obj = value as Record<string, unknown>
+  const keys = Object.keys(obj)
+  return (
+    typeof obj.message === 'string' &&
+    (
+      keys.includes('extensions') ||
+      keys.includes('locations') ||
+      keys.includes('path') ||
+      keys.includes('errors') ||
+      keys.includes('error')
+    )
+  )
+}
+
+/**
+ * Recursively extract all string messages from any Leonardo error structure.
+ */
+export function extractLeonardoErrorMessages(value: unknown): string[] {
+  const messages: string[] = []
+  const seen = new Set<unknown>()
+
+  function visit(input: unknown, depth = 0): void {
+    if (depth > 8) return
+    if (!input || typeof input !== 'object') return
+    if (seen.has(input)) return
+    seen.add(input)
+
+    if (Array.isArray(input)) {
+      for (const item of input) visit(item, depth + 1)
+      return
+    }
+
+    const obj = input as Record<string, unknown>
+    if (typeof obj.message      === 'string' && obj.message.trim())      messages.push(obj.message.trim())
+    if (typeof obj.error        === 'string' && obj.error.trim())        messages.push(obj.error.trim())
+    if (typeof obj.errorMessage === 'string' && obj.errorMessage.trim()) messages.push(obj.errorMessage.trim())
+    if (typeof obj.failureMessage === 'string' && obj.failureMessage.trim()) messages.push(obj.failureMessage.trim())
+
+    for (const key of ['errors', 'error', 'extensions', 'details', 'data', 'response', 'result']) {
+      if (obj[key] !== undefined) visit(obj[key], depth + 1)
+    }
+  }
+
+  visit(value)
+  return Array.from(new Set(messages)).filter(Boolean)
 }
 
 /**
@@ -174,6 +237,8 @@ function extractIdFromCandidates(candidates: unknown[]): string | null {
   ]
   for (const candidate of candidates) {
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue
+    // Skip error-shaped objects — they might have an 'id' that is a path element not an execution id
+    if (looksLikeLeonardoErrorObject(candidate)) continue
     const id = pickString(candidate as Record<string, unknown>, idKeys)
     if (id) return id
   }
@@ -187,28 +252,9 @@ function extractStatusFromCandidates(candidates: unknown[]): string | null {
   ]
   for (const candidate of candidates) {
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue
+    if (looksLikeLeonardoErrorObject(candidate)) continue
     const st = pickString(candidate as Record<string, unknown>, statusKeys)
     if (st) return st.toLowerCase()
-  }
-  return null
-}
-
-function extractFailureMessageFromCandidates(candidates: unknown[]): string | null {
-  const messageKeys = [
-    'error', 'message', 'failureMessage', 'failure_message',
-    'errorMessage', 'error_message', 'reason', 'details',
-  ]
-  for (const candidate of candidates) {
-    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue
-    const obj = candidate as Record<string, unknown>
-    for (const key of messageKeys) {
-      const val = obj[key]
-      if (typeof val === 'string' && val.trim()) return val.trim()
-      if (val && typeof val === 'object') {
-        const nested = extractFailureMessageFromCandidates([val])
-        if (nested) return nested
-      }
-    }
   }
   return null
 }
@@ -230,22 +276,65 @@ const COMPLETE_STATUSES = new Set([
 /**
  * The canonical entry point for interpreting any Leonardo API response.
  * Call this immediately after `await res.json()` on any Leonardo endpoint.
+ *
+ * Handles:
+ *  - GraphQL error arrays: [{ extensions, locations, message, path }]
+ *  - Array-at-root:        [{ id, status }]
+ *  - Array-as-object:      { "0": { id, status } }
+ *  - Nested outputs
  */
 export function normalizeLeonardoResponse(raw: unknown): LeonardoNormalizedResponse {
   const candidates  = unwrapLeonardoCandidates(raw)
-  const imageUrl    = extractUrlFromValue(raw)       // deep recursive scan
-  const executionId = extractIdFromCandidates(candidates)
-  const status      = extractStatusFromCandidates(candidates)
 
-  const isPending = status
-    ? PENDING_STATUSES.has(status)
-    : Boolean(executionId && !imageUrl)   // has ID but no image → assume still processing
+  // ── GraphQL / API error detection ──────────────────────────────────────────
+  // Leonardo returns errors as arrays of objects with keys like:
+  //   { extensions, locations, message, path }
+  // These must be detected BEFORE attempting to extract execution IDs or images.
+  const errorCandidates = candidates.filter(looksLikeLeonardoErrorObject)
+  const hasApiError     = errorCandidates.length > 0
+  const errorKeys       = errorCandidates
+    .slice(0, 5)
+    .map(c => getObjectKeysSafe(c))
 
-  const isFailed = status ? FAILED_STATUSES.has(status) : false
+  let apiErrorMessages: string[] = []
+  if (hasApiError) {
+    apiErrorMessages = extractLeonardoErrorMessages(raw)
+  }
 
-  const failureMessage = isFailed
-    ? extractFailureMessageFromCandidates(candidates) ?? 'Leonardo generation failed'
-    : null
+  // ── Normal extraction ──────────────────────────────────────────────────────
+  const imageUrl    = extractUrlFromValue(raw)
+  const executionId = hasApiError ? null : extractIdFromCandidates(candidates)
+  const status      = hasApiError ? 'failed' : extractStatusFromCandidates(candidates)
+
+  // ── Determine terminal state ───────────────────────────────────────────────
+  let isPending: boolean
+  let isFailed:  boolean
+  let failureMessage: string | null
+
+  if (hasApiError) {
+    isPending      = false
+    isFailed       = true
+    failureMessage = apiErrorMessages.length > 0
+      ? apiErrorMessages.join(' | ')
+      : 'Leonardo rejected the request (API/GraphQL error)'
+  } else if (imageUrl) {
+    isPending      = false
+    isFailed       = false
+    failureMessage = null
+  } else {
+    isPending = status
+      ? PENDING_STATUSES.has(status)
+      : Boolean(executionId)  // has ID but no image → still running
+    isFailed  = status ? FAILED_STATUSES.has(status) : false
+    failureMessage = isFailed
+      ? extractLeonardoErrorMessages(raw)[0] ?? 'Leonardo generation failed'
+      : null
+  }
+
+  const allCandidateKeys = candidates
+    .filter(c => c && typeof c === 'object' && !Array.isArray(c))
+    .slice(0, 10)
+    .map(c => getObjectKeysSafe(c))
 
   return {
     raw,
@@ -257,25 +346,25 @@ export function normalizeLeonardoResponse(raw: unknown): LeonardoNormalizedRespo
     isFailed,
     failureMessage,
     debug: {
-      responseShape:   Array.isArray(raw) ? 'array'
-                       : raw && typeof raw === 'object' ? 'object'
-                       : typeof raw,
-      topLevelKeys:    getObjectKeysSafe(raw),
-      candidateCount:  candidates.length,
-      candidateKeys:   candidates
-                         .filter(c => c && typeof c === 'object' && !Array.isArray(c))
-                         .slice(0, 10)
-                         .map(c => getObjectKeysSafe(c)),
-      hasImageUrl:     Boolean(imageUrl),
-      hasExecutionId:  Boolean(executionId),
-      extractedStatus: status,
+      responseShape:        Array.isArray(raw) ? 'array'
+                            : raw && typeof raw === 'object' ? 'object'
+                            : typeof raw,
+      topLevelKeys:         getObjectKeysSafe(raw),
+      candidateCount:       candidates.length,
+      candidateKeys:        allCandidateKeys,
+      hasImageUrl:          Boolean(imageUrl),
+      hasExecutionId:       Boolean(executionId),
+      extractedStatus:      status,
+      hasApiError,
+      errorKeys,
+      errorMessagesPreview: apiErrorMessages.slice(0, 2),
     },
   }
 }
 
 /**
  * Build a sanitized diagnostic from a normalized response.
- * Safe to store in DB — no API keys, no auth headers.
+ * Safe to store in DB and show in UI — no API keys, no auth headers.
  */
 export function buildLeonardoDiagnostic(
   raw: unknown,
@@ -291,6 +380,27 @@ export function buildLeonardoDiagnostic(
     isFailed:        n.isFailed,
     failureMessage:  n.failureMessage,
     ...extra,
+  }
+}
+
+// ─── Request payload debug (no secrets) ──────────────────────────────────────
+
+function buildRequestDebug(
+  cfg:            ReturnType<typeof getConfig>,
+  referenceImageUrl: string | null,
+  textVariables:  string,
+  nodeInputCount: number,
+  settingNames:   string[],
+) {
+  return {
+    blueprintVersionIdPresent:   Boolean(cfg.blueprintVersionId),
+    referenceImageNodeIdPresent: Boolean(cfg.referenceImageNodeId),
+    textVariablesNodeIdPresent:  Boolean(cfg.textVariablesNodeId),
+    extraNodeCount:              cfg.extraTextVariableNodeIds.length,
+    nodeInputCount,
+    settingNames,
+    hasReferenceImageUrl:        Boolean(referenceImageUrl),
+    textVariablesLength:         textVariables.length,
   }
 }
 
@@ -324,33 +434,37 @@ function normalizeError(err: unknown, httpStatus?: number): ProviderError {
 // ─── POST /blueprint-executions ──────────────────────────────────────────────
 
 type CreateExecutionResult =
-  | { kind: 'pending';   executionId: string; normalized: LeonardoNormalizedResponse }
-  | { kind: 'immediate'; imageUrl:    string;  normalized: LeonardoNormalizedResponse }
-  | { kind: 'failed';    error: ProviderError; normalized: LeonardoNormalizedResponse }
+  | { kind: 'pending';   executionId: string; normalized: LeonardoNormalizedResponse; requestDebug: Record<string, unknown> }
+  | { kind: 'immediate'; imageUrl:    string;  normalized: LeonardoNormalizedResponse; requestDebug: Record<string, unknown> }
+  | { kind: 'failed';    error: ProviderError; normalized: LeonardoNormalizedResponse; requestDebug: Record<string, unknown> }
 
 async function createBlueprintExecution(
-  apiKey:               string,
-  blueprintVersionId:   string,
-  referenceImageNodeId: string,
-  textVariablesNodeId:  string,
-  referenceImageUrl:    string,
-  textVariables:        string,
+  cfg:               ReturnType<typeof getConfig>,
+  referenceImageUrl: string | null,
+  textVariables:     string,
 ): Promise<CreateExecutionResult> {
   const nodeInputs: Array<{ nodeId: string; value: string; settingName: string }> = []
-  if (referenceImageNodeId && referenceImageUrl) {
-    nodeInputs.push({ nodeId: referenceImageNodeId, value: referenceImageUrl, settingName: 'imageUrl' })
+
+  if (cfg.referenceImageNodeId && referenceImageUrl) {
+    nodeInputs.push({ nodeId: cfg.referenceImageNodeId, value: referenceImageUrl, settingName: 'imageUrl' })
   }
-  if (textVariablesNodeId && textVariables) {
-    nodeInputs.push({ nodeId: textVariablesNodeId, value: textVariables, settingName: 'textVariables' })
+  if (cfg.textVariablesNodeId && textVariables) {
+    nodeInputs.push({ nodeId: cfg.textVariablesNodeId, value: textVariables, settingName: 'textVariables' })
+  }
+  // Optional extra text-variable nodes (multi-node blueprints)
+  for (const nodeId of cfg.extraTextVariableNodeIds) {
+    nodeInputs.push({ nodeId, value: textVariables, settingName: 'textVariables' })
   }
 
-  const body = { blueprintVersionId, input: { nodeInputs, public: true } }
+  const body = { blueprintVersionId: cfg.blueprintVersionId, input: { nodeInputs, public: true } }
+  const settingNames = nodeInputs.map(n => n.settingName)
+  const reqDebug = buildRequestDebug(cfg, referenceImageUrl, textVariables, nodeInputs.length, settingNames)
 
   const res = await fetch(`${LEONARDO_API_BASE}/blueprint-executions`, {
     method:  'POST',
     headers: {
-      accept:        'application/json',
-      authorization: `Bearer ${apiKey}`,
+      accept:         'application/json',
+      authorization:  `Bearer ${cfg.apiKey}`,
       'content-type': 'application/json',
     },
     body: JSON.stringify(body),
@@ -361,27 +475,67 @@ async function createBlueprintExecution(
 
   const normalized = normalizeLeonardoResponse(raw)
 
-  if (!res.ok) {
-    const errMsg = normalized.failureMessage
-      ?? `Leonardo blueprint-executions HTTP ${res.status}`
-    return { kind: 'failed', error: normalizeError(new Error(errMsg), res.status), normalized }
+  if (process.env.NODE_ENV !== 'production') {
+    console.info('[leonardoProvider] create-execution HTTP', res.status)
+    console.info('[leonardoProvider] create-execution debug:', JSON.stringify({ ...normalized.debug, reqDebug }))
   }
 
-  if (process.env.NODE_ENV !== 'production') {
-    console.info('[leonardoProvider] create-execution normalized:', JSON.stringify(normalized.debug))
+  // HTTP-level failure (4xx/5xx) — combine with response body parsing
+  if (!res.ok) {
+    const errMsg = normalized.failureMessage
+      ?? normalized.debug.errorMessagesPreview[0]
+      ?? `Leonardo blueprint-executions HTTP ${res.status}`
+    return {
+      kind:  'failed',
+      error: normalizeError(new Error(errMsg), res.status),
+      normalized,
+      requestDebug: { ...reqDebug, httpStatus: res.status },
+    }
+  }
+
+  // GraphQL / API error in the response body (200 OK but error payload)
+  if (normalized.isFailed) {
+    const errMsg = normalized.failureMessage ?? 'Leonardo rejected the blueprint execution request'
+    console.error(`[leonardoProvider] create-execution API error: ${errMsg}`)
+
+    // Provide actionable guidance based on error content
+    let hint = ''
+    const lower = errMsg.toLowerCase()
+    if (lower.includes('imageurl') || lower.includes('image_url') || lower.includes('required')) {
+      hint = ' Make sure LEONARDO_360_REFERENCE_IMAGE_NODE_ID is correct and a reference image URL is provided.'
+    } else if (lower.includes('textvariables') || lower.includes('text_variables')) {
+      hint = ' Make sure LEONARDO_360_TEXT_VARIABLES_NODE_ID is correct and text variables are provided.'
+    } else if (lower.includes('blueprintversion') || lower.includes('blueprint')) {
+      hint = ' Make sure LEONARDO_360_BLUEPRINT_VERSION_ID matches a published blueprint you have access to.'
+    } else if (lower.includes('node') || lower.includes('nodeid') || lower.includes('node_id')) {
+      hint = ' Make sure LEONARDO_360_REFERENCE_IMAGE_NODE_ID and LEONARDO_360_TEXT_VARIABLES_NODE_ID match the node IDs in your blueprint.'
+    }
+
+    return {
+      kind:  'failed',
+      error: {
+        code:         'invalid_blueprint',
+        message:      errMsg + hint,
+        details:      JSON.stringify({ ...normalized.debug, ...reqDebug }),
+        isRetryable:  false,
+        isQuotaError: false,
+      },
+      normalized,
+      requestDebug: reqDebug,
+    }
   }
 
   // Immediate result — blueprint returned an image without an async job
   if (normalized.imageUrl) {
-    return { kind: 'immediate', imageUrl: normalized.imageUrl, normalized }
+    return { kind: 'immediate', imageUrl: normalized.imageUrl, normalized, requestDebug: reqDebug }
   }
 
   // Async path — have an execution ID to poll
   if (normalized.executionId) {
-    return { kind: 'pending', executionId: normalized.executionId, normalized }
+    return { kind: 'pending', executionId: normalized.executionId, normalized, requestDebug: reqDebug }
   }
 
-  // Pending response but no execution ID — misconfigured blueprint
+  // Pending response but no execution ID
   if (normalized.isPending) {
     return {
       kind:  'failed',
@@ -389,27 +543,30 @@ async function createBlueprintExecution(
         code:         'invalid_blueprint',
         message:      'Leonardo accepted the request but returned no execution id. ' +
                       'Check LEONARDO_360_BLUEPRINT_VERSION_ID and blueprint output configuration.',
-        details:      JSON.stringify(normalized.debug),
+        details:      JSON.stringify({ ...normalized.debug, ...reqDebug }),
         isRetryable:  false,
         isQuotaError: false,
       },
       normalized,
+      requestDebug: reqDebug,
     }
   }
 
-  // Unknown shape — not pending, not failed, no useful data
+  // Unknown shape
   return {
     kind:  'failed',
     error: {
       code:         'unknown',
-      message:      'Leonardo response did not contain an image URL, image buffer, or execution id. ' +
+      message:      'Leonardo did not return an image URL or execution id. ' +
                     `Response shape: ${normalized.debug.responseShape}, ` +
-                    `top-level keys: [${normalized.debug.topLevelKeys.join(', ')}].`,
-      details:      JSON.stringify(normalized.debug),
+                    `keys: [${normalized.debug.topLevelKeys.join(', ')}]. ` +
+                    'Check blueprint output configuration and node IDs.',
+      details:      JSON.stringify({ ...normalized.debug, ...reqDebug }),
       isRetryable:  false,
       isQuotaError: false,
     },
     normalized,
+    requestDebug: reqDebug,
   }
 }
 
@@ -419,13 +576,9 @@ async function pollBlueprintExecution(
   apiKey:      string,
   executionId: string,
 ): Promise<{ normalized: LeonardoNormalizedResponse }> {
-  // Primary polling endpoint
   const res = await fetch(
     `${LEONARDO_API_BASE}/blueprint-executions/${encodeURIComponent(executionId)}`,
-    {
-      method:  'GET',
-      headers: { accept: 'application/json', authorization: `Bearer ${apiKey}` },
-    },
+    { method: 'GET', headers: { accept: 'application/json', authorization: `Bearer ${apiKey}` } },
   )
 
   let raw: unknown = null
@@ -444,7 +597,7 @@ async function pollBlueprintExecution(
 
   let normalized = normalizeLeonardoResponse(raw)
 
-  // If primary endpoint has no image and no clear status, try /generations suffix as fallback
+  // Try /generations suffix as fallback when primary has no image and is not failed
   if (!normalized.imageUrl && !normalized.isFailed && !COMPLETE_STATUSES.has(normalized.status ?? '')) {
     try {
       const altRes = await fetch(
@@ -454,13 +607,9 @@ async function pollBlueprintExecution(
       if (altRes.ok) {
         const altRaw = await altRes.json()
         const altNorm = normalizeLeonardoResponse(altRaw)
-        if (altNorm.imageUrl) {
-          normalized = { ...normalized, imageUrl: altNorm.imageUrl }
-        }
+        if (altNorm.imageUrl) normalized = { ...normalized, imageUrl: altNorm.imageUrl }
       }
-    } catch {
-      // Silently ignore fallback errors — primary already succeeded
-    }
+    } catch { /* Silently ignore fallback errors */ }
   }
 
   return { normalized }
@@ -494,27 +643,20 @@ export class LeonardoProduct360Provider implements Product360Provider {
     const textVariables = input.textVariables ?? input.prompt
 
     if (!refImageUrl && process.env.NODE_ENV !== 'production') {
-      console.warn(
-        `[leonardoProvider] frame=${input.frameIndex}: No reference image URL. ` +
-        'Upload a reference image via /upload-reference for best results.',
+      console.warn(`[leonardoProvider] frame=${input.frameIndex}: No reference image URL. Upload a reference image for best results.`)
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.info(
+        `[leonardoProvider] Creating blueprint execution ` +
+        `frame=${input.frameIndex} angle=${input.angleDegrees}° ` +
+        `blueprintVersionId=${cfg.blueprintVersionId.slice(0, 8)}… ` +
+        `hasReferenceImage=${Boolean(refImageUrl)}`,
       )
     }
 
     try {
-      if (process.env.NODE_ENV !== 'production') {
-        console.info(
-          `[leonardoProvider] Creating blueprint execution ` +
-          `frame=${input.frameIndex} angle=${input.angleDegrees}° ` +
-          `blueprintVersionId=${cfg.blueprintVersionId.slice(0, 8)}… ` +
-          `hasReferenceImage=${Boolean(refImageUrl)}`,
-        )
-      }
-
-      const createResult = await createBlueprintExecution(
-        cfg.apiKey, cfg.blueprintVersionId,
-        cfg.referenceImageNodeId, cfg.textVariablesNodeId,
-        refImageUrl ?? '', textVariables,
-      )
+      const createResult = await createBlueprintExecution(cfg, refImageUrl, textVariables)
 
       if (createResult.kind === 'immediate') {
         console.info(`[leonardoProvider] Blueprint returned immediate image frame=${input.frameIndex}`)
@@ -523,23 +665,14 @@ export class LeonardoProduct360Provider implements Product360Provider {
 
       if (createResult.kind === 'pending') {
         console.info(`[leonardoProvider] Execution accepted frame=${input.frameIndex} executionId=${createResult.executionId}`)
-        return {
-          status:             'pending',
-          mimeType:           'image/png',
-          provider:           'leonardo',
-          pendingExecutionId: createResult.executionId,
-        }
+        return { status: 'pending', mimeType: 'image/png', provider: 'leonardo', pendingExecutionId: createResult.executionId }
       }
 
-      // failed
-      console.error(`[leonardoProvider] create-execution failed frame=${input.frameIndex}:`, createResult.error.message)
-      return {
-        status:      'failed',
-        mimeType:    'image/png',
-        provider:    'leonardo',
-        error:       createResult.error,
-        rawResponse: buildLeonardoDiagnostic(createResult.normalized.raw, 'create-execution'),
-      }
+      // Failed — build diagnostic from the normalized response (no secrets)
+      const diag = buildLeonardoDiagnostic(createResult.normalized.raw, 'create-execution', createResult.requestDebug)
+      console.error(`[leonardoProvider] create-execution failed frame=${input.frameIndex}: ${createResult.error.message}`)
+
+      return { status: 'failed', mimeType: 'image/png', provider: 'leonardo', error: createResult.error, rawResponse: diag }
 
     } catch (err) {
       const provErr = (err as { providerError?: ProviderError }).providerError ?? normalizeError(err)
@@ -570,7 +703,8 @@ export class LeonardoProduct360Provider implements Product360Provider {
           console.info(
             `[leonardoProvider] poll attempt=${attempt}/${maxPollAttempts} ` +
             `status=${normalized.status} isPending=${normalized.isPending} ` +
-            `isFailed=${normalized.isFailed} hasImageUrl=${Boolean(normalized.imageUrl)}`,
+            `isFailed=${normalized.isFailed} hasImageUrl=${Boolean(normalized.imageUrl)} ` +
+            `hasApiError=${normalized.debug.hasApiError}`,
           )
         }
 
@@ -579,7 +713,7 @@ export class LeonardoProduct360Provider implements Product360Provider {
             status: 'failed',
             error: {
               code:         'unknown',
-              message:      `Leonardo execution failed: ${normalized.failureMessage ?? 'unknown reason'}`,
+              message:      normalized.failureMessage ?? `Leonardo execution failed`,
               details:      JSON.stringify(normalized.debug),
               isRetryable:  false,
               isQuotaError: false,
@@ -588,7 +722,6 @@ export class LeonardoProduct360Provider implements Product360Provider {
         }
 
         if (normalized.imageUrl) {
-          // Try to download for buffer upload (preferred); fall back to URL-only
           let imageBuffer: Buffer | undefined
           let mimeType = 'image/png'
           try {
@@ -604,12 +737,7 @@ export class LeonardoProduct360Provider implements Product360Provider {
           }
 
           console.info(`[leonardoProvider] Execution ${executionId} complete after ${attempt} poll(s)`)
-          return {
-            status:      'completed',
-            imageBuffer,
-            imageUrl:    imageBuffer ? undefined : normalized.imageUrl,
-            mimeType,
-          }
+          return { status: 'completed', imageBuffer, imageUrl: imageBuffer ? undefined : normalized.imageUrl, mimeType }
         }
 
         if (normalized.isPending || !normalized.status) {
@@ -617,28 +745,25 @@ export class LeonardoProduct360Provider implements Product360Provider {
           continue
         }
 
-        // Some unknown non-pending, non-failed, no-image status — treat as pending and keep trying
+        // Unknown non-pending, non-failed state — keep waiting
         console.warn(`[leonardoProvider] Unknown execution state "${normalized.status}" attempt=${attempt}, waiting`)
         if (attempt < maxPollAttempts) await new Promise(r => setTimeout(r, pollDelayMs))
 
       } catch (err) {
         const provErr = normalizeError(err)
-        if (!provErr.isRetryable) {
-          return { status: 'failed', error: provErr }
-        }
+        if (!provErr.isRetryable) return { status: 'failed', error: provErr }
         console.warn(`[leonardoProvider] Retryable poll error attempt=${attempt}:`, provErr.message)
         if (attempt < maxPollAttempts) await new Promise(r => setTimeout(r, pollDelayMs))
       }
     }
 
-    // Hit max attempts — tell caller to pump again
     const maxWaitSec = Math.round((maxPollAttempts * pollDelayMs) / 1000)
     console.warn(`[leonardoProvider] Execution ${executionId} still pending after ${maxPollAttempts} attempts (${maxWaitSec}s)`)
     return {
       status: 'pending',
       error: {
         code:         'timeout',
-        message:      `Leonardo generation is still processing after ${maxWaitSec}s. Pump this package again in a moment to resume.`,
+        message:      `Leonardo generation is still processing after ${maxWaitSec}s. Pump this package again to resume.`,
         isRetryable:  true,
         isQuotaError: false,
       },
@@ -654,29 +779,84 @@ export function getLeonardoProvider(): LeonardoProduct360Provider {
 }
 
 // ─── Legacy compat exports ────────────────────────────────────────────────────
-// Keep old function names so any remaining callers don't break.
 
 /** @deprecated Use normalizeLeonardoResponse instead */
 export function extractLeonardoExecutionId(raw: unknown): string | null {
   return normalizeLeonardoResponse(raw).executionId
 }
-
 /** @deprecated Use normalizeLeonardoResponse instead */
 export function extractLeonardoImageUrl(raw: unknown): string | null {
   return normalizeLeonardoResponse(raw).imageUrl
 }
-
 /** @deprecated Use normalizeLeonardoResponse instead */
 export function isLeonardoPending(raw: unknown): boolean {
   return normalizeLeonardoResponse(raw).isPending
 }
-
 /** @deprecated Use normalizeLeonardoResponse instead */
 export function isLeonardoFailed(raw: unknown): boolean {
   return normalizeLeonardoResponse(raw).isFailed
 }
-
 /** @deprecated Use normalizeLeonardoResponse instead */
 export function getLeonardoFailureMessage(raw: unknown): string {
   return normalizeLeonardoResponse(raw).failureMessage ?? 'Leonardo generation failed'
+}
+
+// ─── Test helpers (not run in production) ────────────────────────────────────
+//
+// Export these for manual verification; run with:
+//   node -e "require('./leonardoProvider').runNormalizerSelfTest()"
+
+export function runNormalizerSelfTest(): void {
+  const tests: Array<{ label: string; input: unknown; expect: Partial<LeonardoNormalizedResponse> }> = [
+    {
+      label: 'GraphQL error array',
+      input: [{ extensions: { code: 'BAD_USER_INPUT' }, locations: [{ line: 1 }], message: 'Variable imageUrl is required.', path: ['blueprintExecutions'] }],
+      expect: { isFailed: true, isPending: false, executionId: null, imageUrl: null },
+    },
+    {
+      label: 'Pending execution array',
+      input: [{ id: 'exec_123', status: 'PENDING' }],
+      expect: { executionId: 'exec_123', isPending: true, isFailed: false },
+    },
+    {
+      label: 'Nested image in data.output.images',
+      input: [{ data: { output: { images: [{ url: 'https://example.com/frame.png' }] } } }],
+      expect: { imageUrl: 'https://example.com/frame.png', isFailed: false },
+    },
+    {
+      label: 'blueprintExecution object',
+      input: { blueprintExecution: { id: 'exec_456', status: 'RUNNING' } },
+      expect: { executionId: 'exec_456', isPending: true },
+    },
+    {
+      label: 'outputs array with generated_images',
+      input: { outputs: [{ generated_images: [{ url: 'https://example.com/image.png' }] }] },
+      expect: { imageUrl: 'https://example.com/image.png' },
+    },
+    {
+      label: 'Array-as-object {"0": {...}}',
+      input: { '0': { id: 'abc123', status: 'PENDING' } },
+      expect: { executionId: 'abc123', isPending: true },
+    },
+  ]
+
+  let passed = 0; let failed = 0
+  for (const t of tests) {
+    const result = normalizeLeonardoResponse(t.input)
+    const ok = Object.entries(t.expect).every(([k, v]) => {
+      const actual = result[k as keyof LeonardoNormalizedResponse]
+      return JSON.stringify(actual) === JSON.stringify(v)
+    })
+    if (ok) {
+      console.info(`  ✓  ${t.label}`)
+      passed++
+    } else {
+      console.error(`  ✗  ${t.label}`)
+      console.error('     expected:', t.expect)
+      console.error('     got executionId:', result.executionId, 'imageUrl:', result.imageUrl, 'isFailed:', result.isFailed, 'isPending:', result.isPending)
+      failed++
+    }
+  }
+  console.info(`\n  ${passed} passed, ${failed} failed`)
+  if (failed > 0) process.exit(1)
 }

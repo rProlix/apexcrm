@@ -826,7 +826,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         if (provErr?.isQuotaError) {
           throw Object.assign(new Error(provErr.message), { isQuota: true })
         }
-        throw new Error(provErr?.message ?? 'Provider returned failed status')
+        // Attach rawResponse so the catch block can persist diagnostics
+        throw Object.assign(
+          new Error(provErr?.message ?? 'Provider returned failed status'),
+          { rawResponse: result.rawResponse ?? null },
+        )
       }
 
       lastFrameError = null
@@ -890,8 +894,30 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   // All retries exhausted
-  if (!result) {
-    throw lastFrameError ?? new Error('Frame generation failed after all retry attempts')
+  // IMPORTANT: result may be set to a failed Generate360FrameResult object rather than null,
+  // because `result = await provider.generateFrame(...)` runs before the throw in the try block.
+  // We must check result.status here, not just !result.
+  if (!result || result.status === 'failed') {
+    const failedResult = result?.status === 'failed' ? result : null
+    const errMsg = failedResult?.error?.message
+      ?? lastFrameError?.message
+      ?? 'Frame generation failed after all retry attempts'
+
+    // Save the diagnostic to the frame and package before propagating
+    if (failedResult) {
+      const diag = failedResult.rawResponse ?? null
+      await db.from('product_360_frames').update({
+        status:                 'failed',
+        error_message:          errMsg,
+        provider:               providerName,
+        provider_status:        'failed',
+        provider_error_message: errMsg,
+        provider_error_details: diag ? JSON.stringify(diag) : null,
+        updated_at:             new Date().toISOString(),
+      }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
+    }
+
+    throw lastFrameError ?? new Error(errMsg)
   }
 
   // ── After master frame: run vision analysis to enrich blueprint ───────────
@@ -1171,10 +1197,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       friendlyMessage = 'Imagen API access denied. Ensure your API key has the Imagen API enabled in Google Cloud Console.'
     }
 
+    // Extract diagnostic from the error if it's a provider failure with rawResponse
+    const rawDiag = (err as { rawResponse?: Record<string, unknown> }).rawResponse ?? null
+
     await db.from('product_360_frames').update({
-      status:        'failed',
-      error_message: errMsg,
-      updated_at:    new Date().toISOString(),
+      status:                 'failed',
+      error_message:          errMsg,
+      provider:               providerName,
+      provider_status:        'failed',
+      provider_error_message: errMsg,
+      provider_error_details: rawDiag ? JSON.stringify(rawDiag) : null,
+      updated_at:             new Date().toISOString(),
     }).eq('package_id', packageId).eq('frame_index', nextFrameIndex)
 
     await db.from('product_360_packages').update({
@@ -1185,6 +1218,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       last_error_details:          errStack || null,
       last_provider_error:         friendlyMessage.slice(0, 200),
       last_provider_error_details: errStack || null,
+      last_provider_debug:         rawDiag ?? null,
       last_error_at:               new Date().toISOString(),
       updated_at:                  new Date().toISOString(),
     }).eq('id', packageId)

@@ -1873,6 +1873,8 @@ function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
     leonardo_execution_id?:        string | null
     last_provider_error?:          string | null
     last_provider_error_details?:  string | null
+    last_provider_debug?:          Record<string, unknown> | null
+    last_provider_status_code?:    number | null
     last_error_details?:           string | null
     locked_identity_blueprint?:    Record<string, unknown> | null
   }
@@ -1882,8 +1884,20 @@ function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
   const hasReferenceImg  = !!(pkgExt.reference_image_url)
   const generationStage  = pkgExt.generation_stage ?? null
   const providerJobId    = pkgExt.provider_job_id ?? pkgExt.leonardo_execution_id ?? null
-  const lastProvErr      = pkgExt.last_provider_error ?? null
+  const lastProvErr        = pkgExt.last_provider_error ?? null
   const lastProvErrDetails = pkgExt.last_provider_error_details ?? pkgExt.last_error_details ?? null
+  const lastProvDebug      = pkgExt.last_provider_debug ?? null
+  const lastProvStatusCode = pkgExt.last_provider_status_code ?? null
+
+  // Parse provider debug fields for display
+  const debugHasApiError     = lastProvDebug ? Boolean(lastProvDebug['hasApiError'])     : false
+  const debugResponseShape   = lastProvDebug ? String(lastProvDebug['responseShape'] ?? '') : ''
+  const debugTopLevelKeys    = lastProvDebug && Array.isArray(lastProvDebug['topLevelKeys'])
+    ? (lastProvDebug['topLevelKeys'] as string[]).join(', ')
+    : ''
+  const debugErrorMsgs       = lastProvDebug && Array.isArray(lastProvDebug['errorMessagesPreview'])
+    ? (lastProvDebug['errorMessagesPreview'] as string[])
+    : []
 
   // Identity blueprint (new simpler structure)
   const identityBp          = pkgExt.locked_identity_blueprint
@@ -1961,6 +1975,40 @@ function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
           message={lastProvErr}
           details={lastProvErrDetails}
         />
+      )}
+
+      {/* GraphQL / API error guidance */}
+      {debugHasApiError && (
+        <div className="rounded-lg bg-amber-400/8 border border-amber-400/20 p-2 space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <AlertCircle className="h-3 w-3 text-amber-400 shrink-0" />
+            <p className="text-[10px] font-semibold text-amber-400">Blueprint Request Rejected</p>
+          </div>
+          {debugErrorMsgs.length > 0 && (
+            <p className="text-[10px] text-amber-300/80 leading-relaxed break-words">
+              {debugErrorMsgs[0]}
+            </p>
+          )}
+          <div className="text-[9px] text-amber-300/60 leading-relaxed space-y-0.5">
+            <p>Leonardo returned an API error array (extensions/locations/message/path).</p>
+            <p>Check: correct BLUEPRINT_VERSION_ID · matching node IDs for imageUrl and textVariables · reference image URL is accessible · blueprint is published.</p>
+            {lastProvStatusCode && (
+              <p className="font-mono">HTTP {lastProvStatusCode}</p>
+            )}
+            {debugResponseShape && (
+              <p className="font-mono">Response shape: {debugResponseShape} · keys: [{debugTopLevelKeys}]</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Provider debug (non-error) */}
+      {lastProvDebug && !debugHasApiError && (debugResponseShape || lastProvStatusCode) && (
+        <div className="rounded-lg bg-white/3 border border-white/6 p-2">
+          <p className="text-[9px] text-white/30 uppercase tracking-wider mb-1">Last Response Debug</p>
+          {lastProvStatusCode && <p className="text-[9px] text-white/40 font-mono">HTTP {lastProvStatusCode}</p>}
+          {debugResponseShape && <p className="text-[9px] text-white/40 font-mono">Shape: {debugResponseShape} · keys: [{debugTopLevelKeys}]</p>}
+        </div>
       )}
 
       {/* Identity blueprint */}
