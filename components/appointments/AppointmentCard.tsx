@@ -51,7 +51,12 @@ export function AppointmentCard({ appointment: appt, compact = false, onClick }:
       {compact ? (
         <div className={`${isActive ? 'pl-2' : ''}`}>
           <p className="text-xs font-semibold text-white truncate leading-tight">{appt.title}</p>
-          <p className="text-2xs text-white/40 mt-0.5">{formatTime(appt.starts_at)}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <p className="text-2xs text-white/40">{formatTime(appt.starts_at)}</p>
+            {appt.professional && (
+              <p className="text-2xs text-gold-400/70 truncate">· {appt.professional.name}</p>
+            )}
+          </div>
         </div>
       ) : (
         <div className={`${isActive ? 'pl-3' : ''}`}>
@@ -68,7 +73,16 @@ export function AppointmentCard({ appointment: appt, compact = false, onClick }:
               {formatTime(appt.starts_at)} · {durationLabel(appt.starts_at, appt.ends_at)}
             </span>
 
-            {appt.customer && (
+            {/* Professional / employee */}
+            {appt.professional && (
+              <span className="flex items-center gap-1 text-gold-400/70">
+                <User className="w-3 h-3" />
+                {appt.professional.name}
+              </span>
+            )}
+
+            {/* Customer (shown if no professional, or in addition) */}
+            {appt.customer && !appt.professional && (
               <span className="flex items-center gap-1">
                 <User className="w-3 h-3" />
                 {appt.customer.name}
