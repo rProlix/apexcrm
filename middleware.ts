@@ -100,6 +100,14 @@ export async function middleware(req: NextRequest) {
   console.log('[middleware] SUBDOMAIN:', subdomain)
 
   // ── Tenant subdomain rewrite ──────────────────────────────────────────────
+  //
+  // /invite/* is served from the root app regardless of subdomain — the token
+  // contains full tenant context, so no per-tenant route rewrite is needed.
+  if (subdomain && pathname.startsWith('/invite/')) {
+    // Pass through — serve the root app's /invite/customer page
+    return sessionResponse
+  }
+
   if (subdomain) {
     const rewriteUrl    = req.nextUrl.clone()
     rewriteUrl.pathname = `/sites/${subdomain}${pathname === '/' ? '' : pathname}`

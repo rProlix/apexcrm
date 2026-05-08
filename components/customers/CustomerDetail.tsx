@@ -11,6 +11,7 @@ import type { CustomerOrder } from '@/lib/customers/getCustomerOrders'
 import type { CustomerPaymentSummary } from '@/lib/customers/getCustomerPayments'
 import type { CustomerProfile } from '@/lib/customers/getCustomerProfile'
 import { CustomerActivityTimeline } from './CustomerActivityTimeline'
+import { CustomerInvitePanel } from './CustomerInvitePanel'
 
 interface Props {
   customer:       TenantCustomerDetail
@@ -180,6 +181,18 @@ export function CustomerDetail({
         {/* Activity timeline */}
         <CustomerActivityTimeline customer={customer} orders={recentOrders} payments={recentPayments} />
       </div>
+
+      {/* Invite / Portal access panel */}
+      {canManage && (
+        <CustomerInvitePanel
+          customerId={customer.id}
+          customerEmail={customer.email}
+          customerName={customer.name}
+          customerPhone={customer.phone}
+          hasAccount={customer.has_account}
+          tenantId={_tenantId}
+        />
+      )}
 
       {/* Profile notes preview */}
       {profile && profile.notes.length > 0 && (

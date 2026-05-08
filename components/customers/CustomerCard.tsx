@@ -2,7 +2,7 @@
 // components/customers/CustomerCard.tsx
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { Mail, Phone, CheckCircle2, Circle, ChevronRight } from 'lucide-react'
+import { Mail, Phone, CheckCircle2, Circle, ChevronRight, Clock } from 'lucide-react'
 import type { TenantCustomer } from '@/lib/customers/getTenantCustomers'
 
 interface Props {
@@ -48,6 +48,9 @@ export function CustomerCard({ customer, index = 0, canManage: _canManage }: Pro
             </span>
             {customer.has_account && (
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" aria-label="Has portal account" />
+            )}
+            {!customer.has_account && (customer as TenantCustomer & { invite_status?: string }).invite_status === 'pending' && (
+              <Clock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" aria-label="Invite pending" />
             )}
           </div>
           <div className="flex items-center gap-3 flex-wrap">

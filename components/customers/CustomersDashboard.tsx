@@ -3,9 +3,10 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Users, UserCheck, ShoppingBag, TrendingUp, Plus } from 'lucide-react'
+import { Users, UserCheck, ShoppingBag, TrendingUp, Plus, Mail } from 'lucide-react'
 import { CustomerList } from './CustomerList'
 import { CustomerSearchBar } from './CustomerSearchBar'
+import { InviteCustomerModal } from './InviteCustomerModal'
 import type { TenantCustomer } from '@/lib/customers/getTenantCustomers'
 
 interface Props {
@@ -28,8 +29,9 @@ export function CustomersDashboard({
   tenantId,
   userRole,
 }: Props) {
-  const [customers, setCustomers] = useState<TenantCustomer[]>(initialCustomers)
-  const [isSearching, setIsSearching] = useState(false)
+  const [customers,    setCustomers]    = useState<TenantCustomer[]>(initialCustomers)
+  const [isSearching,  setIsSearching]  = useState(false)
+  const [showInvite,   setShowInvite]   = useState(false)
 
   const handleSearchResults = useCallback((results: TenantCustomer[]) => {
     setCustomers(results)
@@ -70,13 +72,22 @@ export function CustomersDashboard({
           </p>
         </div>
         {canManage && (
-          <Link
-            href="/customers/new"
-            className="inline-flex items-center gap-2 h-10 px-5 rounded-xl font-semibold text-sm bg-gold-gradient text-graphite-900 hover:shadow-glow-gold transition-all duration-200"
-          >
-            <Plus className="w-4 h-4" />
-            Add Customer
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowInvite(true)}
+              className="inline-flex items-center gap-2 h-10 px-4 rounded-xl font-semibold text-sm border border-gold-500/30 text-gold-400 hover:bg-gold-500/8 transition-all duration-200"
+            >
+              <Mail className="w-4 h-4" />
+              Invite Customer
+            </button>
+            <Link
+              href="/customers/new"
+              className="inline-flex items-center gap-2 h-10 px-5 rounded-xl font-semibold text-sm bg-gold-gradient text-graphite-900 hover:shadow-glow-gold transition-all duration-200"
+            >
+              <Plus className="w-4 h-4" />
+              Add Customer
+            </Link>
+          </div>
         )}
       </motion.div>
 
@@ -122,6 +133,13 @@ export function CustomersDashboard({
         </div>
         <CustomerList customers={customers} canManage={canManage} />
       </motion.div>
+
+      {showInvite && (
+        <InviteCustomerModal
+          tenantId={tenantId}
+          onClose={() => setShowInvite(false)}
+        />
+      )}
     </div>
   )
 }
