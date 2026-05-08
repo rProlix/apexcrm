@@ -8,6 +8,15 @@ import type { Appointment } from '@/lib/appointments/types'
 
 type Ctx = { params: Promise<{ id: string }> }
 
+const APPOINTMENT_SELECT = `
+  id, tenant_id, customer_id, staff_id, appointment_block_id,
+  title, description, status,
+  starts_at, ends_at, location, notes, timezone, created_by,
+  created_at, updated_at,
+  customer:customers ( id, name, email ),
+  professional:professionals ( id, name, avatar_url )
+`
+
 // ─── GET /api/appointments/[id] ───────────────────────────────────────────────
 export async function GET(req: NextRequest, { params }: Ctx) {
   const { id } = await params
@@ -16,14 +25,10 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   const staffUser = await resolveStoreUser(req)
 
   if (staffUser && (staffUser.role === 'admin' || staffUser.role === 'owner')) {
-    const { data, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
       .from('appointments')
-      .select(`
-        id, tenant_id, customer_id, title, description, status,
-        starts_at, ends_at, location, notes, timezone, created_by,
-        created_at, updated_at,
-        customer:customers ( id, name, email )
-      `)
+      .select(APPOINTMENT_SELECT)
       .eq('id', id)
       .eq('tenant_id', staffUser.tenant_id)
       .maybeSingle()
@@ -39,9 +44,11 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     const { data, error } = await supabase
       .from('appointments')
       .select(`
-        id, tenant_id, customer_id, title, description, status,
+        id, tenant_id, customer_id, staff_id,
+        title, description, status,
         starts_at, ends_at, location, notes, timezone,
-        created_at, updated_at
+        created_at, updated_at,
+        professional:professionals ( id, name, avatar_url )
       `)
       .eq('id', id)
       .eq('tenant_id', customerUser.tenant_id)
@@ -72,14 +79,20 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
   if (staffUser && (staffUser.role === 'admin' || staffUser.role === 'owner')) {
     const result = await updateAppointment(id, staffUser.tenant_id, {
-      title:       typeof body.title       === 'string' ? body.title       : undefined,
-      description: typeof body.description === 'string' ? body.description : undefined,
-      status:      typeof body.status      === 'string' ? body.status as Appointment['status'] : undefined,
-      starts_at:   typeof body.starts_at   === 'string' ? body.starts_at   : undefined,
-      ends_at:     typeof body.ends_at     === 'string' ? body.ends_at     : undefined,
-      location:    typeof body.location    === 'string' ? body.location    : undefined,
-      notes:       typeof body.notes       === 'string' ? body.notes       : undefined,
-      timezone:    typeof body.timezone    === 'string' ? body.timezone    : undefined,
+      title:                typeof body.title                === 'string' ? body.title                : undefined,
+      description:          typeof body.description          === 'string' ? body.description          : undefined,
+      status:               typeof body.status               === 'string' ? body.status as Appointment['status'] : undefined,
+      starts_at:            typeof body.starts_at            === 'string' ? body.starts_at            : undefined,
+      ends_at:              typeof body.ends_at              === 'string' ? body.ends_at              : undefined,
+      location:             typeof body.location             === 'string' ? body.location             : undefined,
+      notes:                typeof body.notes                === 'string' ? body.notes                : undefined,
+      timezone:             typeof body.timezone             === 'string' ? body.timezone             : undefined,
+      staff_id:             body.staff_id !== undefined
+                              ? (typeof body.staff_id === 'string' && body.staff_id ? body.staff_id : null)
+                              : undefined,
+      appointment_block_id: body.appointment_block_id !== undefined
+                              ? (typeof body.appointment_block_id === 'string' && body.appointment_block_id ? body.appointment_block_id : null)
+                              : undefined,
     })
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 422 })
@@ -89,7 +102,6 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
   const customerUser = await resolveStoreCustomer(req)
   if (customerUser) {
-    // Customers may only reschedule or cancel — not change status to completed
     const allowedStatuses = ['canceled']
     const status = typeof body.status === 'string' ? body.status : undefined
 
@@ -97,7 +109,6 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       return NextResponse.json({ error: 'Customers can only cancel appointments' }, { status: 403 })
     }
 
-    // Verify ownership
     const supabase = getSupabaseServerClient()
     const { data: existing } = await supabase
       .from('appointments')
@@ -111,10 +122,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     }
 
     const result = await updateAppointment(id, customerUser.tenant_id, {
-      starts_at:   typeof body.starts_at   === 'string' ? body.starts_at   : undefined,
-      ends_at:     typeof body.ends_at     === 'string' ? body.ends_at     : undefined,
-      notes:       typeof body.notes       === 'string' ? body.notes       : undefined,
-      status:      status as Appointment['status'] | undefined,
+      starts_at: typeof body.starts_at === 'string' ? body.starts_at : undefined,
+      ends_at:   typeof body.ends_at   === 'string' ? body.ends_at   : undefined,
+      notes:     typeof body.notes     === 'string' ? body.notes     : undefined,
+      status:    status as Appointment['status'] | undefined,
     })
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 422 })

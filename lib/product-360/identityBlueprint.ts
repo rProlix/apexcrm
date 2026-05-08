@@ -312,7 +312,10 @@ ${rulesStr}
 
 /**
  * Serialize the identity blueprint to a Leonardo textVariables string.
- * Injected into the textVariables blueprint node input.
+ *
+ * Designed for consistent-character / reference-driven blueprints.
+ * The string is injected into the textVariables blueprint node input.
+ * Keep it dense but human-readable — Leonardo reads it as a text instruction.
  */
 export function serializeIdentityBlueprintToTextVariables(
   bp:          IdentityBlueprint,
@@ -321,25 +324,51 @@ export function serializeIdentityBlueprintToTextVariables(
   totalFrames: number,
   referenceImageInstruction?: string,
 ): string {
-  const partsStr = bp.subject.exactIngredientsOrParts.join(', ')
-  const rulesStr = bp.negativeRules.join('; ')
+  const partsStr   = bp.subject.exactIngredientsOrParts.length > 0
+    ? bp.subject.exactIngredientsOrParts.join(', ')
+    : 'as shown in reference'
+  const colorsStr  = bp.subject.colorPalette.join(', ')
+  const surfaceStr = bp.subject.surfaceDetails.join(', ')
+  const propsStr   = bp.scene.props.length > 0 ? bp.scene.props.join(', ') : 'none'
+  const rulesStr   = bp.negativeRules.join('; ')
 
-  const refInstruction = referenceImageInstruction
-    ?? 'Use the provided reference image as the canonical visual anchor for this product.'
+  const refLine = referenceImageInstruction
+    ?? 'Use the reference image as the exact visual anchor. Match every visible detail precisely.'
+
+  // Build the locked scene block — everything that must NOT change between frames
+  const lockedBlock = [
+    `PRODUCT IDENTITY: ${bp.subject.productName}`,
+    `PARTS/INGREDIENTS: ${partsStr}`,
+    colorsStr  ? `COLORS: ${colorsStr}` : '',
+    surfaceStr ? `SURFACE TEXTURE: ${surfaceStr}` : '',
+    `VESSEL: ${bp.vessel.type} | material: ${bp.vessel.material} | color: ${bp.vessel.color} | size: ${bp.vessel.size} | position: ${bp.vessel.position}`,
+    `TABLE: ${bp.scene.table}`,
+    `WALL/BACKGROUND: ${bp.scene.wall} — ${bp.scene.background}`,
+    `PROPS: ${propsStr}`,
+    `LIGHTING: ${bp.scene.lighting}`,
+    `CAMERA DISTANCE: ${bp.scene.cameraDistance}`,
+    `LENS/FOCAL LENGTH: ${bp.scene.lens}`,
+    `CROP/COMPOSITION: ${bp.scene.crop}`,
+  ].filter(Boolean).join('\n')
 
   return [
-    `PRODUCT: ${bp.subject.productName}`,
-    partsStr ? `EXACT PARTS: ${partsStr}` : '',
-    `VESSEL: ${bp.vessel.type}, ${bp.vessel.material}, ${bp.vessel.color}`,
-    `TABLE: ${bp.scene.table}`,
-    `BACKGROUND: ${bp.scene.background}`,
-    `LIGHTING: ${bp.scene.lighting}`,
-    `CAMERA: ${bp.scene.cameraDistance}, ${bp.scene.lens}`,
-    `FRAME: ${frameIndex + 1}/${totalFrames} at ${angleDeg}° angle`,
-    `REFERENCE IMAGE: ${refInstruction}`,
-    `RULES: ${rulesStr}`,
-    'INSTRUCTION: same exact product, same exact plate/bowl, same exact toppings/details, same exact table, same exact lighting, same exact camera distance. Only rotate the angle.',
-  ].filter(Boolean).join('\n')
+    '=== LOCKED SCENE BLUEPRINT ===',
+    lockedBlock,
+    '',
+    `=== FRAME INFO ===`,
+    `FRAME: ${frameIndex + 1} of ${totalFrames}`,
+    `CAMERA ORBIT ANGLE: ${angleDeg}° around vertical axis`,
+    `ANGLE STEP: ${bp.rotation.angleStepDegrees}° per frame`,
+    '',
+    `=== REFERENCE IMAGE ===`,
+    refLine,
+    '',
+    `=== STRICT RULES ===`,
+    'ONLY CHANGE: camera orbit angle around the vertical axis of the product.',
+    'DO NOT CHANGE: product identity, ingredients, toppings, vessel type, vessel color, table, wall, background, props, lighting direction, lighting intensity, camera distance, lens focal length, crop, composition, scale, object count, arrangement, shadow style, highlight style.',
+    rulesStr ? `ADDITIONAL RULES: ${rulesStr}` : '',
+    '=== END ===',
+  ].filter(s => s !== null && s !== undefined).join('\n')
 }
 
 // ─── Type guard ───────────────────────────────────────────────────────────────

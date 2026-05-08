@@ -8,21 +8,31 @@ export interface UpdateResult {
   error?:       string
 }
 
+const APPOINTMENT_SELECT = `
+  id, tenant_id, customer_id, staff_id, appointment_block_id,
+  title, description, status,
+  starts_at, ends_at, location, notes, timezone, created_by,
+  created_at, updated_at,
+  customer:customers ( id, name, email ),
+  professional:professionals ( id, name, avatar_url )
+`
+
 /**
  * Updates an appointment by id within a tenant.
- * If starts_at/ends_at are changed, re-validates conflicts.
+ * If starts_at/ends_at/staff_id are changed, re-validates conflicts.
  */
 export async function updateAppointment(
   id:        string,
   tenant_id: string,
   input:     UpdateAppointmentInput
 ): Promise<UpdateResult> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
 
   // Fetch current record to merge times
   const { data: current, error: fetchErr } = await supabase
     .from('appointments')
-    .select('starts_at, ends_at, status')
+    .select('starts_at, ends_at, status, staff_id')
     .eq('id', id)
     .eq('tenant_id', tenant_id)
     .maybeSingle()
@@ -37,8 +47,9 @@ export async function updateAppointment(
 
   const starts_at = input.starts_at ?? current.starts_at
   const ends_at   = input.ends_at   ?? current.ends_at
+  const staff_id  = input.staff_id !== undefined ? input.staff_id : current.staff_id
 
-  if (input.starts_at || input.ends_at) {
+  if (input.starts_at || input.ends_at || input.staff_id !== undefined) {
     const start = new Date(starts_at)
     const end   = new Date(ends_at)
 
@@ -54,6 +65,7 @@ export async function updateAppointment(
       starts_at,
       ends_at,
       exclude_id: id,
+      staff_id:   staff_id ?? undefined,
     })
     if (conflict) {
       return { error: 'This time slot is already booked or unavailable' }
@@ -70,18 +82,15 @@ export async function updateAppointment(
   if (input.location    !== undefined) patch.location    = input.location
   if (input.notes       !== undefined) patch.notes       = input.notes
   if (input.timezone    !== undefined) patch.timezone    = input.timezone
+  if (input.staff_id    !== undefined) patch.staff_id    = input.staff_id
+  if (input.appointment_block_id !== undefined) patch.appointment_block_id = input.appointment_block_id
 
   const { data, error } = await supabase
     .from('appointments')
     .update(patch)
     .eq('id', id)
     .eq('tenant_id', tenant_id)
-    .select(`
-      id, tenant_id, customer_id, title, description, status,
-      starts_at, ends_at, location, notes, timezone, created_by,
-      created_at, updated_at,
-      customer:customers ( id, name, email )
-    `)
+    .select(APPOINTMENT_SELECT)
     .single()
 
   if (error) {

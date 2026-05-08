@@ -4,14 +4,17 @@ export const dynamic = 'force-dynamic'
 
 // app/(customer)/portal/appointments/book/page.tsx
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CalendarDays, Clock, CheckCircle2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import {
+  CalendarDays, Clock, CheckCircle2, ChevronLeft, ChevronRight,
+  Loader2, User,
+} from 'lucide-react'
 import { TimeSlotPicker } from '@/components/appointments/TimeSlotPicker'
-import type { TimeSlot } from '@/lib/appointments/types'
+import type { TimeSlot, Professional } from '@/lib/appointments/types'
 
-type Step = 1 | 2 | 3
+type Step = 1 | 2 | 3 | 4
 
 function fmtDate(d: Date) {
   return d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
@@ -22,25 +25,42 @@ function fmtTime(iso: string) {
 
 const DURATIONS = [30, 60, 90, 120]
 
+const MONTHS     = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const DAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa']
+
 export default function BookAppointmentPage() {
   const router = useRouter()
 
-  const [step,         setStep]         = useState<Step>(1)
-  const [title,        setTitle]        = useState('')
-  const [description]  = useState('')
-  const [duration,     setDuration]     = useState(60)
-  const [notes,        setNotes]        = useState('')
-  const [selectedDate, setSelectedDate] = useState<string>('')
-  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
-  const [submitting,   setSubmitting]   = useState(false)
-  const [error,        setError]        = useState<string | null>(null)
+  const [step,           setStep]           = useState<Step>(1)
+  const [title,          setTitle]          = useState('')
+  const [duration,       setDuration]       = useState(60)
+  const [notes,          setNotes]          = useState('')
+  const [selectedDate,   setSelectedDate]   = useState<string>('')
+  const [selectedSlot,   setSelectedSlot]   = useState<TimeSlot | null>(null)
+  const [selectedStaff,  setSelectedStaff]  = useState<Professional | null>(null)
+  const [professionals,  setProfessionals]  = useState<Professional[]>([])
+  const [loadingProfs,   setLoadingProfs]   = useState(true)
+  const [submitting,     setSubmitting]     = useState(false)
+  const [error,          setError]          = useState<string | null>(null)
 
-  // Calendar month state
   const today = new Date()
   const [calYear,  setCalYear]  = useState(today.getFullYear())
   const [calMonth, setCalMonth] = useState(today.getMonth())
 
-  // Build calendar grid
+  useEffect(() => {
+    setLoadingProfs(true)
+    fetch('/api/professionals?active=true')
+      .then((r) => r.json())
+      .then(({ data }) => {
+        const profs: Professional[] = data?.professionals ?? []
+        setProfessionals(profs)
+        // Auto-select if only one professional
+        if (profs.length === 1) setSelectedStaff(profs[0])
+      })
+      .catch(() => setProfessionals([]))
+      .finally(() => setLoadingProfs(false))
+  }, [])
+
   const daysInMonth  = new Date(calYear, calMonth + 1, 0).getDate()
   const firstDayOfWk = new Date(calYear, calMonth, 1).getDay()
   const cells: Array<{ day: number | null; dateKey: string }> = []
@@ -50,9 +70,6 @@ export default function BookAppointmentPage() {
     const dd = String(d).padStart(2, '0')
     cells.push({ day: d, dateKey: `${calYear}-${mm}-${dd}` })
   }
-
-  const MONTHS     = ['January','February','March','April','May','June','July','August','September','October','November','December']
-  const DAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa']
 
   function prevMonth() {
     if (calMonth === 0) { setCalMonth(11); setCalYear((y) => y - 1) }
@@ -72,11 +89,11 @@ export default function BookAppointmentPage() {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          title:       title.trim(),
-          description: description || null,
-          starts_at:   selectedSlot.start,
-          ends_at:     selectedSlot.end,
-          notes:       notes || null,
+          title:     title.trim(),
+          starts_at: selectedSlot.start,
+          ends_at:   selectedSlot.end,
+          notes:     notes || null,
+          staff_id:  selectedStaff?.id ?? null,
         }),
       })
       const data = await res.json()
@@ -88,11 +105,35 @@ export default function BookAppointmentPage() {
     }
   }
 
-  const stepLabels: Record<Step, string> = {
-    1: 'Select Date',
-    2: 'Choose Time',
-    3: 'Confirm',
+  const totalSteps = professionals.length > 1 ? 4 : 3
+  const stepLabels: Record<number, string> = {
+    1: 'Details',
+    2: professionals.length > 1 ? 'Professional' : 'Date',
+    3: professionals.length > 1 ? 'Date' : 'Time',
+    4: 'Confirm',
   }
+
+  // When only 1 or 0 professionals, skip the professional selection step
+  const effectiveStep = professionals.length > 1 ? step : (step === 1 ? 1 : step + 1) as Step
+
+  function nextStep() {
+    if (professionals.length <= 1) {
+      // Skip professional step
+      setStep((s) => (s === 1 ? 2 : s === 2 ? 3 : s) as Step)
+    } else {
+      setStep((s) => (s + 1) as Step)
+    }
+  }
+
+  function prevStep() {
+    if (professionals.length <= 1) {
+      setStep((s) => (s === 2 ? 1 : s === 3 ? 2 : s) as Step)
+    } else {
+      setStep((s) => (s - 1) as Step)
+    }
+  }
+
+  const displaySteps = professionals.length > 1 ? [1,2,3,4] : [1,2,3]
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
@@ -107,16 +148,18 @@ export default function BookAppointmentPage() {
         </button>
         <h1 className="text-xl font-bold text-white">Book an Appointment</h1>
         <p className="text-sm text-white/40 mt-1">
-          {step === 1 ? 'Choose your preferred date'
-           : step === 2 ? 'Select an available time slot'
-           : 'Review and confirm your booking'}
+          {step === 1 ? 'Enter appointment details'
+            : professionals.length > 1 && step === 2 ? 'Choose your professional'
+            : step === (professionals.length > 1 ? 3 : 2) ? 'Select your preferred date'
+            : step === (professionals.length > 1 ? 4 : 3) ? 'Confirm your booking'
+            : 'Select an available time slot'}
         </p>
       </motion.div>
 
       {/* Step indicator */}
-      <div className="flex items-center gap-2">
-        {([1, 2, 3] as Step[]).map((s) => (
-          <div key={s} className="flex items-center gap-2">
+      <div className="flex items-center gap-2 overflow-x-auto">
+        {displaySteps.map((s, idx) => (
+          <div key={s} className="flex items-center gap-2 shrink-0">
             <div className={`
               h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold transition-all
               ${step === s ? 'bg-gold-gradient text-graphite-900 shadow-glow-gold'
@@ -128,14 +171,15 @@ export default function BookAppointmentPage() {
             <span className={`text-xs font-medium hidden sm:block ${step === s ? 'text-white' : 'text-white/30'}`}>
               {stepLabels[s]}
             </span>
-            {s < 3 && <ChevronRight className="w-3.5 h-3.5 text-white/20" />}
+            {idx < displaySteps.length - 1 && <ChevronRight className="w-3.5 h-3.5 text-white/20" />}
           </div>
         ))}
       </div>
 
       {/* Step content */}
       <AnimatePresence mode="wait">
-        {/* ── Step 1: service info + date ── */}
+
+        {/* ── Step 1: details ── */}
         {step === 1 && (
           <motion.div
             key="step1"
@@ -144,12 +188,11 @@ export default function BookAppointmentPage() {
             exit={{    opacity: 0, x: -20 }}
             className="space-y-4"
           >
-            {/* Service info */}
             <div className="rounded-2xl border border-surface-border bg-graphite-800/50 p-5 space-y-3">
               <h2 className="text-sm font-semibold text-white">Appointment Details</h2>
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">
-                  What's this appointment for? *
+                  What&apos;s this appointment for? *
                 </label>
                 <input
                   type="text"
@@ -190,20 +233,115 @@ export default function BookAppointmentPage() {
               </div>
             </div>
 
-            {/* Calendar picker */}
+            <button
+              onClick={nextStep}
+              disabled={!title.trim()}
+              className="w-full h-11 rounded-xl bg-gold-gradient text-graphite-900 font-semibold hover:shadow-glow-gold transition-shadow disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Continue →
+            </button>
+          </motion.div>
+        )}
+
+        {/* ── Step 2 (multi-prof): professional selection ── */}
+        {step === 2 && professionals.length > 1 && (
+          <motion.div
+            key="step2-prof"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{    opacity: 0, x: -20 }}
+            className="space-y-4"
+          >
+            <div className="rounded-2xl border border-surface-border bg-graphite-800/50 p-5 space-y-3">
+              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                <User className="w-4 h-4 text-gold-400" />
+                Choose Your Professional
+              </h2>
+              <p className="text-xs text-white/40">Select who will be performing your service.</p>
+
+              {loadingProfs ? (
+                <div className="flex items-center gap-2 py-4 text-white/30 text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading professionals…
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {professionals.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelectedStaff(p)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                        selectedStaff?.id === p.id
+                          ? 'border-gold-500/40 bg-gold-400/5 ring-1 ring-gold-400/20'
+                          : 'border-surface-border hover:border-gold-500/20 hover:bg-graphite-700/20'
+                      }`}
+                    >
+                      {p.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.avatar_url} alt={p.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gold-400/10 flex items-center justify-center shrink-0">
+                          <span className="text-sm font-bold text-gold-400">{p.name.charAt(0).toUpperCase()}</span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white">{p.name}</p>
+                        {p.role && <p className="text-xs text-white/40 capitalize">{p.role}</p>}
+                      </div>
+                      {selectedStaff?.id === p.id && (
+                        <CheckCircle2 className="w-4 h-4 text-gold-400 shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={prevStep} className="flex-1 h-11 rounded-xl border border-surface-border text-white/60 hover:text-white text-sm font-medium transition-colors">
+                ← Back
+              </button>
+              <button
+                onClick={nextStep}
+                disabled={!selectedStaff}
+                className="flex-1 h-11 rounded-xl bg-gold-gradient text-graphite-900 font-semibold hover:shadow-glow-gold transition-shadow disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Continue → Date
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── Date selection step ── */}
+        {((step === 2 && professionals.length <= 1) || (step === 3 && professionals.length > 1)) && (
+          <motion.div
+            key="step-date"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{    opacity: 0, x: -20 }}
+            className="space-y-4"
+          >
+            {/* Show selected professional if auto-selected */}
+            {selectedStaff && professionals.length === 1 && (
+              <div className="flex items-center gap-3 rounded-xl border border-gold-500/20 bg-gold-400/5 px-4 py-3">
+                <div className="w-8 h-8 rounded-full bg-gold-400/10 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-gold-400">{selectedStaff.name.charAt(0).toUpperCase()}</span>
+                </div>
+                <div>
+                  <p className="text-xs text-white/40">Booking with</p>
+                  <p className="text-sm font-semibold text-white">{selectedStaff.name}</p>
+                </div>
+              </div>
+            )}
+
             <div className="rounded-2xl border border-surface-border bg-graphite-800/50 p-5">
               <div className="flex items-center justify-between mb-4">
-                <button
-                  onClick={prevMonth}
-                  className="h-8 w-8 rounded-xl bg-graphite-700 border border-surface-border flex items-center justify-center hover:border-gold-500/30 transition-colors"
-                >
+                <button onClick={prevMonth} className="h-8 w-8 rounded-xl bg-graphite-700 border border-surface-border flex items-center justify-center hover:border-gold-500/30 transition-colors">
                   <ChevronLeft className="w-4 h-4 text-white/60" />
                 </button>
                 <h2 className="text-sm font-semibold text-white">{MONTHS[calMonth]} {calYear}</h2>
-                <button
-                  onClick={nextMonth}
-                  className="h-8 w-8 rounded-xl bg-graphite-700 border border-surface-border flex items-center justify-center hover:border-gold-500/30 transition-colors"
-                >
+                <button onClick={nextMonth} className="h-8 w-8 rounded-xl bg-graphite-700 border border-surface-border flex items-center justify-center hover:border-gold-500/30 transition-colors">
                   <ChevronRight className="w-4 h-4 text-white/60" />
                 </button>
               </div>
@@ -243,50 +381,32 @@ export default function BookAppointmentPage() {
               </div>
             </div>
 
-            <button
-              onClick={() => setStep(2)}
-              disabled={!selectedDate || !title.trim()}
-              className="w-full h-11 rounded-xl bg-gold-gradient text-graphite-900 font-semibold hover:shadow-glow-gold transition-shadow disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Continue → Choose Time
-            </button>
-          </motion.div>
-        )}
-
-        {/* ── Step 2: time slot ── */}
-        {step === 2 && (
-          <motion.div
-            key="step2"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{    opacity: 0, x: -20 }}
-            className="space-y-4"
-          >
-            <div className="rounded-2xl border border-surface-border bg-graphite-800/50 p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <CalendarDays className="w-4 h-4 text-gold-400" />
-                <span className="text-sm font-semibold text-white">
-                  {fmtDate(new Date(selectedDate + 'T12:00:00Z'))}
-                </span>
+            {/* Time slots */}
+            {selectedDate && (
+              <div className="rounded-2xl border border-surface-border bg-graphite-800/50 p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <CalendarDays className="w-4 h-4 text-gold-400" />
+                  <span className="text-sm font-semibold text-white">
+                    {fmtDate(new Date(selectedDate + 'T12:00:00Z'))}
+                  </span>
+                </div>
+                <TimeSlotPicker
+                  date={selectedDate}
+                  duration_minutes={duration}
+                  staffId={selectedStaff?.id}
+                  selected={selectedSlot?.start ?? null}
+                  onSelect={(slot) => setSelectedSlot(slot)}
+                />
               </div>
-              <TimeSlotPicker
-                date={selectedDate}
-                duration_minutes={duration}
-                selected={selectedSlot?.start ?? null}
-                onSelect={(slot) => setSelectedSlot(slot)}
-              />
-            </div>
+            )}
 
             <div className="flex gap-3">
-              <button
-                onClick={() => setStep(1)}
-                className="flex-1 h-11 rounded-xl border border-surface-border text-white/60 hover:text-white text-sm font-medium transition-colors"
-              >
+              <button onClick={prevStep} className="flex-1 h-11 rounded-xl border border-surface-border text-white/60 hover:text-white text-sm font-medium transition-colors">
                 ← Back
               </button>
               <button
-                onClick={() => setStep(3)}
-                disabled={!selectedSlot}
+                onClick={nextStep}
+                disabled={!selectedDate || !selectedSlot}
                 className="flex-1 h-11 rounded-xl bg-gold-gradient text-graphite-900 font-semibold hover:shadow-glow-gold transition-shadow disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Continue → Confirm
@@ -295,10 +415,10 @@ export default function BookAppointmentPage() {
           </motion.div>
         )}
 
-        {/* ── Step 3: confirm ── */}
-        {step === 3 && selectedSlot && (
+        {/* ── Confirm step ── */}
+        {((step === 3 && professionals.length <= 1) || (step === 4 && professionals.length > 1)) && selectedSlot && (
           <motion.div
-            key="step3"
+            key="step-confirm"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{    opacity: 0, x: -20 }}
@@ -315,9 +435,23 @@ export default function BookAppointmentPage() {
                   <div>
                     <p className="text-xs text-white/40">Service</p>
                     <p className="text-sm font-medium text-white">{title}</p>
-                    {description && <p className="text-xs text-white/40 mt-0.5">{description}</p>}
                   </div>
                 </div>
+
+                {selectedStaff && (
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-xl bg-gold-400/10 flex items-center justify-center shrink-0">
+                      <User className="w-4 h-4 text-gold-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/40">Professional</p>
+                      <p className="text-sm font-medium text-white">{selectedStaff.name}</p>
+                      {selectedStaff.role && (
+                        <p className="text-xs text-white/40 capitalize">{selectedStaff.role}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-start gap-3">
                   <div className="h-8 w-8 rounded-xl bg-gold-400/10 flex items-center justify-center shrink-0">
@@ -325,12 +459,8 @@ export default function BookAppointmentPage() {
                   </div>
                   <div>
                     <p className="text-xs text-white/40">Date &amp; Time</p>
-                    <p className="text-sm font-medium text-white">
-                      {fmtDate(new Date(selectedSlot.start))}
-                    </p>
-                    <p className="text-xs text-white/60">
-                      {fmtTime(selectedSlot.start)} – {fmtTime(selectedSlot.end)}
-                    </p>
+                    <p className="text-sm font-medium text-white">{fmtDate(new Date(selectedSlot.start))}</p>
+                    <p className="text-xs text-white/60">{fmtTime(selectedSlot.start)} – {fmtTime(selectedSlot.end)}</p>
                   </div>
                 </div>
 
@@ -349,7 +479,7 @@ export default function BookAppointmentPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => setStep(2)}
+                onClick={prevStep}
                 disabled={submitting}
                 className="flex-1 h-11 rounded-xl border border-surface-border text-white/60 hover:text-white text-sm font-medium transition-colors disabled:opacity-40"
               >

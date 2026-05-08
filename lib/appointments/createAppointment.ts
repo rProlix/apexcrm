@@ -8,15 +8,25 @@ export interface CreateResult {
   error?:       string
 }
 
+const APPOINTMENT_SELECT = `
+  id, tenant_id, customer_id, staff_id, appointment_block_id,
+  title, description, status,
+  starts_at, ends_at, location, notes, timezone, created_by,
+  created_at, updated_at,
+  customer:customers ( id, name, email ),
+  professional:professionals ( id, name, avatar_url )
+`
+
 /**
  * Creates a new appointment after validating:
  * - start_time < end_time
  * - no conflicts with existing appointments or blocked times
+ * - staff (if provided) has no conflicting appointment
  */
 export async function createAppointment(
   input: CreateAppointmentInput
 ): Promise<CreateResult> {
-  const { tenant_id, customer_id, title, starts_at, ends_at } = input
+  const { tenant_id, customer_id, title, starts_at, ends_at, staff_id } = input
 
   if (!title?.trim()) {
     return { error: 'Title is required' }
@@ -35,11 +45,12 @@ export async function createAppointment(
     return { error: 'Cannot book appointments in the past' }
   }
 
-  const conflict = await checkConflicts({ tenant_id, starts_at, ends_at })
+  const conflict = await checkConflicts({ tenant_id, starts_at, ends_at, staff_id: staff_id ?? undefined })
   if (conflict) {
     return { error: 'This time slot is already booked or unavailable' }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
 
   const { data, error } = await supabase
@@ -47,6 +58,8 @@ export async function createAppointment(
     .insert({
       tenant_id,
       customer_id,
+      staff_id:             staff_id             ?? null,
+      appointment_block_id: input.appointment_block_id ?? null,
       title:       title.trim(),
       description: input.description ?? null,
       starts_at,
@@ -57,12 +70,7 @@ export async function createAppointment(
       created_by:  input.created_by  ?? null,
       status:      'pending',
     })
-    .select(`
-      id, tenant_id, customer_id, title, description, status,
-      starts_at, ends_at, location, notes, timezone, created_by,
-      created_at, updated_at,
-      customer:customers ( id, name, email )
-    `)
+    .select(APPOINTMENT_SELECT)
     .single()
 
   if (error) {

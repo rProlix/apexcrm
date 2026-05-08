@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import {
   CalendarDays, MapPin, FileText, ChevronLeft,
-  CheckCircle2, XCircle, AlertCircle, Loader2, RefreshCw, Pencil,
+  CheckCircle2, XCircle, AlertCircle, Loader2, RefreshCw, Pencil, User,
 } from 'lucide-react'
 import { StatusBadge }    from '@/components/appointments/StatusBadge'
 import { TimeSlotPicker } from '@/components/appointments/TimeSlotPicker'
@@ -121,10 +121,7 @@ export default function CustomerAppointmentDetailPage() {
   return (
     <div className="max-w-lg mx-auto space-y-5">
       {/* Back */}
-      <Link
-        href="/portal/appointments"
-        className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
-      >
+      <Link href="/portal/appointments" className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors">
         <ChevronLeft className="w-3.5 h-3.5" />
         My Appointments
       </Link>
@@ -141,7 +138,7 @@ export default function CustomerAppointmentDetailPage() {
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
             <div>
               <p className="text-sm font-semibold text-emerald-300">Appointment booked!</p>
-              <p className="text-xs text-emerald-400/70 mt-0.5">We'll confirm your booking shortly.</p>
+              <p className="text-xs text-emerald-400/70 mt-0.5">We&apos;ll confirm your booking shortly.</p>
             </div>
           </motion.div>
         )}
@@ -169,6 +166,19 @@ export default function CustomerAppointmentDetailPage() {
 
           {/* Details */}
           <div className="space-y-3">
+            {/* Professional */}
+            {appt.professional && (
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-xl bg-gold-400/10 flex items-center justify-center shrink-0">
+                  <User className="w-4 h-4 text-gold-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-white/40">Professional</p>
+                  <p className="text-sm font-medium text-white">{appt.professional.name}</p>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-start gap-3">
               <CalendarDays className="w-4 h-4 text-gold-400 mt-0.5 shrink-0" />
               <div>
@@ -253,6 +263,13 @@ export default function CustomerAppointmentDetailPage() {
                 Reschedule Appointment
               </h3>
 
+              {appt.professional && (
+                <div className="flex items-center gap-2 text-xs text-white/50">
+                  <User className="w-3 h-3" />
+                  Rescheduling with <span className="text-white/70 font-medium ml-1">{appt.professional.name}</span>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">New Date</label>
                 <input
@@ -270,6 +287,7 @@ export default function CustomerAppointmentDetailPage() {
                   duration_minutes={Math.round(
                     (new Date(appt.ends_at).getTime() - new Date(appt.starts_at).getTime()) / 60_000
                   )}
+                  staffId={appt.staff_id ?? undefined}
                   selected={newSlot?.start ?? null}
                   onSelect={(slot) => setNewSlot(slot)}
                 />

@@ -11,6 +11,7 @@ import {
   Check, Lock, Sparkles, Square, Clock, LayoutGrid, Wrench,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { callPump } from '@/lib/product-360/pumpClient'
 import Product360ViewerClient from './Product360ViewerClient'
 import Product360SequencePreview from './Product360SequencePreview'
 import { Product360ViewerErrorBoundary } from './Product360ViewerErrorBoundary'
@@ -279,75 +280,86 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
 
   // ── Core pump loop ────────────────────────────────────────────────────────
   // Calls /pump repeatedly (one frame per request) until done or error.
-  //
-  // Response format from /pump:
-  //   success: { ok: true, hasMore, done, packageStatus, progressPercent,
-  //              framesDone, totalFrames, imageUrl, previewUrl, message }
-  //   failure: { ok: false, errorCode, errorMessage, errorDetails, failedStage }
+  // Uses callPump() helper which cleanly separates network vs HTTP vs app errors.
   //
   // eslint-disable-next-line react-hooks/exhaustive-deps
   async function runPumpLoop(pkgId: string) {
     if (pumpActiveRef.current.has(pkgId)) return
     pumpActiveRef.current.add(pkgId)
+    // Track consecutive network failures to detect persistent offline state
+    let consecutiveNetworkErrors = 0
     const MAX_ITERS = 200
+    // Polling delay increases when provider is still processing (e.g. Leonardo async)
+    let pollDelayMs = 400
+
     try {
       for (let i = 0; i < MAX_ITERS; i++) {
         const snapshot = packages.find(p => p.id === pkgId)
         if (snapshot?.status === 'cancelled') break
 
-        let pumpJson: Record<string, unknown>
-        try {
-          const pumpRes = await fetch(`/api/product-360/packages/${pkgId}/pump`, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ tenantId }),
-          })
-          pumpJson = await pumpRes.json() as Record<string, unknown>
-        } catch {
-          // True network failure — fetch never reached the server
+        const result = await callPump(pkgId, tenantId)
+
+        // ── Network / pre-server failure ────────────────────────────────────
+        if (result.kind === 'network') {
+          if (result.errorCode === 'aborted') break    // user cancelled
+          consecutiveNetworkErrors++
+          // Retry up to 3 times for transient network glitches (mobile WiFi hand-offs, etc.)
+          if (consecutiveNetworkErrors <= 3) {
+            await new Promise<void>(r => setTimeout(r, 1200 * consecutiveNetworkErrors))
+            continue
+          }
+          // Persistent failure — surface to user
           setPackages(prev => prev.map(p =>
-            p.id === pkgId
-              ? { ...p, status: 'failed' as const, generation_error: 'Network request failed before reaching server. Check your connection and try again.' }
-              : p,
+            p.id === pkgId ? {
+              ...p,
+              status:           'failed' as const,
+              generation_error: 'Connection lost. Check your internet and tap Resume to continue.',
+            } : p,
           ))
           break
         }
+        consecutiveNetworkErrors = 0
 
-        // New flat response format: { ok: false, errorCode, errorMessage, ... }
-        if (!pumpJson.ok) {
-          const errorCode    = (pumpJson.errorCode    as string | undefined) ?? 'unknown_error'
-          const errorMessage = (pumpJson.errorMessage as string | undefined) ?? 'Generation failed'
-          const errorDetails = (pumpJson.errorDetails as string | undefined) ?? null
-          const failedStage  = (pumpJson.failedStage  as string | undefined) ?? null
-          const retryAt      = (pumpJson.retryAt      as string | undefined) ?? null
+        // ── HTTP / application error ─────────────────────────────────────────
+        if (!result.ok) {
+          // Leonardo polling: provider still processing — pump again after a delay
+          if (result.isProcessing) {
+            pollDelayMs = Math.min(pollDelayMs * 1.5, 3000)   // back off up to 3 s
+            setPackages(prev => prev.map(p =>
+              p.id === pkgId ? { ...p, status: 'generating' as const } : p,
+            ))
+            await new Promise<void>(r => setTimeout(r, pollDelayMs))
+            continue
+          }
 
-          const isQuota = errorCode === 'quota_exceeded' || pumpJson.status === 429
-          const st      = isQuota ? 'paused_quota' as const : 'failed' as const
-
-          const displayMessage = errorDetails
-            ? `${errorMessage} (stage: ${failedStage ?? 'unknown'}) — ${errorDetails}`
-            : errorMessage
+          const isQuota    = result.errorCode === 'quota_exceeded' || result.status === 429
+          const st         = isQuota ? 'paused_quota' as const : 'failed' as const
+          const stagePart  = result.failedStage ? ` (stage: ${result.failedStage})` : ''
+          const detailPart = result.errorDetails ? ` — ${result.errorDetails}` : ''
+          const displayMsg = `${result.message}${stagePart}${detailPart}`
 
           setPackages(prev => prev.map(p =>
             p.id === pkgId ? {
               ...p,
               status:           st,
-              generation_error: displayMessage,
-              ...(retryAt ? { next_retry_at: retryAt } : {}),
+              generation_error: displayMsg,
+              ...(result.retryAt ? { next_retry_at: result.retryAt } : {}),
             } : p,
           ))
           break
         }
 
-        // Success path — top-level fields (new flat format)
-        const done         = !!(pumpJson.done)
-        const hasMore      = !!(pumpJson.hasMore)
-        const pkgStatus    = pumpJson.packageStatus  as P360PackageSummary['status'] | undefined
-        const progressPct  = (pumpJson.progressPercent as number | undefined) ?? 0
-        const framesDone   = (pumpJson.framesDone    as number | undefined) ?? undefined
-        const remaining    = (pumpJson.remainingFrames as number | undefined) ?? undefined
-        const previewUrl   = (pumpJson.previewUrl    as string | null | undefined) ?? null
-        const newFrameUrl  = (pumpJson.imageUrl      as string | null | undefined) ?? null
+        // ── Success path ─────────────────────────────────────────────────────
+        pollDelayMs = 400   // reset on success
+        const json      = result.data!
+        const done      = !!(json.done)
+        const hasMore   = !!(json.hasMore)
+        const pkgStatus = json.packageStatus as P360PackageSummary['status'] | undefined
+        const progressPct  = (json.progressPercent as number | undefined) ?? 0
+        const framesDone   = (json.framesDone    as number | undefined) ?? undefined
+        const remaining    = (json.remainingFrames as number | undefined) ?? undefined
+        const previewUrl   = (json.previewUrl    as string | null | undefined) ?? null
+        const newFrameUrl  = (json.imageUrl      as string | null | undefined) ?? null
 
         setPackages(prev => prev.map(p => {
           if (p.id !== pkgId) return p
@@ -374,7 +386,7 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
         }
 
         if (done || !hasMore) { fetchPackages(tenantId, selectedProd?.id); break }
-        await new Promise<void>(r => setTimeout(r, 400))
+        await new Promise<void>(r => setTimeout(r, pollDelayMs))
       }
     } finally {
       pumpActiveRef.current.delete(pkgId)
@@ -1150,6 +1162,10 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
                 <PackageDetailInfo pkg={previewPkg} />
                 {previewPkg.frames.length > 0 && (
                   <FrameStatusGrid frames={previewPkg.frames} />
+                )}
+                {/* Provider diagnostics — owner/admin only */}
+                {isOwner && (
+                  <ProviderDiagnosticsCard pkg={previewPkg} />
                 )}
                 {/* Debug panel — owner/admin only */}
                 {isOwner && (
@@ -2229,6 +2245,169 @@ const FRAME_STATUS_LABELS: Record<string, string> = {
 }
 
 // ─── Debug Panel ─────────────────────────────────────────────────────────────
+
+// ─── Provider Diagnostics Card ────────────────────────────────────────────────
+//
+// Fetches GET /api/product-360/providers/leonardo/health and shows a
+// human-readable config status. Owner/admin only. Collapsed by default.
+
+type LeonardoHealthData = {
+  configured:                  boolean
+  missing:                     string[]
+  apiKeyPresent:               boolean
+  blueprintVersionIdPresent:   boolean
+  referenceImageNodeIdPresent: boolean
+  textVariablesNodeIdPresent:  boolean
+  extraTextVariableNodeCount:  number
+  defaultProvider:             string
+  notes:                       string[]
+}
+
+function ProviderDiagnosticsCard({ pkg }: { pkg: P360Package }) {
+  const [open,    setOpen]    = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [health,  setHealth]  = useState<LeonardoHealthData | null>(null)
+  const [err,     setErr]     = useState<string | null>(null)
+
+  const pkgExt = pkg as P360Package & {
+    generation_provider?:       string | null
+    last_provider_debug?:       Record<string, unknown> | null
+    last_provider_status_code?: number | null
+    last_provider_error?:       string | null
+  }
+  const isLeonardo = (pkgExt.generation_provider ?? 'gemini') === 'leonardo'
+
+  async function loadHealth() {
+    if (!isLeonardo) return
+    setLoading(true); setErr(null)
+    try {
+      const res = await fetch('/api/product-360/providers/leonardo/health', { credentials: 'same-origin' })
+      const json = await res.json() as { ok: boolean; data?: LeonardoHealthData; error?: string }
+      if (json.ok && json.data) setHealth(json.data)
+      else setErr(json.error ?? 'Failed to load provider health')
+    } catch {
+      setErr('Network error loading provider health')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleToggle() {
+    const next = !open
+    setOpen(next)
+    if (next && !health && !loading && isLeonardo) loadHealth()
+  }
+
+  const lastDebug      = pkgExt.last_provider_debug
+  const lastStatusCode = pkgExt.last_provider_status_code
+  const lastError      = pkgExt.last_provider_error
+  const debugHasApiErr = lastDebug ? Boolean(lastDebug['hasApiError']) : false
+  const debugShape     = lastDebug ? String(lastDebug['responseShape'] ?? '') : ''
+  const debugKeys      = lastDebug && Array.isArray(lastDebug['topLevelKeys'])
+    ? (lastDebug['topLevelKeys'] as string[]).join(', ') : ''
+  const debugMsgs      = lastDebug && Array.isArray(lastDebug['errorMessagesPreview'])
+    ? (lastDebug['errorMessagesPreview'] as string[]) : []
+
+  return (
+    <div className="rounded-xl bg-white/3 border border-white/6 overflow-hidden">
+      <button
+        onClick={handleToggle}
+        className="w-full flex items-center justify-between px-3 py-2 text-[10px] text-white/30 uppercase tracking-wider hover:text-white/50 transition-colors"
+      >
+        <span>Provider Diagnostics</span>
+        <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="px-3 pb-3 space-y-2">
+
+          {/* Blueprint URL note */}
+          {isLeonardo && (
+            <div className="rounded-lg bg-amber-400/6 border border-amber-400/15 p-2">
+              <p className="text-[9px] text-amber-300/70 leading-relaxed">
+                The public Leonardo blueprint share URL is NOT the same as the required <code className="font-mono">blueprintVersionId</code> for the API.
+                Use the exact <code className="font-mono">blueprintVersionId</code> from the Leonardo platform.
+              </p>
+            </div>
+          )}
+
+          {/* Health status */}
+          {isLeonardo && (
+            <>
+              {loading && <p className="text-[10px] text-white/30 animate-pulse">Loading config…</p>}
+              {err     && <p className="text-[10px] text-red-400/70">{err}</p>}
+              {health  && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-white/30">Leonardo configured</span>
+                    <span className={`text-[10px] font-medium ${health.configured ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {health.configured ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                  {health.missing.length > 0 && (
+                    <div className="rounded-lg bg-red-400/6 border border-red-400/15 p-1.5">
+                      <p className="text-[9px] text-red-400/70 font-mono">Missing: {health.missing.join(', ')}</p>
+                    </div>
+                  )}
+                  {([
+                    ['API Key',             health.apiKeyPresent],
+                    ['Blueprint Version ID',health.blueprintVersionIdPresent],
+                    ['Ref Image Node ID',   health.referenceImageNodeIdPresent],
+                    ['Text Variables Node', health.textVariablesNodeIdPresent],
+                  ] as [string, boolean][]).map(([label, present]) => (
+                    <div key={label} className="flex items-center justify-between text-[10px]">
+                      <span className="text-white/30">{label}</span>
+                      <span className={present ? 'text-emerald-400' : 'text-red-400'}>
+                        {present ? '✓ present' : '✗ missing'}
+                      </span>
+                    </div>
+                  ))}
+                  {health.extraTextVariableNodeCount > 0 && (
+                    <p className="text-[9px] text-white/40 font-mono">Extra text nodes: {health.extraTextVariableNodeCount}</p>
+                  )}
+                  {health.notes.length > 0 && (
+                    <div className="rounded-lg bg-white/3 border border-white/6 p-1.5 space-y-0.5">
+                      {health.notes.map((note, i) => (
+                        <p key={i} className="text-[9px] text-white/40 leading-relaxed">{note}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Last execution debug */}
+          {(lastError || lastDebug) && (
+            <div className="space-y-1 border-t border-white/6 pt-2 mt-1">
+              <p className="text-[9px] text-white/30 uppercase tracking-wider">Last Response</p>
+              {lastStatusCode && <p className="text-[9px] text-white/40 font-mono">HTTP {lastStatusCode}</p>}
+              {debugShape && <p className="text-[9px] text-white/40 font-mono">shape: {debugShape} · keys: [{debugKeys}]</p>}
+              {debugHasApiErr && (
+                <div className="rounded-lg bg-red-400/8 border border-red-400/20 p-1.5">
+                  <p className="text-[9px] text-red-400/80 font-semibold">Blueprint request rejected (API error)</p>
+                  {debugMsgs.map((m, i) => (
+                    <p key={i} className="text-[9px] text-red-300/70 mt-0.5 leading-relaxed">{m}</p>
+                  ))}
+                  <p className="text-[9px] text-amber-300/60 mt-1 leading-relaxed">
+                    Check: correct blueprintVersionId · correct node IDs · reference image accessible · blueprint published.
+                  </p>
+                </div>
+              )}
+              {lastError && !debugHasApiErr && (
+                <p className="text-[9px] text-red-400/70 leading-relaxed break-words">{lastError}</p>
+              )}
+            </div>
+          )}
+
+          {!isLeonardo && (
+            <p className="text-[10px] text-white/30">This package uses {pkgExt.generation_provider ?? 'gemini'}. Switch to Leonardo to see Leonardo diagnostics.</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function PackageDebugPanel({ pkg }: { pkg: P360Package & { frames: P360Frame[] } }) {
   const [open, setOpen] = useState(false)

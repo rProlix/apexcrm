@@ -6,8 +6,6 @@ import { createAppointment }     from '@/lib/appointments/createAppointment'
 import { isTimeSlotAvailable }   from '@/lib/appointments/isTimeSlotAvailable'
 
 // ─── GET /api/appointments ────────────────────────────────────────────────────
-// admin/owner → all tenant appointments (filterable)
-// customer    → only their own appointments
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams
 
@@ -21,6 +19,7 @@ export async function GET(req: NextRequest) {
     const appointments = await getAppointments({
       tenant_id,
       customer_id: params.get('customer_id') ?? undefined,
+      staff_id:    params.get('staff_id')    ?? undefined,
       status:      params.get('status')      ?? undefined,
       from:        params.get('from')        ?? undefined,
       to:          params.get('to')          ?? undefined,
@@ -48,9 +47,6 @@ export async function GET(req: NextRequest) {
 }
 
 // ─── POST /api/appointments ───────────────────────────────────────────────────
-// admin/owner → can create for any tenant customer; rule check is SKIPPED
-//               (admins may manually book outside configured hours)
-// customer    → can create for themselves; FULL availability check enforced
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>
   try {
@@ -63,7 +59,11 @@ export async function POST(req: NextRequest) {
   const staffUser = await resolveStoreUser(req)
 
   if (staffUser && (staffUser.role === 'admin' || staffUser.role === 'owner')) {
-    const { customer_id, title, starts_at, ends_at, description, location, notes, timezone } = body
+    const {
+      customer_id, staff_id, appointment_block_id,
+      title, starts_at, ends_at,
+      description, location, notes, timezone,
+    } = body
 
     if (typeof title !== 'string' || !title.trim()) {
       return NextResponse.json({ error: 'title is required' }, { status: 400 })
@@ -72,11 +72,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'starts_at and ends_at are required' }, { status: 400 })
     }
 
-    // Admins bypass availability-window check but still get conflict-checked
-    // inside createAppointment (which calls checkConflicts).
     const result = await createAppointment({
-      tenant_id:   staffUser.tenant_id,
-      customer_id: typeof customer_id === 'string' && customer_id ? customer_id : null,
+      tenant_id:            staffUser.tenant_id,
+      customer_id:          typeof customer_id === 'string' && customer_id ? customer_id : null,
+      staff_id:             typeof staff_id    === 'string' && staff_id    ? staff_id    : null,
+      appointment_block_id: typeof appointment_block_id === 'string' && appointment_block_id ? appointment_block_id : null,
       title,
       description: typeof description === 'string' ? description : null,
       starts_at,
@@ -97,7 +97,11 @@ export async function POST(req: NextRequest) {
   const customerUser = await resolveStoreCustomer(req)
 
   if (customerUser) {
-    const { title, starts_at, ends_at, description, location, notes, timezone } = body
+    const {
+      title, starts_at, ends_at,
+      description, location, notes, timezone,
+      staff_id, appointment_block_id,
+    } = body
 
     if (typeof title !== 'string' || !title.trim()) {
       return NextResponse.json({ error: 'title is required' }, { status: 400 })
@@ -106,26 +110,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'starts_at and ends_at are required' }, { status: 400 })
     }
 
-    // ── CRITICAL: full availability + conflict check before insert ─────────
+    // CRITICAL: full availability + conflict check before insert
     const avail = await isTimeSlotAvailable({
       tenant_id: customerUser.tenant_id,
       starts_at,
       ends_at,
-      skip_rule_check: false,  // customers must book within defined windows
+      skip_rule_check: false,
     })
 
     if (!avail.available) {
       return NextResponse.json(
         { error: avail.reason ?? 'Time slot is not available' },
-        { status: 409 }  // 409 Conflict
+        { status: 409 }
       )
     }
 
-    // createAppointment also calls checkConflicts internally — this is the
-    // second defense layer against race conditions.
     const result = await createAppointment({
-      tenant_id:   customerUser.tenant_id,
-      customer_id: customerUser.customer_id,
+      tenant_id:            customerUser.tenant_id,
+      customer_id:          customerUser.customer_id,
+      staff_id:             typeof staff_id === 'string' && staff_id ? staff_id : null,
+      appointment_block_id: typeof appointment_block_id === 'string' && appointment_block_id ? appointment_block_id : null,
       title,
       description: typeof description === 'string' ? description : null,
       starts_at,

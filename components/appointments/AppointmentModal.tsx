@@ -3,8 +3,9 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, CalendarDays, Clock, MapPin, FileText, Save, Trash2, CheckCircle } from 'lucide-react'
+import { X, CalendarDays, Clock, MapPin, FileText, Save, Trash2, CheckCircle, User } from 'lucide-react'
 import { CustomerSelector } from './CustomerSelector'
+import { ProfessionalSelector } from './ProfessionalSelector'
 import { TimeSlotPicker } from './TimeSlotPicker'
 import { StatusBadge } from './StatusBadge'
 import type { Appointment, TimeSlot } from '@/lib/appointments/types'
@@ -12,7 +13,7 @@ import type { Appointment, TimeSlot } from '@/lib/appointments/types'
 interface Props {
   open:          boolean
   appointment?:  Appointment | null
-  defaultStart?: string        // ISO string to pre-fill date + start time for new appointments
+  defaultStart?: string
   isAdmin?:      boolean
   onClose:       () => void
   onSave:        (data: Partial<Appointment> & { customer_id?: string }) => Promise<void>
@@ -47,25 +48,26 @@ export function AppointmentModal({
 }: Props) {
   const isEdit = !!appointment
 
-  const [title,       setTitle]       = useState('')
-  const [description, setDescription] = useState('')
-  const [customerId,  setCustomerId]  = useState<string | null>(null)
-  const [date,        setDate]        = useState('')
-  const [startTime,   setStartTime]   = useState('')
-  const [endTime,     setEndTime]     = useState('')
-  const [location,    setLocation]    = useState('')
-  const [notes,       setNotes]       = useState('')
-  const [showSlots,   setShowSlots]   = useState(false)
-  const [saving,      setSaving]      = useState(false)
-  const [deleting,    setDeleting]    = useState(false)
-  const [error,       setError]       = useState<string | null>(null)
+  const [title,          setTitle]          = useState('')
+  const [description,    setDescription]    = useState('')
+  const [customerId,     setCustomerId]     = useState<string | null>(null)
+  const [professionalId, setProfessionalId] = useState<string | null>(null)
+  const [date,           setDate]           = useState('')
+  const [startTime,      setStartTime]      = useState('')
+  const [endTime,        setEndTime]        = useState('')
+  const [location,       setLocation]       = useState('')
+  const [notes,          setNotes]          = useState('')
+  const [showSlots,      setShowSlots]      = useState(false)
+  const [saving,         setSaving]         = useState(false)
+  const [deleting,       setDeleting]       = useState(false)
+  const [error,          setError]          = useState<string | null>(null)
 
-  // Populate form when editing or pre-fill from a calendar click
   useEffect(() => {
     if (appointment) {
       setTitle(appointment.title ?? '')
       setDescription(appointment.description ?? '')
       setCustomerId(appointment.customer_id ?? null)
+      setProfessionalId(appointment.staff_id ?? null)
       setDate(toDateInput(appointment.starts_at))
       setStartTime(toTimeInput(appointment.starts_at))
       setEndTime(toTimeInput(appointment.ends_at))
@@ -73,17 +75,15 @@ export function AppointmentModal({
       setNotes(appointment.notes ?? '')
       setShowSlots(false)
     } else if (defaultStart) {
-      // Pre-fill date + time from calendar cell click
-      setTitle(''); setDescription(''); setCustomerId(null)
+      setTitle(''); setDescription(''); setCustomerId(null); setProfessionalId(null)
       setLocation(''); setNotes('')
       setDate(toDateInput(defaultStart))
       setStartTime(toTimeInput(defaultStart))
-      // Default end time = start + 1 hour
       const endISO = new Date(new Date(defaultStart).getTime() + 60 * 60 * 1000).toISOString()
       setEndTime(toTimeInput(endISO))
       setShowSlots(true)
     } else {
-      setTitle(''); setDescription(''); setCustomerId(null)
+      setTitle(''); setDescription(''); setCustomerId(null); setProfessionalId(null)
       setDate(''); setStartTime(''); setEndTime('')
       setLocation(''); setNotes('')
       setShowSlots(false)
@@ -109,6 +109,7 @@ export function AppointmentModal({
         title:       title.trim(),
         description: description || null,
         customer_id: customerId ?? undefined,
+        staff_id:    professionalId,
         starts_at:   buildISO(date, startTime),
         ends_at:     buildISO(date, endTime),
         location:    location || null,
@@ -137,7 +138,6 @@ export function AppointmentModal({
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -146,7 +146,6 @@ export function AppointmentModal({
             className="absolute inset-0 bg-graphite-950/80 backdrop-blur-sm"
           />
 
-          {/* Panel */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 16 }}
             animate={{ opacity: 1, scale: 1,    y: 0  }}
@@ -154,7 +153,6 @@ export function AppointmentModal({
             transition={{ type: 'spring', stiffness: 320, damping: 28 }}
             className="relative w-full max-w-lg bg-graphite-800 border border-surface-border rounded-2xl shadow-panel-lg overflow-hidden"
           >
-            {/* Gold accent border */}
             <div className="absolute inset-x-0 top-0 h-px bg-gold-gradient opacity-60" />
 
             {/* Header */}
@@ -194,6 +192,23 @@ export function AppointmentModal({
                   className="w-full h-10 px-3 bg-graphite-700 border border-surface-border rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:border-gold-500/50 transition-colors"
                 />
               </div>
+
+              {/* Professional selector (admin only) */}
+              {isAdmin && (
+                <div>
+                  <label className="block text-xs font-medium text-white/50 mb-1.5">
+                    <User className="inline w-3 h-3 mr-1" />Professional / Employee
+                  </label>
+                  <ProfessionalSelector
+                    value={professionalId}
+                    onChange={(id) => {
+                      setProfessionalId(id)
+                      setShowSlots(!!date)  // refresh slots when professional changes
+                    }}
+                    placeholder="Any professional"
+                  />
+                </div>
+              )}
 
               {/* Customer selector (admin only, optional) */}
               {isAdmin && (
@@ -258,6 +273,7 @@ export function AppointmentModal({
                 >
                   <TimeSlotPicker
                     date={date}
+                    staffId={professionalId ?? undefined}
                     selected={startTime ? buildISO(date, startTime) : null}
                     onSelect={handleSlotSelect}
                   />

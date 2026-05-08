@@ -27,21 +27,18 @@ function fmtHourLabel(h: number) {
 }
 
 interface Props {
-  /** YYYY-MM-DD — changing this prop triggers a fresh fetch */
-  date:      string
-  /** Slot duration passed to API (informational — rules define actual intervals) */
+  date:              string
   duration_minutes?: number
-  /** ISO start of currently selected slot (controlled) */
-  selected?: string | null
-  /** Called when user clicks an available slot */
-  onSelect:  (slot: TimeSlot) => void
-  /** Called after a successful booking so the picker can refresh and lock the slot */
-  onBooked?: () => void
+  staffId?:          string
+  selected?:         string | null
+  onSelect:          (slot: TimeSlot) => void
+  onBooked?:         () => void
 }
 
 export function TimeSlotPicker({
   date,
   duration_minutes,
+  staffId,
   selected,
   onSelect,
 }: Props) {
@@ -55,15 +52,16 @@ export function TimeSlotPicker({
     setLoading(true)
     setError(null)
 
-    const url = `/api/appointments/availability?date=${date}${
-      duration_minutes ? `&duration_minutes=${duration_minutes}` : ''
-    }`
+    const params = new URLSearchParams({ date })
+    if (duration_minutes) params.set('duration_minutes', String(duration_minutes))
+    if (staffId)          params.set('staffId', staffId)
+
+    const url = `/api/appointments/availability?${params.toString()}`
 
     try {
       const res  = await fetch(url, { cache: 'no-store' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to load slots')
-      // API already filters to available-only for customers
       setSlots((data.slots ?? []) as TimeSlot[])
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Could not load available times')
@@ -71,14 +69,12 @@ export function TimeSlotPicker({
     } finally {
       setLoading(false)
     }
-  }, [date, duration_minutes, fetchKey])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [date, duration_minutes, staffId, fetchKey])  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchSlots()
   }, [fetchSlots])
 
-  // Expose a refresh method via the fetchKey trick so parent can trigger refetch
-  // after a booking completes.
   function refresh() {
     setFetchKey((k) => k + 1)
   }
@@ -111,14 +107,12 @@ export function TimeSlotPicker({
         </div>
       </div>
 
-      {/* Error */}
       {error && !loading && (
         <p className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
           {error}
         </p>
       )}
 
-      {/* Loading skeleton */}
       {loading && (
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -131,7 +125,6 @@ export function TimeSlotPicker({
         </div>
       )}
 
-      {/* Empty state */}
       {!loading && !error && availableSlots.length === 0 && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -141,16 +134,17 @@ export function TimeSlotPicker({
           <CalendarX className="w-7 h-7 text-white/15 mx-auto mb-2" />
           <p className="text-sm text-white/30">No slots available</p>
           <p className="text-xs text-white/20 mt-1">
-            This day is fully booked or outside working hours
+            {staffId
+              ? 'No availability blocks found for this professional on this day'
+              : 'This day is fully booked or outside working hours'}
           </p>
         </motion.div>
       )}
 
-      {/* Slot groups by hour */}
       <AnimatePresence mode="wait">
         {!loading && availableSlots.length > 0 && (
           <motion.div
-            key={date + fetchKey}
+            key={date + staffId + fetchKey}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{    opacity: 0 }}
@@ -160,11 +154,9 @@ export function TimeSlotPicker({
               const hourSlots = hourGroups.get(hour) ?? []
               return (
                 <div key={hour}>
-                  {/* Hour label */}
                   <p className="text-2xs text-white/25 font-medium mb-1.5 uppercase tracking-wider">
                     {fmtHourLabel(hour)}
                   </p>
-
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
                     {hourSlots.map((slot, i) => {
                       const isSelected = selected === slot.start
@@ -211,7 +203,6 @@ export function TimeSlotPicker({
         )}
       </AnimatePresence>
 
-      {/* Selected slot confirmation */}
       <AnimatePresence>
         {selected && (
           <motion.div
