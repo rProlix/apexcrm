@@ -7,6 +7,7 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getTenantById }  from '@/lib/owner/getTenants'
 import { getTenantModulesWithDefaults } from '@/lib/modules/getTenantModulesWithDefaults'
 import { TenantModuleManager } from '@/components/owner/TenantModuleManager'
+import { BusinessUsersPanel } from '@/components/owner/BusinessUsersPanel'
 import {
   ArrowLeft, Globe, Calendar,
   CheckCircle2, XCircle, Users, Layers,
@@ -141,6 +142,12 @@ export default async function TenantDetailPage({ params }: PageProps) {
           initialModules={modules}
         />
       </div>
+
+      {/* Business users section */}
+      <BusinessUsersPanel
+        tenantId={tenant.id}
+        tenantName={tenant.name}
+      />
     </div>
   )
 }

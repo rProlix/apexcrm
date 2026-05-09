@@ -19,6 +19,13 @@ const PERMISSION_MAP: Record<string, string[]> = {
     'manage_customers',
     'view_reports',
   ],
+  manager: [
+    'view_dashboard',
+    'use_modules',
+    'view_customers',
+    'manage_customers',
+    'view_reports',
+  ],
   staff: [
     'view_dashboard',
     'use_modules',

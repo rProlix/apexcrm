@@ -6,13 +6,16 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 export interface StaffMember {
   id:         string
   email:      string
-  role:       'admin' | 'staff'
+  full_name:  string | null
+  role:       'admin' | 'manager' | 'staff'
   status:     string
+  approved:   boolean
   created_at: string
   metadata:   Record<string, unknown>
 }
 
-const STAFF_ROLES = ['admin', 'staff'] as const
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const STAFF_ROLES = ['admin', 'manager', 'staff'] as any
 
 /**
  * Returns all non-owner users for a given tenant, ordered by join date.
@@ -25,9 +28,10 @@ export async function getTenantStaff(tenantId: string): Promise<StaffMember[]> {
 
   const db = getSupabaseServerClient()
 
-  const { data, error } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (db as any)
     .from('users')
-    .select('id, email, role, status, created_at, metadata')
+    .select('id, email, full_name, role, status, approved, created_at, metadata')
     .eq('tenant_id', tenantId)
     .neq('role', 'owner')               // primary owner filter
     .in('role', STAFF_ROLES)            // secondary: only recognised staff roles
@@ -40,13 +44,16 @@ export async function getTenantStaff(tenantId: string): Promise<StaffMember[]> {
 
   // Belt-and-suspenders: filter in JS as well so that any future role changes
   // in the DB never accidentally surface owner records to tenant UI.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data ?? [])
-    .filter((u) => u.role !== 'owner')
-    .map((u) => ({
+    .filter((u: any) => u.role !== 'owner')
+    .map((u: any) => ({
       id:         u.id,
       email:      u.email,
+      full_name:  u.full_name ?? null,
       role:       u.role as StaffMember['role'],
       status:     u.status,
+      approved:   u.approved !== false,
       created_at: u.created_at,
       metadata:   (u.metadata ?? {}) as Record<string, unknown>,
     }))
@@ -64,9 +71,10 @@ export async function getStaffMember(
 
   const db = getSupabaseServerClient()
 
-  const { data } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (db as any)
     .from('users')
-    .select('id, email, role, status, created_at, metadata')
+    .select('id, email, full_name, role, status, approved, created_at, metadata')
     .eq('id', userId)
     .eq('tenant_id', tenantId)
     .neq('role', 'owner')
@@ -76,8 +84,10 @@ export async function getStaffMember(
   return {
     id:         data.id,
     email:      data.email,
+    full_name:  data.full_name ?? null,
     role:       data.role as StaffMember['role'],
     status:     data.status,
+    approved:   data.approved !== false,
     created_at: data.created_at,
     metadata:   (data.metadata ?? {}) as Record<string, unknown>,
   }

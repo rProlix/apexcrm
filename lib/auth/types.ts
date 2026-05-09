@@ -1,7 +1,7 @@
 // lib/auth/types.ts
 
 export type PlatformRole = 'owner'
-export type TenantRole   = 'admin' | 'staff'
+export type TenantRole   = 'admin' | 'manager' | 'staff'
 export type CustomerRole = 'customer'
 export type AnyRole      = PlatformRole | TenantRole | CustomerRole
 

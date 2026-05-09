@@ -149,14 +149,37 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }))
 
   // ── User profile ─────────────────────────────────────────────────────
-  const { data: profile } = await admin
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (admin as any)
     .from('users')
-    .select('email, role')
+    .select('email, role, status, approved')
     .eq('auth_user_id', user.id)
-    .maybeSingle()
+    .maybeSingle() as { data: { email: string; role: string; status: string; approved: boolean } | null }
 
-  const userRole      = profile?.role ?? 'admin'
+  const userRole        = (profile?.role ?? 'admin') as string
+  const userStatus      = (profile?.status ?? 'active') as string
+  const userApproved    = profile?.approved !== false
   const isPlatformAdmin = userRole === 'owner'
+
+  // Block suspended or disabled accounts
+  if (userStatus === 'suspended' || userStatus === 'disabled') {
+    return (
+      <AccountBlockedPage
+        title="Account Suspended"
+        message="Your account has been suspended. Please contact the platform administrator."
+      />
+    )
+  }
+
+  // Block unapproved accounts
+  if (!userApproved && userStatus !== 'invited') {
+    return (
+      <AccountBlockedPage
+        title="Pending Approval"
+        message="Your account is pending approval. Please check back later or contact your administrator."
+      />
+    )
+  }
 
   return (
     <DashboardShell
@@ -168,6 +191,26 @@ export default async function DashboardLayout({ children }: { children: React.Re
     >
       {children}
     </DashboardShell>
+  )
+}
+
+function AccountBlockedPage({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="min-h-dvh bg-graphite-950 flex flex-col items-center justify-center px-6">
+      <div className="text-center max-w-sm">
+        <div className="inline-flex h-12 w-12 rounded-2xl bg-red-500/10 border border-red-500/20 items-center justify-center mb-4">
+          <span className="text-red-400 font-bold text-lg">!</span>
+        </div>
+        <h1 className="text-xl font-bold text-white mb-2">{title}</h1>
+        <p className="text-sm text-white/50 mb-6 leading-relaxed">{message}</p>
+        <Link
+          href="/login"
+          className="inline-flex items-center justify-center h-10 px-6 rounded-xl font-semibold bg-white/8 text-white/70 text-sm border border-white/10 hover:bg-white/12 transition-colors"
+        >
+          Sign out
+        </Link>
+      </div>
+    </div>
   )
 }
 
