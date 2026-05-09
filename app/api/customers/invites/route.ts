@@ -197,9 +197,16 @@ export async function POST(req: NextRequest) {
       (modules ?? []).map((m: { module_key: string; enabled: boolean }) => [m.module_key, m.enabled])
     )
 
+    const branding = tenant.branding as Record<string, string> | null | undefined
     const tpl = buildCustomerInviteEmail({
       businessName:    tenant.name,
-      businessLogoUrl: (tenant.branding as Record<string, string>)?.logo_url ?? undefined,
+      businessLogoUrl: branding?.logo_url ?? null,
+      businessWebsite: tenant.custom_domain
+        ? `https://${tenant.custom_domain}`
+        : tenant.subdomain
+          ? `https://${tenant.subdomain}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'}`
+          : null,
+      primaryColor:    branding?.primary_color ?? null,
       customerName:    fullName ?? undefined,
       inviteUrl,
       expiresAt:       expires,
@@ -218,13 +225,15 @@ export async function POST(req: NextRequest) {
       text:      tpl.text,
       category:  'invite',
       tenantId,
+      fromName:  tenant.name,   // white-label: business name as From display name
       metadata:  { inviteId, customerId: resolvedCustomerId },
     })
 
-    emailResult = { ok: result.success, code: result.error ? 'EMAIL_SEND_FAILED' : undefined }
+    // Preserve the real error message so the UI can show it — do NOT replace with a code
+    emailResult = { ok: result.success, code: result.success ? undefined : (result.error ?? 'Email send failed') }
 
     if (!result.success) {
-      console.warn('[POST /api/customers/invites] email failed:', result.error)
+      console.error('[POST /api/customers/invites] email failed:', result.error)
     }
   }
 

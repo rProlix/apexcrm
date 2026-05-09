@@ -221,6 +221,7 @@ async function createMembershipRow(
         text:     tpl.text,
         category: 'invite',
         tenantId,
+        fromName: tenantName || undefined,   // white-label: business name as From
         metadata: { userId: membership.id, createdBy: opts.createdBy },
       })
     } catch { /* non-fatal */ }

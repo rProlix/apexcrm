@@ -5,7 +5,7 @@
 import { useState, useCallback } from 'react'
 import {
   Mail, CheckCircle2, XCircle, Send, RefreshCw, AlertCircle,
-  Zap, Activity, Clock, ChevronDown,
+  Zap, Activity, Clock, ChevronDown, ExternalLink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -31,20 +31,21 @@ interface EmailLog {
   created_at:    string
 }
 
+interface ConfigValidation {
+  ok:       boolean
+  provider: string
+  missing:  string[]
+  warnings: string[]
+}
+
 interface Props {
   status:           ProviderStatus
+  validation:       ConfigValidation
   recentLogs:       unknown[]
   defaultTestEmail: string
   userRole:         string
 }
 
-const TEMPLATES = [
-  { value: 'accountConfirmation',   label: 'Account Confirmation' },
-  { value: 'passwordReset',         label: 'Password Reset' },
-  { value: 'customerInvite',        label: 'Customer Invite' },
-  { value: 'businessInvite',        label: 'Business Invite' },
-  { value: 'appointmentConfirmation', label: 'Appointment Confirmation' },
-]
 
 function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
   return (
@@ -66,11 +67,10 @@ const LOG_STATUS_COLORS: Record<string, string> = {
   blocked: 'text-amber-400',
 }
 
-export function EmailSettingsClient({ status, recentLogs, defaultTestEmail, userRole }: Props) {
+export function EmailSettingsClient({ status, validation, recentLogs, defaultTestEmail, userRole }: Props) {
   const [testEmail,    setTestEmail]    = useState(defaultTestEmail)
-  const [template,     setTemplate]     = useState('accountConfirmation')
   const [sending,      setSending]      = useState(false)
-  const [testResult,   setTestResult]   = useState<{ success: boolean; provider?: string; messageId?: string; error?: string } | null>(null)
+  const [testResult,   setTestResult]   = useState<{ success: boolean; provider?: string; messageId?: string; error?: string; hints?: { missing: string[]; warnings: string[] } } | null>(null)
   const [showLogs,     setShowLogs]     = useState(true)
 
   const handleSendTest = useCallback(async () => {
@@ -78,19 +78,20 @@ export function EmailSettingsClient({ status, recentLogs, defaultTestEmail, user
     setSending(true)
     setTestResult(null)
     try {
-      const res  = await fetch('/api/email/test', {
+      // Use debug endpoint which also returns config hints on failure
+      const res  = await fetch('/api/debug/email', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ to: testEmail, template }),
+        body:    JSON.stringify({ to: testEmail }),
       })
       const data = await res.json()
       setTestResult(data)
     } catch {
-      setTestResult({ success: false, error: 'Network error' })
+      setTestResult({ success: false, error: 'Network error — check browser console.' })
     } finally {
       setSending(false)
     }
-  }, [testEmail, template])
+  }, [testEmail])
 
   const activeProvider = status.provider === 'ses'
     ? (status.sesConfigured ? 'Amazon SES' : 'Amazon SES (not configured)')
@@ -116,6 +117,36 @@ export function EmailSettingsClient({ status, recentLogs, defaultTestEmail, user
           </p>
         </div>
       </div>
+
+      {/* Config health — show prominently when misconfigured */}
+      {(!validation.ok || validation.warnings.length > 0) && (
+        <div className={cn(
+          'rounded-2xl border p-5 space-y-3',
+          !validation.ok
+            ? 'bg-red-400/6 border-red-400/20'
+            : 'bg-amber-400/6 border-amber-400/20'
+        )}>
+          <div className="flex items-center gap-2">
+            <AlertCircle className={cn('w-4 h-4', !validation.ok ? 'text-red-400' : 'text-amber-400')} />
+            <span className={cn('text-sm font-semibold', !validation.ok ? 'text-red-300' : 'text-amber-300')}>
+              {!validation.ok ? 'Email configuration is incomplete' : 'Email configuration warnings'}
+            </span>
+          </div>
+          {validation.missing.map((m, i) => (
+            <p key={i} className="text-xs text-red-300/80 leading-relaxed">
+              <span className="font-semibold">Missing:</span> {m}
+            </p>
+          ))}
+          {validation.warnings.map((w, i) => (
+            <p key={i} className="text-xs text-amber-300/80 leading-relaxed">
+              <span className="font-semibold">Warning:</span> {w}
+            </p>
+          ))}
+          <p className="text-xs text-white/30 pt-1">
+            Set these in <strong>Vercel → Project → Settings → Environment Variables</strong>, then redeploy.
+          </p>
+        </div>
+      )}
 
       {/* Status cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -205,7 +236,6 @@ export function EmailSettingsClient({ status, recentLogs, defaultTestEmail, user
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-white/50 mb-1.5">Recipient email</label>
               <input
@@ -216,40 +246,45 @@ export function EmailSettingsClient({ status, recentLogs, defaultTestEmail, user
                 className="w-full h-10 px-3 rounded-xl bg-white/4 border border-white/10 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-gold-500/50"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-white/50 mb-1.5">Template</label>
-              <div className="relative">
-                <select
-                  value={template}
-                  onChange={e => setTemplate(e.target.value)}
-                  className="w-full appearance-none h-10 pl-3 pr-8 rounded-xl bg-white/4 border border-white/10 text-sm text-white focus:outline-none focus:border-gold-500/50"
-                >
-                  {TEMPLATES.map(t => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
-              </div>
-            </div>
-          </div>
 
           {testResult && (
             <div className={cn(
-              'rounded-xl p-3 text-sm flex items-start gap-2',
+              'rounded-xl p-3.5 space-y-2',
               testResult.success
-                ? 'bg-emerald-400/8 border border-emerald-400/20 text-emerald-300'
-                : 'bg-red-400/8 border border-red-400/20 text-red-300'
+                ? 'bg-emerald-400/8 border border-emerald-400/20'
+                : 'bg-red-400/8 border border-red-400/20'
             )}>
-              {testResult.success
-                ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
-                : <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-              }
-              <div>
+              <div className="flex items-start gap-2">
                 {testResult.success
-                  ? <>Email sent via <strong>{testResult.provider}</strong>{testResult.messageId ? ` · ID: ${testResult.messageId}` : ''}</>
-                  : <>{testResult.error ?? 'Send failed'}</>
+                  ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-emerald-400" />
+                  : <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-400" />
                 }
+                <p className={cn('text-sm', testResult.success ? 'text-emerald-300' : 'text-red-300')}>
+                  {testResult.success
+                    ? <>Test email sent via <strong>{testResult.provider}</strong>{testResult.messageId ? <> · <code className="font-mono text-xs">{testResult.messageId}</code></> : null}</>
+                    : <>{testResult.error ?? 'Send failed'}</>
+                  }
+                </p>
               </div>
+              {/* Show config hints when send fails */}
+              {!testResult.success && testResult.hints && (
+                <div className="ml-6 space-y-1.5">
+                  {(testResult.hints.missing as string[]).map((m: string, i: number) => (
+                    <p key={i} className="text-xs text-red-300/70">Missing: {m}</p>
+                  ))}
+                  {(testResult.hints.warnings as string[]).map((w: string, i: number) => (
+                    <p key={i} className="text-xs text-amber-300/70">{w}</p>
+                  ))}
+                  <a
+                    href="https://resend.com/domains"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-blue-400/80 hover:text-blue-300 underline"
+                  >
+                    <ExternalLink className="w-3 h-3" /> Manage domains in Resend
+                  </a>
+                </div>
+              )}
             </div>
           )}
 

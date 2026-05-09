@@ -3,13 +3,16 @@ import { renderBaseEmail, renderBasePlainText } from './base'
 import type { TemplateResult } from '../types'
 
 export interface OrderConfirmationData {
-  customerName?: string
-  businessName:  string
-  orderNumber?:  string
-  orderUrl?:     string
-  items?:        Array<{ name: string; price: number; quantity?: number }>
-  total?:        number
-  currency?:     string
+  customerName?:    string
+  businessName:     string
+  businessLogoUrl?: string | null
+  businessWebsite?: string | null
+  primaryColor?:    string | null
+  orderNumber?:     string
+  orderUrl?:        string
+  items?:           Array<{ name: string; price: number; quantity?: number }>
+  total?:           number
+  currency?:        string
 }
 
 function formatAmount(n: number, currency = 'USD'): string {
@@ -65,19 +68,23 @@ ${total !== undefined ? `\nTotal: ${formatAmount(total, currency)}` : ''}
 
   return {
     subject: `Order confirmed with ${businessName}`,
-    html:    renderBaseEmail({
-      title:       `Order confirmed — ${businessName}`,
-      previewText: `Your order with ${businessName} is confirmed`,
+    html: renderBaseEmail({
+      title:              `Order confirmed — ${businessName}`,
+      previewText:        `Your order with ${businessName} is confirmed`,
       bodyHtml,
-      ctaLabel:   orderUrl ? 'View order' : undefined,
-      ctaUrl:     orderUrl,
-      tenantName: businessName,
+      ctaLabel:           orderUrl ? 'View order' : undefined,
+      ctaUrl:             orderUrl,
+      tenantName:         businessName,
+      tenantLogoUrl:      data.businessLogoUrl,
+      tenantWebsiteUrl:   data.businessWebsite,
+      tenantPrimaryColor: data.primaryColor,
     }),
     text: renderBasePlainText({
       bodyText,
-      ctaLabel:   orderUrl ? 'View order' : undefined,
-      ctaUrl:     orderUrl,
-      tenantName: businessName,
+      ctaLabel:         orderUrl ? 'View order' : undefined,
+      ctaUrl:           orderUrl,
+      tenantName:       businessName,
+      tenantWebsiteUrl: data.businessWebsite,
     }),
   }
 }

@@ -3,12 +3,15 @@ import { renderBaseEmail, renderBasePlainText } from './base'
 import type { TemplateResult } from '../types'
 
 export interface RewardNotificationData {
-  customerName?:  string
-  businessName:   string
-  pointsDelta?:   number
-  pointsBalance?: number
-  rewardName?:    string
-  rewardsUrl?:    string
+  customerName?:    string
+  businessName:     string
+  businessLogoUrl?: string | null
+  businessWebsite?: string | null
+  primaryColor?:    string | null
+  pointsDelta?:     number
+  pointsBalance?:   number
+  rewardName?:      string
+  rewardsUrl?:      string
 }
 
 export function buildRewardNotificationEmail(data: RewardNotificationData): TemplateResult {
@@ -49,19 +52,23 @@ ${pointsBalance !== undefined ? `Total balance: ${pointsBalance} points` : ''}
 
   return {
     subject: `Your rewards update from ${businessName}`,
-    html:    renderBaseEmail({
-      title:       `Rewards update from ${businessName}`,
-      previewText: deltaText ? `${deltaText} from ${businessName}` : `Your rewards from ${businessName}`,
+    html: renderBaseEmail({
+      title:              `Rewards update from ${businessName}`,
+      previewText:        deltaText ? `${deltaText} from ${businessName}` : `Your rewards from ${businessName}`,
       bodyHtml,
-      ctaLabel:   rewardsUrl ? 'View rewards' : undefined,
-      ctaUrl:     rewardsUrl,
-      tenantName: businessName,
+      ctaLabel:           rewardsUrl ? 'View rewards' : undefined,
+      ctaUrl:             rewardsUrl,
+      tenantName:         businessName,
+      tenantLogoUrl:      data.businessLogoUrl,
+      tenantWebsiteUrl:   data.businessWebsite,
+      tenantPrimaryColor: data.primaryColor,
     }),
     text: renderBasePlainText({
       bodyText,
-      ctaLabel:   rewardsUrl ? 'View rewards' : undefined,
-      ctaUrl:     rewardsUrl,
-      tenantName: businessName,
+      ctaLabel:         rewardsUrl ? 'View rewards' : undefined,
+      ctaUrl:           rewardsUrl,
+      tenantName:       businessName,
+      tenantWebsiteUrl: data.businessWebsite,
     }),
   }
 }

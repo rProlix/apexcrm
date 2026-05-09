@@ -1,15 +1,18 @@
 // lib/email/templates/customerInvite.ts
 // Customer portal invite email — sent when a business invites a customer.
+// WHITE-LABEL: shows business branding only. No Nexora logo or footer.
 import { renderBaseEmail, renderBasePlainText } from './base'
 import type { TemplateResult } from '../types'
 
 export interface CustomerInviteData {
-  businessName:    string
-  businessLogoUrl?: string
-  customerName?:   string
-  invitedByName?:  string
-  inviteUrl:       string
-  expiresAt?:      Date | string
+  businessName:      string
+  businessLogoUrl?:  string | null
+  businessWebsite?:  string | null
+  primaryColor?:     string | null
+  customerName?:     string
+  invitedByName?:    string
+  inviteUrl:         string
+  expiresAt?:        Date | string
   enabledModules?: {
     appointments?: boolean
     orders?:       boolean
@@ -18,12 +21,15 @@ export interface CustomerInviteData {
   }
 }
 
-/** @deprecated Use buildCustomerInviteEmail instead */
+/** @deprecated Use CustomerInviteData instead */
 export interface CustomerInviteEmailData extends CustomerInviteData {}
 
 export function buildCustomerInviteEmail(data: CustomerInviteData): TemplateResult {
   const {
     businessName,
+    businessLogoUrl,
+    businessWebsite,
+    primaryColor,
     customerName,
     invitedByName,
     inviteUrl,
@@ -31,8 +37,8 @@ export function buildCustomerInviteEmail(data: CustomerInviteData): TemplateResu
     enabledModules = {},
   } = data
 
-  const greeting   = customerName ? `Hi ${customerName},` : 'Hi there,'
-  const invitedBy  = invitedByName ? ` by ${invitedByName}` : ''
+  const greeting     = customerName ? `Hi ${customerName},` : 'Hi there,'
+  const invitedBy    = invitedByName ? ` by ${invitedByName}` : ''
   const expFormatted = expiresAt
     ? new Date(expiresAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : null
@@ -66,7 +72,7 @@ export function buildCustomerInviteEmail(data: CustomerInviteData): TemplateResu
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
     <p style="color:#9ca3af;font-size:12px;line-height:1.6;margin:0;">
       If you didn't expect this invitation, you can safely ignore this email.
-      No account will be created unless you click above.
+      No account will be created unless you click the button above.
     </p>
   `
 
@@ -84,19 +90,23 @@ If you didn't expect this invitation, you can safely ignore this email.
 
   return {
     subject: `You're invited to ${businessName}`,
-    html:    renderBaseEmail({
-      title:       `Customer portal invitation from ${businessName}`,
-      previewText: `${businessName} has invited you to create your customer account`,
+    html: renderBaseEmail({
+      title:              `Invitation from ${businessName}`,
+      previewText:        `${businessName} has invited you to create your customer account`,
       bodyHtml,
-      ctaLabel:   'Create your account',
-      ctaUrl:     inviteUrl,
-      tenantName: businessName,
+      ctaLabel:           'Create your account',
+      ctaUrl:             inviteUrl,
+      tenantName:         businessName,
+      tenantLogoUrl:      businessLogoUrl,
+      tenantWebsiteUrl:   businessWebsite,
+      tenantPrimaryColor: primaryColor,
     }),
     text: renderBasePlainText({
       bodyText,
-      ctaLabel:   'Create your account',
-      ctaUrl:     inviteUrl,
-      tenantName: businessName,
+      ctaLabel:          'Create your account',
+      ctaUrl:            inviteUrl,
+      tenantName:        businessName,
+      tenantWebsiteUrl:  businessWebsite,
     }),
   }
 }

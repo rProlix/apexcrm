@@ -3,13 +3,16 @@ import { renderBaseEmail, renderBasePlainText } from './base'
 import type { TemplateResult } from '../types'
 
 export interface TransactionReceiptData {
-  customerName?:  string
-  businessName:   string
-  amount:         number
-  currency:       string
-  transactionId?: string
-  receiptUrl?:    string
-  items?:         Array<{ name: string; amount: number; quantity?: number }>
+  customerName?:     string
+  businessName:      string
+  businessLogoUrl?:  string | null
+  businessWebsite?:  string | null
+  primaryColor?:     string | null
+  amount:            number
+  currency:          string
+  transactionId?:    string
+  receiptUrl?:       string
+  items?:            Array<{ name: string; amount: number; quantity?: number }>
 }
 
 function formatCurrency(amount: number, currency: string): string {
@@ -71,19 +74,23 @@ ${transactionId ? `\nTransaction ID: ${transactionId}` : ''}
 
   return {
     subject: `Receipt from ${businessName}`,
-    html:    renderBaseEmail({
-      title:       `Receipt from ${businessName}`,
-      previewText: `Your payment of ${amountStr} to ${businessName} was received`,
+    html: renderBaseEmail({
+      title:              `Receipt from ${businessName}`,
+      previewText:        `Your payment of ${amountStr} to ${businessName} was received`,
       bodyHtml,
-      ctaLabel:   receiptUrl ? 'View receipt' : undefined,
-      ctaUrl:     receiptUrl,
-      tenantName: businessName,
+      ctaLabel:           receiptUrl ? 'View receipt' : undefined,
+      ctaUrl:             receiptUrl,
+      tenantName:         businessName,
+      tenantLogoUrl:      data.businessLogoUrl,
+      tenantWebsiteUrl:   data.businessWebsite,
+      tenantPrimaryColor: data.primaryColor,
     }),
     text: renderBasePlainText({
       bodyText,
-      ctaLabel:   receiptUrl ? 'View receipt' : undefined,
-      ctaUrl:     receiptUrl,
-      tenantName: businessName,
+      ctaLabel:         receiptUrl ? 'View receipt' : undefined,
+      ctaUrl:           receiptUrl,
+      tenantName:       businessName,
+      tenantWebsiteUrl: data.businessWebsite,
     }),
   }
 }

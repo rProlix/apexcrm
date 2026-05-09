@@ -1,6 +1,8 @@
 // lib/email/index.ts
 // Central re-export for the Nexora email system.
 // Server-only — never import this barrel in client components.
+export { resolveEmailBranding, buildEmailBrandingFromTenant, PLATFORM_BRANDING } from './branding'
+export type { ResolvedEmailBranding, EmailBrandingMode, TenantBrandingData } from './branding'
 
 export { sendEmail }          from './sendEmail'
 export { sendBatchEmail }     from './sendBatchEmail'

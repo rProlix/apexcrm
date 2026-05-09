@@ -95,9 +95,16 @@ export async function POST(
     (modules ?? []).map((m: { module_key: string; enabled: boolean }) => [m.module_key, m.enabled])
   )
 
+  const branding = tenant.branding as Record<string, string> | null | undefined
   const tpl = buildCustomerInviteEmail({
     businessName:    tenant.name,
-    businessLogoUrl: (tenant.branding as Record<string, string>)?.logo_url ?? undefined,
+    businessLogoUrl: branding?.logo_url ?? null,
+    businessWebsite: tenant.custom_domain
+      ? `https://${tenant.custom_domain}`
+      : tenant.subdomain
+        ? `https://${tenant.subdomain}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'}`
+        : null,
+    primaryColor:    branding?.primary_color ?? null,
     customerName:    invite.full_name ?? undefined,
     inviteUrl,
     expiresAt:       expires,
@@ -116,6 +123,7 @@ export async function POST(
     text:     tpl.text,
     category: 'invite',
     tenantId,
+    fromName: tenant.name,   // white-label: business name as From display name
     metadata: { inviteId: id, customerId: invite.customer_id },
   })
 

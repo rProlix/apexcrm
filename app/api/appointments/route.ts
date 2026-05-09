@@ -38,6 +38,7 @@ async function sendAppointmentConfirmation(opts: {
     text:     tpl.text,
     category: 'appointment',
     tenantId: opts.tenantId,
+    fromName: opts.tenantName,   // white-label: business name as From display name
     metadata: { appointmentStart: opts.starts_at },
   }).catch(e => console.error('[appointments] confirmation email failed:', e))
 }

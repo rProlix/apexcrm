@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
 import { requireRole } from '@/lib/auth/requireRole'
-import { getProviderStatus } from '@/lib/email/config'
+import { getProviderStatus, validateEmailConfig } from '@/lib/email/config'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { EmailSettingsClient } from '@/components/settings/EmailSettingsClient'
 
@@ -14,7 +14,8 @@ export const metadata = { title: 'Email Settings — Nexora' }
 
 export default async function EmailSettingsPage() {
   const ctx = await requireRole(['owner', 'admin'])
-  const status = getProviderStatus()
+  const status     = getProviderStatus()
+  const validation = validateEmailConfig()
 
   // Load recent email logs if table exists
   const db = getSupabaseServerClient()
@@ -39,6 +40,7 @@ export default async function EmailSettingsPage() {
   return (
     <EmailSettingsClient
       status={status}
+      validation={validation}
       recentLogs={recentLogs}
       defaultTestEmail={profile?.email ?? ''}
       userRole={ctx.role}

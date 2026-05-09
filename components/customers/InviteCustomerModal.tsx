@@ -3,7 +3,7 @@
 // Modal for sending a customer portal invite from the CRM.
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { X, Mail, User, Phone, Clock, Send, Copy, CheckCheck, AlertCircle } from 'lucide-react'
+import { X, Mail, User, Phone, Clock, Send, Copy, CheckCheck, AlertCircle, RefreshCw } from 'lucide-react'
 
 interface Props {
   tenantId:    string
@@ -45,12 +45,13 @@ export function InviteCustomerModal({
   const [expiresIn, setExpiresIn] = useState(7)
   const [sendEmail, setSendEmail] = useState(true)
 
-  const [loading,    setLoading]    = useState(false)
-  const [result,     setResult]     = useState<InviteResult | null>(null)
-  const [error,      setError]      = useState<string | null>(null)
-  const [copied,     setCopied]     = useState(false)
-  const [emailSent,  setEmailSent]  = useState<boolean | null>(null)
-  const [emailError, setEmailError] = useState<string | null>(null)
+  const [loading,      setLoading]      = useState(false)
+  const [result,       setResult]       = useState<InviteResult | null>(null)
+  const [error,        setError]        = useState<string | null>(null)
+  const [copied,       setCopied]       = useState(false)
+  const [emailSent,    setEmailSent]    = useState<boolean | null>(null)
+  const [emailError,   setEmailError]   = useState<string | null>(null)
+  const [retrying,     setRetrying]     = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -102,6 +103,27 @@ export function InviteCustomerModal({
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
+  }, [result])
+
+  // Retry sending the email for an already-created invite
+  const handleRetryEmail = useCallback(async () => {
+    if (!result?.id) return
+    setRetrying(true)
+    setEmailError(null)
+    try {
+      const res  = await fetch(`/api/customers/invites/${result.id}/resend`, { method: 'POST' })
+      const data = await res.json()
+      if (data.ok && data.emailSent) {
+        setEmailSent(true)
+        setEmailError(null)
+      } else {
+        setEmailError(data.emailError ?? 'Retry failed. Check your email provider configuration.')
+      }
+    } catch {
+      setEmailError('Network error while retrying. Please try again.')
+    } finally {
+      setRetrying(false)
+    }
   }, [result])
 
   // Trap focus on modal
@@ -156,17 +178,34 @@ export function InviteCustomerModal({
                 </p>
               </div>
 
-              {emailError && (
-                <div className="flex items-start gap-2.5 rounded-xl bg-amber-400/8 border border-amber-400/20 p-3.5">
-                  <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs font-medium text-amber-300">Email not sent</p>
-                    <p className="text-xs text-amber-300/70 mt-0.5">
-                      {emailError === 'EMAIL_NOT_CONFIGURED'
-                        ? 'Email is not configured. Share the link below manually.'
-                        : 'Email delivery failed. Share the link below manually.'}
-                    </p>
+              {emailError && !emailSent && (
+                <div className="rounded-xl bg-amber-400/8 border border-amber-400/20 p-3.5 space-y-2.5">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-amber-300">Email not sent</p>
+                      <p className="text-xs text-amber-300/80 mt-0.5 leading-relaxed break-words">
+                        {emailError}
+                      </p>
+                    </div>
                   </div>
+                  <button
+                    onClick={handleRetryEmail}
+                    disabled={retrying}
+                    className="w-full flex items-center justify-center gap-2 h-8 rounded-lg text-xs font-semibold bg-amber-400/15 border border-amber-400/25 text-amber-300 hover:bg-amber-400/20 disabled:opacity-50 transition-colors"
+                  >
+                    {retrying
+                      ? <><RefreshCw className="w-3 h-3 animate-spin" /> Retrying…</>
+                      : <><RefreshCw className="w-3 h-3" /> Retry sending email</>
+                    }
+                  </button>
+                </div>
+              )}
+
+              {emailSent && (
+                <div className="flex items-center gap-2 rounded-xl bg-emerald-400/8 border border-emerald-400/20 px-3.5 py-2.5">
+                  <CheckCheck className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                  <p className="text-xs text-emerald-300">Email sent successfully</p>
                 </div>
               )}
 
