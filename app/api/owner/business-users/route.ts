@@ -9,6 +9,9 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { BUSINESS_ROLES, ALL_BUSINESS_ROLES } from '@/lib/types/businessUsers'
 import type { BusinessRole, BusinessUserStatus } from '@/lib/types/businessUsers'
+import { sendEmail }            from '@/lib/email/sendEmail'
+import { buildBusinessInviteEmail } from '@/lib/email/templates/businessInvite'
+import { buildLoginUrl } from '@/lib/email/urls'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://nexoranow.com'
 
@@ -133,7 +136,7 @@ export async function POST(req: NextRequest) {
 
       // Link existing auth user
       return await createMembershipRow(supabase, {
-        tenantId, email, fullName, role, approved, status,
+        tenantId, tenantName: tenant.name, email, fullName, role, approved, status,
         authUserId: found.id, createdBy: ctx.id,
       })
     }
@@ -145,7 +148,7 @@ export async function POST(req: NextRequest) {
   if (!authUserId) return err('AUTH_CREATE_FAILED', 'Auth user creation returned no ID.', 500)
 
   return await createMembershipRow(supabase, {
-    tenantId, email, fullName, role, approved, status,
+    tenantId, tenantName: tenant.name, email, fullName, role, approved, status,
     authUserId, createdBy: ctx.id,
   })
 }
@@ -154,6 +157,7 @@ async function createMembershipRow(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   opts: {
     tenantId:   string
+    tenantName: string
     email:      string
     fullName:   string
     role:       BusinessRole
@@ -163,7 +167,7 @@ async function createMembershipRow(
     createdBy:  string
   }
 ) {
-  const { tenantId, email, fullName, role, approved, status, authUserId, createdBy } = opts
+  const { tenantId, tenantName, email, fullName, role, approved, status, authUserId, createdBy } = opts
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: membership, error: membershipError } = await (supabase as any)
@@ -200,6 +204,28 @@ async function createMembershipRow(
     )
   }
 
+  // Fire-and-forget welcome email to the newly created business user
+  const loginUrl = buildLoginUrl()
+  void (async () => {
+    try {
+      const tpl = buildBusinessInviteEmail({
+        invitedName: fullName || undefined,
+        tenantName,
+        role,
+        inviteUrl:   loginUrl,
+      })
+      await sendEmail({
+        to:       email,
+        subject:  tpl.subject,
+        html:     tpl.html,
+        text:     tpl.text,
+        category: 'invite',
+        tenantId,
+        metadata: { userId: membership.id, createdBy: opts.createdBy },
+      })
+    } catch { /* non-fatal */ }
+  })()
+
   return NextResponse.json({
     ok:       true,
     user: {
@@ -212,7 +238,7 @@ async function createMembershipRow(
       status:       membership.status,
       approved:     membership.approved,
     },
-    loginUrl: `${APP_URL}/login`,
+    loginUrl,
   }, { status: 201 })
 }
 

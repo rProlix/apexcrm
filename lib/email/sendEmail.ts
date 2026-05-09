@@ -1,74 +1,77 @@
 // lib/email/sendEmail.ts
-// Lightweight email sender using the Resend API via fetch.
-// No SDK dependency — just a plain HTTP POST.
+// Unified email sender — routes to Resend or Amazon SES based on EMAIL_PROVIDER.
 //
-// Required env vars:
-//   RESEND_API_KEY  — Resend secret key (required to send email)
-//   EMAIL_FROM      — Sender address, e.g. "ApexCRM <noreply@nexoranow.com>"
+// ARCHITECTURE NOTE:
+//   Supabase Auth is the source of truth for users, sessions, password resets,
+//   and email confirmation state. This module handles transactional and
+//   marketing emails only. Do not replace Supabase Auth email flows here.
+//
+// Server-only — never import in client components, middleware, or edge routes.
 
-export interface SendEmailOptions {
-  to:      string | string[]
-  subject: string
-  html:    string
-  text?:   string
-  from?:   string
-  replyTo?: string
-}
+import { getEmailConfig, assertProviderConfigured } from './config'
+import { sendViaResend } from './providers/resendProvider'
+import { sendViaSES }    from './providers/sesProvider'
+import { logEmailEvent } from './emailLog'
+import type { EmailPayload, EmailResult } from './types'
 
-export interface SendEmailResult {
-  ok:    boolean
-  id?:   string
-  error?: string
-  code?:  string
-}
+// Categories that must never be blocked, even if transactional is disabled.
+const CRITICAL_CATEGORIES = new Set(['auth', 'invite'])
 
-export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult> {
-  const apiKey = process.env.RESEND_API_KEY
-  const from   = opts.from ?? process.env.EMAIL_FROM
+export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
+  const cfg = getEmailConfig()
 
-  if (!apiKey) {
-    console.error('[sendEmail] RESEND_API_KEY is not set')
-    return { ok: false, code: 'EMAIL_NOT_CONFIGURED', error: 'Email sending is not configured (RESEND_API_KEY missing).' }
+  // ── Safety gates ────────────────────────────────────────────────────────────
+
+  if (payload.category === 'marketing' && !cfg.marketingEnabled) {
+    const result: EmailResult = {
+      success:  false,
+      provider: cfg.provider,
+      error:    'Email blocked because marketing emails are disabled (EMAIL_MARKETING_ENABLED=false).',
+    }
+    await logEmailEvent(payload, result, cfg)
+    return result
   }
 
-  if (!from) {
-    console.error('[sendEmail] EMAIL_FROM is not set')
-    return { ok: false, code: 'EMAIL_NOT_CONFIGURED', error: 'Email sending is not configured (EMAIL_FROM missing).' }
+  if (!cfg.transactionalEnabled && !CRITICAL_CATEGORIES.has(payload.category)) {
+    const result: EmailResult = {
+      success:  false,
+      provider: cfg.provider,
+      error:    'Email blocked because transactional emails are disabled (EMAIL_TRANSACTIONAL_ENABLED=false).',
+    }
+    await logEmailEvent(payload, result, cfg)
+    return result
   }
 
-  const to = Array.isArray(opts.to) ? opts.to : [opts.to]
+  // ── Provider validation ──────────────────────────────────────────────────────
 
-  const body: Record<string, unknown> = {
-    from,
-    to,
-    subject: opts.subject,
-    html:    opts.html,
+  let result: EmailResult
+  try {
+    assertProviderConfigured(cfg)
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : 'Provider not configured'
+    result = { success: false, provider: cfg.provider, error: errMsg }
+    await logEmailEvent(payload, result, cfg)
+    return result
   }
-  if (opts.text)    body.text     = opts.text
-  if (opts.replyTo) body.reply_to = opts.replyTo
+
+  // ── Route to provider ────────────────────────────────────────────────────────
 
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method:  'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify(body),
-    })
-
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok) {
-      const msg = (data as { message?: string }).message ?? `HTTP ${res.status}`
-      console.error('[sendEmail] Resend error:', msg, data)
-      return { ok: false, code: 'EMAIL_SEND_FAILED', error: msg }
+    if (cfg.provider === 'ses') {
+      result = await sendViaSES(payload, cfg)
+    } else {
+      result = await sendViaResend(payload, cfg)
     }
-
-    return { ok: true, id: (data as { id?: string }).id }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    console.error('[sendEmail] Fetch error:', msg)
-    return { ok: false, code: 'EMAIL_SEND_FAILED', error: msg }
+    const msg = err instanceof Error ? err.message : 'Unexpected email send error'
+    result = { success: false, provider: cfg.provider, error: msg }
   }
+
+  // ── Log ──────────────────────────────────────────────────────────────────────
+  await logEmailEvent(payload, result, cfg)
+
+  return result
 }
+
+// Re-export types for convenience
+export type { EmailPayload, EmailResult } from './types'

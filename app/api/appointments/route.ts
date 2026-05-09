@@ -4,6 +4,43 @@ import { resolveStoreUser, resolveStoreCustomer } from '@/lib/auth/resolveStoreU
 import { getAppointments }       from '@/lib/appointments/getAppointments'
 import { createAppointment }     from '@/lib/appointments/createAppointment'
 import { isTimeSlotAvailable }   from '@/lib/appointments/isTimeSlotAvailable'
+import { sendEmail }                         from '@/lib/email/sendEmail'
+import { buildAppointmentConfirmationEmail } from '@/lib/email/templates/appointmentConfirmation'
+
+// Sends a confirmation email after a successful appointment creation (fire-and-forget)
+async function sendAppointmentConfirmation(opts: {
+  tenantId:        string
+  tenantName:      string
+  customerEmail?:  string
+  customerName?:   string
+  starts_at:       string
+  ends_at:         string
+  title:           string
+  location?:       string | null
+}) {
+  if (!opts.customerEmail) return
+  const start = new Date(opts.starts_at)
+  const end   = new Date(opts.ends_at)
+
+  const tpl = buildAppointmentConfirmationEmail({
+    businessName:    opts.tenantName,
+    customerName:    opts.customerName,
+    appointmentDate: start.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+    appointmentTime: `${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+    serviceName:     opts.title,
+    location:        opts.location ?? undefined,
+  })
+
+  await sendEmail({
+    to:       opts.customerEmail,
+    subject:  tpl.subject,
+    html:     tpl.html,
+    text:     tpl.text,
+    category: 'appointment',
+    tenantId: opts.tenantId,
+    metadata: { appointmentStart: opts.starts_at },
+  }).catch(e => console.error('[appointments] confirmation email failed:', e))
+}
 
 // ─── GET /api/appointments ────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -90,6 +127,34 @@ export async function POST(req: NextRequest) {
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 422 })
     }
+
+    // Fire-and-forget confirmation email to customer when customer_id is set
+    if (result.appointment?.customer_id) {
+      const supabase = (await import('@/lib/supabase/server')).getSupabaseServerClient()
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('email, name')
+        .eq('id', result.appointment.customer_id)
+        .maybeSingle()
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('name')
+        .eq('id', staffUser.tenant_id)
+        .maybeSingle()
+      if (customer?.email) {
+        void sendAppointmentConfirmation({
+          tenantId:       staffUser.tenant_id,
+          tenantName:     tenant?.name ?? 'Your appointment',
+          customerEmail:  customer.email,
+          customerName:   customer.name ?? undefined,
+          starts_at:      String(starts_at),
+          ends_at:        String(ends_at),
+          title:          String(title),
+          location:       typeof location === 'string' ? location : null,
+        })
+      }
+    }
+
     return NextResponse.json({ appointment: result.appointment }, { status: 201 })
   }
 

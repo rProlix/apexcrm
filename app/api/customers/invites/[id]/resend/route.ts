@@ -110,16 +110,19 @@ export async function POST(
   })
 
   const emailResult = await sendEmail({
-    to:      invite.email,
-    subject: tpl.subject,
-    html:    tpl.html,
-    text:    tpl.text,
+    to:       invite.email,
+    subject:  tpl.subject,
+    html:     tpl.html,
+    text:     tpl.text,
+    category: 'invite',
+    tenantId,
+    metadata: { inviteId: id, customerId: invite.customer_id },
   })
 
   return NextResponse.json({
     ok:        true,
-    emailSent: emailResult.ok,
-    emailError: !emailResult.ok ? emailResult.code : undefined,
+    emailSent: emailResult.success,
+    emailError: !emailResult.success ? (emailResult.error ?? 'EMAIL_SEND_FAILED') : undefined,
     invite: {
       id,
       email:     invite.email,

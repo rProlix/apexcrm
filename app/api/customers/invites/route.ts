@@ -11,6 +11,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { generateInviteToken, buildInviteUrl, expiresInDays } from '@/lib/invites/inviteHelpers'
 import { sendEmail } from '@/lib/email/sendEmail'
 import { buildCustomerInviteEmail } from '@/lib/email/templates/customerInvite'
+// Note: sendEmail now accepts EmailPayload with required `category` field
 
 function err(code: string, message: string, status = 400) {
   return NextResponse.json({ ok: false, code, error: message }, { status })
@@ -211,15 +212,18 @@ export async function POST(req: NextRequest) {
     })
 
     const result = await sendEmail({
-      to:      email,
-      subject: tpl.subject,
-      html:    tpl.html,
-      text:    tpl.text,
+      to:        email,
+      subject:   tpl.subject,
+      html:      tpl.html,
+      text:      tpl.text,
+      category:  'invite',
+      tenantId,
+      metadata:  { inviteId, customerId: resolvedCustomerId },
     })
 
-    emailResult = { ok: result.ok, code: result.code }
+    emailResult = { ok: result.success, code: result.error ? 'EMAIL_SEND_FAILED' : undefined }
 
-    if (!result.ok) {
+    if (!result.success) {
       console.warn('[POST /api/customers/invites] email failed:', result.error)
     }
   }
