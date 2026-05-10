@@ -52,3 +52,21 @@ export function isQuotaError(errText: string): boolean {
     t.includes('429')
   )
 }
+
+/**
+ * Returns true when a Supabase error is a FK violation on created_by.
+ *
+ * This happens when the code passes ctx.id (public.users.id) instead of
+ * ctx.auth_id (auth.users.id) as created_by. The FK references auth.users(id).
+ */
+export function isFkCreatedByError(err: { message?: string; code?: string } | null | undefined): boolean {
+  if (!err) return false
+  const msg  = (err.message ?? '').toLowerCase()
+  const code = err.code ?? ''
+  return (
+    code === '23503' ||
+    (msg.includes('foreign key') && msg.includes('created_by')) ||
+    msg.includes('website_image_plans_created_by_fkey') ||
+    msg.includes('website_image_jobs_created_by_fkey')
+  )
+}

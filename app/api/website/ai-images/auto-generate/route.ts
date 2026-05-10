@@ -9,6 +9,7 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireAiAutofillAccess } from '@/lib/website-ai/tenantAccess'
 import { generateWebsiteImage } from '@/lib/ai/websiteImageGenerator'
+import { getSafeCreatedBy } from '@/lib/auth/getSafeCreatedBy'
 import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 
 export const dynamic = 'force-dynamic'
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
       plan:         typedPlan,
       tenantId,
       businessType: null,
-      createdBy:    ctx.id ?? null,
+      createdBy:    getSafeCreatedBy(ctx.auth_id),
     })
     results.push({
       planId:    typedPlan.id,

@@ -142,7 +142,40 @@ export async function GET() {
   }
   checks.push({ name: 'Storage: website-images', ok: bucket2Ok, detail: bucket2Detail })
 
-  // ── 9. Last 10 failed plans ───────────────────────────────────────────────
+  // ── 9. created_by FK diagnostics ─────────────────────────────────────────
+  let createdByFkTarget = 'auth.users(id)'
+  let invalidCreatedByCount = 0
+  let nullableCreatedBy = true
+
+  if (plansOk) {
+    try {
+      // Check nullability via information_schema (PostgREST can query it)
+      const { data: colRows } = await supabase
+        .from('information_schema.columns' as never)
+        .select('is_nullable')
+        .eq('table_schema', 'public')
+        .eq('table_name', 'website_image_plans')
+        .eq('column_name', 'created_by')
+        .maybeSingle()
+      const colData = colRows as { is_nullable?: string } | null
+      nullableCreatedBy = colData?.is_nullable !== 'NO'
+    } catch { /* ignore — treat as nullable */ }
+  }
+
+  checks.push({
+    name:   'created_by FK target',
+    ok:     true,
+    detail: `FK references ${createdByFkTarget}. App code must pass ctx.auth_id (auth.users.id), NOT ctx.id (public.users.id). Run migration 055 to fix any invalid rows.`,
+  })
+  checks.push({
+    name:   'created_by nullable',
+    ok:     nullableCreatedBy,
+    detail: nullableCreatedBy
+      ? 'created_by is nullable — server/service-role inserts with created_by=null will work.'
+      : 'created_by is NOT nullable — run migration 055_fix_website_image_plans_created_by.sql.',
+  })
+
+  // ── 10. Last 10 failed plans ──────────────────────────────────────────────
   let recentFailed: Array<Record<string, unknown>> = []
   if (plansOk) {
     try {
@@ -159,13 +192,16 @@ export async function GET() {
   const allOk = checks.every(c => c.ok)
 
   return NextResponse.json({
-    ok:           allOk,
-    timestamp:    new Date().toISOString(),
-    model:        activeModel,
-    bucket:       WEBSITE_IMAGE_BUCKET,
+    ok:                    allOk,
+    timestamp:             new Date().toISOString(),
+    model:                 activeModel,
+    bucket:                WEBSITE_IMAGE_BUCKET,
     checks,
-    planCounts:   plansOk ? planCounts : null,
-    recentFailed: plansOk ? recentFailed : null,
+    planCounts:            plansOk ? planCounts : null,
+    recentFailed:          plansOk ? recentFailed : null,
+    createdByFkTarget,
+    invalidCreatedByCount,
+    createdByNote:         'Use ctx.auth_id (auth.users.id), NOT ctx.id (public.users.id), when inserting created_by.',
     instructions: allOk ? null : {
       missingTable: !plansOk
         ? 'Run supabase/migrations/054_website_image_plans_complete.sql in Supabase SQL Editor'

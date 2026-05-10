@@ -9,6 +9,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { generateWebsiteImage } from '@/lib/ai/websiteImageGenerator'
 import { requireAiAutofillAccess } from '@/lib/website-ai/tenantAccess'
 import { buildImageContentPatch, mergeImageIntoContent } from '@/lib/website-builder/imagePlacement'
+import { getSafeCreatedBy } from '@/lib/auth/getSafeCreatedBy'
 import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 
 export const dynamic = 'force-dynamic'
@@ -57,7 +58,7 @@ export async function POST(
     plan:         typedPlan,
     tenantId:     typedPlan.tenant_id,
     businessType: null,
-    createdBy:    ctx.id ?? null,
+    createdBy:    getSafeCreatedBy(ctx.auth_id),
   })
 
   if (result.error) {

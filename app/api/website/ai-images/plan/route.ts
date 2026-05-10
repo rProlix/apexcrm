@@ -7,7 +7,8 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { planWebsiteImages } from '@/lib/ai/websiteImagePlanner'
 import { requireAiAutofillAccess } from '@/lib/website-ai/tenantAccess'
-import { isSchemaCacheError, MISSING_TABLE_MESSAGE, MISSING_API_KEY_MESSAGE } from '@/lib/website-ai/imagePipelineErrors'
+import { isSchemaCacheError, isFkCreatedByError, MISSING_TABLE_MESSAGE, MISSING_API_KEY_MESSAGE } from '@/lib/website-ai/imagePipelineErrors'
+import { getSafeCreatedBy } from '@/lib/auth/getSafeCreatedBy'
 import type { ImagePlannerContext } from '@/lib/ai/websiteImageTypes'
 
 export const dynamic = 'force-dynamic'
@@ -152,7 +153,7 @@ export async function POST(req: NextRequest) {
     priority:              p.priority,
     use_existing_if_avail: p.use_existing_if_avail,
     status:                'planned' as const,
-    created_by:            ctx.id ?? null,
+    created_by:            getSafeCreatedBy(ctx.auth_id),
   }))
 
   // Match sections by type
@@ -183,6 +184,14 @@ export async function POST(req: NextRequest) {
         code:   'MISSING_TABLE',
         detail: insertErr.message,
       }, { status: 503 })
+    }
+    if (isFkCreatedByError(insertErr)) {
+      console.error('[AI-IMAGE][plan] FK created_by violation:', insertErr)
+      return NextResponse.json({
+        error:  'Website image plan failed: created_by referenced a user that does not exist in auth.users. Run migration 055_fix_website_image_plans_created_by.sql and retry.',
+        code:   'FK_CREATED_BY',
+        detail: insertErr.message,
+      }, { status: 500 })
     }
     return NextResponse.json({ error: insertErr.message }, { status: 500 })
   }
