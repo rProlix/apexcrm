@@ -6,12 +6,17 @@
 
 export type ImagePlanStatus =
   | 'planned'
+  | 'queued'
   | 'approved'
   | 'generating'
   | 'generated'
-  | 'rejected'
-  | 'disabled'
+  | 'uploaded'
   | 'applied'
+  | 'rejected'
+  | 'failed'
+  | 'disabled'
+  | 'skipped'
+  | 'archived'
 
 export type ImageJobStatus =
   | 'pending'
@@ -58,29 +63,56 @@ export type ImageRole =
 export interface WebsiteImagePlan {
   id:                     string
   tenant_id:              string
+  // Targeting
   page_id:                string | null
   section_id:             string | null
   plan_group_id:          string | null
+  job_id:                 string | null
+  // Placement
   placement_key:          string
   section_type:           string | null
   image_role:             string
+  // Descriptive metadata
   title:                  string | null
   reason:                 string | null
   business_goal:          string | null
   image_description:      string | null
   visual_style:           string | null
+  // Generation inputs
   prompt:                 string
   negative_prompt:        string | null
   aspect_ratio:           string | null
   width:                  number | null
   height:                 number | null
+  // Config
   priority:               number
   use_existing_if_avail:  boolean
   selected_source:        ImageSource
   existing_asset_url:     string | null
+  // Generation output — original column names (kept for backward compat)
   generated_asset_url:    string | null
   generated_storage_path: string | null
   generated_alt_text:     string | null
+  // Generation output — alias column names added in migration 054
+  public_url:             string | null
+  storage_path:           string | null
+  alt_text:               string | null
+  // Provider / source tracking (migration 054)
+  source_type:            'ai_builder' | 'manual' | 'import' | 'regeneration' | null
+  provider:               'google-imagen' | 'gemini' | 'manual' | null
+  provider_request:       Record<string, unknown> | null
+  provider_response:      Record<string, unknown> | null
+  storage_bucket:         string | null
+  // Error tracking on the plan itself (migration 054)
+  error_message:          string | null
+  error_details:          string | null
+  // Lifecycle timestamps (migration 054)
+  generated_at:           string | null
+  applied_at:             string | null
+  // Misc (migration 054)
+  caption:                string | null
+  sort_order:             number | null
+  // Status / audit
   status:                 ImagePlanStatus
   created_by:             string | null
   created_at:             string

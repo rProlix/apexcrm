@@ -3,7 +3,7 @@
 // Main AI Website Image Builder panel — plan, generate, approve, apply images.
 
 import { useState, useCallback, useTransition } from 'react'
-import { ImageIcon, Sparkles, RefreshCw, AlertCircle, CheckCircle2, Layers } from 'lucide-react'
+import { ImageIcon, Sparkles, RefreshCw, AlertCircle, CheckCircle2, Layers, Terminal } from 'lucide-react'
 import { AiImagePlanCard } from './AiImagePlanCard'
 import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 
@@ -15,11 +15,15 @@ interface Props {
 
 type PanelToast = { type: 'success' | 'error'; message: string } | null
 
+// Error codes returned by the API when a critical dependency is missing.
+type ApiErrorCode = 'MISSING_TABLE' | 'MISSING_BUCKET' | 'MISSING_API_KEY' | null
+
 export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
   const [plans, setPlans]               = useState<WebsiteImagePlan[]>(initialPlans)
   const [loadingPlanId, setLoadingPlan] = useState<string | null>(null)
   const [globalLoading, setGlobalLoad]  = useState(false)
   const [toast, setToast]               = useState<PanelToast>(null)
+  const [blockingError, setBlockingError] = useState<{ code: ApiErrorCode; message: string } | null>(null)
   const [, startTransition]             = useTransition()
 
   function showToast(type: 'success' | 'error', message: string) {
@@ -28,13 +32,19 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
   }
 
   async function apiPost(path: string, body?: Record<string, unknown>) {
-    const res = await fetch(path, {
+    const res  = await fetch(path, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    body ? JSON.stringify(body) : undefined,
     })
     const json = await res.json() as Record<string, unknown>
-    if (!res.ok) throw new Error((json.error as string) ?? 'Request failed')
+    if (!res.ok) {
+      const code = (json.code as ApiErrorCode) ?? null
+      if (code === 'MISSING_TABLE' || code === 'MISSING_BUCKET' || code === 'MISSING_API_KEY') {
+        setBlockingError({ code, message: (json.error as string) ?? 'Configuration error.' })
+      }
+      throw new Error((json.error as string) ?? 'Request failed')
+    }
     return json
   }
 
@@ -43,7 +53,16 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
       const params = new URLSearchParams()
       if (isOwner) params.set('tenantId', tenantId)
       const res  = await fetch(`/api/website/ai-images/plan?${params}`)
-      const json = await res.json() as { plans: WebsiteImagePlan[] }
+      const json = await res.json() as { plans: WebsiteImagePlan[]; code?: string; error?: string }
+      if (!res.ok) {
+        const code = (json.code as ApiErrorCode) ?? null
+        if (code === 'MISSING_TABLE' || code === 'MISSING_BUCKET' || code === 'MISSING_API_KEY') {
+          setBlockingError({ code, message: json.error ?? 'Configuration error.' })
+          return
+        }
+        showToast('error', json.error ?? 'Failed to load plans.')
+        return
+      }
       setPlans(json.plans ?? [])
     } catch (err) {
       showToast('error', err instanceof Error ? err.message : 'Failed to load plans.')
@@ -238,6 +257,46 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
         }`}>
           {toast.type === 'success' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
           {toast.message}
+        </div>
+      )}
+
+      {/* Blocking configuration error */}
+      {blockingError && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4 space-y-3">
+          <div className="flex items-center gap-2 text-red-400">
+            <Terminal className="h-4 w-4 shrink-0" />
+            <span className="text-sm font-semibold">
+              {blockingError.code === 'MISSING_TABLE'   && 'Database table missing'}
+              {blockingError.code === 'MISSING_BUCKET'  && 'Storage bucket missing'}
+              {blockingError.code === 'MISSING_API_KEY' && 'Imagen API key missing'}
+              {!blockingError.code                      && 'Configuration error'}
+            </span>
+          </div>
+          <p className="text-xs text-red-300/80 leading-relaxed">{blockingError.message}</p>
+          {blockingError.code === 'MISSING_TABLE' && (
+            <div className="text-[11px] text-white/40 space-y-1 font-mono bg-black/30 rounded-xl p-3">
+              <p className="text-white/60 font-sans font-semibold not-italic mb-1">Fix steps:</p>
+              <p>1. Open Supabase Dashboard → SQL Editor</p>
+              <p>2. Run: <span className="text-violet-300">supabase/migrations/054_website_image_plans_complete.sql</span></p>
+              <p>3. Redeploy or reload this page</p>
+              <p>4. Or run: <span className="text-violet-300">GET /api/owner/diagnostics/website-images</span> for full status</p>
+            </div>
+          )}
+          {blockingError.code === 'MISSING_API_KEY' && (
+            <div className="text-[11px] text-white/40 space-y-1 font-mono bg-black/30 rounded-xl p-3">
+              <p className="text-white/60 font-sans font-semibold not-italic mb-1">Fix steps:</p>
+              <p>1. Go to Vercel Dashboard → Project → Settings → Environment Variables</p>
+              <p>2. Add: <span className="text-violet-300">GEMINI_API_KEY=your-google-ai-api-key</span></p>
+              <p>3. Redeploy</p>
+            </div>
+          )}
+          <button
+            onClick={() => { setBlockingError(null); void loadPlans() }}
+            className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Retry after fixing
+          </button>
         </div>
       )}
 

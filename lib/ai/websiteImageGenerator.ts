@@ -9,6 +9,7 @@ import {
   buildImageStoragePath,
 } from '@/lib/ai/websiteImageConfig'
 import { enhancePromptForImagen } from '@/lib/ai/websiteImagePrompts'
+import { isSchemaCacheError, MISSING_TABLE_MESSAGE, MISSING_BUCKET_MESSAGE, isQuotaError, QUOTA_EXCEEDED_MESSAGE } from '@/lib/website-ai/imagePipelineErrors'
 import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 import {
   mergeNegativePromptIntoPrompt,
@@ -89,6 +90,9 @@ export async function generateWebsiteImage(
 
   if (jobErr || !job) {
     logError('1_create_job_failed', jobErr, { tenantId: opts.tenantId, planId: opts.plan.id })
+    if (isSchemaCacheError(jobErr)) {
+      return { jobId: '', publicUrl: '', storagePath: '', altText: '', error: MISSING_TABLE_MESSAGE }
+    }
     return { jobId: '', publicUrl: '', storagePath: '', altText: '', error: 'Failed to create image job record.' }
   }
 
@@ -99,7 +103,7 @@ export async function generateWebsiteImage(
   if (!apiKey) {
     const msg = 'GEMINI_API_KEY is not set. Cannot call Imagen API.'
     logError('2_missing_api_key', new Error(msg), { jobId })
-    await failJob(supabase, jobId, opts.plan.id, msg)
+    await failJob(supabase, jobId, opts.plan.id, msg, null)
     return { jobId, publicUrl: '', storagePath: '', altText: '', error: msg }
   }
 
@@ -150,7 +154,7 @@ export async function generateWebsiteImage(
       ? `Image generation timed out after ${TIMEOUT_MS / 1000}s. Try again.`
       : `Imagen request failed: ${err instanceof Error ? err.message : String(err)}`
     logError('3_imagen_request_failed', err, { jobId, planId: opts.plan.id })
-    await failJob(supabase, jobId, opts.plan.id, errMsg)
+    await failJob(supabase, jobId, opts.plan.id, errMsg, null)
     return { jobId, publicUrl: '', storagePath: '', altText: '', error: errMsg }
   } finally {
     clearTimeout(timer)
@@ -166,9 +170,11 @@ export async function generateWebsiteImage(
   if (!response.ok) {
     let errText = ''
     try { errText = await response.text() } catch { /* ignore */ }
-    const errMsg = `Imagen API error ${response.status}: ${errText.slice(0, 500)}`
+    const errMsg = isQuotaError(errText)
+      ? QUOTA_EXCEEDED_MESSAGE
+      : `Imagen API error ${response.status}: ${errText.slice(0, 500)}`
     logError('4_imagen_response_error', new Error(errMsg), { jobId, planId: opts.plan.id, status: response.status })
-    await failJob(supabase, jobId, opts.plan.id, errMsg)
+    await failJob(supabase, jobId, opts.plan.id, errMsg, errText.slice(0, 1000))
     return { jobId, publicUrl: '', storagePath: '', altText: '', error: errMsg }
   }
 
@@ -178,7 +184,7 @@ export async function generateWebsiteImage(
     json = await response.json() as Record<string, unknown>
   } catch (err) {
     logError('4_imagen_parse_failed', err, { jobId })
-    await failJob(supabase, jobId, opts.plan.id, 'Imagen returned unreadable data.')
+    await failJob(supabase, jobId, opts.plan.id, 'Imagen returned unreadable data.', null)
     return { jobId, publicUrl: '', storagePath: '', altText: '', error: 'Imagen returned unreadable data.' }
   }
 
@@ -198,7 +204,7 @@ export async function generateWebsiteImage(
   if (extractError || !b64) {
     const errMsg = extractError ?? 'Imagen returned no image data.'
     logError('5_no_image_data', new Error(errMsg), { jobId, planId: opts.plan.id, responseKeys: Object.keys(json) })
-    await failJob(supabase, jobId, opts.plan.id, errMsg)
+    await failJob(supabase, jobId, opts.plan.id, errMsg, null)
     return { jobId, publicUrl: '', storagePath: '', altText: '', error: errMsg }
   }
 
@@ -226,16 +232,14 @@ export async function generateWebsiteImage(
   if (uploadErr) {
     const isBucketError = uploadErr.message.toLowerCase().includes('bucket')
       || uploadErr.message.toLowerCase().includes('not found')
-    const errMsg = isBucketError
-      ? `Storage bucket "${WEBSITE_IMAGE_BUCKET}" does not exist. Run migration 031_website_assets_bucket.sql or create it manually in Supabase Storage → New bucket → "${WEBSITE_IMAGE_BUCKET}" (public: true).`
-      : `Storage upload failed: ${uploadErr.message}`
+    const errMsg = isBucketError ? MISSING_BUCKET_MESSAGE : `Storage upload failed: ${uploadErr.message}`
     logError('6_storage_upload_failed', new Error(uploadErr.message), {
       jobId,
       bucket:    WEBSITE_IMAGE_BUCKET,
       storagePath,
       isBucketError,
     })
-    await failJob(supabase, jobId, opts.plan.id, errMsg)
+    await failJob(supabase, jobId, opts.plan.id, errMsg, uploadErr.message)
     return { jobId, publicUrl: '', storagePath: '', altText: '', error: errMsg }
   }
 
@@ -269,11 +273,23 @@ export async function generateWebsiteImage(
   log('9_job_completed', { jobId, publicUrl, storagePath })
 
   // ── Update plan to 'generated' ────────────────────────────────────────────
+  // Write both the original column names (backward compat) and the alias names
+  // added in migration 054.
   await supabase.from('website_image_plans').update({
     status:                 'generated',
+    // Original columns (kept for backward compat with any code that reads these)
     generated_asset_url:    publicUrl,
     generated_storage_path: storagePath,
     generated_alt_text:     altText,
+    // Alias columns (migration 054 additions)
+    public_url:             publicUrl,
+    storage_path:           storagePath,
+    alt_text:               altText,
+    storage_bucket:         WEBSITE_IMAGE_BUCKET,
+    job_id:                 jobId,
+    generated_at:           new Date().toISOString(),
+    error_message:          null,
+    error_details:          null,
     updated_at:             new Date().toISOString(),
   } as never).eq('id', opts.plan.id)
 
@@ -360,10 +376,11 @@ function buildAltText(plan: WebsiteImagePlan): string {
 }
 
 async function failJob(
-  supabase: ReturnType<typeof getSupabaseServerClient>,
-  jobId:    string,
-  planId:   string | null,
-  errMsg:   string,
+  supabase:    ReturnType<typeof getSupabaseServerClient>,
+  jobId:       string,
+  planId:      string | null,
+  errMsg:      string,
+  errDetails:  string | null,
 ): Promise<void> {
   await supabase.from('website_image_jobs').update({
     status:        'failed',
@@ -373,8 +390,10 @@ async function failJob(
 
   if (planId) {
     await supabase.from('website_image_plans').update({
-      status:     'planned',
-      updated_at: new Date().toISOString(),
+      status:        'failed',
+      error_message: errMsg,
+      error_details: errDetails ?? null,
+      updated_at:    new Date().toISOString(),
     } as never).eq('id', planId)
   }
 

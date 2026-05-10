@@ -7,6 +7,7 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { generateWebsiteImage } from '@/lib/ai/websiteImageGenerator'
 import { requireAiAutofillAccess } from '@/lib/website-ai/tenantAccess'
+import { isSchemaCacheError, MISSING_TABLE_MESSAGE, MISSING_API_KEY_MESSAGE } from '@/lib/website-ai/imagePipelineErrors'
 import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 
 export const dynamic = 'force-dynamic'
@@ -28,8 +29,18 @@ export async function POST(
     .eq('id', planId)
     .single()
 
-  if (planErr || !plan)
-    return NextResponse.json({ error: 'Plan not found.' }, { status: 404 })
+  if (planErr) {
+    if (isSchemaCacheError(planErr)) {
+      return NextResponse.json({ error: MISSING_TABLE_MESSAGE, code: 'MISSING_TABLE' }, { status: 503 })
+    }
+    return NextResponse.json({ error: planErr.message }, { status: 500 })
+  }
+  if (!plan) return NextResponse.json({ error: 'Plan not found.' }, { status: 404 })
+
+  // Validate API key before attempting generation
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: MISSING_API_KEY_MESSAGE, code: 'MISSING_API_KEY' }, { status: 503 })
+  }
 
   const typedPlan = plan as WebsiteImagePlan
 

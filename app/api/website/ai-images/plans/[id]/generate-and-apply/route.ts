@@ -139,10 +139,14 @@ export async function POST(
     }, { status: 207 })
   }
 
-  // Mark plan as applied
+  // Mark plan as applied — stamp applied_at (migration 054 column)
   await supabase
     .from('website_image_plans')
-    .update({ status: 'applied', updated_at: new Date().toISOString() } as never)
+    .update({
+      status:     'applied',
+      applied_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as never)
     .eq('id', planId)
 
   const { data: finalPlan } = await supabase

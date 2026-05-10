@@ -78,10 +78,14 @@ export async function POST(
   if (updateErr)
     return NextResponse.json({ error: updateErr.message }, { status: 500 })
 
-  // Mark plan as applied
+  // Mark plan as applied — stamp applied_at (migration 054 column)
   await supabase
     .from('website_image_plans')
-    .update({ status: 'applied', updated_at: new Date().toISOString() } as never)
+    .update({
+      status:     'applied',
+      applied_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as never)
     .eq('id', planId)
 
   return NextResponse.json({

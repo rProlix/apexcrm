@@ -7,6 +7,7 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { planWebsiteImages } from '@/lib/ai/websiteImagePlanner'
 import { requireAiAutofillAccess } from '@/lib/website-ai/tenantAccess'
+import { isSchemaCacheError, MISSING_TABLE_MESSAGE, MISSING_API_KEY_MESSAGE } from '@/lib/website-ai/imagePipelineErrors'
 import type { ImagePlannerContext } from '@/lib/ai/websiteImageTypes'
 
 export const dynamic = 'force-dynamic'
@@ -112,6 +113,11 @@ export async function POST(req: NextRequest) {
     colorPalette:      settings?.brand_colors ? JSON.stringify(settings.brand_colors) : null,
   }
 
+  // Check API key before calling the planner
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: MISSING_API_KEY_MESSAGE, code: 'MISSING_API_KEY' }, { status: 503 })
+  }
+
   const { result, error } = await planWebsiteImages(plannerCtx)
   if (error || !result)
     return NextResponse.json({ error: error ?? 'Planning failed.' }, { status: 500 })
@@ -170,8 +176,16 @@ export async function POST(req: NextRequest) {
     .insert(rows as never)
     .select('*')
 
-  if (insertErr)
+  if (insertErr) {
+    if (isSchemaCacheError(insertErr)) {
+      return NextResponse.json({
+        error:  MISSING_TABLE_MESSAGE,
+        code:   'MISSING_TABLE',
+        detail: insertErr.message,
+      }, { status: 503 })
+    }
     return NextResponse.json({ error: insertErr.message }, { status: 500 })
+  }
 
   return NextResponse.json({
     planGroupId,
@@ -210,6 +224,16 @@ export async function GET(req: NextRequest) {
   if (groupId) query = query.eq('plan_group_id', groupId)
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    if (isSchemaCacheError(error)) {
+      return NextResponse.json({
+        error:  MISSING_TABLE_MESSAGE,
+        code:   'MISSING_TABLE',
+        detail: error.message,
+        plans:  [],
+      }, { status: 503 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json({ plans: data ?? [] })
 }
