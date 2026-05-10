@@ -363,9 +363,119 @@ CREATE UNIQUE INDEX IF NOT EXISTS website_section_images_one_active_per_section_
   ON public.website_section_images(section_id)
   WHERE is_active = true AND is_archived = false;
 
--- ── Compatibility view for old code referencing website_generated_images ──────
-DROP VIEW IF EXISTS public.website_generated_images;
-CREATE VIEW public.website_generated_images AS
+-- ── Compatibility: handle website_generated_images (was a table in migration 057) ──
+-- If it exists as a TABLE, migrate any data into website_section_images, then drop it.
+-- If it already is a VIEW, drop it so we can recreate it cleanly.
+DO $$
+DECLARE
+  obj_type text;
+BEGIN
+  SELECT table_type INTO obj_type
+  FROM information_schema.tables
+  WHERE table_schema = 'public' AND table_name = 'website_generated_images';
+
+  IF obj_type = 'BASE TABLE' THEN
+    -- Migrate existing rows into website_section_images (column mapping from old schema)
+    INSERT INTO public.website_section_images (
+      id, tenant_id, page_id, section_id,
+      plan_id, created_by, status, provider, image_model,
+      storage_bucket, storage_path, image_url, public_url,
+      prompt, alt_text, section_type, slot_key, image_role,
+      aspect_ratio, is_active, is_archived, metadata,
+      error_message, created_at, updated_at
+    )
+    SELECT
+      id,
+      tenant_id,
+      page_id,
+      section_id,
+      -- old column was image_plan_id
+      (CASE WHEN column_exists.has_image_plan_id THEN NULL ELSE NULL END),
+      created_by,
+      COALESCE(
+        CASE WHEN column_exists.has_generation_status
+          THEN (SELECT generation_status::text FROM public.website_generated_images wgi2 WHERE wgi2.id = wgi.id)
+          ELSE NULL END,
+        'generated'
+      ),
+      COALESCE(
+        CASE WHEN column_exists.has_provider
+          THEN (SELECT provider FROM public.website_generated_images wgi2 WHERE wgi2.id = wgi.id)
+          ELSE NULL END,
+        'google-imagen'
+      ),
+      COALESCE(
+        CASE WHEN column_exists.has_model
+          THEN (SELECT model FROM public.website_generated_images wgi2 WHERE wgi2.id = wgi.id)
+          ELSE NULL END,
+        'imagen-4.0-ultra-generate-001'
+      ),
+      COALESCE(
+        CASE WHEN column_exists.has_bucket
+          THEN (SELECT bucket FROM public.website_generated_images wgi2 WHERE wgi2.id = wgi.id)
+          ELSE NULL END,
+        'website-assets'
+      ),
+      storage_path,
+      COALESCE(public_url, ''),
+      public_url,
+      prompt,
+      alt_text,
+      section_type,
+      COALESCE(
+        CASE WHEN column_exists.has_image_slot
+          THEN (SELECT image_slot FROM public.website_generated_images wgi2 WHERE wgi2.id = wgi.id)
+          ELSE NULL END,
+        'primary'
+      ),
+      COALESCE(
+        CASE WHEN column_exists.has_image_role
+          THEN (SELECT image_role FROM public.website_generated_images wgi2 WHERE wgi2.id = wgi.id)
+          ELSE NULL END,
+        'primary'
+      ),
+      COALESCE(aspect_ratio, '16:9'),
+      is_active,
+      is_archived,
+      COALESCE(metadata, '{}'::jsonb),
+      CASE WHEN column_exists.has_generation_error
+        THEN (SELECT generation_error FROM public.website_generated_images wgi2 WHERE wgi2.id = wgi.id)
+        ELSE NULL END,
+      created_at,
+      updated_at
+    FROM public.website_generated_images wgi,
+    LATERAL (
+      SELECT
+        EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='website_generated_images' AND column_name='image_plan_id')   AS has_image_plan_id,
+        EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='website_generated_images' AND column_name='generation_status') AS has_generation_status,
+        EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='website_generated_images' AND column_name='provider')         AS has_provider,
+        EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='website_generated_images' AND column_name='model')            AS has_model,
+        EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='website_generated_images' AND column_name='bucket')           AS has_bucket,
+        EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='website_generated_images' AND column_name='image_slot')       AS has_image_slot,
+        EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='website_generated_images' AND column_name='image_role')       AS has_image_role,
+        EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='website_generated_images' AND column_name='generation_error') AS has_generation_error
+    ) AS column_exists
+    ON CONFLICT (id) DO NOTHING;
+
+    RAISE NOTICE 'Migrated % rows from website_generated_images to website_section_images',
+      (SELECT count(*) FROM public.website_generated_images);
+
+    DROP TABLE public.website_generated_images CASCADE;
+    RAISE NOTICE 'Dropped old website_generated_images table.';
+
+  ELSIF obj_type = 'VIEW' THEN
+    DROP VIEW public.website_generated_images;
+    RAISE NOTICE 'Dropped old website_generated_images view for recreation.';
+  ELSE
+    RAISE NOTICE 'website_generated_images does not exist yet — will create as view.';
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'website_generated_images migration step: % — continuing.', SQLERRM;
+END;
+$$;
+
+-- Recreate as a clean view over website_section_images
+CREATE OR REPLACE VIEW public.website_generated_images AS
 SELECT
   id,
   tenant_id,
