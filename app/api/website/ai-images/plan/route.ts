@@ -1,13 +1,20 @@
 // app/api/website/ai-images/plan/route.ts
 // POST /api/website/ai-images/plan
 // Inspects the website structure and creates AI image plans using Gemini.
+// Uses buildWebsiteImageContext to pull rich business data before planning.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { planWebsiteImages } from '@/lib/ai/websiteImagePlanner'
 import { requireAiAutofillAccess } from '@/lib/website-ai/tenantAccess'
-import { isSchemaCacheError, isFkCreatedByError, MISSING_TABLE_MESSAGE, MISSING_API_KEY_MESSAGE } from '@/lib/website-ai/imagePipelineErrors'
+import { buildWebsiteImageContext } from '@/lib/website-ai/buildWebsiteImageContext'
+import {
+  isSchemaCacheError,
+  isFkCreatedByError,
+  MISSING_TABLE_MESSAGE,
+  MISSING_API_KEY_MESSAGE,
+} from '@/lib/website-ai/imagePipelineErrors'
 import { getSafeCreatedBy } from '@/lib/auth/getSafeCreatedBy'
 import type { ImagePlannerContext } from '@/lib/ai/websiteImageTypes'
 
@@ -31,92 +38,51 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Tenant access denied.' }, { status: 403 })
 
   const tenantId = access.tenantId
-  const supabase = getSupabaseServerClient()
-
-  // Load tenant
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('id, name')
-    .eq('id', tenantId)
-    .single()
-
-  if (!tenant)
-    return NextResponse.json({ error: 'Tenant not found.' }, { status: 404 })
-
-  // Load pages
-  const { data: pages = [] } = await supabase
-    .from('site_pages')
-    .select('id, slug, title, page_type')
-    .eq('tenant_id', tenantId)
-    .order('sort_order', { ascending: true })
-    .limit(20)
-
-  // Load sections
-  const { data: sections = [] } = await supabase
-    .from('site_sections')
-    .select('id, page_id, section_type, content')
-    .eq('tenant_id', tenantId)
-    .eq('is_visible', true)
-    .order('sort_order', { ascending: true })
-    .limit(50)
-
-  // Load products count
-  const { count: productCount } = await supabase
-    .from('products')
-    .select('id', { count: 'exact', head: true })
-    .eq('tenant_id', tenantId)
-    .eq('is_active', true)
-
-  // Load site settings
-  const { data: settings } = await supabase
-    .from('site_settings')
-    .select('site_name, brand_colors, theme')
-    .eq('tenant_id', tenantId)
-    .maybeSingle()
-
-  // Check modules
-  const { data: mod } = await supabase
-    .from('tenant_modules')
-    .select('enabled')
-    .eq('tenant_id', tenantId)
-    .eq('module_key', 'store')
-    .maybeSingle()
-
-  // Collect existing image URLs to avoid re-generating what's already there
-  const existingImageUrls: string[] = []
-  for (const s of (sections ?? [])) {
-    const c = s.content as Record<string, unknown>
-    if (typeof c.image_url === 'string' && c.image_url) existingImageUrls.push(c.image_url)
-    if (typeof c.background_image === 'string' && c.background_image) existingImageUrls.push(c.background_image)
-    if (typeof c.banner_image === 'string' && c.banner_image) existingImageUrls.push(c.banner_image)
-  }
-
-  const plannerCtx: ImagePlannerContext = {
-    tenantId,
-    tenantName:        tenant.name,
-    businessType:      null,
-    hasStore:          mod?.enabled ?? false,
-    pages:             (pages ?? []).map(p => ({
-      id:        p.id,
-      slug:      p.slug,
-      title:     p.title,
-      page_type: p.page_type,
-    })),
-    sections:          (sections ?? []).map(s => ({
-      id:           s.id,
-      page_id:      s.page_id,
-      section_type: s.section_type,
-      content:      s.content as Record<string, unknown>,
-    })),
-    existingImageUrls,
-    productCount:      productCount ?? 0,
-    siteTagline:       null,
-    colorPalette:      settings?.brand_colors ? JSON.stringify(settings.brand_colors) : null,
-  }
 
   // Check API key before calling the planner
   if (!process.env.GEMINI_API_KEY) {
     return NextResponse.json({ error: MISSING_API_KEY_MESSAGE, code: 'MISSING_API_KEY' }, { status: 503 })
+  }
+
+  // ── Build rich context (pulls business description, services, products,
+  //    AI autofill results, section content, reviews) ─────────────────────
+  const richCtx = await buildWebsiteImageContext(tenantId)
+
+  if (!richCtx.sectionDetails.length && !richCtx.pages.length) {
+    return NextResponse.json({
+      plans:   [],
+      warnings: ['No pages or sections found. Run AI Autofill first to generate website content.'],
+      planGroupId: null,
+      count:   0,
+    })
+  }
+
+  // Convert to ImagePlannerContext (extends it with rich fields)
+  const plannerCtx: ImagePlannerContext = {
+    tenantId:            richCtx.tenantId,
+    tenantName:          richCtx.tenantName,
+    businessType:        richCtx.autofillBusinessType ?? richCtx.businessCategory,
+    businessCategory:    richCtx.businessCategory,
+    autofillBusinessType: richCtx.autofillBusinessType,
+    autofillSummary:     richCtx.autofillSummary,
+    businessDescription: richCtx.businessDescription,
+    hasStore:            richCtx.hasStore,
+    pages:               richCtx.pages,
+    // Provide both legacy sections shape AND rich sectionDetails
+    sections:            richCtx.sectionDetails.map(s => ({
+      id:           s.id,
+      page_id:      s.page_id,
+      section_type: s.section_type,
+      content:      s.content,
+    })),
+    sectionDetails:      richCtx.sectionDetails,
+    services:            richCtx.services,
+    topProducts:         richCtx.topProducts,
+    reviews:             richCtx.reviews,
+    existingImageUrls:   richCtx.existingImageUrls,
+    productCount:        richCtx.productCount,
+    siteTagline:         richCtx.siteTagline,
+    colorPalette:        richCtx.colorPalette,
   }
 
   const { result, error } = await planWebsiteImages(plannerCtx)
@@ -125,53 +91,50 @@ export async function POST(req: NextRequest) {
 
   if (!result.plans.length) {
     return NextResponse.json({
-      plans:      [],
-      warnings:   result.warnings,
+      plans:       [],
+      warnings:    result.warnings,
       planGroupId: result.plan_group_id,
-      message:    'No images are needed for the current website structure.',
+      message:     'No images are needed for the current website structure.',
     })
   }
 
-  // Persist plans
+  // ── Persist plans ──────────────────────────────────────────────────────────
   const planGroupId = result.plan_group_id
-  const rows = result.plans.map(p => ({
-    tenant_id:             tenantId,
-    plan_group_id:         planGroupId,
-    section_id:            null as string | null,
-    page_id:               null as string | null,
-    placement_key:         p.placement_key,
-    section_type:          p.section_type,
-    image_role:            p.image_role,
-    title:                 p.title,
-    reason:                p.reason,
-    business_goal:         p.business_goal,
-    image_description:     p.image_description,
-    visual_style:          p.visual_style,
-    prompt:                p.prompt,
-    negative_prompt:       p.negative_prompt,
-    aspect_ratio:          p.aspect_ratio,
-    priority:              p.priority,
-    use_existing_if_avail: p.use_existing_if_avail,
-    status:                'planned' as const,
-    created_by:            getSafeCreatedBy(ctx.auth_id),
-  }))
 
-  // Match sections by type
-  const sectionsByType = new Map<string, string>()
-  for (const s of (sections ?? [])) {
+  // Build section→id map for linking plans to actual section rows
+  const sectionsByType = new Map<string, { id: string; page_id: string }>()
+  for (const s of richCtx.sectionDetails) {
     if (!sectionsByType.has(s.section_type)) {
-      sectionsByType.set(s.section_type, s.id)
+      sectionsByType.set(s.section_type, { id: s.id, page_id: s.page_id })
     }
   }
 
-  for (const row of rows) {
-    const matchedSectionId = sectionsByType.get(row.section_type ?? '')
-    if (matchedSectionId) row.section_id = matchedSectionId
-    // match page_id from section
-    const matchedSection = (sections ?? []).find(s => s.id === row.section_id)
-    if (matchedSection) row.page_id = matchedSection.page_id
-  }
+  const rows = result.plans.map(p => {
+    const matched = sectionsByType.get(p.section_type ?? '') ?? null
+    return {
+      tenant_id:             tenantId,
+      plan_group_id:         planGroupId,
+      section_id:            matched?.id ?? null,
+      page_id:               matched?.page_id ?? null,
+      placement_key:         p.placement_key,
+      section_type:          p.section_type,
+      image_role:            p.image_role,
+      title:                 p.title,
+      reason:                p.reason,
+      business_goal:         p.business_goal,
+      image_description:     p.image_description,
+      visual_style:          p.visual_style,
+      prompt:                p.prompt,
+      negative_prompt:       p.negative_prompt,
+      aspect_ratio:          p.aspect_ratio,
+      priority:              p.priority,
+      use_existing_if_avail: p.use_existing_if_avail,
+      status:                'planned' as const,
+      created_by:            getSafeCreatedBy(ctx.auth_id),
+    }
+  })
 
+  const supabase = getSupabaseServerClient()
   const { data: created, error: insertErr } = await supabase
     .from('website_image_plans')
     .insert(rows as never)
@@ -188,13 +151,22 @@ export async function POST(req: NextRequest) {
     if (isFkCreatedByError(insertErr)) {
       console.error('[AI-IMAGE][plan] FK created_by violation:', insertErr)
       return NextResponse.json({
-        error:  'Website image plan failed: created_by referenced a user that does not exist in auth.users. Run migration 055_fix_website_image_plans_created_by.sql and retry.',
+        error:  'Website image plan failed: created_by FK violation. Run migration 055_fix_website_image_plans_created_by.sql.',
         code:   'FK_CREATED_BY',
         detail: insertErr.message,
       }, { status: 500 })
     }
     return NextResponse.json({ error: insertErr.message }, { status: 500 })
   }
+
+  console.log('[AI-IMAGE][plan] Created plans', {
+    tenantId,
+    count:        created?.length ?? 0,
+    planGroupId,
+    businessType: plannerCtx.businessType,
+    servicesCount: richCtx.services.length,
+    reviewsCount:  richCtx.reviews.length,
+  })
 
   return NextResponse.json({
     planGroupId,

@@ -104,3 +104,62 @@ export async function uploadSectionImage(
   const json = await res.json()
   return (json.url as string) ?? null
 }
+
+// ── AI Image generation ───────────────────────────────────────────────────────
+
+export interface SectionAiImageResult {
+  publicUrl:           string
+  altText:             string
+  sectionId:           string
+  sectionType:         string
+  placementDescription: string
+  updatedSection?:     BuilderSection | null
+  error?:              string
+  code?:               string
+  applied:             boolean
+}
+
+/**
+ * Calls the section-generate endpoint which:
+ * 1. Builds rich business + section context
+ * 2. Creates a section-aware image brief (grounded in this specific business)
+ * 3. Generates an Imagen 4 Ultra image
+ * 4. Uploads to Supabase Storage
+ * 5. Applies the image URL to the section content
+ * 6. Returns the updated section
+ */
+export async function generateSectionAiImage(
+  sectionId: string,
+  tenantId:  string,
+): Promise<SectionAiImageResult> {
+  const res = await fetch('/api/website/ai-images/section-generate', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ sectionId, tenantId }),
+  })
+
+  const json = await res.json() as Record<string, unknown>
+
+  if (!res.ok || json.error) {
+    return {
+      publicUrl:           '',
+      altText:             '',
+      sectionId,
+      sectionType:         '',
+      placementDescription: '',
+      applied:             false,
+      error:               (json.error as string) ?? 'Image generation failed',
+      code:                (json.code as string) ?? undefined,
+    }
+  }
+
+  return {
+    publicUrl:            (json.publicUrl as string) ?? '',
+    altText:              (json.altText as string) ?? '',
+    sectionId:            (json.sectionId as string) ?? sectionId,
+    sectionType:          (json.sectionType as string) ?? '',
+    placementDescription: (json.placementDescription as string) ?? '',
+    updatedSection:       (json.updatedSection as BuilderSection | null) ?? null,
+    applied:              (json.applied as boolean) ?? false,
+  }
+}

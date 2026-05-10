@@ -179,9 +179,40 @@ export interface ImageGenerationResult {
 
 // ── Context passed to planner ────────────────────────────────────────────────
 
+export interface ImageContextServiceItem {
+  name:        string
+  price?:      string
+  description: string
+}
+
+export interface ImageContextProductItem {
+  name:        string
+  price?:      number
+  description: string
+}
+
+export interface ImageContextReviewItem {
+  author:  string
+  text:    string
+  rating?: number
+}
+
+export interface ImageContextSectionDetail {
+  id:           string
+  page_id:      string
+  section_type: string
+  headline:     string
+  body:         string
+  items:        string[]
+  ctaText:      string
+  imageUrl:     string | null
+  content:      Record<string, unknown>
+}
+
 export interface ImagePlannerContext {
   tenantId:          string
   tenantName:        string
+  /** Legacy: prefer businessCategory */
   businessType:      string | null
   hasStore:          boolean
   pages:             Array<{ id: string; slug: string; title: string | null; page_type: string }>
@@ -190,4 +221,23 @@ export interface ImagePlannerContext {
   productCount:      number
   colorPalette?:     string | null
   siteTagline?:      string | null
+
+  // ── Enriched context (set by plan/route.ts via buildWebsiteImageContext) ──
+
+  /** Free-text description of the business from tenant profile */
+  businessDescription?:  string | null
+  /** Structured category: restaurant, salon, contractor, auto_shop, etc. */
+  businessCategory?:     string | null
+  /** Detected by AI autofill (gemini-3-flash-preview analysis) */
+  autofillBusinessType?: string | null
+  /** Summary sentence from the most recent AI autofill job */
+  autofillSummary?:      string | null
+  /** Rich section content details for context-aware prompts */
+  sectionDetails?:       ImageContextSectionDetail[]
+  /** Services extracted from feature_grid sections + autofill results */
+  services?:             ImageContextServiceItem[]
+  /** Top products (if store enabled) */
+  topProducts?:          ImageContextProductItem[]
+  /** Customer reviews / testimonials */
+  reviews?:              ImageContextReviewItem[]
 }

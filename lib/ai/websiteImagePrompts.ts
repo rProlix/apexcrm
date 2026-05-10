@@ -7,62 +7,144 @@ import type { ImagePlannerContext } from './websiteImageTypes'
 // ── Gemini planning prompt ────────────────────────────────────────────────────
 
 export function buildImagePlannerPrompt(ctx: ImagePlannerContext): string {
-  const sectionsSummary = ctx.sections.map(s => {
-    const c = s.content as Record<string, unknown>
-    const heading = (c.heading ?? c.title ?? '') as string
-    return `  - section_type: ${s.section_type}, id: ${s.id}, page_id: ${s.page_id}, heading: "${heading.slice(0,60)}"`
+  // Determine the effective business category with fallback priority:
+  // 1. businessCategory (from tenant.metadata)
+  // 2. autofillBusinessType (detected by Gemini autofill)
+  // 3. businessType (legacy field)
+  // 4. "general"
+  const effectiveType = ctx.businessCategory ?? ctx.autofillBusinessType ?? ctx.businessType ?? 'general'
+
+  // Build sections summary with FULL content context
+  const sectionsSummary = (ctx.sectionDetails ?? ctx.sections).map(s => {
+    // Check if this is a RichSectionDetail (has headline/body/items/ctaText)
+    const maybeRich = s as {
+      section_type: string; id: string; page_id: string;
+      headline?: string; body?: string; items?: string[]; ctaText?: string;
+      content?: Record<string, unknown>
+    }
+    if (typeof maybeRich.headline === 'string') {
+      const itemsSample = (maybeRich.items ?? []).slice(0, 3).join(', ')
+      return [
+        `  - section_type: ${maybeRich.section_type}, id: ${maybeRich.id}, page_id: ${maybeRich.page_id}`,
+        `    headline: "${(maybeRich.headline ?? '').slice(0, 80)}"`,
+        maybeRich.body     ? `    body: "${maybeRich.body.slice(0, 100)}"` : '',
+        itemsSample        ? `    items: [${itemsSample}]` : '',
+        maybeRich.ctaText  ? `    cta: "${maybeRich.ctaText}"` : '',
+      ].filter(Boolean).join('\n')
+    }
+    // Fallback: legacy shape
+    const legacySection = s as { section_type: string; id: string; page_id: string; content: Record<string, unknown> }
+    const c = legacySection.content ?? {}
+    const heading = String(c?.heading ?? c?.headline ?? c?.title ?? '')
+    return `  - section_type: ${legacySection.section_type}, id: ${legacySection.id}, heading: "${heading.slice(0,60)}"`
   }).join('\n')
 
   const pagesSummary = ctx.pages.map(p =>
-    `  - page_type: ${p.page_type}, slug: ${p.slug}, id: ${p.id}, title: "${p.title ?? ''}"`
+    `  - page_type: ${p.page_type}, slug: /${p.slug}, title: "${p.title ?? ''}"`
   ).join('\n')
+
+  // Business description block
+  const businessDescBlock = [
+    ctx.businessDescription
+      ? `- Business description: "${ctx.businessDescription}"` : '',
+    ctx.autofillSummary
+      ? `- AI-detected content summary: "${ctx.autofillSummary}"` : '',
+  ].filter(Boolean).join('\n')
+
+  // Services block
+  const servicesBlock = (ctx.services ?? []).length > 0
+    ? (ctx.services ?? []).map(s =>
+        `  - ${s.name}${s.price ? ` (${s.price})` : ''}${s.description ? `: ${s.description.slice(0, 80)}` : ''}`
+      ).join('\n')
+    : '  (none listed)'
+
+  // Products block
+  const productsBlock = (ctx.topProducts ?? []).length > 0
+    ? (ctx.topProducts ?? []).map(p =>
+        `  - ${p.name}${p.price ? ` ($${p.price})` : ''}${p.description ? `: ${p.description.slice(0, 60)}` : ''}`
+      ).join('\n')
+    : '  (none)'
+
+  // Reviews block — use real customer language to ground the visuals
+  const reviewsBlock = (ctx.reviews ?? []).length > 0
+    ? (ctx.reviews ?? []).slice(0, 3).map(r =>
+        `  - "${r.text.slice(0, 100)}" — ${r.author}`
+      ).join('\n')
+    : '  (none available)'
 
   const hasExistingImages = ctx.existingImageUrls.length > 0
 
-  return `You are an expert website visual strategist for a ${ctx.businessType ?? 'business'} called "${ctx.tenantName}".
+  return `You are an expert website visual strategist and Imagen 4 Ultra prompt engineer.
+Your task: analyze this SPECIFIC business and its website, then return a JSON image plan
+with prompts that are GROUNDED IN THE ACTUAL BUSINESS — not generic stock imagery.
 
-Your task: analyze the website structure and decide EXACTLY which images are needed, why, and how they should look.
+## THE BUSINESS
 
-## Website Structure
+- Business name: "${ctx.tenantName}"
+- Business type / industry: ${effectiveType}
+${businessDescBlock}
+${ctx.siteTagline ? `- Tagline: "${ctx.siteTagline}"` : ''}
+${ctx.colorPalette ? `- Brand colors: ${ctx.colorPalette}` : ''}
+- Has ecommerce / online store: ${ctx.hasStore ? 'yes' : 'no'}
+- Active product count: ${ctx.productCount}
+- Has existing site images: ${hasExistingImages ? 'yes' : 'no'}
 
-Pages:
+## SERVICES OFFERED
+
+${servicesBlock}
+
+## PRODUCTS (if any)
+
+${productsBlock}
+
+## REAL CUSTOMER REVIEWS (use for tone/subject grounding)
+
+${reviewsBlock}
+
+## WEBSITE PAGES
+
 ${pagesSummary || '  (no pages yet)'}
 
-Sections:
+## WEBSITE SECTIONS (with actual content)
+
 ${sectionsSummary || '  (no sections yet)'}
 
-## Business Context
-
-- Business name: ${ctx.tenantName}
-- Business type: ${ctx.businessType ?? 'general'}
-- Has ecommerce/store: ${ctx.hasStore ? 'yes' : 'no'}
-- Existing products with images: ${ctx.productCount}
-- Has existing site images: ${hasExistingImages ? 'yes' : 'no'}
-${ctx.siteTagline ? `- Site tagline: "${ctx.siteTagline}"` : ''}
-${ctx.colorPalette ? `- Brand color palette: ${ctx.colorPalette}` : ''}
-
-## Rules
+## CRITICAL RULES
 
 1. Return ONLY valid JSON — no markdown, no code fences, no comments.
-2. Plan only images that will genuinely improve the site. Do not over-generate.
-3. For each section that BENEFITS from an image, create one plan item.
-4. Never plan fake headshots for reviewer testimonials — use abstract/illustrative imagery only if needed.
-5. Never plan logos. Never plan celebrity imagery.
-6. Never fabricate medical/legal claims in prompts.
-7. Prompts must be rich, commercial, and website-ready.
-8. Use aspect_ratio appropriate for section: 16:9 for hero/banners, 4:3 or 1:1 for cards, 3:2 for feature images.
-9. Keep priority between 1 (most important) and 100 (optional). Hero images = 1-10.
-10. If the business type is car_rental, plan: hero fleet/vehicle image, service visuals, CTA banner.
-    If salon, plan: hero atmosphere, before/after area, services images.
-    If restaurant, plan: hero dish/atmosphere, menu category images.
-    If ecommerce, plan: collection hero, category banners.
-    If plumber/contractor, plan: hero service image, trust/reliability visuals, CTA.
-    If fitness, plan: hero action image, services/classes visuals.
-    Adapt intelligently to any business type.
-11. Only plan images for section types that exist in the sections list above.
-12. use_existing_if_avail should be true for product images if has_store is true and productCount > 0.
+2. Every image prompt MUST mention the actual business type and industry — NO generic imagery.
+3. For a RESTAURANT: use that restaurant's cuisine, dishes, ambiance, and menu items in the prompt.
+4. For a BEAUTY SALON: use that salon's services (lashes, facials, brows, etc.) in the prompt.
+5. For an AUTO SHOP / DETAILING: use that business's specific services (paint correction, ceramic coat, etc.).
+6. For a CONTRACTOR / TRADESPERSON: use the specific trade (roofing, plumbing, HVAC, etc.).
+7. For ECOMMERCE: use the actual products sold in the prompt.
+8. If you see customer reviews mentioning specific products/services, REFERENCE THEM in the prompt.
+9. If you see section headlines, USE THEM to guide what the image should show.
+10. Use aspect_ratio appropriate for section: 16:9 for hero/banners, 4:3 for cards, 3:2 for feature images.
+11. Keep priority between 1 (most important) and 100 (optional). Hero images = 1-10.
+12. Only plan images for section types that exist in the sections list above.
+13. Never generate fake headshots, celebrity imagery, or logos.
+14. Never fabricate medical/legal claims in prompts.
+15. Prompts must be rich, photorealistic, commercial, and website-ready.
+16. Hero images should feel like premium advertising photography for THIS specific business.
+17. About section images: show the business workspace, team environment, or founder story.
+18. Contact section images: show the storefront, office front, or welcoming entrance.
+19. Testimonials: use abstract warm backgrounds, NOT stock people photos.
+20. FAQ sections: soft decorative imagery only.
+21. use_existing_if_avail should be true for product images if the store has products.
 
-## Required JSON output shape
+## GROUNDING EXAMPLES (follow this specificity level)
+
+For a vegan Vietnamese restaurant with pho on the menu:
+  prompt: "Professional commercial food photography of steaming vegan Vietnamese pho, clear broth with rice noodles, fresh herbs, bean sprouts, lime wedge, chopsticks on clean wooden surface, warm natural lighting, bokeh background, premium restaurant menu photography"
+
+For an auto detailing business specializing in ceramic coating:
+  prompt: "Premium automotive photography of a luxury black car with a mirror-like ceramic coating finish, detail technician applying product in a clean professional detail bay, dramatic studio lighting highlighting the deep reflective shine, commercial photography"
+
+For a hair salon specializing in color and styling:
+  prompt: "Bright modern hair salon interior, stylish cutting station with gold mirrors, fresh flowers, professional colorist with client in foreground, warm lifestyle photography, salon atmosphere, shallow depth of field"
+
+## REQUIRED JSON OUTPUT SHAPE
 
 {
   "plans": [
@@ -71,12 +153,12 @@ ${ctx.colorPalette ? `- Brand color palette: ${ctx.colorPalette}` : ''}
       "section_type": "hero",
       "image_role": "hero_main",
       "title": "Hero Main Image",
-      "reason": "The hero image is the first visual a visitor sees. It must immediately communicate what the business offers and build visual trust.",
-      "business_goal": "Increase engagement and reduce bounce rate by showing a premium, inviting visual.",
-      "image_description": "A beautifully lit interior of a modern luxury beauty salon with clean styling stations and warm ambient lighting.",
-      "visual_style": "Commercial photography, soft warm lighting, shallow depth of field, premium and inviting.",
-      "prompt": "Ultra-clean commercial photography of a modern luxury beauty salon interior, warm ambient lighting, elegant styling stations, marble surfaces, gold accents, shallow depth of field, lifestyle photography, 8K, highly detailed, professional website hero image",
-      "negative_prompt": "text, watermark, people, logo, cartoon, illustration, blurry, dark",
+      "reason": "The hero image is the first visual visitors see. It must immediately show WHAT THIS BUSINESS offers.",
+      "business_goal": "Convert visitors by showing the premium quality and specific offering of this business.",
+      "image_description": "One-sentence description of exactly what the image will show, grounded in this business.",
+      "visual_style": "Commercial photography style descriptor.",
+      "prompt": "Highly specific Imagen prompt grounded in this actual business, services, and content.",
+      "negative_prompt": "text, watermark, logo, blurry, distorted, unrelated industries",
       "aspect_ratio": "16:9",
       "priority": 1,
       "use_existing_if_avail": false
@@ -92,7 +174,7 @@ Return only the JSON. No other text.`
 
 /**
  * Takes a planner prompt string and enhances it with quality booster suffixes
- * appropriate for the Imagen 4 Ultra model.
+ * appropriate for the Imagen 4 Ultra model and the specific business type.
  */
 export function enhancePromptForImagen(
   basePrompt: string,
@@ -100,35 +182,49 @@ export function enhancePromptForImagen(
   businessType: string | null,
 ): string {
   const roleModifiers: Record<string, string> = {
-    hero_main:              'ultra-sharp, commercial photography, premium website hero image, 8K',
-    hero_background:        'wide angle, soft background, website background image, minimal noise',
-    about_feature:          'warm lifestyle photography, authentic, brand storytelling',
-    service_card:           'clean white background, commercial product/service photography, sharp focus',
-    gallery_cover:          'editorial photography, polished, premium',
-    gallery_item:           'clean, high quality photograph, natural lighting',
-    product_banner:         'commercial product photography, studio lighting, premium presentation',
-    category_banner:        'wide banner composition, 16:9, vibrant, commercial',
-    contact_banner:         'welcoming, warm tone, location or lifestyle imagery',
-    testimonial_background: 'abstract soft background, pastel gradient, no people, clean minimalist',
-    rewards_promo_banner:   'vibrant, energetic, promotional banner composition, bold colors',
-    cta_banner:             'conversion-focused, action-oriented, clean layout, bold visual',
-    promo_banner:           'promotional, eye-catching, commercial quality',
-    feature_image:          'clean, high quality, website-ready',
-    section_background:     'subtle texture, pattern, or abstract gradient, not distracting',
-    other:                  'commercial photography, website-ready, high quality',
+    hero_main:              'ultra-sharp commercial photography, premium website hero image, 8K resolution, highly detailed',
+    hero_background:        'wide angle composition, soft natural background, website hero background, minimal noise, high resolution',
+    about_feature:          'warm authentic lifestyle photography, brand storytelling, genuine atmosphere',
+    service_card:           'clean commercial photography, sharp focus, professional presentation, white or neutral background',
+    gallery_cover:          'editorial photography, polished, premium commercial quality',
+    gallery_item:           'clean high quality photograph, natural lighting, sharp focus',
+    product_banner:         'commercial product photography, studio lighting, premium presentation, high resolution',
+    category_banner:        'wide banner composition, 16:9, vibrant, commercial photography',
+    contact_banner:         'welcoming warm tone, location or lifestyle imagery, inviting atmosphere',
+    testimonial_background: 'abstract soft background, subtle texture, pastel gradient, no people, clean minimalist',
+    rewards_promo_banner:   'vibrant energetic promotional banner, bold colors, commercial quality',
+    cta_banner:             'conversion-focused composition, clean layout, bold visual impact',
+    promo_banner:           'promotional eye-catching design, commercial quality photography',
+    feature_image:          'clean high quality commercial photography, website-ready',
+    section_background:     'subtle texture or abstract gradient, not distracting, professional',
+    other:                  'commercial photography, website-ready, high quality, professional',
   }
 
   const modifier = roleModifiers[imageRole] ?? roleModifiers.other
 
-  const btModifier = businessType === 'restaurant'
-    ? 'food photography, natural lighting, restaurant atmosphere'
-    : businessType === 'car_rental'
-    ? 'automotive photography, clean environment, premium vehicle'
-    : businessType === 'salon'
-    ? 'beauty photography, warm salon atmosphere'
-    : businessType === 'fitness'
-    ? 'fitness lifestyle photography, energetic, motivational'
-    : ''
+  // Business-type specific photography style modifiers
+  const businessModifiers: Record<string, string> = {
+    restaurant:  'food photography, natural warm lighting, restaurant atmosphere, appetizing presentation',
+    car_rental:  'automotive photography, clean studio environment, premium vehicle presentation',
+    auto_shop:   'automotive photography, professional detail bay, premium vehicle, clean garage environment',
+    salon:       'beauty photography, warm inviting salon atmosphere, soft elegant lighting',
+    fitness:     'fitness lifestyle photography, energetic action, motivational atmosphere',
+    contractor:  'professional trade photography, skilled craftwork, trustworthy presentation',
+    plumber:     'professional service photography, skilled technician, trustworthy brand feel',
+    medical:     'clean clinical environment, professional medical setting, trustworthy calm atmosphere',
+    ecommerce:   'commercial product photography, clean studio, premium presentation',
+    unknown:     'professional business photography, clean modern environment',
+  }
 
-  return [basePrompt, modifier, btModifier].filter(Boolean).join(', ')
+  const normalizedType = (businessType ?? 'unknown')
+    .toLowerCase()
+    .replace(/[^a-z_]/g, '_')
+    .replace(/__+/g, '_')
+
+  const btModifier = businessModifiers[normalizedType] ?? businessModifiers.unknown
+
+  // Always add a guardrail to prevent unrelated imagery
+  const guardrail = `Do not depict unrelated industries, random generic office scenes, or stock photo clichés.`
+
+  return [basePrompt, modifier, btModifier, guardrail].filter(Boolean).join(', ')
 }
