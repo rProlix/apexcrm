@@ -13,6 +13,7 @@ import {
   Webhook, Eye, EyeOff, Key, LogOut, X, RefreshCw,
   Building, Tag, Zap,
 } from 'lucide-react'
+import NextLink from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils'
@@ -165,16 +166,17 @@ function useSave(url: string, buildBody: () => Record<string, unknown>) {
 // ── Tab definitions ───────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'general',       label: 'General',      icon: Settings  },
-  { id: 'domain',        label: 'Domain',        icon: Globe     },
-  { id: 'appearance',    label: 'Appearance',    icon: Palette   },
-  { id: 'seo',           label: 'SEO',           icon: Search    },
-  { id: 'team',          label: 'Team',          icon: Users     },
-  { id: 'subscription',  label: 'Billing',       icon: CreditCard},
-  { id: 'modules',       label: 'Modules',       icon: Layers    },
-  { id: 'notifications', label: 'Notifications', icon: Bell      },
-  { id: 'security',      label: 'Security',      icon: Shield    },
-  { id: 'danger',        label: 'Danger Zone',   icon: AlertTriangle },
+  { id: 'general',       label: 'General',      icon: Settings     },
+  { id: 'domain',        label: 'Domain',        icon: Globe        },
+  { id: 'appearance',    label: 'Appearance',    icon: Palette      },
+  { id: 'seo',           label: 'SEO',           icon: Search       },
+  { id: 'team',          label: 'Team',          icon: Users        },
+  { id: 'subscription',  label: 'Billing',       icon: CreditCard   },
+  { id: 'modules',       label: 'Modules',       icon: Layers       },
+  { id: 'email',         label: 'Email',         icon: Mail         },
+  { id: 'notifications', label: 'Notifications', icon: Bell         },
+  { id: 'security',      label: 'Security',      icon: Shield       },
+  { id: 'danger',        label: 'Danger Zone',   icon: AlertTriangle},
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -273,6 +275,7 @@ export function SettingsClient({
               {activeTab === 'team'          && <TeamTab          tenantId={tenantId} initialMembers={initialMembers} currentUserId={currentUserId} currentUserRole={currentUserRole} />}
               {activeTab === 'subscription'  && <SubscriptionTab  subscription={subscription} />}
               {activeTab === 'modules'       && <ModulesTab       modules={modules} />}
+              {activeTab === 'email'         && <EmailSettingsLink />}
               {activeTab === 'notifications' && <NotificationsTab />}
               {activeTab === 'security'      && <SecurityTab      />}
               {activeTab === 'danger'        && <DangerTab        tenantName={tenantName} />}
@@ -1226,6 +1229,71 @@ function ModulesTab({ modules }: { modules: TenantModule[] }) {
 }
 
 // ── Notifications tab ─────────────────────────────────────────────────────────
+
+// ── Email Settings Link Tab ───────────────────────────────────────────────────
+
+function EmailSettingsLink() {
+  const cards = [
+    {
+      icon:  Mail,
+      title: 'Email Provider',
+      desc:  'Configure Resend or Amazon SES, verify your sender domain, and run health checks.',
+    },
+    {
+      icon:  Zap,
+      title: 'White-Label Branding',
+      desc:  'Emails sent to your customers show your business name, logo, and colors — not Nexora.',
+    },
+    {
+      icon:  Bell,
+      title: 'Delivery Diagnostics',
+      desc:  'Send test emails, view recent delivery logs, and debug delivery failures.',
+    },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-base font-semibold text-white mb-1">Email Settings</h2>
+        <p className="text-sm text-white/50">
+          Manage transactional email delivery, branding, and diagnostics for your business.
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        {cards.map(({ icon: Icon, title, desc }) => (
+          <div
+            key={title}
+            className="rounded-xl border border-surface-border bg-graphite-800/60 p-4 space-y-2"
+          >
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-gold-500/10 border border-gold-500/20 flex items-center justify-center shrink-0">
+                <Icon className="h-4 w-4 text-gold-400" strokeWidth={1.75} />
+              </div>
+              <p className="text-sm font-semibold text-white">{title}</p>
+            </div>
+            <p className="text-xs text-white/45 leading-relaxed">{desc}</p>
+          </div>
+        ))}
+      </div>
+
+      <NextLink
+        href="/settings/email"
+        className={cn(
+          'inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold',
+          'bg-gold-500/12 text-gold-400 border border-gold-500/20',
+          'hover:bg-gold-500/20 transition-colors',
+        )}
+      >
+        <Mail className="h-4 w-4" strokeWidth={1.75} />
+        Open Email Settings
+        <ChevronRight className="h-3.5 w-3.5 opacity-60" />
+      </NextLink>
+    </div>
+  )
+}
+
+// ── Notifications Tab ─────────────────────────────────────────────────────────
 
 function NotificationsTab() {
   const [emailNewOrder,    setEmailNewOrder]    = useState(true)
