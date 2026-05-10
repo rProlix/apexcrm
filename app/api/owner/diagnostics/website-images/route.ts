@@ -104,6 +104,41 @@ export async function GET() {
   }
   checks.push({ name: 'DB: website_image_jobs', ok: jobsOk, detail: jobsDetail })
 
+  // ── 6b. website_generated_images table ───────────────────────────────────
+  let galleryOk = false
+  let galleryDetail = ''
+  try {
+    // Table added by migration 054 (supersedes 057). Cast through unknown.
+    const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
+    const { error } = await db.from('website_generated_images').select('id', { count: 'exact', head: true } as never)
+    galleryOk     = !error
+    galleryDetail = error
+      ? `ERROR: ${error.message} — Run migration 054_website_image_plans_complete.sql`
+      : 'Table exists and is accessible'
+  } catch (err) {
+    galleryDetail = `Exception: ${err instanceof Error ? err.message : String(err)}`
+  }
+  checks.push({ name: 'DB: website_generated_images', ok: galleryOk, detail: galleryDetail })
+
+  // ── 6c. activate_website_section_image function ───────────────────────────
+  let activateFnOk = false
+  let activateFnDetail = ''
+  try {
+    const { data: fnRows } = await supabase
+      .from('information_schema.routines' as never)
+      .select('routine_name')
+      .eq('routine_schema', 'public')
+      .eq('routine_name', 'activate_website_section_image')
+      .maybeSingle()
+    activateFnOk     = !!(fnRows as Record<string, string> | null)?.routine_name
+    activateFnDetail = activateFnOk
+      ? 'Function public.activate_website_section_image exists'
+      : 'Function NOT FOUND — run migration 054_website_image_plans_complete.sql'
+  } catch (err) {
+    activateFnDetail = `Exception: ${err instanceof Error ? err.message : String(err)}`
+  }
+  checks.push({ name: 'DB fn: activate_website_section_image', ok: activateFnOk, detail: activateFnDetail })
+
   // ── 7. website-assets bucket ─────────────────────────────────────────────
   let bucketOk = false
   let bucketDetail = ''
@@ -197,13 +232,25 @@ export async function GET() {
     model:                 activeModel,
     bucket:                WEBSITE_IMAGE_BUCKET,
     checks,
+    tables: {
+      website_image_plans:      plansOk,
+      website_image_jobs:       jobsOk,
+      website_generated_images: galleryOk,
+    },
+    functions: {
+      activate_website_section_image: activateFnOk,
+    },
     planCounts:            plansOk ? planCounts : null,
     recentFailed:          plansOk ? recentFailed : null,
     createdByFkTarget,
     invalidCreatedByCount,
     createdByNote:         'Use ctx.auth_id (auth.users.id), NOT ctx.id (public.users.id), when inserting created_by.',
     instructions: allOk ? null : {
-      missingTable: !plansOk
+      step1: 'Open Supabase Dashboard → SQL Editor',
+      step2: 'Paste and run: supabase/migrations/054_website_image_plans_complete.sql',
+      step3: 'Redeploy on Vercel',
+      step4: 'Visit /api/owner/diagnostics/website-images and confirm ok=true',
+      missingTable: (!plansOk || !jobsOk || !galleryOk)
         ? 'Run supabase/migrations/054_website_image_plans_complete.sql in Supabase SQL Editor'
         : null,
       missingBucket: !bucketOk
