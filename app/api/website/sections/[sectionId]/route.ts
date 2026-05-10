@@ -1,7 +1,12 @@
-// app/api/website/sections/[id]/route.ts
+// app/api/website/sections/[sectionId]/route.ts
+// Handles PATCH (update) and DELETE for a single site section.
+// Also serves as the parent segment for /images/* gallery sub-routes.
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+
+type Params = { sectionId: string }
 
 function forbidden() {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -27,12 +32,14 @@ async function resolveOwnership(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Params | Promise<Params> },
 ) {
+  const { sectionId } = await (params instanceof Promise ? params : Promise.resolve(params))
+
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const tenantId = await resolveOwnership(ctx, (await params).id)
+  const tenantId = await resolveOwnership(ctx, sectionId)
   if (!tenantId) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const body    = await req.json()
@@ -46,7 +53,7 @@ export async function PATCH(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db.from('site_sections') as any)
     .update(patch)
-    .eq('id', (await params).id)
+    .eq('id', sectionId)
     .select('*')
     .single()
 
@@ -56,19 +63,21 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Params | Promise<Params> },
 ) {
+  const { sectionId } = await (params instanceof Promise ? params : Promise.resolve(params))
+
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const tenantId = await resolveOwnership(ctx, (await params).id)
+  const tenantId = await resolveOwnership(ctx, sectionId)
   if (!tenantId) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const db = getSupabaseServerClient()
   const { error } = await db
     .from('site_sections')
     .delete()
-    .eq('id', (await params).id)
+    .eq('id', sectionId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
