@@ -14,19 +14,15 @@ export const revalidate = 0
 //
 // Zero-404 guarantee: unknown slugs fall back to the homepage silently.
 
-import dynamicImport from 'next/dynamic'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig, getDraftSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { SafeSectionRenderer } from '@/components/site/SafeSectionRenderer'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { normalizeSection, isPublicVisible, bySortOrder } from '@/lib/website/normalizeWebsiteSection'
 import type { BuilderSection, EditorContext } from '@/lib/builder/types'
-
-// Lazy-load the editor bundle — customers NEVER download it
-const EditorShell = dynamicImport(
-  () => import('@/components/builder/EditorShell').then((m) => m.EditorShell),
-  { ssr: false },
-)
+// EditorShellClient is a 'use client' boundary that holds the ssr:false dynamic import.
+// Importing it here is safe — server components CAN import client components.
+import { EditorShellClient } from '@/components/builder/EditorShellClient'
 
 interface Props {
   params: Promise<{ tenant: string; slug?: string[] }>
@@ -150,7 +146,7 @@ export default async function TenantPage({ params }: Props) {
       isPublished: config.settings.is_published,
       sections:    page.sections as BuilderSection[],
     }
-    return <EditorShell editorCtx={editorCtx} />
+    return <EditorShellClient editorCtx={editorCtx} />
   }
 
   // ── 6. PUBLIC MODE ─────────────────────────────────────────────────────────

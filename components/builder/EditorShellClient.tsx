@@ -2,36 +2,43 @@
 
 // components/builder/EditorShellClient.tsx
 //
-// Thin 'use client' boundary that lazy-loads EditorShell with ssr:false.
+// Client-only boundary that wraps the dynamic import of EditorShell.
 //
 // WHY this file exists:
-//   next/dynamic with ssr:false is forbidden inside Server Components (Next 15).
-//   The site page.tsx is an async Server Component, so it cannot call dynamic()
-//   with ssr:false directly. This wrapper lives entirely in the client boundary,
-//   so the dynamic import is legal here.
+//   next/dynamic({ ssr: false }) is NOT allowed inside Server Components.
+//   app/sites/[tenant]/[[...slug]]/page.tsx is a Server Component, so it
+//   cannot hold that call. This file provides the client boundary — the
+//   server page imports this lightweight wrapper, and only browsers
+//   (never the SSR runtime) download EditorShell + the builder bundle.
 //
-// Customers NEVER download this bundle — the server only renders this component
-// for owner/admin visitors, so the import() call is never triggered for public traffic.
+// Props mirror EditorShell exactly — all values must be serializable
+// (no Supabase clients, Request/Response objects, or functions).
 
 import dynamic from 'next/dynamic'
 import type { EditorContext } from '@/lib/builder/types'
 
-const EditorShell = dynamic(
-  () => import('./EditorShell').then((m) => m.EditorShell),
+const EditorShellDynamic = dynamic(
+  () => import('@/components/builder/EditorShell').then((m) => m.EditorShell),
   {
     ssr: false,
     loading: () => (
       <div style={{
-        minHeight: '100vh',
-        display:   'flex',
-        alignItems: 'center',
+        minHeight:      '100vh',
+        display:        'flex',
+        alignItems:     'center',
         justifyContent: 'center',
-        background: '#09090b',
-        color: '#52525b',
-        fontSize: '0.875rem',
-        fontFamily: 'Inter, system-ui, sans-serif',
+        background:     'var(--color-bg, #0f0f13)',
       }}>
-        Loading editor…
+        <div style={{
+          padding:      '1rem 2rem',
+          borderRadius: '1rem',
+          border:       '1px solid rgba(255,255,255,0.08)',
+          background:   'rgba(0,0,0,0.4)',
+          color:        'rgba(255,255,255,0.6)',
+          fontSize:     '0.875rem',
+        }}>
+          Loading website editor…
+        </div>
       </div>
     ),
   },
@@ -41,6 +48,6 @@ interface Props {
   editorCtx: EditorContext
 }
 
-export default function EditorShellClient({ editorCtx }: Props) {
-  return <EditorShell editorCtx={editorCtx} />
+export function EditorShellClient({ editorCtx }: Props) {
+  return <EditorShellDynamic editorCtx={editorCtx} />
 }
