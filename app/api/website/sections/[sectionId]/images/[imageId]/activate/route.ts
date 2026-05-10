@@ -15,10 +15,10 @@ type RouteContext = {
   params: Promise<{ sectionId: string; imageId: string }>
 }
 
-function wgiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
+function wsiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
   return (supabase as unknown as {
-    from: (t: 'website_generated_images') => ReturnType<typeof supabase.from>
-  }).from('website_generated_images') as ReturnType<typeof supabase.from>
+    from: (t: 'website_section_images') => ReturnType<typeof supabase.from>
+  }).from('website_section_images') as ReturnType<typeof supabase.from>
 }
 
 export async function POST(_req: NextRequest, context: RouteContext) {
@@ -33,7 +33,7 @@ export async function POST(_req: NextRequest, context: RouteContext) {
   const tenantId = ctx.tenant_id
 
   // ── Fetch the target generated image ─────────────────────────────────────
-  const { data: imageData, error: imgErr } = await wgiFrom(supabase)
+  const { data: imageData, error: imgErr } = await wsiFrom(supabase)
     .select('*')
     .eq('id', imageId)
     .eq('tenant_id', tenantId)
@@ -53,17 +53,19 @@ export async function POST(_req: NextRequest, context: RouteContext) {
     )
   }
 
+  const imageUrl = image.image_url || image.public_url || ''
+
   // ── Deactivate all other images for same slot ─────────────────────────────
-  await wgiFrom(supabase)
-    .update({ is_active: false, updated_at: new Date().toISOString() } as never)
+  await wsiFrom(supabase)
+    .update({ is_active: false, status: 'generated', updated_at: new Date().toISOString() } as never)
     .eq('tenant_id', tenantId)
     .eq('section_id', sectionId)
-    .eq('image_slot', image.image_slot)
+    .eq('slot_key', image.slot_key)
     .neq('id', imageId)
 
   // ── Activate this image ───────────────────────────────────────────────────
-  const { data: activatedData, error: activateErr } = await wgiFrom(supabase)
-    .update({ is_active: true, updated_at: new Date().toISOString() } as never)
+  const { data: activatedData, error: activateErr } = await wsiFrom(supabase)
+    .update({ is_active: true, status: 'active', updated_at: new Date().toISOString() } as never)
     .eq('id', imageId)
     .select('*')
     .single()
@@ -93,9 +95,9 @@ export async function POST(_req: NextRequest, context: RouteContext) {
     const { contentPatch } = buildImageContentPatch(
       section.section_type,
       image.image_role ?? 'primary',
-      image.public_url,
+      imageUrl,
       image.alt_text ?? '',
-      image.image_plan_id ?? '',
+      image.plan_id ?? '',
     )
 
     const merged = mergeImageIntoContent(sectionContent, contentPatch)
@@ -112,12 +114,13 @@ export async function POST(_req: NextRequest, context: RouteContext) {
   }
 
   return NextResponse.json({
-    success: true,
+    success:       true,
     activated,
     updatedSection,
     sectionId,
     imageId,
-    imageSlot: image.image_slot,
-    publicUrl: image.public_url,
+    imageSlot:     image.slot_key,
+    publicUrl:     imageUrl,
   })
 }
+

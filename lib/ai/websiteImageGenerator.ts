@@ -312,17 +312,20 @@ export async function generateWebsiteImage(
     updated_at:             new Date().toISOString(),
   } as never).eq('id', opts.plan.id)
 
-  // ── Save into website_generated_images gallery ────────────────────────────
+  // ── Save into website_section_images gallery ─────────────────────────────
   // This makes every generated image available in the gallery picker.
   // We check if an active image already exists for this tenant+section+slot.
   const imageSlot = opts.plan.placement_key ?? 'primary'
 
-  const { data: existingActive } = await supabase
-    .from('website_generated_images')
+  const db = supabase as unknown as {
+    from: (t: 'website_section_images') => ReturnType<typeof supabase.from>
+  }
+
+  const { data: existingActive } = await db.from('website_section_images')
     .select('id')
     .eq('tenant_id', opts.tenantId)
     .eq('section_id', opts.plan.section_id ?? '')
-    .eq('image_slot', imageSlot)
+    .eq('slot_key', imageSlot)
     .eq('is_active', true)
     .eq('is_archived', false)
     .maybeSingle()
@@ -330,29 +333,28 @@ export async function generateWebsiteImage(
   const shouldBeActive = !existingActive
 
   if (opts.plan.section_id) {
-    const { error: galleryErr } = await supabase
-      .from('website_generated_images')
+    const { error: galleryErr } = await db.from('website_section_images')
       .insert({
-        tenant_id:             opts.tenantId,
-        website_id:            opts.plan.website_id ?? null,
-        page_id:               opts.plan.page_id ?? null,
-        section_id:            opts.plan.section_id,
-        image_plan_id:         opts.plan.id,
-        image_slot:            imageSlot,
-        image_role:            opts.plan.image_role ?? null,
-        section_type:          opts.plan.section_type ?? null,
-        prompt:                finalPrompt,
-        model,
-        requested_aspect_ratio: opts.requestedAspectRatio ?? opts.plan.aspect_ratio ?? null,
-        aspect_ratio:          safeAspectRatio,
-        bucket:                WEBSITE_IMAGE_BUCKET,
-        storage_path:          storagePath,
-        public_url:            publicUrl,
-        alt_text:              altText,
-        is_active:             shouldBeActive,
-        is_archived:           false,
-        generation_status:     'ready',
-        created_by:            opts.createdBy ?? null,
+        tenant_id:      opts.tenantId,
+        page_id:        opts.plan.page_id ?? null,
+        section_id:     opts.plan.section_id,
+        plan_id:        opts.plan.id,
+        slot_key:       imageSlot,
+        image_role:     opts.plan.image_role ?? null,
+        section_type:   opts.plan.section_type ?? null,
+        prompt:         finalPrompt,
+        image_model:    model,
+        aspect_ratio:   safeAspectRatio,
+        storage_bucket: WEBSITE_IMAGE_BUCKET,
+        storage_path:   storagePath,
+        image_url:      publicUrl,
+        public_url:     publicUrl,
+        alt_text:       altText,
+        is_active:      shouldBeActive,
+        is_archived:    false,
+        status:         'generated',
+        provider:       'google-imagen',
+        created_by:     opts.createdBy ?? null,
         metadata: {
           jobId,
           mimeType,
@@ -362,7 +364,7 @@ export async function generateWebsiteImage(
 
     if (galleryErr) {
       // Non-fatal: log but don't fail the generation
-      console.warn('[websiteImageGenerator] Failed to insert website_generated_images row:', galleryErr.message)
+      console.warn('[websiteImageGenerator] Failed to insert website_section_images row:', galleryErr.message)
     } else {
       log('11_gallery_saved', { planId: opts.plan.id, imageSlot, isActive: shouldBeActive })
     }

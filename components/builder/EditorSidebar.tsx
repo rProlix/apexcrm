@@ -123,7 +123,7 @@ function ImageCard({
       <div style={{ position: 'relative', aspectRatio: '16/9', background: '#18181b', overflow: 'hidden' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={img.public_url}
+          src={img.image_url || img.public_url || ''}
           alt={img.alt_text ?? 'AI generated image'}
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           loading="lazy"
@@ -189,7 +189,7 @@ function ImageCard({
         WebkitBoxOrient: 'vertical',
         lineHeight:    1.4,
       } as React.CSSProperties}>
-        {img.prompt.slice(0, 100)}{img.prompt.length > 100 ? '…' : ''}
+        {(img.prompt ?? '').slice(0, 100)}{(img.prompt ?? '').length > 100 ? '…' : ''}
       </div>
 
       {/* Actions */}

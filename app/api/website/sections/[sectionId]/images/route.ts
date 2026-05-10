@@ -1,5 +1,5 @@
 // app/api/website/sections/[sectionId]/images/route.ts
-// GET — list all generated images for a section, grouped by image_slot.
+// GET — list all generated images for a section, grouped by slot_key.
 // Query params:
 //   imageSlot        (optional) filter to one slot
 //   includeArchived  (optional, default false)
@@ -16,6 +16,12 @@ type RouteContext = {
   params: Promise<{ sectionId: string }>
 }
 
+function wsiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
+  return (supabase as unknown as {
+    from: (t: 'website_section_images') => ReturnType<typeof supabase.from>
+  }).from('website_section_images') as ReturnType<typeof supabase.from>
+}
+
 export async function GET(req: NextRequest, context: RouteContext) {
   const { sectionId } = await context.params
 
@@ -30,19 +36,13 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
   const supabase = getSupabaseServerClient()
 
-  // website_generated_images is added by migration 057.
-  // Cast through unknown until Supabase types are regenerated.
-  const db = supabase as unknown as {
-    from: (table: 'website_generated_images') => ReturnType<typeof supabase.from>
-  }
-
-  let query = (db.from('website_generated_images') as ReturnType<typeof supabase.from>)
+  let query = wsiFrom(supabase)
     .select('*')
     .eq('tenant_id', ctx.tenant_id)
     .eq('section_id', sectionId)
     .order('created_at', { ascending: false })
 
-  if (imageSlot)        query = query.eq('image_slot', imageSlot)
+  if (imageSlot)        query = query.eq('slot_key', imageSlot)
   if (!includeArchived) query = query.eq('is_archived', false)
 
   const { data, error } = await query
@@ -56,10 +56,12 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
   const activeBySlot: Record<string, WebsiteGeneratedImage | null> = {}
   for (const img of images) {
-    if (img.is_active && !img.is_archived && !activeBySlot[img.image_slot]) {
-      activeBySlot[img.image_slot] = img
+    const slot = img.slot_key
+    if (img.is_active && !img.is_archived && !activeBySlot[slot]) {
+      activeBySlot[slot] = img
     }
   }
 
   return NextResponse.json({ images, activeBySlot, sectionId, tenantId: ctx.tenant_id })
 }
+

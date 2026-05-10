@@ -104,13 +104,12 @@ export async function GET() {
   }
   checks.push({ name: 'DB: website_image_jobs', ok: jobsOk, detail: jobsDetail })
 
-  // ── 6b. website_generated_images table ───────────────────────────────────
+  // ── 6b. website_section_images table ─────────────────────────────────────
   let galleryOk = false
   let galleryDetail = ''
   try {
-    // Table added by migration 054 (supersedes 057). Cast through unknown.
     const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
-    const { error } = await db.from('website_generated_images').select('id', { count: 'exact', head: true } as never)
+    const { error } = await db.from('website_section_images').select('id', { count: 'exact', head: true } as never)
     galleryOk     = !error
     galleryDetail = error
       ? `ERROR: ${error.message} — Run migration 054_website_image_plans_complete.sql`
@@ -118,7 +117,7 @@ export async function GET() {
   } catch (err) {
     galleryDetail = `Exception: ${err instanceof Error ? err.message : String(err)}`
   }
-  checks.push({ name: 'DB: website_generated_images', ok: galleryOk, detail: galleryDetail })
+  checks.push({ name: 'DB: website_section_images', ok: galleryOk, detail: galleryDetail })
 
   // ── 6c. activate_website_section_image function ───────────────────────────
   let activateFnOk = false
@@ -233,9 +232,9 @@ export async function GET() {
     bucket:                WEBSITE_IMAGE_BUCKET,
     checks,
     tables: {
-      website_image_plans:      plansOk,
-      website_image_jobs:       jobsOk,
-      website_generated_images: galleryOk,
+      website_image_plans:    plansOk,
+      website_image_jobs:     jobsOk,
+      website_section_images: galleryOk,
     },
     functions: {
       activate_website_section_image: activateFnOk,

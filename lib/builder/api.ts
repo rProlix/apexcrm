@@ -130,29 +130,48 @@ export interface SectionAiImageResult {
  */
 // ── Section image gallery helpers ─────────────────────────────────────────────
 
+/**
+ * Row shape for public.website_section_images.
+ * public_url is nullable (image_url is the primary URL column).
+ */
 export interface WebsiteGeneratedImage {
-  id:                    string
-  tenant_id:             string
-  section_id:            string
-  image_plan_id:         string | null
-  image_slot:            string
-  image_role:            string | null
-  section_type:          string | null
-  prompt:                string
-  model:                 string
-  requested_aspect_ratio: string | null
-  aspect_ratio:          string
-  bucket:                string
-  storage_path:          string
-  public_url:            string
-  alt_text:              string | null
-  is_active:             boolean
-  is_archived:           boolean
-  generation_status:     string
-  generation_error:      string | null
-  created_at:            string
-  updated_at:            string
+  id:             string
+  tenant_id:      string
+  section_id:     string
+  page_id:        string | null
+  /** FK to website_image_plans */
+  plan_id:        string | null
+  created_by:     string | null
+  status:         string
+  provider:       string
+  image_model:    string
+  storage_bucket: string
+  storage_path:   string | null
+  /** Primary URL — use this for display */
+  image_url:      string
+  /** Nullable alias kept for backward compat */
+  public_url:     string | null
+  prompt:         string | null
+  revised_prompt: string | null
+  alt_text:       string | null
+  caption:        string | null
+  section_type:   string | null
+  /** Image slot identifier (was image_slot) */
+  slot_key:       string
+  image_role:     string | null
+  aspect_ratio:   string
+  width:          number | null
+  height:         number | null
+  is_active:      boolean
+  is_archived:    boolean
+  metadata:       Record<string, unknown>
+  error_message:  string | null
+  created_at:     string
+  updated_at:     string
 }
+
+/** Backward-compat alias — prefer WebsiteGeneratedImage */
+export type WebsiteSectionImage = WebsiteGeneratedImage
 
 export interface SectionImagesResult {
   images:       WebsiteGeneratedImage[]

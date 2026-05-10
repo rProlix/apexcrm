@@ -17,10 +17,10 @@ type RouteContext = {
   params: Promise<{ sectionId: string; imageId: string }>
 }
 
-function wgiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
+function wsiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
   return (supabase as unknown as {
-    from: (t: 'website_generated_images') => ReturnType<typeof supabase.from>
-  }).from('website_generated_images') as ReturnType<typeof supabase.from>
+    from: (t: 'website_section_images') => ReturnType<typeof supabase.from>
+  }).from('website_section_images') as ReturnType<typeof supabase.from>
 }
 
 export async function POST(req: NextRequest, context: RouteContext) {
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
   const supabase = getSupabaseServerClient()
   const tenantId = ctx.tenant_id
 
-  const { data: imageData, error: imgErr } = await wgiFrom(supabase)
+  const { data: imageData, error: imgErr } = await wsiFrom(supabase)
     .select('*')
     .eq('id', imageId)
     .eq('tenant_id', tenantId)
@@ -52,11 +52,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
   const wasActive = image.is_active
 
   if (wasActive && !force) {
-    const { data: others } = await wgiFrom(supabase)
+    const { data: others } = await wsiFrom(supabase)
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('section_id', sectionId)
-      .eq('image_slot', image.image_slot)
+      .eq('slot_key', image.slot_key)
       .eq('is_archived', false)
       .neq('id', imageId)
       .limit(1)
@@ -72,19 +72,19 @@ export async function POST(req: NextRequest, context: RouteContext) {
     }
   }
 
-  await wgiFrom(supabase)
-    .update({ is_archived: true, is_active: false, updated_at: new Date().toISOString() } as never)
+  await wsiFrom(supabase)
+    .update({ is_archived: true, is_active: false, status: 'archived', updated_at: new Date().toISOString() } as never)
     .eq('id', imageId)
 
   let newActive      = null
   let updatedSection = null
 
   if (wasActive) {
-    const { data: nextData } = await wgiFrom(supabase)
+    const { data: nextData } = await wsiFrom(supabase)
       .select('*')
       .eq('tenant_id', tenantId)
       .eq('section_id', sectionId)
-      .eq('image_slot', image.image_slot)
+      .eq('slot_key', image.slot_key)
       .eq('is_archived', false)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -93,11 +93,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
     if (nextData) {
       const next = nextData as WebsiteGeneratedImage
 
-      await wgiFrom(supabase)
-        .update({ is_active: true, updated_at: new Date().toISOString() } as never)
+      await wsiFrom(supabase)
+        .update({ is_active: true, status: 'active', updated_at: new Date().toISOString() } as never)
         .eq('id', next.id)
 
       newActive = next
+
+      const nextUrl = next.image_url || next.public_url || ''
 
       const { data: section } = await supabase
         .from('site_sections')
@@ -115,9 +117,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
         const { contentPatch } = buildImageContentPatch(
           section.section_type,
           next.image_role ?? 'primary',
-          next.public_url,
+          nextUrl,
           next.alt_text ?? '',
-          next.image_plan_id ?? '',
+          next.plan_id ?? '',
         )
 
         const merged = mergeImageIntoContent(sectionContent, contentPatch)
@@ -137,3 +139,4 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
   return NextResponse.json({ success: true, archived: imageId, newActive, updatedSection, sectionId })
 }
+
