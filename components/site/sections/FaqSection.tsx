@@ -6,7 +6,9 @@ import type { FaqContent } from '@/lib/website/types'
 interface Props { content: FaqContent }
 
 export function FaqSection({ content }: Props) {
-  const { headline, items = [] } = content
+  const c        = (content && typeof content === 'object' ? content : {}) as Partial<FaqContent>
+  const headline = typeof c.headline === 'string' ? c.headline : ''
+  const items    = Array.isArray(c.items) ? c.items : []
   const [open, setOpen] = useState<number | null>(null)
 
   if (items.length === 0) return null
@@ -25,7 +27,11 @@ export function FaqSection({ content }: Props) {
           }}>{headline}</h2>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {items.map((item, i) => (
+          {items.map((item, i) => {
+            const question = typeof item?.question === 'string' ? item.question : ''
+            const answer   = typeof item?.answer === 'string'   ? item.answer   : ''
+            if (!question) return null
+            return (
             <div key={i} style={{
               border:       '1px solid var(--color-border)',
               borderRadius: '0.875rem',
@@ -50,7 +56,7 @@ export function FaqSection({ content }: Props) {
                   fontWeight:     600,
                 }}
               >
-                {item.question}
+                {question}
                 <span style={{
                   fontSize:    '1.125rem',
                   flexShrink:  0,
@@ -66,11 +72,12 @@ export function FaqSection({ content }: Props) {
                   color:      'var(--color-muted)',
                   lineHeight: 1.6,
                 }}>
-                  {item.answer}
+                  {answer}
                 </div>
               )}
             </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </section>

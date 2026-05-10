@@ -13,10 +13,15 @@ const variantStyles: Record<string, React.CSSProperties> = {
 }
 
 export function BannerSection({ content }: Props) {
-  const { text, ctaLabel, ctaHref, variant = 'promo', dismissible } = content
+  const c          = (content && typeof content === 'object' ? content : {}) as Partial<BannerContent>
+  const text       = typeof c.text === 'string'       ? c.text       : ''
+  const ctaLabel   = typeof c.ctaLabel === 'string'   ? c.ctaLabel   : ''
+  const ctaHref    = typeof c.ctaHref === 'string'    ? c.ctaHref    : '/'
+  const variant    = typeof c.variant === 'string'    ? c.variant    : 'promo'
+  const dismissible = c.dismissible !== false
   const [dismissed, setDismissed] = useState(false)
 
-  if (dismissed) return null
+  if (dismissed || !text) return null
 
   const style = variantStyles[variant] ?? variantStyles.promo
 

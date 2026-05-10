@@ -5,11 +5,19 @@ import type { FeatureGridContent } from '@/lib/website/types'
 interface Props { content: FeatureGridContent }
 
 export function FeatureGridSection({ content }: Props) {
-  const { headline, subtitle, columns = 3, items = [] } = content
+  const c   = (content && typeof content === 'object' ? content : {}) as Partial<FeatureGridContent>
+  const raw = c as Record<string, unknown>
+
+  const headline = typeof c.headline === 'string' ? c.headline : ''
+  const subtitle = typeof c.subtitle === 'string' ? c.subtitle : ''
+  const columns  = c.columns === 2 || c.columns === 4 ? c.columns : 3
+  const items    = Array.isArray(c.items) ? c.items : []
 
   // bannerImage is set by the AI image builder when it generates a section banner.
-  const raw = content as unknown as Record<string, unknown>
-  const bannerImage = (raw.bannerImage ?? raw.banner_image) as string | undefined
+  const bannerImage =
+    (typeof raw.bannerImage === 'string'    ? raw.bannerImage as string    : null) ??
+    (typeof raw.banner_image === 'string'   ? raw.banner_image as string   : null) ??
+    null
 
   const gridCols = columns === 2 ? 'repeat(2, 1fr)'
     : columns === 4 ? 'repeat(auto-fit, minmax(220px, 1fr))'
@@ -55,7 +63,12 @@ export function FeatureGridSection({ content }: Props) {
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '1.5rem' }}>
-          {items.map((item, i) => (
+          {items.map((item, i) => {
+            const title       = typeof item?.title === 'string'       ? item.title       : ''
+            const description = typeof item?.description === 'string' ? item.description : ''
+            const icon        = typeof item?.icon === 'string'        ? item.icon        : ''
+            const image       = typeof item?.image === 'string'       ? item.image       : null
+            return (
             <div key={i} style={{
               background:   'var(--color-surface)',
               border:       '1px solid var(--color-border)',
@@ -65,11 +78,11 @@ export function FeatureGridSection({ content }: Props) {
               flexDirection: 'column',
               gap:          '0.75rem',
             }}>
-              {item.image && (
-                <Image src={item.image} alt={item.title} width={400} height={140} unoptimized
+              {image && (
+                <Image src={image} alt={title} width={400} height={140} unoptimized
                   style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: '0.5rem' }} />
               )}
-              {item.icon && !item.image && (
+              {icon && !image && (
                 <div style={{
                   width:          40,
                   height:         40,
@@ -81,7 +94,7 @@ export function FeatureGridSection({ content }: Props) {
                   justifyContent: 'center',
                   fontSize:       '1.25rem',
                 }}>
-                  {item.icon}
+                  {icon}
                 </div>
               )}
               <h3 style={{
@@ -90,15 +103,16 @@ export function FeatureGridSection({ content }: Props) {
                 color:      'var(--color-text)',
                 fontFamily: 'var(--font-heading)',
                 margin:     0,
-              }}>{item.title}</h3>
+              }}>{title}</h3>
               <p style={{
                 fontSize:   '0.9375rem',
                 color:      'var(--color-muted)',
                 margin:     0,
                 lineHeight: 1.6,
-              }}>{item.description}</p>
+              }}>{description}</p>
             </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </section>

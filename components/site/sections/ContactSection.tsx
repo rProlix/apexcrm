@@ -1,10 +1,13 @@
+'use client'
 // components/site/sections/ContactSection.tsx
+// Client component — uses onSubmit form handler
 import type { ContactContent } from '@/lib/website/types'
 
 interface Props { content: ContactContent }
 
 export function ContactSection({ content }: Props) {
-  const { headline, body, email, phone, address } = content
+  const c = (content && typeof content === 'object' ? content : {}) as Partial<ContactContent>
+  const { headline, body, email, phone, address } = c
 
   return (
     <section style={{ padding: '5rem 1.5rem', background: 'var(--color-bg)' }}>

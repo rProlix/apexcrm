@@ -5,11 +5,20 @@ import type { CtaContent } from '@/lib/website/types'
 interface Props { content: CtaContent }
 
 export function CtaSection({ content }: Props) {
-  const { headline, body, ctaLabel, ctaHref, align = 'center' } = content
+  const c   = (content && typeof content === 'object' ? content : {}) as Partial<CtaContent>
+  const raw = c as Record<string, unknown>
+
+  const headline = typeof c.headline === 'string' ? c.headline : ''
+  const body     = typeof c.body === 'string'     ? c.body     : ''
+  const ctaLabel = typeof c.ctaLabel === 'string' ? c.ctaLabel : ''
+  const ctaHref  = typeof c.ctaHref === 'string'  ? c.ctaHref  : '/shop'
+  const align    = c.align === 'left' || c.align === 'right' ? c.align : 'center'
 
   // backgroundImage is set by the AI image builder.
-  const raw = content as unknown as Record<string, unknown>
-  const backgroundImage = (raw.backgroundImage ?? raw.background_image) as string | undefined
+  const backgroundImage =
+    (typeof raw.backgroundImage === 'string'   ? raw.backgroundImage as string   : null) ??
+    (typeof raw.background_image === 'string'  ? raw.background_image as string  : null) ??
+    null
 
   const textAlign = align === 'center' ? 'center' : align === 'right' ? 'right' : 'left'
   const alignItems = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'

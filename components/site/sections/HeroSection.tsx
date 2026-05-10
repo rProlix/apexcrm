@@ -7,18 +7,27 @@ interface Props {
 }
 
 export function HeroSection({ content }: Props) {
-  const {
-    headline, subheadline, ctaLabel, ctaHref,
-    ctaSecondaryLabel, ctaSecondaryHref,
-    backgroundImage: _backgroundImage, overlay, overlayOpacity = 40, align = 'center',
-  } = content
+  // Safe: content could be null/undefined from DB
+  const c = (content && typeof content === 'object' ? content : {}) as Partial<HeroContent>
+  const raw = c as Record<string, unknown>
 
-  // Support both camelCase (current) and snake_case (legacy data) field names.
-  const raw = content as unknown as Record<string, unknown>
-  const backgroundImage = _backgroundImage
-    ?? (raw.background_image as string | undefined)
-    ?? (raw.imageUrl as string | undefined)
-    ?? (raw.image_url as string | undefined)
+  const headline            = typeof c.headline === 'string'     ? c.headline     : ''
+  const subheadline         = typeof c.subheadline === 'string'  ? c.subheadline  : ''
+  const ctaLabel            = typeof c.ctaLabel === 'string'     ? c.ctaLabel     : ''
+  const ctaHref             = typeof c.ctaHref === 'string'      ? c.ctaHref      : '/shop'
+  const ctaSecondaryLabel   = typeof c.ctaSecondaryLabel === 'string' ? c.ctaSecondaryLabel : ''
+  const ctaSecondaryHref    = typeof c.ctaSecondaryHref === 'string'  ? c.ctaSecondaryHref  : '/'
+  const overlay             = c.overlay !== false
+  const overlayOpacity      = typeof c.overlayOpacity === 'number' ? c.overlayOpacity : 40
+  const align               = c.align === 'left' || c.align === 'right' ? c.align : 'center'
+
+  // Support both camelCase (current) and snake_case (legacy data) field names + AI image fields.
+  const backgroundImage =
+    (typeof c.backgroundImage === 'string'     ? c.backgroundImage     : null) ??
+    (typeof raw.background_image === 'string'  ? raw.background_image as string  : null) ??
+    (typeof raw.imageUrl === 'string'          ? raw.imageUrl as string          : null) ??
+    (typeof raw.image_url === 'string'         ? raw.image_url as string         : null) ??
+    null
 
   const textAlign = align === 'center' ? 'center' : align === 'right' ? 'right' : 'left'
   const alignItems = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'

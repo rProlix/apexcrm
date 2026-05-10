@@ -20,7 +20,12 @@ interface Product {
 }
 
 export async function ProductGridSection({ content, tenantId }: Props) {
-  const { headline, subtitle, limit = 8, showAll, allHref = '/shop' } = content
+  const c        = (content && typeof content === 'object' ? content : {}) as Partial<ProductGridContent>
+  const headline = typeof c.headline === 'string' ? c.headline : ''
+  const subtitle = typeof c.subtitle === 'string' ? c.subtitle : ''
+  const limit    = typeof c.limit === 'number'    ? c.limit    : 8
+  const showAll  = c.showAll !== false
+  const allHref  = typeof c.allHref === 'string'  ? c.allHref  : '/shop'
 
   const db = getSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

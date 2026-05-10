@@ -5,7 +5,10 @@ import type { ImageGalleryContent } from '@/lib/website/types'
 interface Props { content: ImageGalleryContent }
 
 export function ImageGallerySection({ content }: Props) {
-  const { headline, images = [], layout = 'grid' } = content
+  const c      = (content && typeof content === 'object' ? content : {}) as Partial<ImageGalleryContent>
+  const headline = typeof c.headline === 'string' ? c.headline : ''
+  const images   = Array.isArray(c.images) ? c.images : []
+  const layout   = typeof c.layout === 'string' ? c.layout : 'grid'
 
   if (images.length === 0) return null
 
@@ -34,7 +37,12 @@ export function ImageGallerySection({ content }: Props) {
           gridTemplateColumns: gridCols,
           gap:                 '1rem',
         }}>
-          {images.map((img, i) => (
+          {images.map((img, i) => {
+            const url     = typeof img?.url === 'string' ? img.url : null
+            const alt     = typeof img?.alt === 'string' ? img.alt : `Gallery image ${i + 1}`
+            const caption = typeof img?.caption === 'string' ? img.caption : ''
+            if (!url) return null
+            return (
             <div key={i} style={{
               position:     'relative',
               borderRadius: '0.875rem',
@@ -43,14 +51,14 @@ export function ImageGallerySection({ content }: Props) {
               background:   'var(--color-surface)',
             }}>
               <Image
-                src={img.url}
-                alt={img.alt || `Gallery image ${i + 1}`}
+                src={url}
+                alt={alt}
                 fill
                 unoptimized
                 style={{ objectFit: 'cover' }}
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
               />
-              {img.caption && (
+              {caption && (
                 <div style={{
                   position:   'absolute',
                   bottom:     0,
@@ -64,11 +72,12 @@ export function ImageGallerySection({ content }: Props) {
                     fontSize:   '0.8125rem',
                     color:      '#fff',
                     lineHeight: 1.4,
-                  }}>{img.caption}</p>
+                  }}>{caption}</p>
                 </div>
               )}
             </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </section>

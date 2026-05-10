@@ -1,26 +1,32 @@
-export const dynamic = 'force-dynamic'
+export const dynamic  = 'force-dynamic'
 export const revalidate = 0
 
 // app/sites/[tenant]/[[...slug]]/page.tsx
 //
-// Serves every page of a tenant's public website.
-// Optional catch-all: handles the homepage (no slug) and all nested pages.
+// Public storefront catch-all page. Handles:
+//   - /sites/[tenant]              → home page
+//   - /sites/[tenant]/about        → page by slug
+//   - Subdomain rewrites (via middleware)
 //
-// TWO rendering modes:
-//   1. EDITOR MODE  — user is owner/admin → renders EditorShell (client component)
-//      with all section data. Loads the visual builder lazily.
-//   2. PUBLIC MODE  — customer / unauthenticated → renders SectionRenderer (SSR,
-//      cacheable, zero JS overhead for visitors).
+// Rendering modes:
+//   EDITOR  (owner/admin)  → EditorShell client component with draft+published sections
+//   PUBLIC  (everyone else) → SafeSectionRenderer server-side, zero JS for visitors
 //
-// Zero-404 guarantee: unknown slugs silently fall back to the homepage.
+// Zero-404 guarantee: unknown slugs fall back to the homepage silently.
 
+import dynamicImport from 'next/dynamic'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
-import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
-import { SectionRenderer } from '@/components/site/SectionRenderer'
+import { getPublishedSiteConfig, getDraftSiteConfig } from '@/lib/website/getPublishedSiteConfig'
+import { SafeSectionRenderer } from '@/components/site/SafeSectionRenderer'
 import { getUserContext } from '@/lib/auth/getUserContext'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
-import EditorShellClient from '@/components/builder/EditorShellClient'
+import { normalizeSection, isPublicVisible, bySortOrder } from '@/lib/website/normalizeWebsiteSection'
 import type { BuilderSection, EditorContext } from '@/lib/builder/types'
+
+// Lazy-load the editor bundle — customers NEVER download it
+const EditorShell = dynamicImport(
+  () => import('@/components/builder/EditorShell').then((m) => m.EditorShell),
+  { ssr: false },
+)
 
 interface Props {
   params: Promise<{ tenant: string; slug?: string[] }>
@@ -28,13 +34,18 @@ interface Props {
 
 export default async function TenantPage({ params }: Props) {
   const { tenant, slug } = await params
-  const tenantKey = decodeURIComponent(tenant)
-  const pageSlug  = slug?.join('/') ?? ''
+  const tenantKey  = decodeURIComponent(tenant)
+  const pathSlug   = slug?.join('/') ?? ''
 
-  // ── Resolve tenant ─────────────────────────────────────────────────────────
-  const siteData = tenantKey.includes('.')
-    ? await getSiteByHost(tenantKey)
-    : await getSiteBySlug(tenantKey)
+  // ── 1. Resolve tenant ──────────────────────────────────────────────────────
+  let siteData: Awaited<ReturnType<typeof getSiteBySlug>> = null
+  try {
+    siteData = tenantKey.includes('.')
+      ? await getSiteByHost(tenantKey)
+      : await getSiteBySlug(tenantKey)
+  } catch (err) {
+    console.error('[TenantPage] getSiteBy* failed for', tenantKey, err instanceof Error ? err.message : err)
+  }
 
   if (!siteData) {
     return (
@@ -47,64 +58,60 @@ export default async function TenantPage({ params }: Props) {
     )
   }
 
-  // ── Check editor access (server-side, never trust client) ─────────────────
-  // getUserContext is safe in SSR — reads from cookies, not localStorage.
+  const tenantId = siteData.tenant.id
+
+  // ── 2. Check editor access (server-side only — never trust client) ─────────
   let isEditor = false
   try {
     const ctx = await getUserContext()
     if (ctx && ['owner', 'admin'].includes(ctx.role)) {
-      // owner can edit any tenant's site; admin can only edit their own
-      isEditor = ctx.role === 'owner' || ctx.tenant_id === siteData.tenant.id
+      isEditor = ctx.role === 'owner' || ctx.tenant_id === tenantId
     }
   } catch {
-    // Supabase unavailable — degrade gracefully to public mode
+    // Supabase unavailable — fall through to public mode
   }
 
-  // ── Load published config ──────────────────────────────────────────────────
-  const config = await getPublishedSiteConfig(siteData.tenant.id)
+  // ── 3. Load site config ────────────────────────────────────────────────────
+  // Editors see draft content; public visitors see only published content.
+  let config: Awaited<ReturnType<typeof getPublishedSiteConfig>> = null
+  try {
+    config = isEditor
+      ? await getDraftSiteConfig(tenantId)
+      : await getPublishedSiteConfig(tenantId)
+  } catch (err) {
+    console.error('[TenantPage] getConfig failed for tenant', tenantId, err instanceof Error ? err.message : err)
+  }
 
+  // Site has no content yet
   if (!config) {
-    // Site not published yet. Editors see a draft editor; customers see "coming soon".
     if (isEditor) {
-      // Fetch draft sections so the editor can start from scratch / edit drafts
-      const db = getSupabaseServerClient()
-      const { data: draftPages } = await db
-        .from('site_pages')
-        .select('id, slug, title, page_type, sort_order')
-        .eq('tenant_id', siteData.tenant.id)
-        .neq('status', 'archived')
-        .order('sort_order', { ascending: true })
-
-      const homePage = (draftPages ?? []).find((p) =>
-        p.page_type === 'home' || p.slug === '',
-      ) ?? (draftPages ?? [])[0] ?? null
-
-      if (homePage) {
-        const { data: draftSections } = await db
-          .from('site_sections')
-          .select('*')
-          .eq('page_id', homePage.id)
-          .order('sort_order', { ascending: true })
-
-        const editorCtx: EditorContext = {
-          tenantId:    siteData.tenant.id,
-          pageId:      homePage.id,
-          pageName:    homePage.title ?? 'Home',
-          pageSlug:    homePage.slug,
-          isPublished: false,
-          sections:    (draftSections ?? []) as BuilderSection[],
-        }
-
-        return <EditorShellClient editorCtx={editorCtx} />
-      }
+      // Editor with no pages: offer a bootstrap/empty state with the builder
+      return (
+        <div style={{
+          minHeight: '60vh', display: 'flex', flexDirection: 'column', gap: '1.5rem',
+          alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+          padding: '4rem 1.5rem',
+        }}>
+          <div style={{ fontSize: '2.5rem' }}>🏗️</div>
+          <p style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--color-text)' }}>
+            No pages found for {siteData.tenant.name}
+          </p>
+          <p style={{ color: 'var(--color-muted)', maxWidth: 400 }}>
+            Create a page in the website builder, then come back here.
+          </p>
+          <a href="/website/pages" style={{
+            padding: '0.625rem 1.5rem', background: 'var(--color-primary)', color: '#fff',
+            borderRadius: '0.5rem', textDecoration: 'none', fontWeight: 600, fontSize: '0.9375rem',
+          }}>Open Website Builder</a>
+        </div>
+      )
     }
 
-    // Public "coming soon" view
     return (
       <div style={{
-        minHeight: '60vh', display: 'flex', flexDirection: 'column',
+        minHeight: '60vh', display: 'flex', flexDirection: 'column', gap: '1rem',
         alignItems: 'center', justifyContent: 'center', textAlign: 'center',
-        gap: '1rem', padding: '4rem 1.5rem',
+        padding: '4rem 1.5rem',
       }}>
         <p style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--color-text)' }}>
           Welcome to {siteData.tenant.name}
@@ -116,65 +123,88 @@ export default async function TenantPage({ params }: Props) {
     )
   }
 
-  // ── Resolve the correct page to show ──────────────────────────────────────
-  let page = pageSlug === ''
+  // ── 4. Resolve page ────────────────────────────────────────────────────────
+  let page = pathSlug === ''
     ? (config.pages.find((p) => p.page_type === 'home' || p.slug === '') ?? config.pages[0])
-    : config.pages.find((p) => p.slug === pageSlug || p.slug === `/${pageSlug}`)
+    : config.pages.find((p) =>
+        p.slug === pathSlug ||
+        p.slug === `/${pathSlug}` ||
+        p.slug.replace(/^\//, '') === pathSlug,
+      )
 
-  // Zero-404: unknown slug → homepage
+  // Zero-404 guarantee: unknown slug → homepage
   if (!page) {
     page = config.pages.find((p) => p.page_type === 'home' || p.slug === '') ?? config.pages[0]
   }
 
-  // ── EDITOR MODE ───────────────────────────────────────────────────────────
+  // ── 5. EDITOR MODE ─────────────────────────────────────────────────────────
   if (isEditor && page) {
-    // Pass all section data to the client editor shell
+    console.log(
+      `[TenantPage] EDITOR mode — tenant=${tenantId} page=${page.id} slug="${page.slug}" sections=${page.sections.length}`,
+    )
     const editorCtx: EditorContext = {
-      tenantId:    siteData.tenant.id,
+      tenantId,
       pageId:      page.id,
       pageName:    page.title ?? (page.page_type === 'home' ? 'Home' : page.slug),
       pageSlug:    page.slug,
       isPublished: config.settings.is_published,
       sections:    page.sections as BuilderSection[],
     }
-
-    return <EditorShellClient editorCtx={editorCtx} />
+    return <EditorShell editorCtx={editorCtx} />
   }
 
-  // ── PUBLIC / CUSTOMER MODE ────────────────────────────────────────────────
+  // ── 6. PUBLIC MODE ─────────────────────────────────────────────────────────
   if (!page) {
     return (
       <div style={{
         minHeight: '40vh', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', padding: '4rem 1.5rem',
+        justifyContent: 'center', padding: '4rem 1.5rem', textAlign: 'center',
       }}>
-        <div style={{ textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div>
           <h1 style={{
             fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: 700,
             color: 'var(--color-text)', fontFamily: 'var(--font-heading)', marginBottom: '0.5rem',
           }}>
-            Welcome to {siteData.tenant.name}
+            {siteData.tenant.name}
           </h1>
-          <p>Content coming soon.</p>
+          <p style={{ color: 'var(--color-muted)' }}>Content coming soon.</p>
         </div>
       </div>
     )
   }
 
-  if (page.sections.length === 0) {
+  // Normalize and filter sections — the safe pipeline that never crashes
+  const sections = (page.sections ?? [])
+    .map((raw) => {
+      try { return normalizeSection(raw) }
+      catch { return null }
+    })
+    .filter((s): s is NonNullable<typeof s> => s !== null)
+    .filter((s) => isPublicVisible(s))
+    .sort(bySortOrder)
+
+  console.log(
+    `[TenantPage] PUBLIC — tenant=${tenantId} page=${page.id} slug="${page.slug}" ` +
+    `rawSections=${page.sections.length} visibleSections=${sections.length} ` +
+    `types=${sections.map((s) => s!.type).join(',')}`,
+  )
+
+  if (sections.length === 0) {
     return (
       <div style={{
         minHeight: '40vh', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', padding: '4rem 1.5rem',
+        justifyContent: 'center', padding: '4rem 1.5rem', textAlign: 'center',
       }}>
-        <div style={{ textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div>
           <h1 style={{
             fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: 700,
             color: 'var(--color-text)', fontFamily: 'var(--font-heading)', marginBottom: '0.5rem',
           }}>
             {page.title || siteData.tenant.name}
           </h1>
-          <p>This page has no content yet.</p>
+          <p style={{ color: 'var(--color-muted)' }}>
+            {config.settings.is_published ? 'No sections yet.' : 'This page is coming soon.'}
+          </p>
         </div>
       </div>
     )
@@ -182,13 +212,17 @@ export default async function TenantPage({ params }: Props) {
 
   return (
     <div>
-      {page.sections.map((section) => (
-        <SectionRenderer
-          key={section.id}
-          section={section}
-          tenantId={siteData.tenant.id}
-        />
-      ))}
+      {await Promise.all(
+        sections.map(async (section, index) => (
+          <SafeSectionRenderer
+            key={`${section!.id}-${index}`}
+            section={section!.raw}
+            tenantId={tenantId}
+            index={index}
+            mode="public"
+          />
+        )),
+      )}
     </div>
   )
 }

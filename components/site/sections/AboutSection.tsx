@@ -5,13 +5,19 @@ import type { AboutContent } from '@/lib/website/types'
 interface Props { content: AboutContent }
 
 export function AboutSection({ content }: Props) {
-  const { headline, body, image: _image, teamItems = [] } = content
+  const c   = (content && typeof content === 'object' ? content : {}) as Partial<AboutContent>
+  const raw = c as Record<string, unknown>
+
+  const headline  = typeof c.headline === 'string'  ? c.headline  : ''
+  const body      = typeof c.body === 'string'      ? c.body      : ''
+  const teamItems = Array.isArray(c.teamItems)      ? c.teamItems : []
 
   // Support both camelCase (current) and snake_case (legacy data) field names.
-  const raw = content as unknown as Record<string, unknown>
-  const image = _image
-    ?? (raw.image_url as string | undefined)
-    ?? (raw.imageUrl as string | undefined)
+  const image =
+    (typeof c.image === 'string'           ? c.image                 : null) ??
+    (typeof raw.image_url === 'string'     ? raw.image_url as string : null) ??
+    (typeof raw.imageUrl === 'string'      ? raw.imageUrl as string  : null) ??
+    null
 
   return (
     <section style={{ padding: '5rem 1.5rem', background: 'var(--color-surface)' }}>
@@ -59,7 +65,11 @@ export function AboutSection({ content }: Props) {
             gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
             gap:                 '1.5rem',
           }}>
-            {teamItems.map((member, i) => (
+            {teamItems.map((member, i) => {
+              const name = typeof member?.name === 'string' ? member.name : ''
+              const role = typeof member?.role === 'string' ? member.role : ''
+              const avatar = typeof member?.avatar === 'string' ? member.avatar : null
+              return (
               <div key={i} style={{
                 display:        'flex',
                 flexDirection:  'column',
@@ -67,8 +77,8 @@ export function AboutSection({ content }: Props) {
                 gap:            '0.75rem',
                 textAlign:      'center',
               }}>
-                {member.avatar
-                  ? <Image src={member.avatar} alt={member.name} width={80} height={80} unoptimized
+                {avatar
+                  ? <Image src={avatar} alt={name} width={80} height={80} unoptimized
                       style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }} />
                   : <div style={{
                       width:          80,
@@ -80,19 +90,20 @@ export function AboutSection({ content }: Props) {
                       justifyContent: 'center',
                       fontSize:       '1.75rem',
                     }}>
-                      {member.name.charAt(0)}
+                      {name.charAt(0) || '?'}
                     </div>
                 }
                 <div>
                   <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9375rem' }}>
-                    {member.name}
+                    {name}
                   </p>
                   <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-muted)' }}>
-                    {member.role}
+                    {role}
                   </p>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

@@ -5,11 +5,17 @@ import type { TestimonialsContent } from '@/lib/website/types'
 interface Props { content: TestimonialsContent }
 
 export function TestimonialsSection({ content }: Props) {
-  const { headline, items = [] } = content
+  const c   = (content && typeof content === 'object' ? content : {}) as Partial<TestimonialsContent>
+  const raw = c as Record<string, unknown>
+
+  const headline   = typeof c.headline === 'string' ? c.headline : ''
+  const items      = Array.isArray(c.items) ? c.items : []
 
   // backgroundImage is set by the AI image builder.
-  const raw = content as unknown as Record<string, unknown>
-  const backgroundImage = (raw.backgroundImage ?? raw.background_image) as string | undefined
+  const backgroundImage =
+    (typeof raw.backgroundImage === 'string'   ? raw.backgroundImage as string   : null) ??
+    (typeof raw.background_image === 'string'  ? raw.background_image as string  : null) ??
+    null
 
   if (items.length === 0) return null
 
@@ -37,7 +43,13 @@ export function TestimonialsSection({ content }: Props) {
           gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
           gap:                 '1.5rem',
         }}>
-          {items.map((item, i) => (
+          {items.map((item, i) => {
+            const name   = typeof item?.name === 'string'   ? item.name   : ''
+            const role   = typeof item?.role === 'string'   ? item.role   : ''
+            const avatar = typeof item?.avatar === 'string' ? item.avatar : null
+            const text   = typeof item?.text === 'string'   ? item.text   : ''
+            const rating = typeof item?.rating === 'number' ? item.rating : 0
+            return (
             <div key={i} style={{
               background:   'var(--color-bg)',
               border:       '1px solid var(--color-border)',
@@ -48,39 +60,42 @@ export function TestimonialsSection({ content }: Props) {
               gap:          '1rem',
             }}>
               {/* Stars */}
-              {item.rating > 0 && (
+              {rating > 0 && (
                 <div style={{ display: 'flex', gap: '0.125rem' }}>
                   {Array.from({ length: 5 }).map((_, si) => (
                     <span key={si} style={{
-                      color: si < item.rating ? '#f59e0b' : 'var(--color-border)',
+                      color: si < rating ? '#f59e0b' : 'var(--color-border)',
                       fontSize: '0.875rem',
                     }}>★</span>
                   ))}
                 </div>
               )}
-              <p style={{
-                fontSize:   '0.9375rem',
-                color:      'var(--color-text)',
-                lineHeight: 1.6,
-                margin:     0,
-                fontStyle:  'italic',
-              }}>"{item.text}"</p>
+              {text && (
+                <p style={{
+                  fontSize:   '0.9375rem',
+                  color:      'var(--color-text)',
+                  lineHeight: 1.6,
+                  margin:     0,
+                  fontStyle:  'italic',
+                }}>"{text}"</p>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                {item.avatar && (
-                  <Image src={item.avatar} alt={item.name} width={36} height={36} unoptimized
+                {avatar && (
+                  <Image src={avatar} alt={name} width={36} height={36} unoptimized
                     style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
                 )}
                 <div>
                   <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)' }}>
-                    {item.name}
+                    {name}
                   </p>
-                  {item.role && (
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-muted)' }}>{item.role}</p>
+                  {role && (
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-muted)' }}>{role}</p>
                   )}
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </section>

@@ -4,7 +4,8 @@ import type { RichTextContent } from '@/lib/website/types'
 interface Props { content: RichTextContent }
 
 export function RichTextSection({ content }: Props) {
-  const { html } = content
+  const c    = (content && typeof content === 'object' ? content : {}) as Partial<RichTextContent>
+  const html = typeof c.html === 'string' ? c.html : ''
   if (!html) return null
 
   return (
