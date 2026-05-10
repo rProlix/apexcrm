@@ -1,5 +1,11 @@
-// POST /api/website/sections/[sectionId]/images/[imageId]/archive
-// Query params: force=true  to archive even if it's the only image
+// app/api/website/sections/[sectionId]/images/[imageId]/archive/route.ts
+// POST — archives a generated image.
+// If it was active, auto-activates the next newest non-archived image for the slot.
+// Query params:
+//   force=true  archive even if it is the only image for this slot
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
@@ -7,7 +13,9 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { buildImageContentPatch, mergeImageIntoContent } from '@/lib/website-builder/imagePlacement'
 import type { WebsiteGeneratedImage } from '@/lib/builder/api'
 
-type Params = { sectionId: string; imageId: string }
+type RouteContext = {
+  params: Promise<{ sectionId: string; imageId: string }>
+}
 
 function wgiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
   return (supabase as unknown as {
@@ -15,14 +23,11 @@ function wgiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
   }).from('website_generated_images') as ReturnType<typeof supabase.from>
 }
 
-export async function POST(
-  req:     NextRequest,
-  { params }: { params: Params | Promise<Params> },
-) {
-  const { sectionId, imageId } = await (params instanceof Promise ? params : Promise.resolve(params))
+export async function POST(req: NextRequest, context: RouteContext) {
+  const { sectionId, imageId } = await context.params
 
   const ctx = await getUserContext()
-  if (!ctx?.tenant_id || !['owner','admin','staff'].includes(ctx.role ?? '')) {
+  if (!ctx?.tenant_id || !['owner', 'admin', 'staff'].includes(ctx.role ?? '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -71,7 +76,7 @@ export async function POST(
     .update({ is_archived: true, is_active: false, updated_at: new Date().toISOString() } as never)
     .eq('id', imageId)
 
-  let newActive = null
+  let newActive      = null
   let updatedSection = null
 
   if (wasActive) {
@@ -104,7 +109,7 @@ export async function POST(
       if (section) {
         const sectionContent: Record<string, unknown> =
           section.content && typeof section.content === 'object' && !Array.isArray(section.content)
-            ? section.content as Record<string, unknown>
+            ? (section.content as Record<string, unknown>)
             : {}
 
         const { contentPatch } = buildImageContentPatch(
@@ -116,6 +121,7 @@ export async function POST(
         )
 
         const merged = mergeImageIntoContent(sectionContent, contentPatch)
+
         const { data: updated } = await supabase
           .from('site_sections')
           .update({ content: merged as never, updated_at: new Date().toISOString() } as never)
@@ -129,11 +135,5 @@ export async function POST(
     }
   }
 
-  return NextResponse.json({
-    success: true,
-    archived: imageId,
-    newActive,
-    updatedSection,
-    sectionId,
-  })
+  return NextResponse.json({ success: true, archived: imageId, newActive, updatedSection, sectionId })
 }

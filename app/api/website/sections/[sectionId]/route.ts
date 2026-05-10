@@ -1,12 +1,17 @@
 // app/api/website/sections/[sectionId]/route.ts
-// Handles PATCH (update) and DELETE for a single site section.
-// Also serves as the parent segment for /images/* gallery sub-routes.
+// PATCH — update a section's content, visibility, sort order, or type.
+// DELETE — permanently delete a section.
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
-type Params = { sectionId: string }
+type RouteContext = {
+  params: Promise<{ sectionId: string }>
+}
 
 function forbidden() {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -30,11 +35,8 @@ async function resolveOwnership(
   return null
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Params | Promise<Params> },
-) {
-  const { sectionId } = await (params instanceof Promise ? params : Promise.resolve(params))
+export async function PATCH(req: NextRequest, context: RouteContext) {
+  const { sectionId } = await context.params
 
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
@@ -61,11 +63,8 @@ export async function PATCH(
   return NextResponse.json({ section: data })
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Params | Promise<Params> },
-) {
-  const { sectionId } = await (params instanceof Promise ? params : Promise.resolve(params))
+export async function DELETE(_req: NextRequest, context: RouteContext) {
+  const { sectionId } = await context.params
 
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()

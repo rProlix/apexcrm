@@ -1,5 +1,10 @@
-// POST /api/website/sections/[sectionId]/images/[imageId]/restore
-// Query params: activate=true  to also activate after restoring
+// app/api/website/sections/[sectionId]/images/[imageId]/restore/route.ts
+// POST — restores an archived generated image.
+// Query params:
+//   activate=true  also set as the active image after restoring
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
@@ -7,7 +12,9 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { buildImageContentPatch, mergeImageIntoContent } from '@/lib/website-builder/imagePlacement'
 import type { WebsiteGeneratedImage } from '@/lib/builder/api'
 
-type Params = { sectionId: string; imageId: string }
+type RouteContext = {
+  params: Promise<{ sectionId: string; imageId: string }>
+}
 
 function wgiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
   return (supabase as unknown as {
@@ -15,14 +22,11 @@ function wgiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
   }).from('website_generated_images') as ReturnType<typeof supabase.from>
 }
 
-export async function POST(
-  req:     NextRequest,
-  { params }: { params: Params | Promise<Params> },
-) {
-  const { sectionId, imageId } = await (params instanceof Promise ? params : Promise.resolve(params))
+export async function POST(req: NextRequest, context: RouteContext) {
+  const { sectionId, imageId } = await context.params
 
   const ctx = await getUserContext()
-  if (!ctx?.tenant_id || !['owner','admin','staff'].includes(ctx.role ?? '')) {
+  if (!ctx?.tenant_id || !['owner', 'admin', 'staff'].includes(ctx.role ?? '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -52,6 +56,7 @@ export async function POST(
   let updatedSection = null
 
   if (shouldActivate) {
+    // Deactivate all other images for same slot, then activate + restore this one
     await wgiFrom(supabase)
       .update({ is_active: false, updated_at: new Date().toISOString() } as never)
       .eq('tenant_id', tenantId)
@@ -72,7 +77,7 @@ export async function POST(
     if (section) {
       const sectionContent: Record<string, unknown> =
         section.content && typeof section.content === 'object' && !Array.isArray(section.content)
-          ? section.content as Record<string, unknown>
+          ? (section.content as Record<string, unknown>)
           : {}
 
       const { contentPatch } = buildImageContentPatch(
@@ -84,6 +89,7 @@ export async function POST(
       )
 
       const merged = mergeImageIntoContent(sectionContent, contentPatch)
+
       const { data: updated } = await supabase
         .from('site_sections')
         .update({ content: merged as never, updated_at: new Date().toISOString() } as never)
@@ -95,6 +101,7 @@ export async function POST(
       updatedSection = updated
     }
   } else {
+    // Just restore without activating
     await wgiFrom(supabase)
       .update({ is_archived: false, updated_at: new Date().toISOString() } as never)
       .eq('id', imageId)
@@ -107,7 +114,7 @@ export async function POST(
 
   return NextResponse.json({
     success:       true,
-    restored:      restoredData as WebsiteGeneratedImage | null,
+    restored:      (restoredData as WebsiteGeneratedImage | null),
     activated:     shouldActivate,
     updatedSection,
     sectionId,

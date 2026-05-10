@@ -1,4 +1,9 @@
-// POST /api/website/sections/[sectionId]/images/[imageId]/activate
+// app/api/website/sections/[sectionId]/images/[imageId]/activate/route.ts
+// POST — deactivates all other images for the same slot, activates this one,
+//         and patches the live site_section content with the selected image URL.
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
@@ -6,7 +11,9 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { buildImageContentPatch, mergeImageIntoContent } from '@/lib/website-builder/imagePlacement'
 import type { WebsiteGeneratedImage } from '@/lib/builder/api'
 
-type Params = { sectionId: string; imageId: string }
+type RouteContext = {
+  params: Promise<{ sectionId: string; imageId: string }>
+}
 
 function wgiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
   return (supabase as unknown as {
@@ -14,21 +21,18 @@ function wgiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
   }).from('website_generated_images') as ReturnType<typeof supabase.from>
 }
 
-export async function POST(
-  _req:    NextRequest,
-  { params }: { params: Params | Promise<Params> },
-) {
-  const { sectionId, imageId } = await (params instanceof Promise ? params : Promise.resolve(params))
+export async function POST(_req: NextRequest, context: RouteContext) {
+  const { sectionId, imageId } = await context.params
 
   const ctx = await getUserContext()
-  if (!ctx?.tenant_id || !['owner','admin','staff'].includes(ctx.role ?? '')) {
+  if (!ctx?.tenant_id || !['owner', 'admin', 'staff'].includes(ctx.role ?? '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase  = getSupabaseServerClient()
-  const tenantId  = ctx.tenant_id
+  const supabase = getSupabaseServerClient()
+  const tenantId = ctx.tenant_id
 
-  // ── Fetch the target image ────────────────────────────────────────────────
+  // ── Fetch the target generated image ─────────────────────────────────────
   const { data: imageData, error: imgErr } = await wgiFrom(supabase)
     .select('*')
     .eq('id', imageId)
@@ -83,7 +87,7 @@ export async function POST(
   if (section) {
     const sectionContent: Record<string, unknown> =
       section.content && typeof section.content === 'object' && !Array.isArray(section.content)
-        ? section.content as Record<string, unknown>
+        ? (section.content as Record<string, unknown>)
         : {}
 
     const { contentPatch } = buildImageContentPatch(
@@ -108,12 +112,12 @@ export async function POST(
   }
 
   return NextResponse.json({
-    success:        true,
+    success: true,
     activated,
     updatedSection,
     sectionId,
     imageId,
-    imageSlot:      image.image_slot,
-    publicUrl:      image.public_url,
+    imageSlot: image.image_slot,
+    publicUrl: image.public_url,
   })
 }
