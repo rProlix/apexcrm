@@ -1,0 +1,72 @@
+// GET /api/website/sections/[sectionId]/images
+// Returns all generated images for a section, grouped by image_slot.
+// Query params:
+//   - imageSlot   (optional — filter to one slot)
+//   - includeArchived (optional — default false)
+
+import { NextRequest, NextResponse } from 'next/server'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import type { WebsiteGeneratedImage } from '@/lib/builder/api'
+
+type Params = { sectionId: string }
+
+export async function GET(
+  req:     NextRequest,
+  { params }: { params: Params | Promise<Params> },
+) {
+  const { sectionId } = await (params instanceof Promise ? params : Promise.resolve(params))
+
+  const ctx = await getUserContext()
+  if (!ctx || !ctx.tenant_id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { searchParams } = new URL(req.url)
+  const imageSlot       = searchParams.get('imageSlot') ?? null
+  const includeArchived = searchParams.get('includeArchived') === 'true'
+
+  const supabase = getSupabaseServerClient()
+
+  // website_generated_images is added by migration 057.
+  // We cast through unknown because the Supabase generated types won't include
+  // it until the project types are regenerated.
+  const db = supabase as unknown as {
+    from: (table: 'website_generated_images') => ReturnType<typeof supabase.from>
+  }
+
+  let query = (db.from('website_generated_images') as ReturnType<typeof supabase.from>)
+    .select('*')
+    .eq('tenant_id', ctx.tenant_id)
+    .eq('section_id', sectionId)
+    .order('created_at', { ascending: false })
+
+  if (imageSlot)        query = query.eq('image_slot', imageSlot)
+  if (!includeArchived) query = query.eq('is_archived', false)
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error('[section-images/GET] Supabase error:', error.message)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  const images = (data ?? []) as WebsiteGeneratedImage[]
+
+  // Build activeBySlot map
+  const activeBySlot: Record<string, WebsiteGeneratedImage | null> = {}
+  for (const img of images) {
+    if (img.is_active && !img.is_archived) {
+      if (!activeBySlot[img.image_slot]) {
+        activeBySlot[img.image_slot] = img
+      }
+    }
+  }
+
+  return NextResponse.json({
+    images,
+    activeBySlot,
+    sectionId,
+    tenantId: ctx.tenant_id,
+  })
+}

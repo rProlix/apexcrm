@@ -64,6 +64,7 @@ export interface WebsiteImagePlan {
   id:                     string
   tenant_id:              string
   // Targeting
+  website_id:             string | null
   page_id:                string | null
   section_id:             string | null
   plan_group_id:          string | null

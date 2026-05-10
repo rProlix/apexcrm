@@ -1,10 +1,13 @@
 // lib/website-ai/createSectionImageBrief.ts
+// NOTE: All aspectRatio values must be Imagen-supported (1:1 | 9:16 | 16:9 | 4:3 | 3:4).
+//       Use normalizeImagenAspectRatio from imagenAspectRatios.ts before any API call.
 // SERVER-ONLY — creates a structured image brief for a specific section.
 //
 // Given a RichImageContext and a target section, returns a structured brief
 // that describes exactly what the image should show, grounded in the
 // actual business type, section content, and real customer language.
 
+import type { ImagenAspectRatio } from './imagenAspectRatios'
 import type { RichImageContext, RichSectionDetail } from './buildWebsiteImageContext'
 
 export type ImageBriefRole =
@@ -31,7 +34,7 @@ export interface SectionImageBrief {
   mood:         string
   camera:       string
   altText:      string
-  aspectRatio:  string
+  aspectRatio:  ImagenAspectRatio
   reasoning:    string
 }
 
@@ -187,7 +190,7 @@ function buildAboutBrief(bt: string, ctx: RichImageContext, s: RichSectionDetail
     mood:         'Trustworthy, human, authentic, relatable',
     camera:       '50mm equivalent, portrait or environmental shot',
     altText:      `${ctx.tenantName} - ${s.headline || 'about us'}`,
-    aspectRatio:  '3:2',
+    aspectRatio:  '4:3',
     reasoning:    `About section for ${ctx.tenantName}. Body: "${s.body.slice(0, 80)}". Should humanize the brand.`,
   }
 }

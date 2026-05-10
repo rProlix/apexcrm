@@ -15,6 +15,7 @@ import { composeWebsiteImagePrompt } from '@/lib/website-ai/composeWebsiteImageP
 import { generateWebsiteImage } from '@/lib/ai/websiteImageGenerator'
 import { buildImageContentPatch, mergeImageIntoContent } from '@/lib/website-builder/imagePlacement'
 import { getSafeCreatedBy } from '@/lib/auth/getSafeCreatedBy'
+import { normalizeImagenAspectRatio, getAspectRatioNormalizationNote } from '@/lib/website-ai/imagenAspectRatios'
 import {
   isSchemaCacheError,
   isFkCreatedByError,
@@ -40,6 +41,11 @@ export async function POST(req: NextRequest) {
 
   const sectionId = typeof body.sectionId === 'string' ? body.sectionId : null
   if (!sectionId) return NextResponse.json({ error: 'sectionId is required' }, { status: 422 })
+
+  // imageCount: how many images to generate (1–5, default 1)
+  const rawCount  = typeof body.imageCount === 'number' ? body.imageCount : 1
+  const imageCount = Math.min(5, Math.max(1, Math.round(rawCount)))
+  const overwriteExisting = body.overwriteExistingImages === true
 
   // Check API key
   if (!process.env.GEMINI_API_KEY) {
@@ -83,11 +89,13 @@ export async function POST(req: NextRequest) {
       })
 
   // ── Build image brief + compose prompt ───────────────────────────────────
-  const brief  = createSectionImageBrief(richCtx, sectionDetail)
+  const brief    = createSectionImageBrief(richCtx, sectionDetail)
   const composed = composeWebsiteImagePrompt(brief, richCtx)
 
-  // ── Determine aspect ratio ────────────────────────────────────────────────
-  const aspectRatio = resolveAspectRatio(section.section_type)
+  // ── Normalize aspect ratio (MUST happen before Imagen API call) ───────────
+  const requestedAspectRatio = brief.aspectRatio
+  const safeAspectRatio      = normalizeImagenAspectRatio(requestedAspectRatio, section.section_type)
+  const aspectRatioNote      = getAspectRatioNormalizationNote(requestedAspectRatio, section.section_type)
 
   // ── Create image plan row ─────────────────────────────────────────────────
   const planRow = {
@@ -105,7 +113,7 @@ export async function POST(req: NextRequest) {
     visual_style:          brief.styling,
     prompt:                composed.prompt,
     negative_prompt:       brief.shouldAvoid.join(', ') || null,
-    aspect_ratio:          aspectRatio,
+    aspect_ratio:          safeAspectRatio,
     priority:              10,
     use_existing_if_avail: false,
     status:                'generating' as const,
@@ -129,38 +137,59 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: planInsertErr?.message ?? 'Failed to create plan.' }, { status: 500 })
   }
 
-  // ── Generate image ────────────────────────────────────────────────────────
-  const result = await generateWebsiteImage({
-    plan:         plan as WebsiteImagePlan,
-    tenantId,
-    businessType: richCtx.autofillBusinessType ?? richCtx.businessCategory,
-    createdBy:    getSafeCreatedBy(ctx.auth_id),
-  })
+  // ── Generate image(s) ────────────────────────────────────────────────────
+  // For imageCount > 1 we call generateWebsiteImage in sequence.
+  // Results from all successful generations are returned.
+  type GenResult = { publicUrl: string; storagePath: string; altText: string; jobId: string; error?: string; aspectRatio?: string }
+  const generationResults: GenResult[] = []
 
-  if (result.error) {
-    const isBucket = result.error.includes('bucket') || result.error.includes('storage')
+  for (let i = 0; i < imageCount; i++) {
+    const result = await generateWebsiteImage({
+      plan:         plan as WebsiteImagePlan,
+      tenantId,
+      businessType: richCtx.autofillBusinessType ?? richCtx.businessCategory,
+      createdBy:    getSafeCreatedBy(ctx.auth_id),
+      imageCount:   1,  // one at a time so each gets its own storage path
+      requestedAspectRatio: requestedAspectRatio,
+    })
+    generationResults.push(result)
+
+    // Stop on non-retryable errors (quota, bucket, API key issues)
+    if (result.error && (
+      result.error.includes('quota') ||
+      result.error.includes('bucket') ||
+      result.error.includes('GEMINI_API_KEY')
+    )) break
+  }
+
+  const successful = generationResults.filter(r => !r.error)
+  const failed     = generationResults.filter(r =>  r.error)
+
+  if (successful.length === 0) {
+    const firstError = generationResults[0]?.error ?? 'Generation failed'
+    const isBucket   = firstError.includes('bucket') || firstError.includes('storage')
     return NextResponse.json({
-      error:   result.error,
+      error:   firstError,
       code:    isBucket ? 'MISSING_BUCKET' : 'GENERATION_FAILED',
-      jobId:   result.jobId,
+      jobId:   generationResults[0]?.jobId ?? '',
       planId:  plan.id,
       applied: false,
     }, { status: 500 })
   }
 
-  // ── Apply to section ──────────────────────────────────────────────────────
+  // Use the first successful image as the primary result
+  const primaryResult = successful[0]
+
+  // ── Apply primary image to section ───────────────────────────────────────
   const { contentPatch, placementDescription } = buildImageContentPatch(
     section.section_type,
     brief.imageRole,
-    result.publicUrl,
-    result.altText,
+    primaryResult.publicUrl,
+    primaryResult.altText,
     plan.id,
   )
 
-  const mergedContent = mergeImageIntoContent(
-    sectionContent,
-    contentPatch,
-  )
+  const mergedContent = mergeImageIntoContent(sectionContent, contentPatch)
 
   const { error: updateErr } = await supabase
     .from('site_sections')
@@ -173,9 +202,12 @@ export async function POST(req: NextRequest) {
       generated:   true,
       applied:     false,
       error:       `Section update failed: ${updateErr.message}`,
-      jobId:       result.jobId,
-      publicUrl:   result.publicUrl,
+      jobId:       primaryResult.jobId,
+      publicUrl:   primaryResult.publicUrl,
       planId:      plan.id,
+      allResults:  successful,
+      aspectRatio: safeAspectRatio,
+      aspectRatioNote,
     }, { status: 207 })
   }
 
@@ -199,11 +231,16 @@ export async function POST(req: NextRequest) {
   console.log('[AI-IMAGE][section-generate] Complete', {
     tenantId,
     sectionId,
-    sectionType: section.section_type,
-    planId:      plan.id,
-    jobId:       result.jobId,
-    publicUrl:   result.publicUrl,
-    businessType: richCtx.autofillBusinessType ?? richCtx.businessCategory,
+    sectionType:      section.section_type,
+    planId:           plan.id,
+    jobId:            primaryResult.jobId,
+    publicUrl:        primaryResult.publicUrl,
+    imageCount,
+    successCount:     successful.length,
+    failedCount:      failed.length,
+    safeAspectRatio,
+    aspectRatioNote,
+    businessType:     richCtx.autofillBusinessType ?? richCtx.businessCategory,
     placementDescription,
   })
 
@@ -211,23 +248,31 @@ export async function POST(req: NextRequest) {
     generated:           true,
     applied:             true,
     planId:              plan.id,
-    jobId:               result.jobId,
-    publicUrl:           result.publicUrl,
-    storagePath:         result.storagePath,
-    altText:             result.altText,
+    jobId:               primaryResult.jobId,
+    publicUrl:           primaryResult.publicUrl,
+    storagePath:         primaryResult.storagePath,
+    altText:             primaryResult.altText,
     sectionId,
     sectionType:         section.section_type,
     placementDescription,
     updatedSection,
+    aspectRatio:         safeAspectRatio,
+    aspectRatioNote,
+    imageCount:          successful.length,
+    allResults:          successful,
+    failedCount:         failed.length,
     // Debug context (owner/admin only, not exposed to customers)
     _debug: {
-      businessType:  richCtx.autofillBusinessType ?? richCtx.businessCategory ?? 'unknown',
-      imageRole:     brief.imageRole,
-      imageGoal:     brief.imageGoal,
-      promptLength:  composed.prompt.length,
-      reasoning:     composed.reasoning,
-      servicesUsed:  richCtx.services.slice(0, 3).map(s => s.name),
-      reviewsUsed:   richCtx.reviews.length,
+      businessType:    richCtx.autofillBusinessType ?? richCtx.businessCategory ?? 'unknown',
+      imageRole:       brief.imageRole,
+      imageGoal:       brief.imageGoal,
+      promptLength:    composed.prompt.length,
+      reasoning:       composed.reasoning,
+      servicesUsed:    richCtx.services.slice(0, 3).map(s => s.name),
+      reviewsUsed:     richCtx.reviews.length,
+      requestedRatio:  requestedAspectRatio,
+      normalizedRatio: safeAspectRatio,
+      aspectRatioNote,
     },
   })
 }
@@ -272,17 +317,7 @@ function firstString(...vals: unknown[]): string | null {
   return null
 }
 
-function resolveAspectRatio(sectionType: string): string {
-  const ratioMap: Record<string, string> = {
-    hero:         '16:9',
-    about:        '3:2',
-    feature_grid: '16:9',
-    testimonials: '16:9',
-    faq:          '16:9',
-    contact:      '16:9',
-    product_grid: '16:9',
-    image_gallery: '4:3',
-    cta:          '16:9',
-  }
-  return ratioMap[sectionType] ?? '16:9'
+function resolveAspectRatio(_sectionType: string): string {
+  // Kept for backward compat but now unused — use normalizeImagenAspectRatio instead.
+  return '16:9'
 }

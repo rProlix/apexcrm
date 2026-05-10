@@ -128,14 +128,118 @@ export interface SectionAiImageResult {
  * 5. Applies the image URL to the section content
  * 6. Returns the updated section
  */
+// ── Section image gallery helpers ─────────────────────────────────────────────
+
+export interface WebsiteGeneratedImage {
+  id:                    string
+  tenant_id:             string
+  section_id:            string
+  image_plan_id:         string | null
+  image_slot:            string
+  image_role:            string | null
+  section_type:          string | null
+  prompt:                string
+  model:                 string
+  requested_aspect_ratio: string | null
+  aspect_ratio:          string
+  bucket:                string
+  storage_path:          string
+  public_url:            string
+  alt_text:              string | null
+  is_active:             boolean
+  is_archived:           boolean
+  generation_status:     string
+  generation_error:      string | null
+  created_at:            string
+  updated_at:            string
+}
+
+export interface SectionImagesResult {
+  images:       WebsiteGeneratedImage[]
+  activeBySlot: Record<string, WebsiteGeneratedImage | null>
+  sectionId:    string
+  tenantId:     string
+}
+
+export async function getSectionImages(
+  sectionId:       string,
+  opts?: {
+    imageSlot?:       string
+    includeArchived?: boolean
+  },
+): Promise<SectionImagesResult> {
+  const url = new URL(`/api/website/sections/${sectionId}/images`, window.location.origin)
+  if (opts?.imageSlot)       url.searchParams.set('imageSlot', opts.imageSlot)
+  if (opts?.includeArchived) url.searchParams.set('includeArchived', 'true')
+
+  const res = await fetch(url.toString())
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error((data as Record<string, string>).error ?? `Failed to load images (${res.status})`)
+  }
+  return res.json()
+}
+
+export async function activateSectionImage(
+  sectionId: string,
+  imageId:   string,
+): Promise<{ success: boolean; publicUrl: string; updatedSection: BuilderSection | null }> {
+  const res = await fetch(
+    `/api/website/sections/${sectionId}/images/${imageId}/activate`,
+    { method: 'POST' },
+  )
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error((data as Record<string, string>).error ?? `Failed to activate image (${res.status})`)
+  }
+  return res.json()
+}
+
+export async function archiveSectionImage(
+  sectionId: string,
+  imageId:   string,
+  force = false,
+): Promise<{ success: boolean; newActive: WebsiteGeneratedImage | null }> {
+  const url = `/api/website/sections/${sectionId}/images/${imageId}/archive${force ? '?force=true' : ''}`
+  const res = await fetch(url, { method: 'POST' })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error((data as Record<string, string>).error ?? `Failed to archive image (${res.status})`)
+  }
+  return res.json()
+}
+
+export async function restoreSectionImage(
+  sectionId: string,
+  imageId:   string,
+  activate  = false,
+): Promise<{ success: boolean; restored: WebsiteGeneratedImage | null }> {
+  const url = `/api/website/sections/${sectionId}/images/${imageId}/restore${activate ? '?activate=true' : ''}`
+  const res = await fetch(url, { method: 'POST' })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error((data as Record<string, string>).error ?? `Failed to restore image (${res.status})`)
+  }
+  return res.json()
+}
+
 export async function generateSectionAiImage(
   sectionId: string,
   tenantId:  string,
+  opts?: {
+    imageCount?:             number
+    overwriteExistingImages?: boolean
+  },
 ): Promise<SectionAiImageResult> {
   const res = await fetch('/api/website/ai-images/section-generate', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ sectionId, tenantId }),
+    body:    JSON.stringify({
+      sectionId,
+      tenantId,
+      imageCount:              opts?.imageCount              ?? 1,
+      overwriteExistingImages: opts?.overwriteExistingImages ?? false,
+    }),
   })
 
   const json = await res.json() as Record<string, unknown>

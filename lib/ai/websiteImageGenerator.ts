@@ -9,6 +9,7 @@ import {
   buildImageStoragePath,
 } from '@/lib/ai/websiteImageConfig'
 import { enhancePromptForImagen } from '@/lib/ai/websiteImagePrompts'
+import { normalizeImagenAspectRatio } from '@/lib/website-ai/imagenAspectRatios'
 import { isSchemaCacheError, isFkCreatedByError, MISSING_TABLE_MESSAGE, MISSING_BUCKET_MESSAGE, isQuotaError, QUOTA_EXCEEDED_MESSAGE } from '@/lib/website-ai/imagePipelineErrors'
 import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 import {
@@ -40,14 +41,22 @@ export interface GenerateImageOptions {
   tenantId:     string
   businessType: string | null
   createdBy?:   string | null
+  /** How many images to generate (1–5). Default: 1. */
+  imageCount?:  number
+  /** Stored as requested_aspect_ratio for history; plan.aspect_ratio is normalized. */
+  requestedAspectRatio?: string | null
 }
 
 export interface GenerateImageResult {
-  jobId:       string
-  publicUrl:   string
-  storagePath: string
-  altText:     string
-  error?:      string
+  jobId:              string
+  publicUrl:          string
+  storagePath:        string
+  altText:            string
+  error?:             string
+  /** The normalized aspect ratio actually sent to Imagen */
+  aspectRatio?:       string
+  /** Note when the ratio was changed from the plan's stored value */
+  aspectRatioNote?:   string
 }
 
 export async function generateWebsiteImage(
@@ -71,6 +80,10 @@ export async function generateWebsiteImage(
   })
 
   // ── Create the job record ─────────────────────────────────────────────────
+  // safeAspectRatio is defined above this in the generator flow — use it here too.
+  // (We redeclare it here for the early job insert which runs before the Imagen call)
+  const jobSafeRatio = normalizeImagenAspectRatio(opts.plan.aspect_ratio, opts.plan.section_type)
+
   const { data: job, error: jobErr } = await supabase
     .from('website_image_jobs')
     .insert({
@@ -80,7 +93,7 @@ export async function generateWebsiteImage(
       model,
       prompt:          opts.plan.prompt,
       negative_prompt: opts.plan.negative_prompt,
-      aspect_ratio:    opts.plan.aspect_ratio,
+      aspect_ratio:    jobSafeRatio,
       image_role:      opts.plan.image_role,
       placement_key:   opts.plan.placement_key,
       created_by:      opts.createdBy ?? null,
@@ -117,12 +130,18 @@ export async function generateWebsiteImage(
   const basePrompt  = enhancePromptForImagen(opts.plan.prompt, opts.plan.image_role, opts.businessType)
   const finalPrompt = mergeNegativePromptIntoPrompt(basePrompt, opts.plan.negative_prompt)
 
+  // Always normalize the aspect ratio — Imagen 4 only supports: 1:1, 9:16, 16:9, 4:3, 3:4
+  const safeAspectRatio = normalizeImagenAspectRatio(
+    opts.plan.aspect_ratio,
+    opts.plan.section_type,
+  )
+
   const url  = `${IMAGEN_API_BASE}/${model}:predict?key=[REDACTED]`
   const rawBody = {
     instances: [{ prompt: finalPrompt }],
     parameters: {
-      sampleCount:      1,
-      aspectRatio:      opts.plan.aspect_ratio ?? '16:9',
+      sampleCount:      opts.imageCount ?? 1,
+      aspectRatio:      safeAspectRatio,
       personGeneration: 'dont_allow',
     },
   }
@@ -277,15 +296,11 @@ export async function generateWebsiteImage(
   log('9_job_completed', { jobId, publicUrl, storagePath })
 
   // ── Update plan to 'generated' ────────────────────────────────────────────
-  // Write both the original column names (backward compat) and the alias names
-  // added in migration 054.
   await supabase.from('website_image_plans').update({
     status:                 'generated',
-    // Original columns (kept for backward compat with any code that reads these)
     generated_asset_url:    publicUrl,
     generated_storage_path: storagePath,
     generated_alt_text:     altText,
-    // Alias columns (migration 054 additions)
     public_url:             publicUrl,
     storage_path:           storagePath,
     alt_text:               altText,
@@ -297,6 +312,62 @@ export async function generateWebsiteImage(
     updated_at:             new Date().toISOString(),
   } as never).eq('id', opts.plan.id)
 
+  // ── Save into website_generated_images gallery ────────────────────────────
+  // This makes every generated image available in the gallery picker.
+  // We check if an active image already exists for this tenant+section+slot.
+  const imageSlot = opts.plan.placement_key ?? 'primary'
+
+  const { data: existingActive } = await supabase
+    .from('website_generated_images')
+    .select('id')
+    .eq('tenant_id', opts.tenantId)
+    .eq('section_id', opts.plan.section_id ?? '')
+    .eq('image_slot', imageSlot)
+    .eq('is_active', true)
+    .eq('is_archived', false)
+    .maybeSingle()
+
+  const shouldBeActive = !existingActive
+
+  if (opts.plan.section_id) {
+    const { error: galleryErr } = await supabase
+      .from('website_generated_images')
+      .insert({
+        tenant_id:             opts.tenantId,
+        website_id:            opts.plan.website_id ?? null,
+        page_id:               opts.plan.page_id ?? null,
+        section_id:            opts.plan.section_id,
+        image_plan_id:         opts.plan.id,
+        image_slot:            imageSlot,
+        image_role:            opts.plan.image_role ?? null,
+        section_type:          opts.plan.section_type ?? null,
+        prompt:                finalPrompt,
+        model,
+        requested_aspect_ratio: opts.requestedAspectRatio ?? opts.plan.aspect_ratio ?? null,
+        aspect_ratio:          safeAspectRatio,
+        bucket:                WEBSITE_IMAGE_BUCKET,
+        storage_path:          storagePath,
+        public_url:            publicUrl,
+        alt_text:              altText,
+        is_active:             shouldBeActive,
+        is_archived:           false,
+        generation_status:     'ready',
+        created_by:            opts.createdBy ?? null,
+        metadata: {
+          jobId,
+          mimeType,
+          sizeBytes: binaryData.length,
+        },
+      } as never)
+
+    if (galleryErr) {
+      // Non-fatal: log but don't fail the generation
+      console.warn('[websiteImageGenerator] Failed to insert website_generated_images row:', galleryErr.message)
+    } else {
+      log('11_gallery_saved', { planId: opts.plan.id, imageSlot, isActive: shouldBeActive })
+    }
+  }
+
   log('10_plan_updated', {
     planId:       opts.plan.id,
     status:       'generated',
@@ -307,7 +378,7 @@ export async function generateWebsiteImage(
     placementKey: opts.plan.placement_key,
   })
 
-  return { jobId, publicUrl, storagePath, altText }
+  return { jobId, publicUrl, storagePath, altText, aspectRatio: safeAspectRatio }
 }
 
 // ── Response extraction ────────────────────────────────────────────────────────
