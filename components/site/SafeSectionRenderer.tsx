@@ -5,7 +5,9 @@
 // Architecture:
 //  - Accepts either a raw DB row OR an already-normalized NormalizedSection
 //  - Normalizes the section (safe, never throws)
-//  - Dispatches to the correct section component
+//  - Wraps each rendered section with AnimatedSection (client component)
+//    which uses framer-motion with viewport detection
+//  - If animation config is missing/invalid, section renders without animation
 //  - Catches any render error and returns a minimal fallback
 //  - One broken section never crashes the whole page
 //
@@ -21,6 +23,8 @@ import {
   type CanonicalSectionType,
 } from '@/lib/website/normalizeWebsiteSection'
 import { UnknownSection } from './sections/UnknownSection'
+import { AnimatedSection } from '@/components/website/animations/AnimatedSection'
+import { parseSectionAnimationConfig } from '@/lib/website/animations/validateAnimationConfig'
 
 // Section components (all must be defensive — see each file)
 import { HeroSection }         from './sections/HeroSection'
@@ -67,8 +71,34 @@ export async function SafeSectionRenderer({
     return null
   }
 
+  // Parse animation config (fail-safe: never crashes)
+  let animationConfig = null
   try {
-    return await renderSection(normalized, tenantId, mode)
+    const raw = (rawSection as Record<string, unknown>)?.animation_config
+    if (raw && typeof raw === 'object') {
+      animationConfig = parseSectionAnimationConfig(raw)
+    }
+  } catch {
+    // silently skip — animation is optional
+  }
+
+  try {
+    const content = await renderSection(normalized, tenantId, mode)
+
+    // Wrap in AnimatedSection (client component, fail-safe)
+    // Only animate in public mode; editor mode renders without animation wrapper
+    if (mode === 'public' && animationConfig?.enabled) {
+      return (
+        <AnimatedSection
+          animationConfig={animationConfig}
+          key={normalized.id}
+        >
+          {content}
+        </AnimatedSection>
+      )
+    }
+
+    return content
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     const stack = err instanceof Error ? err.stack : undefined

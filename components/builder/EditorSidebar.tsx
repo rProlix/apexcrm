@@ -26,6 +26,7 @@ import { AboutEditor }            from './editors/AboutEditor'
 import { Product360ViewerEditor } from './editors/Product360ViewerEditor'
 import { GenericEditor }          from './editors/GenericEditor'
 import { Toggle }                 from './editors/FormFields'
+import { AiPremiumDesignPanel }  from '@/components/website/builder/AiPremiumDesignPanel'
 
 const SIDEBAR_WIDTH = 380
 
@@ -369,9 +370,10 @@ export function EditorSidebar() {
   const [aiImage, setAiImage]         = useState<AiImageState>({ loading: false, publicUrl: null, error: null, applied: false })
   const [showDebug, setShowDebug]     = useState(false)
   const [debugInfo, setDebugInfo]     = useState<Record<string, unknown> | null>(null)
-  const [showGallery, setShowGallery] = useState(false)
-  const [generateCount, setGenCount]  = useState<1 | 3 | 5>(1)
-  const [galleryKey, setGalleryKey]   = useState(0)   // increment to force gallery reload
+  const [showGallery, setShowGallery]         = useState(false)
+  const [showPremiumDesign, setShowPremiumDesign] = useState(false)
+  const [generateCount, setGenCount]          = useState<1 | 3 | 5>(1)
+  const [galleryKey, setGalleryKey]           = useState(0)   // increment to force gallery reload
 
   if (!selectedSectionId) return null
 
@@ -695,6 +697,34 @@ export function EditorSidebar() {
                 key={galleryKey}
                 sectionId={section.id}
                 onImageActivated={handleImageActivated}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── AI Premium Design panel ── */}
+      {tenantId && (
+        <div style={{ borderBottom: '1px solid #27272a', background: '#0b0b0d' }}>
+          <button
+            onClick={() => setShowPremiumDesign(p => !p)}
+            style={{
+              width: '100%', padding: '0.75rem 1.25rem', background: 'none',
+              border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
+              justifyContent: 'space-between', color: '#a78bfa',
+            }}
+          >
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+              <span>✦</span> AI Premium Design
+            </span>
+            <span style={{ fontSize: '0.75rem', color: '#52525b' }}>{showPremiumDesign ? '▲' : '▼'}</span>
+          </button>
+          {showPremiumDesign && (
+            <div style={{ padding: '0 1.25rem 1.25rem' }}>
+              <AiPremiumDesignPanel
+                tenantId={tenantId}
+                sectionId={section.id}
+                pageId={null}
               />
             </div>
           )}
