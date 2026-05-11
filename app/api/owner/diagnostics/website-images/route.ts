@@ -64,7 +64,7 @@ export async function GET() {
     } catch { /* treat as nullable */ }
   }
 
-  // ── 5. Recent failed plans ────────────────────────────────────────────────
+  // ── 5. Recent failed plans ─────────────────────────────────────────────────
   let recentFailed: Array<Record<string, unknown>> = []
   if (schema.tables.website_image_plans.exists) {
     try {
@@ -78,7 +78,27 @@ export async function GET() {
     } catch { /* ignore */ }
   }
 
-  // ── 6. Build structured response ──────────────────────────────────────────
+  // ── 6. Invalid aspect_ratio rows ───────────────────────────────────────────
+  const VALID_RATIOS = ['1:1', '9:16', '16:9', '4:3', '3:4']
+  let invalidAspectRatioCount = 0
+  let invalidAspectRatioExamples: Array<Record<string, unknown>> = []
+  if (schema.tables.website_image_plans.exists) {
+    try {
+      // PostgREST doesn't support NOT IN directly; fetch recent rows and filter
+      const { data: allRecent } = await supabase
+        .from('website_image_plans')
+        .select('id, tenant_id, section_type, aspect_ratio, status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(200)
+      type RatioRow = { id: string; tenant_id: string; section_type: string | null; aspect_ratio: string | null; status: string; created_at: string }
+      const rows = (allRecent ?? []) as unknown as RatioRow[]
+      const invalid = rows.filter(r => !(VALID_RATIOS as string[]).includes(r.aspect_ratio ?? ''))
+      invalidAspectRatioCount   = invalid.length
+      invalidAspectRatioExamples = invalid.slice(0, 5) as unknown as Array<Record<string, unknown>>
+    } catch { /* ignore */ }
+  }
+
+  // ── 7. Build structured response ──────────────────────────────────────────
   const envOk    = geminiKey && serviceKey && !!supabaseUrl
   const bucketOk = assetsOk || imagesOk
   const allOk    = schema.ok && envOk && bucketOk
@@ -113,6 +133,8 @@ export async function GET() {
     fixes.push('created_by column in website_image_plans is NOT NULL — re-run migration 054 to make it nullable.')
   if (supabaseUrl && schema.ok && !schema.usedRpc)
     fixes.push('The app may be connected to a different Supabase project. Verify NEXT_PUBLIC_SUPABASE_URL matches the project where you ran migration 054.')
+  if (invalidAspectRatioCount > 0)
+    fixes.push(`${invalidAspectRatioCount} row(s) have invalid aspect_ratio values. Run migration 059_fix_aspect_ratios.sql, or call POST /api/owner/diagnostics/website-images/repair-aspect-ratios.`)
 
   return NextResponse.json({
     ok:        allOk,
@@ -171,6 +193,15 @@ export async function GET() {
       createdByNullable,
       schemaErrors:     schema.errors,
       schemaSummary:    schema.summary,
+    },
+
+    aspectRatios: {
+      allowedValues:            VALID_RATIOS,
+      invalidExistingPlanCount: invalidAspectRatioCount,
+      invalidExamples:          invalidAspectRatioExamples,
+      repairEndpoint:           invalidAspectRatioCount > 0
+        ? 'POST /api/owner/diagnostics/website-images/repair-aspect-ratios'
+        : null,
     },
 
     recentFailedPlans: recentFailed,

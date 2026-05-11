@@ -183,7 +183,7 @@ function buildAboutBrief(bt: string, ctx: RichImageContext, s: RichSectionDetail
       s.body ? `visuals that match: "${s.body.slice(0, 80)}"` : '',
     ].filter(Boolean),
     shouldAvoid:  ['generic stock photos', 'unrelated workplaces', 'overly posed corporate shots'],
-    composition:  '3:2 ratio, warm and approachable composition, subject centered or slight left',
+    composition:  '4:3 ratio, warm and approachable composition, subject centered or slight left',
     environment:  'Real business workspace, genuine atmosphere',
     styling:      'Lifestyle documentary photography, authentic, warm',
     lighting:     'Natural window light or warm ambient, flattering and genuine',

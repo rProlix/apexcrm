@@ -8,7 +8,10 @@
 //   { "error": { "code": 400, "message": "aspectRatio X:Y is not supported." } }
 //
 // This module is the single source of truth for aspect ratio handling.
-// Import normalizeImagenAspectRatio everywhere an Imagen API call is made.
+// Import normalizeImagenAspectRatio everywhere a ratio is set in:
+//   - DB inserts into website_image_plans.aspect_ratio
+//   - Imagen API calls
+//   - UI selectors
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -26,23 +29,55 @@ export const DEFAULT_IMAGEN_ASPECT_RATIO: ImagenAspectRatio = '16:9'
 
 // ── Mapping of unsupported → nearest supported ────────────────────────────────
 // Keys are lowercase, stripped of whitespace.
+// Gemini may return numeric ratios (3:2) OR text labels (landscape, hero, card).
+// ALL of these must map to one of the five supported values.
 
 const UNSUPPORTED_RATIO_MAP: Record<string, ImagenAspectRatio> = {
-  '3:2':   '4:3',   // landscape photography — nearest is 4:3
-  '2:3':   '3:4',   // portrait photography  — nearest is 3:4
-  '4:5':   '3:4',   // tall portrait          — nearest is 3:4
-  '5:4':   '4:3',   // wide square-ish        — nearest is 4:3
-  '21:9':  '16:9',  // ultra-wide             — nearest is 16:9
-  '16:10': '16:9',  // widescreen laptop      — nearest is 16:9
-  '10:16': '9:16',  // tall phone             — nearest is 9:16
-  '2:1':   '16:9',  // ultra-landscape        — nearest is 16:9
-  '1:2':   '9:16',  // ultra-portrait         — nearest is 9:16
-  '5:3':   '16:9',  // wide cinema-ish        — nearest is 16:9
-  '3:5':   '3:4',   // tall narrow            — nearest is 3:4
-  '7:4':   '16:9',  // near-widescreen        — nearest is 16:9
-  '4:7':   '3:4',   // near-portrait          — nearest is 3:4
-  '8:5':   '16:9',  // golden ratio wide-ish  — nearest is 16:9
-  '5:8':   '3:4',   // golden ratio portrait  — nearest is 3:4
+  // ── Numeric unsupported ratios ────────────────────────────────────────────
+  '3:2':   '16:9',  // landscape photography → wide (user-requested mapping)
+  '2:3':   '9:16',  // portrait photography  → vertical (user-requested)
+  '4:5':   '3:4',   // tall portrait         → nearest portrait
+  '5:4':   '4:3',   // wide square-ish       → nearest landscape
+  '21:9':  '16:9',  // ultra-wide            → widescreen
+  '16:10': '16:9',  // widescreen laptop     → widescreen
+  '10:16': '9:16',  // tall phone            → vertical
+  '2:1':   '16:9',  // ultra-landscape       → widescreen
+  '1:2':   '9:16',  // ultra-portrait        → vertical
+  '5:3':   '16:9',  // wide cinema-ish       → widescreen
+  '3:5':   '3:4',   // tall narrow           → portrait
+  '7:4':   '16:9',  // near-widescreen       → widescreen
+  '4:7':   '3:4',   // near-portrait         → portrait
+  '8:5':   '16:9',  // golden ratio wide-ish → widescreen
+  '5:8':   '3:4',   // golden ratio portrait → portrait
+  // ── Text labels that Gemini/AI planners may output ────────────────────────
+  'landscape':      '16:9',
+  'wide':           '16:9',
+  'hero':           '16:9',
+  'widescreen':     '16:9',
+  'cinematic':      '16:9',
+  'banner':         '16:9',
+  'header':         '16:9',
+  'cover':          '16:9',
+  'portrait':       '9:16',
+  'vertical':       '9:16',
+  'mobile_story':   '9:16',
+  'story':          '9:16',
+  'tall':           '9:16',
+  'square':         '1:1',
+  '1x1':            '1:1',
+  'square_photo':   '1:1',
+  'instagram':      '1:1',
+  'avatar':         '1:1',
+  'icon':           '1:1',
+  'card':           '4:3',
+  'standard':       '4:3',
+  'photo':          '4:3',
+  'about':          '4:3',
+  'section':        '4:3',
+  'tall_portrait':  '3:4',
+  'book':           '3:4',
+  'pin':            '3:4',
+  'pinterest':      '3:4',
 }
 
 // ── Section-type default ratios ───────────────────────────────────────────────
@@ -55,13 +90,14 @@ const SECTION_TYPE_DEFAULT_RATIO: Record<string, ImagenAspectRatio> = {
   herobanner:          '16:9',
   homepage_hero:       '16:9',
   banner:              '16:9',
+  header:              '16:9',
 
-  // About/story → slightly less wide
+  // About/story → standard section
   about:               '4:3',
   about_section:       '4:3',
   aboutsection:        '4:3',
 
-  // Feature grid cards → square
+  // Feature grid cards → square icons
   feature_grid:        '1:1',
   featuregrid:         '1:1',
   feature:             '1:1',
@@ -101,6 +137,15 @@ const SECTION_TYPE_DEFAULT_RATIO: Record<string, ImagenAspectRatio> = {
   // Rich text / text blocks
   rich_text:           '16:9',
   text:                '16:9',
+
+  // Mobile-specific
+  mobile_story:        '9:16',
+  vertical_banner:     '9:16',
+
+  // Testimonials avatar / logo
+  avatar:              '1:1',
+  logo:                '1:1',
+  icon:                '1:1',
 }
 
 // ── Main normalizer ───────────────────────────────────────────────────────────
@@ -110,30 +155,30 @@ const SECTION_TYPE_DEFAULT_RATIO: Record<string, ImagenAspectRatio> = {
  *
  * Priority:
  *   1. If `input` is already a supported ratio → return it unchanged.
- *   2. If `input` is an unsupported but known ratio → map it to the nearest.
+ *   2. If `input` is an unsupported but known ratio/label → map it to the nearest.
  *   3. If `input` is null/undefined/empty or completely unknown → fall back to
  *      section-type default or 16:9.
  *
- * NEVER throws. Always returns a supported value.
+ * NEVER throws. Always returns one of: '1:1' | '9:16' | '16:9' | '4:3' | '3:4'.
  */
 export function normalizeImagenAspectRatio(
   input?:       string | null,
   sectionType?: string | null,
 ): ImagenAspectRatio {
-  const raw = input?.trim() ?? ''
+  const raw = (input ?? '').trim()
 
   if (raw) {
-    const normalized = raw.toLowerCase()
+    const normalized = raw.toLowerCase().replace(/\s+/g, '_')
 
-    // Already supported
+    // Already a supported ratio?
     if (SUPPORTED_IMAGEN_ASPECT_RATIOS.includes(normalized as ImagenAspectRatio)) {
       return normalized as ImagenAspectRatio
     }
 
-    // Known unsupported → mapped
+    // Known unsupported value → mapped
     const mapped = UNSUPPORTED_RATIO_MAP[normalized]
     if (mapped) {
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV !== 'production') {
         console.warn(
           `[imagenAspectRatios] Unsupported ratio "${raw}" → normalized to "${mapped}". ` +
           `Imagen 4 only supports: ${SUPPORTED_IMAGEN_ASPECT_RATIOS.join(', ')}`
@@ -143,11 +188,9 @@ export function normalizeImagenAspectRatio(
     }
 
     // Unknown value — fall through to section-type default
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(
-        `[imagenAspectRatios] Unknown ratio "${raw}" — using section-type default for "${sectionType ?? 'unknown'}".`
-      )
-    }
+    console.warn(
+      `[imagenAspectRatios] Unknown ratio "${raw}" — using section-type default for "${sectionType ?? 'unknown'}".`
+    )
   }
 
   // No input or unknown — use section-type default
@@ -161,10 +204,18 @@ export function normalizeImagenAspectRatio(
 }
 
 /**
+ * Returns a valid Imagen 4 aspect ratio for a given section type.
+ * Alias for normalizeImagenAspectRatio(null, sectionType).
+ */
+export function getDefaultAspectRatioForSection(sectionType: string): ImagenAspectRatio {
+  return normalizeImagenAspectRatio(null, sectionType)
+}
+
+/**
  * Returns true when the provided ratio is valid for Imagen 4.
  */
 export function isValidImagenAspectRatio(ratio: string): ratio is ImagenAspectRatio {
-  return SUPPORTED_IMAGEN_ASPECT_RATIOS.includes(ratio.trim() as ImagenAspectRatio)
+  return SUPPORTED_IMAGEN_ASPECT_RATIOS.includes((ratio ?? '').trim() as ImagenAspectRatio)
 }
 
 /**
@@ -175,12 +226,12 @@ export function getAspectRatioNormalizationNote(
   input: string | null | undefined,
   sectionType?: string | null,
 ): string | null {
-  const raw = input?.trim() ?? ''
+  const raw = (input ?? '').trim()
   if (!raw) return null
 
   const normalized = raw.toLowerCase()
   if (SUPPORTED_IMAGEN_ASPECT_RATIOS.includes(normalized as ImagenAspectRatio)) {
-    return null  // No change
+    return null  // No change needed
   }
 
   const result = normalizeImagenAspectRatio(input, sectionType)
@@ -189,4 +240,16 @@ export function getAspectRatioNormalizationNote(
     `It was automatically converted to "${result}". ` +
     `Supported values: ${SUPPORTED_IMAGEN_ASPECT_RATIOS.join(', ')}.`
   )
+}
+
+/**
+ * UI-friendly labels for the aspect ratio selector.
+ * Only shows the 5 supported values.
+ */
+export const ASPECT_RATIO_LABELS: Record<ImagenAspectRatio, string> = {
+  '16:9': '16:9 — Landscape / Hero',
+  '4:3':  '4:3 — Standard section image',
+  '1:1':  '1:1 — Square',
+  '9:16': '9:16 — Vertical / Mobile story',
+  '3:4':  '3:4 — Portrait',
 }

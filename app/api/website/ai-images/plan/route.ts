@@ -16,6 +16,8 @@ import {
   extractMissingTableName,
   MISSING_API_KEY_MESSAGE,
 } from '@/lib/website-ai/imagePipelineErrors'
+import { isCheckConstraintError, ASPECT_RATIO_CONSTRAINT_NAME } from '@/lib/website-ai/planConstraintErrors'
+import { normalizeImagenAspectRatio } from '@/lib/website-ai/imagenAspectRatios'
 import { getSafeCreatedBy } from '@/lib/auth/getSafeCreatedBy'
 import type { ImagePlannerContext } from '@/lib/ai/websiteImageTypes'
 
@@ -111,7 +113,10 @@ export async function POST(req: NextRequest) {
   }
 
   const rows = result.plans.map(p => {
-    const matched = sectionsByType.get(p.section_type ?? '') ?? null
+    const matched    = sectionsByType.get(p.section_type ?? '') ?? null
+    // Defensive normalization: even though parsePlannerResult normalizes, enforce here too
+    // so that any other caller of this route cannot inject a bad ratio.
+    const safeRatio  = normalizeImagenAspectRatio(p.aspect_ratio, p.section_type ?? null)
     return {
       tenant_id:             tenantId,
       plan_group_id:         planGroupId,
@@ -127,7 +132,8 @@ export async function POST(req: NextRequest) {
       visual_style:          p.visual_style,
       prompt:                p.prompt,
       negative_prompt:       p.negative_prompt,
-      aspect_ratio:          p.aspect_ratio,
+      aspect_ratio:          safeRatio,
+      requested_aspect_ratio: p.aspect_ratio !== safeRatio ? p.aspect_ratio : null,
       priority:              p.priority,
       use_existing_if_avail: p.use_existing_if_avail,
       status:                'planned' as const,
@@ -153,10 +159,20 @@ export async function POST(req: NextRequest) {
         diagnostics:  '/api/owner/diagnostics/website-images',
       }, { status: 503 })
     }
+    if (isCheckConstraintError(insertErr, ASPECT_RATIO_CONSTRAINT_NAME)) {
+      const attempted = rows.map(r => r.aspect_ratio).join(', ')
+      console.error('[AI-IMAGE][plan] Aspect ratio check constraint violation:', insertErr.message, { attempted })
+      return NextResponse.json({
+        error:    `Invalid aspect ratio in plan data. Supported: 1:1, 9:16, 16:9, 4:3, 3:4. Attempted: ${attempted}. This is a bug — report it.`,
+        code:     'INVALID_ASPECT_RATIO',
+        detail:   insertErr.message,
+        attempted,
+      }, { status: 500 })
+    }
     if (isFkCreatedByError(insertErr)) {
       console.error('[AI-IMAGE][plan] FK created_by violation:', insertErr.message)
       return NextResponse.json({
-        error:  'Image plan insert failed: created_by foreign key violation. Make sure the migration has made created_by nullable (re-run migration 054).',
+        error:  'Image plan insert failed: created_by foreign key violation. Re-run migration 054 to make created_by nullable.',
         code:   'FK_CREATED_BY',
         detail: insertErr.message,
       }, { status: 500 })
