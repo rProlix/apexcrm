@@ -6,8 +6,9 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 import {
-  CalendarDays, List, Plus, TrendingUp, Clock, CheckCircle2,
+  CalendarDays, List, Plus, TrendingUp, Clock, CheckCircle2, ArrowRight,
 } from 'lucide-react'
 import { CalendarView }      from '@/components/appointments/CalendarView'
 import { AppointmentList }   from '@/components/appointments/AppointmentList'
@@ -142,6 +143,31 @@ export default function AppointmentsPage() {
         <StatCard label="Pending"   value={pending.length}      icon={Clock}         color="bg-amber-400/10  text-amber-400"   />
         <StatCard label="Completed" value={done.length}         icon={CheckCircle2}  color="bg-emerald-400/10 text-emerald-400" />
       </div>
+
+      {/* Quick-access: Manage Availability (always visible) */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+      >
+        <Link
+          href="/appointments/availability"
+          className="flex items-center justify-between gap-4 rounded-2xl border border-gold-500/30 bg-gold-400/5 px-5 py-4 hover:border-gold-400/60 hover:bg-gold-400/10 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-gold-400/15 flex items-center justify-center shrink-0">
+              <Clock className="w-4.5 h-4.5 text-gold-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Manage Availability</p>
+              <p className="text-xs text-white/40 mt-0.5">
+                Set available hours, blackout dates, and staff-specific booking windows
+              </p>
+            </div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-gold-400/50 group-hover:text-gold-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+        </Link>
+      </motion.div>
 
       {/* Tab switcher */}
       <div className="flex items-center gap-1 bg-graphite-800 border border-surface-border rounded-xl p-1 w-fit">

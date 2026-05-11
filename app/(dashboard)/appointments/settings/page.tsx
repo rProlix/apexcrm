@@ -25,7 +25,7 @@ function fmtDT(iso: string) {
 type Tab = 'schedule' | 'staff' | 'availability-blocks' | 'blocked'
 
 export default function AppointmentsSettingsPage() {
-  const [tab,     setTab]     = useState<Tab>('staff')
+  const [tab,     setTab]     = useState<Tab>('availability-blocks')
   const [blocks,  setBlocks]  = useState<BlockedTime[]>([])
   const [loading, setLoading] = useState(false)
 

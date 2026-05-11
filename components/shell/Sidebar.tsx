@@ -22,6 +22,9 @@ import {
   ShoppingBag,
   UserCheck,
   Rotate3D,
+  Clock,
+  List,
+  LayoutGrid,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -158,14 +161,48 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin, isOpen
               </span>
             </div>
             {modules.map((mod) => (
-              <SidebarItem
-                key={mod.key}
-                label={mod.label}
-                href={mod.href}
-                icon={MODULE_ICONS[mod.key] ?? Layers}
-                active={isActive(mod.href)}
-                onNavigate={handleLinkClick}
-              />
+              <div key={mod.key}>
+                <SidebarItem
+                  label={mod.label}
+                  href={mod.href}
+                  icon={MODULE_ICONS[mod.key] ?? Layers}
+                  active={isActive(mod.href)}
+                  onNavigate={handleLinkClick}
+                />
+                {/* Appointments sub-nav — visible when in /appointments */}
+                {mod.key === 'appointments' && isActive('/appointments') && (
+                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gold-500/20 pl-3">
+                    {[
+                      { label: 'Overview',     href: '/appointments',              icon: LayoutGrid,  exact: true  },
+                      { label: 'Calendar',     href: '/appointments/calendar',     icon: CalendarDays, exact: false },
+                      { label: 'List',         href: '/appointments/list',         icon: List,         exact: false },
+                      { label: 'Availability', href: '/appointments/availability', icon: Clock,        exact: false },
+                      { label: 'Settings',     href: '/appointments/settings',     icon: Settings,     exact: false },
+                    ].map(({ label, href, icon: Icon, exact }) => {
+                      const subActive = exact ? pathname === href : pathname.startsWith(href)
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={handleLinkClick}
+                          className={cn(
+                            'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                            subActive
+                              ? 'text-gold-400 bg-gold-500/10'
+                              : 'text-white/35 hover:text-white/70 hover:bg-graphite-700/50'
+                          )}
+                        >
+                          <Icon className="h-3 w-3 shrink-0" strokeWidth={1.75} />
+                          {label}
+                          {label === 'Availability' && !subActive && (
+                            <span className="ml-auto h-1 w-1 rounded-full bg-gold-400/60" />
+                          )}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             ))}
           </>
         )}
