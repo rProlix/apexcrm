@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     max_bookings_per_slot: maxBookingsPerSlot  !== undefined ? Number(maxBookingsPerSlot)  : 1,
     is_active:             isActive !== false,
     recurrence_rule:       (recurrenceRule as string) || null,
-    created_by:            staffUser.id || null,
+    created_by:            staffUser.auth_id || null,
   })
 
   if (!result.ok) {
