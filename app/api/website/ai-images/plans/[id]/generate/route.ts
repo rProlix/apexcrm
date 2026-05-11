@@ -7,7 +7,12 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { generateWebsiteImage } from '@/lib/ai/websiteImageGenerator'
 import { requireAiAutofillAccess } from '@/lib/website-ai/tenantAccess'
-import { isSchemaCacheError, MISSING_TABLE_MESSAGE, MISSING_API_KEY_MESSAGE } from '@/lib/website-ai/imagePipelineErrors'
+import {
+  isSchemaCacheError,
+  buildTableMissingMessage,
+  extractMissingTableName,
+  MISSING_API_KEY_MESSAGE,
+} from '@/lib/website-ai/imagePipelineErrors'
 import { getSafeCreatedBy } from '@/lib/auth/getSafeCreatedBy'
 import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 
@@ -32,8 +37,17 @@ export async function POST(
 
   if (planErr) {
     if (isSchemaCacheError(planErr)) {
-      return NextResponse.json({ error: MISSING_TABLE_MESSAGE, code: 'MISSING_TABLE' }, { status: 503 })
+      const tbl = extractMissingTableName(planErr)
+      console.error('[AI-IMAGE][generate] Schema/table error loading plan:', planErr.message)
+      return NextResponse.json({
+        error:        buildTableMissingMessage(tbl ?? 'website_image_plans'),
+        code:         'MISSING_TABLE',
+        missingTable: tbl ?? 'website_image_plans',
+        detail:       planErr.message,
+        diagnostics:  '/api/owner/diagnostics/website-images',
+      }, { status: 503 })
     }
+    console.error('[AI-IMAGE][generate] Plan load error:', planErr.message)
     return NextResponse.json({ error: planErr.message }, { status: 500 })
   }
   if (!plan) return NextResponse.json({ error: 'Plan not found.' }, { status: 404 })

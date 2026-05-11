@@ -10,7 +10,15 @@ import {
 } from '@/lib/ai/websiteImageConfig'
 import { enhancePromptForImagen } from '@/lib/ai/websiteImagePrompts'
 import { normalizeImagenAspectRatio } from '@/lib/website-ai/imagenAspectRatios'
-import { isSchemaCacheError, isFkCreatedByError, MISSING_TABLE_MESSAGE, MISSING_BUCKET_MESSAGE, isQuotaError, QUOTA_EXCEEDED_MESSAGE } from '@/lib/website-ai/imagePipelineErrors'
+import {
+  isSchemaCacheError,
+  isFkCreatedByError,
+  buildTableMissingMessage,
+  extractMissingTableName,
+  MISSING_BUCKET_MESSAGE,
+  isQuotaError,
+  QUOTA_EXCEEDED_MESSAGE,
+} from '@/lib/website-ai/imagePipelineErrors'
 import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 import {
   mergeNegativePromptIntoPrompt,
@@ -104,13 +112,21 @@ export async function generateWebsiteImage(
   if (jobErr || !job) {
     logError('1_create_job_failed', jobErr, { tenantId: opts.tenantId, planId: opts.plan.id })
     if (isSchemaCacheError(jobErr)) {
-      return { jobId: '', publicUrl: '', storagePath: '', altText: '', error: MISSING_TABLE_MESSAGE }
+      // Identify which table is missing — may be website_image_jobs, not website_image_plans
+      const tbl = extractMissingTableName(jobErr)
+      return {
+        jobId: '', publicUrl: '', storagePath: '', altText: '',
+        error: buildTableMissingMessage(tbl ?? 'website_image_jobs'),
+      }
     }
     if (isFkCreatedByError(jobErr)) {
-      const fkMsg = 'Image job creation failed: created_by is not a valid auth.users UUID. Run migration 055_fix_website_image_plans_created_by.sql and ensure the route passes ctx.auth_id (not ctx.id) as createdBy.'
+      const fkMsg = 'Image job creation failed: created_by foreign key violation. Re-run migration 054 to make created_by nullable, or ensure auth_id is a valid auth.users UUID.'
       return { jobId: '', publicUrl: '', storagePath: '', altText: '', error: fkMsg }
     }
-    return { jobId: '', publicUrl: '', storagePath: '', altText: '', error: 'Failed to create image job record.' }
+    return {
+      jobId: '', publicUrl: '', storagePath: '', altText: '',
+      error: `Failed to create image job record: ${jobErr?.message ?? 'unknown error'}`,
+    }
   }
 
   const jobId = job.id

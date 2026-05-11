@@ -12,7 +12,8 @@ import { buildWebsiteImageContext } from '@/lib/website-ai/buildWebsiteImageCont
 import {
   isSchemaCacheError,
   isFkCreatedByError,
-  MISSING_TABLE_MESSAGE,
+  buildTableMissingMessage,
+  extractMissingTableName,
   MISSING_API_KEY_MESSAGE,
 } from '@/lib/website-ai/imagePipelineErrors'
 import { getSafeCreatedBy } from '@/lib/auth/getSafeCreatedBy'
@@ -142,21 +143,26 @@ export async function POST(req: NextRequest) {
 
   if (insertErr) {
     if (isSchemaCacheError(insertErr)) {
+      const tbl = extractMissingTableName(insertErr)
+      console.error('[AI-IMAGE][plan] Schema/table error on insert:', insertErr.message)
       return NextResponse.json({
-        error:  MISSING_TABLE_MESSAGE,
-        code:   'MISSING_TABLE',
-        detail: insertErr.message,
+        error:        buildTableMissingMessage(tbl ?? 'website_image_plans'),
+        code:         'MISSING_TABLE',
+        missingTable: tbl ?? 'website_image_plans',
+        detail:       insertErr.message,
+        diagnostics:  '/api/owner/diagnostics/website-images',
       }, { status: 503 })
     }
     if (isFkCreatedByError(insertErr)) {
-      console.error('[AI-IMAGE][plan] FK created_by violation:', insertErr)
+      console.error('[AI-IMAGE][plan] FK created_by violation:', insertErr.message)
       return NextResponse.json({
-        error:  'Website image plan failed: created_by FK violation. Run migration 055_fix_website_image_plans_created_by.sql.',
+        error:  'Image plan insert failed: created_by foreign key violation. Make sure the migration has made created_by nullable (re-run migration 054).',
         code:   'FK_CREATED_BY',
         detail: insertErr.message,
       }, { status: 500 })
     }
-    return NextResponse.json({ error: insertErr.message }, { status: 500 })
+    console.error('[AI-IMAGE][plan] Insert error:', insertErr.message)
+    return NextResponse.json({ error: insertErr.message, detail: insertErr.message }, { status: 500 })
   }
 
   console.log('[AI-IMAGE][plan] Created plans', {
@@ -207,13 +213,18 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query
   if (error) {
     if (isSchemaCacheError(error)) {
+      const tbl = extractMissingTableName(error)
+      console.error('[AI-IMAGE][plan GET] Schema/table error:', error.message)
       return NextResponse.json({
-        error:  MISSING_TABLE_MESSAGE,
-        code:   'MISSING_TABLE',
-        detail: error.message,
-        plans:  [],
+        error:        buildTableMissingMessage(tbl ?? 'website_image_plans'),
+        code:         'MISSING_TABLE',
+        missingTable: tbl ?? 'website_image_plans',
+        detail:       error.message,
+        diagnostics:  '/api/owner/diagnostics/website-images',
+        plans:        [],
       }, { status: 503 })
     }
+    console.error('[AI-IMAGE][plan GET] Query error:', error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
   return NextResponse.json({ plans: data ?? [] })

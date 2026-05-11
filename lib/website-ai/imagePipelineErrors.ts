@@ -3,29 +3,68 @@
 // Use these in every API route that touches website_image_plans or website_image_jobs.
 
 /**
- * Returns true when a Supabase/PostgREST error is the well-known
- * "table doesn't exist in schema cache" failure.
+ * Returns true when a Supabase/PostgREST error indicates a table genuinely
+ * does not exist in the database schema.
  *
- * Root cause: migration 054_website_image_plans_complete.sql has not been
- * applied to the Supabase project yet.
+ * IMPORTANT: Do NOT match on just 'relation' — that word appears in many
+ * unrelated PostgreSQL error messages (FK violations, type errors, etc.)
+ * and would produce false positives that show the wrong user-facing error.
+ *
+ * Specific patterns we match:
+ *  - PostgREST PGRST200 / PGRST205 — schema cache miss
+ *  - 'schema cache'     — PostgREST explicit message
+ *  - 'could not find the table' — PostgREST alternative wording
+ *  - 'relation … does not exist' — PostgreSQL 42P01 error (table not found)
+ *  - pg code 42P01      — PostgreSQL "undefined table" SQLSTATE
  */
 export function isSchemaCacheError(err: { message?: string; code?: string } | null | undefined): boolean {
   if (!err) return false
-  const msg = (err.message ?? '').toLowerCase()
+  const msg  = (err.message ?? '').toLowerCase()
+  const code = (err.code ?? '').toUpperCase()
   return (
     msg.includes('schema cache') ||
     msg.includes('could not find the table') ||
-    msg.includes('relation') ||
-    (err.code === 'PGRST200') ||
-    (err.code === 'PGRST205')
+    // PostgreSQL "relation X does not exist" — must require BOTH words
+    (msg.includes('relation') && msg.includes('does not exist')) ||
+    code === 'PGRST200' ||
+    code === 'PGRST205' ||
+    code === '42P01'    // PostgreSQL undefined_table SQLSTATE
+  )
+}
+
+/**
+ * Extract the table name from a Postgres "relation X does not exist" error.
+ * Returns null if the pattern is not found.
+ */
+export function extractMissingTableName(err: { message?: string } | null | undefined): string | null {
+  if (!err?.message) return null
+  const m = err.message.match(/relation\s+"?([^"]+)"?\s+does not exist/i)
+  return m ? m[1] : null
+}
+
+/**
+ * Build a human-readable error message that names the specific missing table
+ * (not always website_image_plans — could be website_image_jobs, etc.).
+ */
+export function buildTableMissingMessage(tableName: string | null): string {
+  const tbl = tableName ?? 'a required AI image table'
+  return (
+    `Database table "${tbl}" was not found in the public schema. ` +
+    'Run migration 054_website_image_plans_complete.sql AND 058_schema_check_helpers.sql ' +
+    'in your Supabase SQL editor (for the same project your Vercel deployment uses), ' +
+    'then redeploy. ' +
+    'Verify at /api/owner/diagnostics/website-images — all tables should show ok: true.'
   )
 }
 
 /** Human-readable message shown in the UI when the table is missing. */
 export const MISSING_TABLE_MESSAGE =
-  'The website image plans table is missing. ' +
-  'Run migration 054_website_image_plans_complete.sql in your Supabase SQL editor, ' +
-  'then redeploy. See /api/owner/diagnostics/website-images for full status.'
+  'One or more AI image database tables are missing. ' +
+  'Run migration 054_website_image_plans_complete.sql in your Supabase SQL editor ' +
+  '(the same project your Vercel deployment points to), then redeploy. ' +
+  'If you already ran the migration, check /api/owner/diagnostics/website-images — ' +
+  'it may be connected to a different Supabase project, or the table may be missing ' +
+  'from a partial migration run (website_image_jobs or website_section_images).'
 
 /** Human-readable message when the storage bucket is missing. */
 export const MISSING_BUCKET_MESSAGE =

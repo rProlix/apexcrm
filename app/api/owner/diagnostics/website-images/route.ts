@@ -1,263 +1,189 @@
 // app/api/owner/diagnostics/website-images/route.ts
 // GET /api/owner/diagnostics/website-images
 //
-// Developer diagnostics for the AI Website Image pipeline.
-// Owner-only. Returns the full health status of every dependency.
-
-import { NextResponse } from 'next/server'
-import { getUserContext } from '@/lib/auth/getUserContext'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { WEBSITE_IMAGE_BUCKET, WEBSITE_IMAGE_MODEL, getWebsiteImageModel } from '@/lib/ai/websiteImageConfig'
+// Full health-check for the AI Website Image pipeline.
+// Owner-only. Uses check_website_image_schema() RPC (migration 058) to bypass
+// PostgREST schema cache so results are accurate immediately after a migration.
 
 export const dynamic = 'force-dynamic'
 
-interface DiagCheck {
-  name:   string
-  ok:     boolean
-  detail: string
-}
+import { NextResponse } from 'next/server'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { checkWebsiteImageSchema } from '@/lib/website-images/checkWebsiteImageSchema'
+import { WEBSITE_IMAGE_BUCKET, WEBSITE_IMAGE_MODEL, getWebsiteImageModel } from '@/lib/ai/websiteImageConfig'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export async function GET() {
   const ctx = await getUserContext()
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!ctx)            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (ctx.role !== 'owner')
     return NextResponse.json({ error: 'Owner role required.' }, { status: 403 })
 
-  const checks: DiagCheck[] = []
   const supabase = getSupabaseServerClient()
 
-  // ── 1. GEMINI_API_KEY ─────────────────────────────────────────────────────
-  const hasApiKey = !!process.env.GEMINI_API_KEY
-  checks.push({
-    name:   'GEMINI_API_KEY env var',
-    ok:     hasApiKey,
-    detail: hasApiKey
-      ? 'Present (value hidden for security)'
-      : 'MISSING — add GEMINI_API_KEY to Vercel environment variables, then redeploy',
-  })
+  // ── 1. Schema check (uses RPC if available, falls back to direct) ─────────
+  const schema = await checkWebsiteImageSchema()
 
-  // ── 2. SUPABASE_SERVICE_ROLE_KEY ──────────────────────────────────────────
-  const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY
-  checks.push({
-    name:   'SUPABASE_SERVICE_ROLE_KEY env var',
-    ok:     hasServiceKey,
-    detail: hasServiceKey
-      ? 'Present (value hidden for security)'
-      : 'MISSING — storage uploads will fail',
-  })
-
-  // ── 3. Supabase URL ───────────────────────────────────────────────────────
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  checks.push({
-    name:   'NEXT_PUBLIC_SUPABASE_URL',
-    ok:     !!supabaseUrl,
-    detail: supabaseUrl ?? 'MISSING',
-  })
-
-  // ── 4. Imagen model ───────────────────────────────────────────────────────
-  const activeModel = getWebsiteImageModel()
-  checks.push({
-    name:   'WEBSITE_IMAGE_MODEL',
-    ok:     activeModel === WEBSITE_IMAGE_MODEL,
-    detail: `Active: ${activeModel} | Expected: ${WEBSITE_IMAGE_MODEL}`,
-  })
-
-  // ── 5. website_image_plans table ─────────────────────────────────────────
-  let plansOk = false
-  let plansDetail = ''
-  let planCounts: Record<string, number> = {}
-  try {
-    const { error: countErr } = await supabase
-      .from('website_image_plans')
-      .select('id', { count: 'exact', head: true })
-    plansOk     = !countErr
-    plansDetail = countErr
-      ? `ERROR: ${countErr.message} — Run migration 054_website_image_plans_complete.sql`
-      : 'Table exists and is accessible'
-
-    if (plansOk) {
-      const statuses = ['planned','queued','generating','generated','uploaded','applied','failed']
-      for (const s of statuses) {
-        const { count } = await supabase
-          .from('website_image_plans')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', s)
-        planCounts[s] = count ?? 0
-      }
-    }
-  } catch (err) {
-    plansDetail = `Exception: ${err instanceof Error ? err.message : String(err)}`
-  }
-  checks.push({ name: 'DB: website_image_plans', ok: plansOk, detail: plansDetail })
-
-  // ── 6. website_image_jobs table ──────────────────────────────────────────
-  let jobsOk = false
-  let jobsDetail = ''
-  try {
-    const { error } = await supabase.from('website_image_jobs').select('id', { count: 'exact', head: true })
-    jobsOk     = !error
-    jobsDetail = error
-      ? `ERROR: ${error.message} — Run migration 054_website_image_plans_complete.sql`
-      : 'Table exists and is accessible'
-  } catch (err) {
-    jobsDetail = `Exception: ${err instanceof Error ? err.message : String(err)}`
-  }
-  checks.push({ name: 'DB: website_image_jobs', ok: jobsOk, detail: jobsDetail })
-
-  // ── 6b. website_section_images table ─────────────────────────────────────
-  let galleryOk = false
-  let galleryDetail = ''
-  try {
-    const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
-    const { error } = await db.from('website_section_images').select('id', { count: 'exact', head: true } as never)
-    galleryOk     = !error
-    galleryDetail = error
-      ? `ERROR: ${error.message} — Run migration 054_website_image_plans_complete.sql`
-      : 'Table exists and is accessible'
-  } catch (err) {
-    galleryDetail = `Exception: ${err instanceof Error ? err.message : String(err)}`
-  }
-  checks.push({ name: 'DB: website_section_images', ok: galleryOk, detail: galleryDetail })
-
-  // ── 6c. activate_website_section_image function ───────────────────────────
-  let activateFnOk = false
-  let activateFnDetail = ''
-  try {
-    const { data: fnRows } = await supabase
-      .from('information_schema.routines' as never)
-      .select('routine_name')
-      .eq('routine_schema', 'public')
-      .eq('routine_name', 'activate_website_section_image')
-      .maybeSingle()
-    activateFnOk     = !!(fnRows as Record<string, string> | null)?.routine_name
-    activateFnDetail = activateFnOk
-      ? 'Function public.activate_website_section_image exists'
-      : 'Function NOT FOUND — run migration 054_website_image_plans_complete.sql'
-  } catch (err) {
-    activateFnDetail = `Exception: ${err instanceof Error ? err.message : String(err)}`
-  }
-  checks.push({ name: 'DB fn: activate_website_section_image', ok: activateFnOk, detail: activateFnDetail })
-
-  // ── 7. website-assets bucket ─────────────────────────────────────────────
-  let bucketOk = false
-  let bucketDetail = ''
+  // ── 2. Storage buckets ─────────────────────────────────────────────────────
+  let bucketsChecked = false
+  let assetsOk       = false
+  let imagesOk       = false
+  let bucketDetail   = ''
   try {
     const { data: buckets, error } = await supabase.storage.listBuckets()
     if (error) {
       bucketDetail = `listBuckets failed: ${error.message}`
     } else {
-      const found = buckets?.find(b => b.id === WEBSITE_IMAGE_BUCKET)
-      bucketOk    = !!found
-      bucketDetail = found
-        ? `Bucket "${WEBSITE_IMAGE_BUCKET}" exists (public: ${found.public})`
-        : `Bucket "${WEBSITE_IMAGE_BUCKET}" NOT FOUND — run migration 054 or create it manually`
+      bucketsChecked = true
+      assetsOk = !!buckets?.find(b => b.id === WEBSITE_IMAGE_BUCKET)
+      imagesOk = !!buckets?.find(b => b.id === 'website-images')
     }
-  } catch (err) {
-    bucketDetail = `Exception: ${err instanceof Error ? err.message : String(err)}`
+  } catch (e) {
+    bucketDetail = `Exception: ${e instanceof Error ? e.message : String(e)}`
   }
-  checks.push({ name: `Storage: ${WEBSITE_IMAGE_BUCKET}`, ok: bucketOk, detail: bucketDetail })
 
-  // ── 8. website-images bucket ─────────────────────────────────────────────
-  let bucket2Ok = false
-  let bucket2Detail = ''
-  try {
-    const { data: buckets, error } = await supabase.storage.listBuckets()
-    if (error) {
-      bucket2Detail = `listBuckets failed: ${error.message}`
-    } else {
-      const found    = buckets?.find(b => b.id === 'website-images')
-      bucket2Ok      = !!found
-      bucket2Detail  = found
-        ? `Bucket "website-images" exists (public: ${found.public})`
-        : 'Bucket "website-images" NOT FOUND — run migration 054'
-    }
-  } catch (err) {
-    bucket2Detail = `Exception: ${err instanceof Error ? err.message : String(err)}`
-  }
-  checks.push({ name: 'Storage: website-images', ok: bucket2Ok, detail: bucket2Detail })
+  // ── 3. Environment variables ───────────────────────────────────────────────
+  const geminiKey     = !!process.env.GEMINI_API_KEY
+  const serviceKey    = !!process.env.SUPABASE_SERVICE_ROLE_KEY
+  const supabaseUrl   = process.env.NEXT_PUBLIC_SUPABASE_URL ?? null
+  const activeModel   = getWebsiteImageModel()
 
-  // ── 9. created_by FK diagnostics ─────────────────────────────────────────
-  let createdByFkTarget = 'auth.users(id)'
-  let invalidCreatedByCount = 0
-  let nullableCreatedBy = true
-
-  if (plansOk) {
+  // ── 4. created_by column nullability ──────────────────────────────────────
+  let createdByNullable = true
+  if (schema.tables.website_image_plans.exists) {
     try {
-      // Check nullability via information_schema (PostgREST can query it)
-      const { data: colRows } = await supabase
+      const { data } = await supabase
         .from('information_schema.columns' as never)
         .select('is_nullable')
         .eq('table_schema', 'public')
         .eq('table_name', 'website_image_plans')
         .eq('column_name', 'created_by')
         .maybeSingle()
-      const colData = colRows as { is_nullable?: string } | null
-      nullableCreatedBy = colData?.is_nullable !== 'NO'
-    } catch { /* ignore — treat as nullable */ }
+      const col = data as { is_nullable?: string } | null
+      createdByNullable = col?.is_nullable !== 'NO'
+    } catch { /* treat as nullable */ }
   }
 
-  checks.push({
-    name:   'created_by FK target',
-    ok:     true,
-    detail: `FK references ${createdByFkTarget}. App code must pass ctx.auth_id (auth.users.id), NOT ctx.id (public.users.id). Run migration 055 to fix any invalid rows.`,
-  })
-  checks.push({
-    name:   'created_by nullable',
-    ok:     nullableCreatedBy,
-    detail: nullableCreatedBy
-      ? 'created_by is nullable — server/service-role inserts with created_by=null will work.'
-      : 'created_by is NOT nullable — run migration 055_fix_website_image_plans_created_by.sql.',
-  })
-
-  // ── 10. Last 10 failed plans ──────────────────────────────────────────────
+  // ── 5. Recent failed plans ────────────────────────────────────────────────
   let recentFailed: Array<Record<string, unknown>> = []
-  if (plansOk) {
+  if (schema.tables.website_image_plans.exists) {
     try {
       const { data } = await supabase
         .from('website_image_plans')
-        .select('id, tenant_id, image_role, section_type, status, error_message, created_at, updated_at')
+        .select('id, tenant_id, section_type, status, error_message, created_at')
         .eq('status', 'failed')
         .order('updated_at', { ascending: false })
-        .limit(10)
+        .limit(5)
       recentFailed = (data ?? []) as unknown as Array<Record<string, unknown>>
     } catch { /* ignore */ }
   }
 
-  const allOk = checks.every(c => c.ok)
+  // ── 6. Build structured response ──────────────────────────────────────────
+  const envOk    = geminiKey && serviceKey && !!supabaseUrl
+  const bucketOk = assetsOk || imagesOk
+  const allOk    = schema.ok && envOk && bucketOk
+
+  // Smart contextual guidance
+  const fixes: string[] = []
+  if (!schema.tables.website_image_plans.exists)
+    fixes.push('Run migration 054_website_image_plans_complete.sql — table website_image_plans is missing.')
+  if (!schema.tables.website_image_jobs.exists)
+    fixes.push('Run migration 054_website_image_plans_complete.sql — table website_image_jobs is missing.')
+  if (!schema.tables.website_section_images.exists)
+    fixes.push('Run migration 054_website_image_plans_complete.sql — table website_section_images is missing.')
+  if (schema.tables.website_image_plans.missingColumns.length)
+    fixes.push(`website_image_plans is missing columns: ${schema.tables.website_image_plans.missingColumns.join(', ')} — re-run migration 054.`)
+  if (schema.tables.website_image_jobs.missingColumns.length)
+    fixes.push(`website_image_jobs is missing columns: ${schema.tables.website_image_jobs.missingColumns.join(', ')} — re-run migration 054.`)
+  if (schema.tables.website_section_images.missingColumns.length)
+    fixes.push(`website_section_images is missing columns: ${schema.tables.website_section_images.missingColumns.join(', ')} — re-run migration 054.`)
+  if (!schema.compatViewExists)
+    fixes.push('website_generated_images compatibility view is missing — re-run migration 054.')
+  if (!geminiKey)
+    fixes.push('Add GEMINI_API_KEY to Vercel → Project → Settings → Environment Variables → Redeploy.')
+  if (!serviceKey)
+    fixes.push('Add SUPABASE_SERVICE_ROLE_KEY to Vercel environment variables.')
+  if (!supabaseUrl)
+    fixes.push('NEXT_PUBLIC_SUPABASE_URL is not set. Check Vercel environment variables.')
+  if (!schema.usedRpc)
+    fixes.push('Run migration 058_schema_check_helpers.sql to enable accurate schema detection via RPC.')
+  if (bucketsChecked && !assetsOk && !imagesOk)
+    fixes.push(`Storage bucket "${WEBSITE_IMAGE_BUCKET}" not found. Run migration 054 or create it manually in Supabase Dashboard → Storage.`)
+  if (!createdByNullable)
+    fixes.push('created_by column in website_image_plans is NOT NULL — re-run migration 054 to make it nullable.')
+  if (supabaseUrl && schema.ok && !schema.usedRpc)
+    fixes.push('The app may be connected to a different Supabase project. Verify NEXT_PUBLIC_SUPABASE_URL matches the project where you ran migration 054.')
 
   return NextResponse.json({
-    ok:                    allOk,
-    timestamp:             new Date().toISOString(),
-    model:                 activeModel,
-    bucket:                WEBSITE_IMAGE_BUCKET,
-    checks,
+    ok:        allOk,
+    timestamp: new Date().toISOString(),
+    checkMethod: schema.usedRpc ? 'rpc_check_website_image_schema' : 'direct_query_fallback',
+
+    supabase: {
+      url:              supabaseUrl,
+      serviceRolePresent: serviceKey,
+      note: schema.usedRpc
+        ? 'Schema checked via RPC — bypasses PostgREST cache. Results are authoritative.'
+        : 'Schema checked via direct query — run migration 058_schema_check_helpers.sql for authoritative RPC-based checks.',
+    },
+
     tables: {
-      website_image_plans:    plansOk,
-      website_image_jobs:     jobsOk,
-      website_section_images: galleryOk,
+      website_image_plans: {
+        exists:         schema.tables.website_image_plans.exists,
+        missingColumns: schema.tables.website_image_plans.missingColumns,
+      },
+      website_image_jobs: {
+        exists:         schema.tables.website_image_jobs.exists,
+        missingColumns: schema.tables.website_image_jobs.missingColumns,
+      },
+      website_section_images: {
+        exists:         schema.tables.website_section_images.exists,
+        missingColumns: schema.tables.website_section_images.missingColumns,
+      },
+      website_generated_images_view: {
+        exists: schema.compatViewExists,
+        note:   'Compatibility view over website_section_images for old code references.',
+      },
     },
+
     functions: {
-      activate_website_section_image: activateFnOk,
+      activate_website_section_image: schema.activateFnExists,
+      check_website_image_schema_rpc: schema.usedRpc,
     },
-    planCounts:            plansOk ? planCounts : null,
-    recentFailed:          plansOk ? recentFailed : null,
-    createdByFkTarget,
-    invalidCreatedByCount,
-    createdByNote:         'Use ctx.auth_id (auth.users.id), NOT ctx.id (public.users.id), when inserting created_by.',
-    instructions: allOk ? null : {
-      step1: 'Open Supabase Dashboard → SQL Editor',
-      step2: 'Paste and run: supabase/migrations/054_website_image_plans_complete.sql',
-      step3: 'Redeploy on Vercel',
-      step4: 'Visit /api/owner/diagnostics/website-images and confirm ok=true',
-      missingTable: (!plansOk || !jobsOk || !galleryOk)
-        ? 'Run supabase/migrations/054_website_image_plans_complete.sql in Supabase SQL Editor'
-        : null,
-      missingBucket: !bucketOk
-        ? `Create bucket "${WEBSITE_IMAGE_BUCKET}" in Supabase Dashboard → Storage (public: true) OR run migration 054`
-        : null,
-      missingApiKey: !hasApiKey
-        ? 'Add GEMINI_API_KEY to Vercel → Project → Settings → Environment Variables → Redeploy'
-        : null,
+
+    storage: {
+      [WEBSITE_IMAGE_BUCKET]: assetsOk,
+      'website-images':       imagesOk,
+      bucketCheckError:       bucketDetail || null,
+    },
+
+    env: {
+      GEMINI_API_KEY:             geminiKey ? 'present' : 'MISSING',
+      SUPABASE_SERVICE_ROLE_KEY:  serviceKey ? 'present' : 'MISSING',
+      NEXT_PUBLIC_SUPABASE_URL:   supabaseUrl ?? 'MISSING',
+      WEBSITE_IMAGE_MODEL:        activeModel,
+      expectedModel:              WEBSITE_IMAGE_MODEL,
+      modelMatchesExpected:       activeModel === WEBSITE_IMAGE_MODEL,
+    },
+
+    database: {
+      allTablesPresent: schema.allTablesPresent,
+      createdByNullable,
+      schemaErrors:     schema.errors,
+      schemaSummary:    schema.summary,
+    },
+
+    recentFailedPlans: recentFailed,
+    fixes,
+
+    instructions: fixes.length === 0 ? null : {
+      step1: 'In your Supabase Dashboard → SQL Editor, run:',
+      step2: '  supabase/migrations/054_website_image_plans_complete.sql',
+      step3: '  supabase/migrations/058_schema_check_helpers.sql',
+      step4: 'Redeploy on Vercel.',
+      step5: 'Visit /api/owner/diagnostics/website-images and confirm ok=true.',
+      warning: 'Ensure you are running migrations against the SAME Supabase project ' +
+               'that NEXT_PUBLIC_SUPABASE_URL points to.',
     },
   }, { status: allOk ? 200 : 207 })
 }

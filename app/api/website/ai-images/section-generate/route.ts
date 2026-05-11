@@ -19,7 +19,8 @@ import { normalizeImagenAspectRatio, getAspectRatioNormalizationNote } from '@/l
 import {
   isSchemaCacheError,
   isFkCreatedByError,
-  MISSING_TABLE_MESSAGE,
+  buildTableMissingMessage,
+  extractMissingTableName,
   MISSING_BUCKET_MESSAGE,
   MISSING_API_KEY_MESSAGE,
 } from '@/lib/website-ai/imagePipelineErrors'
@@ -129,11 +130,25 @@ export async function POST(req: NextRequest) {
 
   if (planInsertErr || !plan) {
     if (isSchemaCacheError(planInsertErr)) {
-      return NextResponse.json({ error: MISSING_TABLE_MESSAGE, code: 'MISSING_TABLE' }, { status: 503 })
+      const tbl = extractMissingTableName(planInsertErr)
+      console.error('[AI-IMAGE][section-generate] Schema/table error on plan insert:', planInsertErr?.message)
+      return NextResponse.json({
+        error:        buildTableMissingMessage(tbl ?? 'website_image_plans'),
+        code:         'MISSING_TABLE',
+        missingTable: tbl ?? 'website_image_plans',
+        detail:       planInsertErr?.message,
+        diagnostics:  '/api/owner/diagnostics/website-images',
+      }, { status: 503 })
     }
     if (isFkCreatedByError(planInsertErr)) {
-      return NextResponse.json({ error: 'FK created_by violation. Run migration 055.', code: 'FK_CREATED_BY' }, { status: 500 })
+      console.error('[AI-IMAGE][section-generate] FK created_by violation:', planInsertErr?.message)
+      return NextResponse.json({
+        error:  'Plan insert failed: created_by foreign key violation. Re-run migration 054 to make created_by nullable.',
+        code:   'FK_CREATED_BY',
+        detail: planInsertErr?.message,
+      }, { status: 500 })
     }
+    console.error('[AI-IMAGE][section-generate] Plan insert error:', planInsertErr?.message)
     return NextResponse.json({ error: planInsertErr?.message ?? 'Failed to create plan.' }, { status: 500 })
   }
 

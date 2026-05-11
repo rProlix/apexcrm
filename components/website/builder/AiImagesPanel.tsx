@@ -18,12 +18,20 @@ type PanelToast = { type: 'success' | 'error'; message: string } | null
 // Error codes returned by the API when a critical dependency is missing.
 type ApiErrorCode = 'MISSING_TABLE' | 'MISSING_BUCKET' | 'MISSING_API_KEY' | null
 
+interface BlockingError {
+  code:          ApiErrorCode
+  message:       string
+  missingTable?: string
+  detail?:       string
+  diagnostics?:  string
+}
+
 export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
   const [plans, setPlans]               = useState<WebsiteImagePlan[]>(initialPlans)
   const [loadingPlanId, setLoadingPlan] = useState<string | null>(null)
   const [globalLoading, setGlobalLoad]  = useState(false)
   const [toast, setToast]               = useState<PanelToast>(null)
-  const [blockingError, setBlockingError] = useState<{ code: ApiErrorCode; message: string } | null>(null)
+  const [blockingError, setBlockingError] = useState<BlockingError | null>(null)
   const [, startTransition]             = useTransition()
 
   function showToast(type: 'success' | 'error', message: string) {
@@ -41,7 +49,13 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
     if (!res.ok) {
       const code = (json.code as ApiErrorCode) ?? null
       if (code === 'MISSING_TABLE' || code === 'MISSING_BUCKET' || code === 'MISSING_API_KEY') {
-        setBlockingError({ code, message: (json.error as string) ?? 'Configuration error.' })
+        setBlockingError({
+          code,
+          message:      (json.error        as string) ?? 'Configuration error.',
+          missingTable: (json.missingTable  as string | undefined),
+          detail:       (json.detail        as string | undefined),
+          diagnostics:  (json.diagnostics   as string | undefined),
+        })
       }
       throw new Error((json.error as string) ?? 'Request failed')
     }
@@ -53,11 +67,17 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
       const params = new URLSearchParams()
       if (isOwner) params.set('tenantId', tenantId)
       const res  = await fetch(`/api/website/ai-images/plan?${params}`)
-      const json = await res.json() as { plans: WebsiteImagePlan[]; code?: string; error?: string }
+      const json = await res.json() as { plans: WebsiteImagePlan[]; code?: string; error?: string; missingTable?: string; detail?: string; diagnostics?: string }
       if (!res.ok) {
         const code = (json.code as ApiErrorCode) ?? null
         if (code === 'MISSING_TABLE' || code === 'MISSING_BUCKET' || code === 'MISSING_API_KEY') {
-          setBlockingError({ code, message: json.error ?? 'Configuration error.' })
+          setBlockingError({
+            code,
+            message:      json.error ?? 'Configuration error.',
+            missingTable: json.missingTable as string | undefined,
+            detail:       json.detail as string | undefined,
+            diagnostics:  json.diagnostics as string | undefined,
+          })
           return
         }
         showToast('error', json.error ?? 'Failed to load plans.')
@@ -266,37 +286,73 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
           <div className="flex items-center gap-2 text-red-400">
             <Terminal className="h-4 w-4 shrink-0" />
             <span className="text-sm font-semibold">
-              {blockingError.code === 'MISSING_TABLE'   && 'Database table missing'}
+              {blockingError.code === 'MISSING_TABLE'   && (
+                blockingError.missingTable
+                  ? `Database table missing: ${blockingError.missingTable}`
+                  : 'Database table missing'
+              )}
               {blockingError.code === 'MISSING_BUCKET'  && 'Storage bucket missing'}
               {blockingError.code === 'MISSING_API_KEY' && 'Imagen API key missing'}
               {!blockingError.code                      && 'Configuration error'}
             </span>
           </div>
+
           <p className="text-xs text-red-300/80 leading-relaxed">{blockingError.message}</p>
+
+          {blockingError.detail && (
+            <p className="text-[11px] text-white/30 font-mono break-all leading-relaxed bg-black/30 rounded-lg px-3 py-2">
+              {blockingError.detail}
+            </p>
+          )}
+
           {blockingError.code === 'MISSING_TABLE' && (
             <div className="text-[11px] text-white/40 space-y-1 font-mono bg-black/30 rounded-xl p-3">
               <p className="text-white/60 font-sans font-semibold not-italic mb-1">Fix steps:</p>
               <p>1. Open Supabase Dashboard → SQL Editor</p>
-              <p>2. Run: <span className="text-violet-300">supabase/migrations/054_website_image_plans_complete.sql</span></p>
-              <p>3. Redeploy or reload this page</p>
-              <p>4. Or run: <span className="text-violet-300">GET /api/owner/diagnostics/website-images</span> for full status</p>
+              <p>2. Run: <span className="text-violet-300">054_website_image_plans_complete.sql</span></p>
+              <p>3. Run: <span className="text-violet-300">058_schema_check_helpers.sql</span></p>
+              <p>4. Verify you are running migrations on the <span className="text-yellow-300">same Supabase project</span> as NEXT_PUBLIC_SUPABASE_URL</p>
+              <p>5. Redeploy on Vercel, then click &quot;Retry after fixing&quot; below</p>
             </div>
           )}
+
+          {blockingError.code === 'MISSING_BUCKET' && (
+            <div className="text-[11px] text-white/40 space-y-1 font-mono bg-black/30 rounded-xl p-3">
+              <p className="text-white/60 font-sans font-semibold not-italic mb-1">Fix steps:</p>
+              <p>1. Open Supabase Dashboard → Storage → New bucket</p>
+              <p>2. Name: <span className="text-violet-300">website-assets</span> — Public: on</p>
+              <p>3. Or re-run: <span className="text-violet-300">054_website_image_plans_complete.sql</span></p>
+            </div>
+          )}
+
           {blockingError.code === 'MISSING_API_KEY' && (
             <div className="text-[11px] text-white/40 space-y-1 font-mono bg-black/30 rounded-xl p-3">
               <p className="text-white/60 font-sans font-semibold not-italic mb-1">Fix steps:</p>
               <p>1. Go to Vercel Dashboard → Project → Settings → Environment Variables</p>
-              <p>2. Add: <span className="text-violet-300">GEMINI_API_KEY=your-google-ai-api-key</span></p>
+              <p>2. Add: <span className="text-violet-300">GEMINI_API_KEY=your-google-ai-key</span></p>
               <p>3. Redeploy</p>
             </div>
           )}
-          <button
-            onClick={() => { setBlockingError(null); void loadPlans() }}
-            className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Retry after fixing
-          </button>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { setBlockingError(null); void loadPlans() }}
+              className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Retry after fixing
+            </button>
+            {blockingError.diagnostics && (
+              <a
+                href={blockingError.diagnostics}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-violet-400/60 hover:text-violet-300 transition-colors underline underline-offset-2"
+              >
+                View diagnostics →
+              </a>
+            )}
+          </div>
         </div>
       )}
 
