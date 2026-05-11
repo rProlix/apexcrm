@@ -1,8 +1,16 @@
 // lib/appointments/types.ts
 
-export type AppointmentStatus = 'pending' | 'confirmed' | 'completed' | 'canceled'
+export type AppointmentStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'completed'
+  | 'canceled'
+  | 'no_show'
+  | 'rescheduled'
 
 export type RepeatType = 'daily' | 'weekly' | 'custom'
+
+export type AppointmentBlockType = 'available' | 'unavailable' | 'blackout'
 
 // ── Professional / Employee ───────────────────────────────────────────────────
 
@@ -26,6 +34,8 @@ export interface AppointmentAvailabilityBlock {
   tenant_id:             string
   staff_id:              string | null
   title:                 string | null
+  description:           string | null
+  block_type:            AppointmentBlockType
   day_of_week:           number | null    // 0=Sun … 6=Sat (recurring)
   start_time:            string | null    // "HH:MM" (recurring)
   end_time:              string | null    // "HH:MM" (recurring)
@@ -38,10 +48,37 @@ export interface AppointmentAvailabilityBlock {
   max_bookings_per_slot: number
   is_recurring:          boolean
   is_active:             boolean
+  recurrence_rule:       string | null
+  created_by:            string | null
   created_at:            string
   updated_at:            string
   // Joined
   professional?: Pick<Professional, 'id' | 'name' | 'avatar_url'> | null
+}
+
+// ── Appointment Service ───────────────────────────────────────────────────────
+
+export interface AppointmentServiceRecord {
+  id:               string
+  tenant_id:        string
+  name:             string
+  description:      string | null
+  duration_minutes: number
+  price_cents:      number | null
+  is_active:        boolean
+  created_at:       string
+  updated_at:       string
+}
+
+// ── Available Slot ────────────────────────────────────────────────────────────
+
+export interface AvailableSlot {
+  starts_at:  string  // ISO 8601
+  ends_at:    string  // ISO 8601
+  staff_id:   string | null
+  staff_name: string | null
+  block_id:   string | null
+  available:  boolean
 }
 
 // ── Appointment ───────────────────────────────────────────────────────────────
@@ -126,30 +163,30 @@ export interface AvailabilitySlot {
 // ── Input types ───────────────────────────────────────────────────────────────
 
 export interface CreateAppointmentInput {
-  tenant_id:            string
-  customer_id:          string | null
-  staff_id?:            string | null
+  tenant_id:             string
+  customer_id:           string | null
+  staff_id?:             string | null
   appointment_block_id?: string | null
-  title:                string
-  description?:         string | null
-  starts_at:            string
-  ends_at:              string
-  location?:            string | null
-  notes?:               string | null
-  timezone?:            string
-  created_by?:          string | null
+  title:                 string
+  description?:          string | null
+  starts_at:             string
+  ends_at:               string
+  location?:             string | null
+  notes?:                string | null
+  timezone?:             string
+  created_by?:           string | null
 }
 
 export interface UpdateAppointmentInput {
-  title?:               string
-  description?:         string | null
-  status?:              AppointmentStatus
-  starts_at?:           string
-  ends_at?:             string
-  location?:            string | null
-  notes?:               string | null
-  timezone?:            string
-  staff_id?:            string | null
+  title?:                string
+  description?:          string | null
+  status?:               AppointmentStatus
+  starts_at?:            string
+  ends_at?:              string
+  location?:             string | null
+  notes?:                string | null
+  timezone?:             string
+  staff_id?:             string | null
   appointment_block_id?: string | null
 }
 

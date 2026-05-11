@@ -35,6 +35,16 @@ interface Props {
   onBooked?:         () => void
 }
 
+// Normalise both AvailableSlot ({starts_at, ends_at}) and TimeSlot ({start, end}) shapes
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normaliseSlot(s: any): TimeSlot {
+  return {
+    start:     s.starts_at ?? s.start,
+    end:       s.ends_at   ?? s.end,
+    available: s.available !== false,
+  }
+}
+
 export function TimeSlotPicker({
   date,
   duration_minutes,
@@ -53,16 +63,29 @@ export function TimeSlotPicker({
     setError(null)
 
     const params = new URLSearchParams({ date })
-    if (duration_minutes) params.set('duration_minutes', String(duration_minutes))
+    if (duration_minutes) params.set('durationMinutes', String(duration_minutes))
     if (staffId)          params.set('staffId', staffId)
 
-    const url = `/api/appointments/availability?${params.toString()}`
+    // Use new available-slots endpoint (respects block_type including blackouts)
+    // Fall back to legacy availability endpoint if new one fails
+    const newUrl    = `/api/appointments/available-slots?${params.toString()}`
+    const legacyUrl = `/api/appointments/availability?${params.toString()}`
 
     try {
-      const res  = await fetch(url, { cache: 'no-store' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to load slots')
-      setSlots((data.slots ?? []) as TimeSlot[])
+      let res  = await fetch(newUrl, { cache: 'no-store' })
+      let data = await res.json()
+
+      // If new endpoint fails or returns no data, try legacy
+      if (!res.ok || (!data.slots?.length && staffId)) {
+        res  = await fetch(legacyUrl, { cache: 'no-store' })
+        data = await res.json()
+      }
+
+      if (!res.ok && !data.ok) throw new Error(data.error ?? 'Failed to load slots')
+
+      // Normalise both slot formats
+      const rawSlots = data.slots ?? []
+      setSlots(rawSlots.map(normaliseSlot).filter((s: TimeSlot) => s.available))
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Could not load available times')
       setSlots([])
@@ -79,7 +102,7 @@ export function TimeSlotPicker({
     setFetchKey((k) => k + 1)
   }
 
-  const availableSlots = slots.filter((s) => s.available)
+  const availableSlots = slots  // already filtered to available-only
   const hourGroups     = groupByHour(availableSlots)
   const sortedHours    = Array.from(hourGroups.keys()).sort((a, b) => a - b)
 

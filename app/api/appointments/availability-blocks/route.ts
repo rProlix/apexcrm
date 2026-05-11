@@ -1,9 +1,12 @@
 // app/api/appointments/availability-blocks/route.ts
-// GET  — list availability blocks for the tenant (optionally filtered by staffId)
+// GET  — list availability blocks for the tenant
 // POST — create a new availability block
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveStoreUser, resolveStoreCustomer } from '@/lib/auth/resolveStoreUser'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { listAvailabilityBlocks, createAvailabilityBlock } from '@/lib/appointments/availabilityBlocks'
+import type { AppointmentBlockType } from '@/lib/appointments/types'
+
+export const dynamic = 'force-dynamic'
 
 function ok(data: unknown, status = 200) {
   return NextResponse.json({ ok: true, data }, { status })
@@ -12,81 +15,46 @@ function err(message: string, code: string, status: number, details?: unknown) {
   return NextResponse.json({ ok: false, error: message, code, details }, { status })
 }
 
-const SELECT_COLS = `
-  id, tenant_id, staff_id, title,
-  day_of_week, start_time, end_time,
-  starts_at, ends_at,
-  timezone, slot_duration_minutes,
-  buffer_before_minutes, buffer_after_minutes,
-  max_bookings_per_slot, is_recurring, is_active,
-  created_at, updated_at,
-  professional:professionals ( id, name, avatar_url )
-`
-
 // ─── GET /api/appointments/availability-blocks ────────────────────────────────
-// Query params: staffId (optional), active (optional, default true)
 export async function GET(req: NextRequest) {
   const params   = req.nextUrl.searchParams
   const staffId  = params.get('staffId')
   const active   = params.get('active')
+  const typeFilter = params.get('blockType') as AppointmentBlockType | null
 
   let tenant_id: string | null = null
   let isAdmin = false
 
   const staffUser = await resolveStoreUser(req)
-  if (staffUser && (staffUser.role === 'admin' || staffUser.role === 'owner')) {
+  if (staffUser?.tenant_id) {
     tenant_id = staffUser.tenant_id
-    isAdmin   = true
+    isAdmin   = staffUser.role === 'admin' || staffUser.role === 'owner'
   }
 
   if (!tenant_id) {
-    const customerUser = await resolveStoreCustomer(req)
-    if (customerUser) {
-      tenant_id = customerUser.tenant_id
-    }
+    const customer = await resolveStoreCustomer(req)
+    if (customer?.tenant_id) tenant_id = customer.tenant_id
   }
 
-  if (!tenant_id) {
-    return err('Unauthorized', 'UNAUTHORIZED', 401)
-  }
+  if (!tenant_id) return err('Unauthorized', 'UNAUTHORIZED', 401)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = getSupabaseServerClient() as any
+  const activeOnly = !isAdmin || active !== 'false'
 
-  let query = supabase
-    .from('appointment_availability_blocks')
-    .select(SELECT_COLS)
-    .eq('tenant_id', tenant_id)
-    .order('day_of_week', { ascending: true, nullsFirst: false })
-    .order('start_time',  { ascending: true, nullsFirst: false })
-    .order('starts_at',   { ascending: true, nullsFirst: false })
+  const blocks = await listAvailabilityBlocks({
+    tenant_id,
+    staff_id:    staffId ?? undefined,
+    block_type:  typeFilter,
+    active_only: activeOnly,
+  })
 
-  // Customers only see active blocks; admins can see all unless filtered
-  if (!isAdmin || active === 'true') {
-    query = query.eq('is_active', true)
-  } else if (active === 'false') {
-    query = query.eq('is_active', false)
-  }
-
-  if (staffId) {
-    // Match blocks for this staff member OR blocks with no staff (applies to all)
-    query = query.or(`staff_id.eq.${staffId},staff_id.is.null`)
-  }
-
-  const { data, error } = await query
-  if (error) {
-    console.error('[GET /api/appointments/availability-blocks]', error.message)
-    return err(error.message, 'DB_ERROR', 500)
-  }
-
-  return ok({ blocks: data ?? [] })
+  return ok({ blocks })
 }
 
 // ─── POST /api/appointments/availability-blocks ───────────────────────────────
 export async function POST(req: NextRequest) {
   const staffUser = await resolveStoreUser(req)
   if (!staffUser || (staffUser.role !== 'admin' && staffUser.role !== 'owner')) {
-    return err('Unauthorized', 'UNAUTHORIZED', 401)
+    return err('Unauthorized — requires admin or owner role', 'UNAUTHORIZED', 401)
   }
 
   let body: Record<string, unknown>
@@ -95,88 +63,43 @@ export async function POST(req: NextRequest) {
   }
 
   const {
-    staffId, title, isRecurring,
-    dayOfWeek, startTime, endTime,
+    staffId, title, description, blockType,
+    isRecurring, dayOfWeek, startTime, endTime,
     startsAt, endsAt,
     timezone, slotDurationMinutes,
     bufferBeforeMinutes, bufferAfterMinutes,
     maxBookingsPerSlot, isActive,
+    recurrenceRule,
   } = body
 
-  const recurring = isRecurring !== false
+  const result = await createAvailabilityBlock({
+    tenant_id:             staffUser.tenant_id,
+    staff_id:              (staffId as string) || null,
+    title:                 (title as string)   || null,
+    description:           (description as string) || null,
+    block_type:            (blockType as AppointmentBlockType) || 'available',
+    is_recurring:          isRecurring !== false,
+    day_of_week:           dayOfWeek !== undefined ? Number(dayOfWeek) : null,
+    start_time:            (startTime as string) || null,
+    end_time:              (endTime   as string) || null,
+    starts_at:             (startsAt  as string) || null,
+    ends_at:               (endsAt    as string) || null,
+    timezone:              (timezone  as string) || 'America/Los_Angeles',
+    slot_duration_minutes: slotDurationMinutes !== undefined ? Number(slotDurationMinutes) : 30,
+    buffer_before_minutes: bufferBeforeMinutes !== undefined ? Number(bufferBeforeMinutes) : 0,
+    buffer_after_minutes:  bufferAfterMinutes  !== undefined ? Number(bufferAfterMinutes)  : 0,
+    max_bookings_per_slot: maxBookingsPerSlot  !== undefined ? Number(maxBookingsPerSlot)  : 1,
+    is_active:             isActive !== false,
+    recurrence_rule:       (recurrenceRule as string) || null,
+    created_by:            staffUser.id || null,
+  })
 
-  // Validate based on type
-  if (recurring) {
-    if (dayOfWeek === null || dayOfWeek === undefined || typeof Number(dayOfWeek) !== 'number' || Number(dayOfWeek) < 0 || Number(dayOfWeek) > 6) {
-      return err('dayOfWeek (0–6) is required for recurring blocks', 'VALIDATION_ERROR', 400)
-    }
-    if (!startTime || typeof startTime !== 'string' || !/^\d{2}:\d{2}$/.test(startTime as string)) {
-      return err('startTime (HH:MM) is required for recurring blocks', 'VALIDATION_ERROR', 400)
-    }
-    if (!endTime || typeof endTime !== 'string' || !/^\d{2}:\d{2}$/.test(endTime as string)) {
-      return err('endTime (HH:MM) is required for recurring blocks', 'VALIDATION_ERROR', 400)
-    }
-    if ((startTime as string) >= (endTime as string)) {
-      return err('startTime must be before endTime', 'VALIDATION_ERROR', 400)
-    }
-  } else {
-    if (!startsAt || !endsAt) {
-      return err('startsAt and endsAt are required for one-time blocks', 'VALIDATION_ERROR', 400)
-    }
-    if (new Date(startsAt as string) >= new Date(endsAt as string)) {
-      return err('startsAt must be before endsAt', 'VALIDATION_ERROR', 400)
-    }
+  if (!result.ok) {
+    const status = result.code === 'VALIDATION_ERROR' ? 400
+                 : result.code === 'NOT_FOUND'        ? 404
+                 : 500
+    return err(result.error, result.code, status)
   }
 
-  const duration = Number(slotDurationMinutes ?? 30)
-  if (duration < 5 || duration > 480) {
-    return err('slotDurationMinutes must be between 5 and 480', 'VALIDATION_ERROR', 400)
-  }
-
-  // Validate staff belongs to this tenant
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase  = getSupabaseServerClient() as any
-  const tenant_id = staffUser.tenant_id
-
-  if (staffId) {
-    const { data: prof } = await supabase
-      .from('professionals')
-      .select('id')
-      .eq('id', staffId)
-      .eq('tenant_id', tenant_id)
-      .maybeSingle()
-
-    if (!prof) {
-      return err('Professional not found in this tenant', 'NOT_FOUND', 404)
-    }
-  }
-
-  const { data, error } = await supabase
-    .from('appointment_availability_blocks')
-    .insert({
-      tenant_id,
-      staff_id:              staffId   ?? null,
-      title:                 title     ?? null,
-      is_recurring:          recurring,
-      day_of_week:           recurring ? Number(dayOfWeek) : null,
-      start_time:            recurring ? startTime          : null,
-      end_time:              recurring ? endTime            : null,
-      starts_at:             recurring ? null               : startsAt,
-      ends_at:               recurring ? null               : endsAt,
-      timezone:              typeof timezone === 'string' ? timezone : 'America/Los_Angeles',
-      slot_duration_minutes: duration,
-      buffer_before_minutes: Number(bufferBeforeMinutes ?? 0),
-      buffer_after_minutes:  Number(bufferAfterMinutes  ?? 0),
-      max_bookings_per_slot: Number(maxBookingsPerSlot  ?? 1),
-      is_active:             isActive !== false,
-    })
-    .select(SELECT_COLS)
-    .single()
-
-  if (error) {
-    console.error('[POST /api/appointments/availability-blocks]', error.message)
-    return err(error.message, 'DB_ERROR', 500)
-  }
-
-  return ok({ block: data }, 201)
+  return ok({ block: result.block }, 201)
 }
