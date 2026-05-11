@@ -20,6 +20,7 @@ import {
 import Link from 'next/link'
 import { TenantStatusButton } from '@/app/(admin)/admin/TenantStatusButton'
 import type { WidgetData } from '@/lib/dashboard/types'
+import { DashboardSetupChecklist } from '@/components/onboarding/DashboardSetupChecklist'
 
 export default async function DashboardPage() {
   const host  = (await headers()).get('host') ?? ''
@@ -141,6 +142,9 @@ export default async function DashboardPage() {
           </p>
         </div>
       </div>
+
+      {/* Setup checklist (only shown for new tenants) */}
+      <DashboardSetupChecklist enabledModules={config.enabledModuleKeys} tenantId={tenant.id} />
 
       {/* Dashboard builder — drag-and-drop + suggestions */}
       <DashboardBuilder

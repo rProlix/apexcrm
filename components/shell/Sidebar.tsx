@@ -82,6 +82,7 @@ const platformNav: NavItem[] = [
   { label: 'Businesses',    href: '/owner/tenants',  icon: Users  },
   { label: 'Admin',         href: '/admin',          icon: Shield },
   { label: 'Module Access', href: '/owner/modules',  icon: Layers },
+  { label: 'Plans',         href: '/owner/plans',    icon: CreditCard },
 ]
 
 export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin, isOpen = false, onClose }: SidebarProps) {
