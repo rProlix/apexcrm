@@ -711,21 +711,37 @@ function PlanPreview({
             Section Upgrades ({aiPlan.sectionUpgrades.length})
           </p>
           <div className="space-y-3">
-            {aiPlan.sectionUpgrades.map((up, i) => (
-              <div key={i} className="pb-3 border-b border-white/5 last:border-0 last:pb-0">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-semibold text-white/80">{up.sectionType.replace(/_/g, ' ')}</span>
-                  <span className="text-2xs px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 font-semibold">{up.stylePreset}</span>
+            {aiPlan.sectionUpgrades.map((up, i) => {
+              const sectionLabel = up.sectionType
+                ? up.sectionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                : 'General upgrade'
+              const scopeLabel = up.sectionId
+                ? '✓ Matched section'
+                : 'Page-level recommendation'
+              return (
+                <div key={i} className="pb-3 border-b border-white/5 last:border-0 last:pb-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <div>
+                      <span className="text-sm font-semibold text-white/80">{sectionLabel}</span>
+                      <span className={cn(
+                        'ml-2 text-2xs font-medium',
+                        up.sectionId ? 'text-emerald-400/70' : 'text-white/25',
+                      )}>
+                        {scopeLabel}
+                      </span>
+                    </div>
+                    <span className="text-2xs px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 font-semibold">{up.stylePreset}</span>
+                  </div>
+                  {up.layoutRecommendation && (
+                    <p className="text-2xs text-white/40 leading-relaxed">{up.layoutRecommendation}</p>
+                  )}
+                  <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                    {up.imageTreatment !== 'none' && <Tag label={up.imageTreatment} />}
+                    {up.buttonTreatment !== 'standard' && <Tag label={up.buttonTreatment} />}
+                  </div>
                 </div>
-                {up.layoutRecommendation && (
-                  <p className="text-2xs text-white/40 leading-relaxed">{up.layoutRecommendation}</p>
-                )}
-                <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                  {up.imageTreatment !== 'none' && <Tag label={up.imageTreatment} />}
-                  {up.buttonTreatment !== 'standard' && <Tag label={up.buttonTreatment} />}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

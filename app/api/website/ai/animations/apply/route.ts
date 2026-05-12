@@ -113,7 +113,11 @@ export async function POST(req: NextRequest) {
       const anim = filteredAnimations.find(a =>
         a.targetKey === sec.section_type || a.targetKey === 'global'
       )
-      const upgrade = upgrades.find(u => u.sectionType === sec.section_type)
+      // Match upgrade by sectionId first (when it's a real UUID), then fall back to sectionType
+      const upgrade = upgrades.find(u =>
+        (u.sectionId && u.sectionId === sec.id) ||
+        (u.sectionType && u.sectionType === sec.section_type)
+      )
 
       const config = {
         v:       1,
@@ -170,7 +174,11 @@ export async function POST(req: NextRequest) {
       const anim = filteredAnimations.find(a =>
         a.targetKey === sec.section_type || a.targetKey === 'global'
       ) ?? filteredAnimations[0]
-      const upgrade = upgrades.find(u => u.sectionType === sec.section_type)
+      // Match by sectionId UUID first, then by sectionType label
+      const upgrade = upgrades.find(u =>
+        (u.sectionId && u.sectionId === sec.id) ||
+        (u.sectionType && u.sectionType === sec.section_type)
+      )
 
       const config = {
         v:       1,

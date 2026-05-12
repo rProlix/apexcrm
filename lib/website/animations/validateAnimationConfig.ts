@@ -16,6 +16,21 @@ import {
 
 // ── Zod schemas ───────────────────────────────────────────────────────────────
 
+// Pre-processor: converts any non-UUID string to null before UUID validation.
+// This is the defence-in-depth guard. Normalization should run first, but even
+// if a label still reaches here it is silently dropped instead of throwing.
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const nullableUuid = z.preprocess(
+  (val) => {
+    if (val === null || val === undefined || val === '') return null
+    if (typeof val === 'string' && UUID_REGEX.test(val)) return val
+    // Any other string (e.g. "hero", "features") → strip to null
+    return null
+  },
+  z.string().uuid().nullable().optional(),
+)
+
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{3,8}$/, 'Must be a hex color').default('#000000')
 
 const paletteSchema = z.object({
@@ -51,7 +66,7 @@ const animationItemSchema = z.object({
 })
 
 const sectionUpgradeSchema = z.object({
-  sectionId:            z.string().uuid().nullable().optional(),
+  sectionId:            nullableUuid,
   sectionType:          z.string().max(60).default(''),
   stylePreset:          z.enum(STYLE_PRESETS).default('none'),
   layoutRecommendation: z.string().max(500).default(''),
