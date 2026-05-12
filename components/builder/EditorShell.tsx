@@ -27,6 +27,11 @@ const EditorSidebar = dynamic(
   () => import('./EditorSidebar').then((m) => m.EditorSidebar),
   { ssr: false },
 )
+// Lazy-load the Premium Design floating drawer (opened via EditBar button)
+const PremiumDesignDrawer = dynamic(
+  () => import('./PremiumDesignDrawer').then((m) => m.PremiumDesignDrawer),
+  { ssr: false },
+)
 
 interface Props {
   editorCtx: EditorContext
@@ -112,6 +117,9 @@ export function EditorShell({ editorCtx }: Props) {
     <>
       {/* Floating edit bar — always visible for editors */}
       <EditBar />
+
+      {/* AI Premium Design floating drawer — opened via "✦ Premium Design" EditBar button */}
+      <PremiumDesignDrawer />
 
       {/* Main content area */}
       {editMode ? (

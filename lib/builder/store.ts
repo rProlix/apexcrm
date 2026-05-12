@@ -50,6 +50,10 @@ interface BuilderState {
   pushHistory: () => void
   undo:        () => void
   redo:        () => void
+
+  // ── Premium Design floating drawer (EditBar button) ─────────────────────
+  showPremiumDrawer:    boolean
+  setPremiumDrawer:     (v: boolean) => void
 }
 
 export const useBuilderStore = create<BuilderState>((set, get) => ({
@@ -141,4 +145,8 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
       future:   future.slice(0, -1),
     })
   },
+
+  // ── Premium Design floating drawer (EditBar button) ─────────────────────
+  showPremiumDrawer:    false,
+  setPremiumDrawer:     (v) => set({ showPremiumDrawer: v }),
 }))

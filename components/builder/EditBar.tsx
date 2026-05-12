@@ -9,6 +9,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { useBuilderStore } from '@/lib/builder/store'
 import { publishSite } from '@/lib/builder/api'
 
+// ── Premium Design wand icon (inline SVG so no import needed) ─────────────
+function WandIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/>
+      <path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/>
+      <path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/>
+    </svg>
+  )
+}
+
 const BAR_HEIGHT = 48
 
 export function EditBar() {
@@ -17,6 +28,7 @@ export function EditBar() {
     saveStatus,
     tenantId, pageName, isPublished, setPublished,
     undo, redo, history, future,
+    showPremiumDrawer, setPremiumDrawer,
   } = useBuilderStore()
 
   const [publishing, setPublishing] = useState(false)
@@ -124,6 +136,30 @@ export function EditBar() {
           </IconButton>
         </>
       )}
+
+      {/* ✦ Premium Design button — always visible */}
+      <button
+        onClick={() => setPremiumDrawer(!showPremiumDrawer)}
+        title="AI Premium Design &amp; Animations"
+        style={{
+          padding:      '0.375rem 0.75rem',
+          borderRadius: '0.5rem',
+          border:       `1px solid ${showPremiumDrawer ? '#c9a84c' : '#c9a84c55'}`,
+          background:   showPremiumDrawer ? '#c9a84c22' : 'transparent',
+          color:        showPremiumDrawer ? '#c9a84c' : '#c9a84c99',
+          fontWeight:   700,
+          cursor:       'pointer',
+          fontSize:     '0.8125rem',
+          display:      'flex',
+          alignItems:   'center',
+          gap:          '0.375rem',
+          whiteSpace:   'nowrap',
+          transition:   'all 0.15s',
+        }}
+      >
+        <WandIcon />
+        ✦ Premium Design
+      </button>
 
       {/* Publish toggle */}
       <button

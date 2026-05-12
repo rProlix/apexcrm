@@ -371,7 +371,7 @@ export function EditorSidebar() {
   const [showDebug, setShowDebug]     = useState(false)
   const [debugInfo, setDebugInfo]     = useState<Record<string, unknown> | null>(null)
   const [showGallery, setShowGallery]         = useState(false)
-  const [showPremiumDesign, setShowPremiumDesign] = useState(false)
+  const [showPremiumDesign, setShowPremiumDesign] = useState(true)
   const [generateCount, setGenCount]          = useState<1 | 3 | 5>(1)
   const [galleryKey, setGalleryKey]           = useState(0)   // increment to force gallery reload
 

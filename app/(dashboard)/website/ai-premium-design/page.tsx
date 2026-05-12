@@ -15,28 +15,22 @@ export default async function AiPremiumDesignPage() {
   if (!ctx) redirect('/login')
   if (!['owner', 'admin'].includes(ctx.role)) redirect('/dashboard')
 
-  const supabase  = getSupabaseServerClient()
+  // getUserContext already resolves tenant_id — no extra DB call needed
+  const tenantId = ctx.tenant_id
+  if (!tenantId) redirect('/dashboard')
 
-  // Resolve tenant
-  const { data: userRow } = await supabase
-    .from('users')
-    .select('tenant_id')
-    .eq('auth_user_id', ctx.auth_id)
-    .in('role', ['owner', 'admin'])
-    .single()
+  const supabase = getSupabaseServerClient()
 
-  if (!userRow?.tenant_id) redirect('/dashboard')
-  const tenantId = userRow.tenant_id
-
-  // Check website module enabled
-  const { data: mod } = await supabase
-    .from('tenant_modules')
-    .select('enabled')
-    .eq('tenant_id', tenantId)
-    .eq('module_key', 'website')
-    .maybeSingle()
-
-  if (mod && !mod.enabled && ctx.role !== 'owner') redirect('/dashboard')
+  // Check website module enabled (soft check — owners always get through)
+  if (ctx.role !== 'owner') {
+    const { data: mod } = await supabase
+      .from('tenant_modules')
+      .select('enabled')
+      .eq('tenant_id', tenantId)
+      .eq('module_key', 'website')
+      .maybeSingle()
+    if (mod && !mod.enabled) redirect('/dashboard')
+  }
 
   return (
     <div className="max-w-2xl mx-auto pb-16">
@@ -101,9 +95,10 @@ export default async function AiPremiumDesignPage() {
 
       {/* Info footer */}
       <div className="mt-6 px-4 py-3 rounded-xl bg-white/2 border border-white/5 text-2xs text-white/25 leading-relaxed">
-        <strong className="text-white/40">In the visual editor:</strong> Select any section on your live website preview, then expand
-        the <strong className="text-white/40">✦ AI Premium Design</strong> panel in the right sidebar for per-section controls.
-        Animations apply when your site is viewed by visitors — not in draft editor mode.
+        <strong className="text-white/40">In the live editor:</strong> Click the{' '}
+        <strong className="text-amber-400/70">✦ Premium Design</strong> button in the top bar of your website preview
+        to open this panel as a floating drawer — no section selection required.
+        Animations are visible to your visitors once applied; editor preview shows the site as-is.
       </div>
     </div>
   )
