@@ -20,21 +20,21 @@ interface Props {
   children:        React.ReactNode
   animationConfig: ValidatedSectionAnimationConfig | null
   className?:      string
-  as?:             'section' | 'div' | 'article'
+  /** Tag to render. Default 'div' wraps the section component without double-nesting. */
+  as?:             'div' | 'section' | 'article'
 }
 
 export function AnimatedSection({
   children,
   animationConfig,
   className = '',
-  as = 'section',
+  as = 'div',
 }: Props) {
   const prefersReduced = useReducedMotion()
 
-  // If no config, just render children normally
+  // If no config or disabled, render children unwrapped
   if (!animationConfig || !animationConfig.enabled) {
-    const Tag = as
-    return <Tag className={className}>{children}</Tag>
+    return <>{children}</>
   }
 
   const { animation, style } = animationConfig
@@ -46,26 +46,28 @@ export function AnimatedSection({
 
   const combinedClass = [presetClass, className].filter(Boolean).join(' ')
 
-  // If reduced motion is preferred, just apply style classes but no animation
+  // Respect prefers-reduced-motion — keep style classes but skip motion
   if (prefersReduced || animation?.disabled) {
     const Tag = as
-    return <Tag className={combinedClass}>{children}</Tag>
+    return <Tag className={combinedClass || undefined}>{children}</Tag>
   }
 
-  // Check mobile: if mobileEnabled is false, skip animation on small screens
-  // We use CSS approach via data attribute; JS check would cause hydration issues
   const mobileEnabled = animation?.mobileEnabled !== false
-
-  const preset     = (animation?.preset ?? 'fade_up') as AnimationPreset
-  const durationMs = animation?.durationMs ?? 600
-  const delayMs    = animation?.delayMs ?? 0
-  const easing     = animation?.easing ?? 'smooth'
+  const preset        = (animation?.preset ?? 'fade_up') as AnimationPreset
+  const durationMs    = animation?.durationMs ?? 600
+  const delayMs       = animation?.delayMs ?? 0
+  const easing        = animation?.easing ?? 'smooth'
 
   const variants = getAnimationVariants(preset, easing, durationMs, delayMs)
 
+  // Use the requested tag as the motion element
+  const MotionTag = as === 'section' ? motion.section
+    : as === 'article'                ? motion.article
+    :                                   motion.div
+
   return (
-    <motion.section
-      className={combinedClass}
+    <MotionTag
+      className={combinedClass || undefined}
       data-animation-preset={preset}
       data-mobile-enabled={mobileEnabled ? 'true' : 'false'}
       initial="hidden"
@@ -74,7 +76,7 @@ export function AnimatedSection({
       variants={variants}
     >
       {children}
-    </motion.section>
+    </MotionTag>
   )
 }
 

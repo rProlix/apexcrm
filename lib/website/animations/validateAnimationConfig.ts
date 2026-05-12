@@ -52,18 +52,61 @@ const globalStyleSchema = z.object({
   }),
 })
 
+// Mapping table for targetType normalization inside Zod preprocessing.
+// Mirrors TARGET_TYPE_MAP in normalizePremiumDesignPlan.ts — this is the last
+// line of defence so we duplicate the compact mapping here rather than importing
+// from server-only lib code.
+const TARGET_TYPE_COERCE: Record<string, 'page' | 'section' | 'component'> = {
+  // page
+  page:'page', website:'page', site:'page', global:'page', fullpage:'page',
+  full_page:'page', layout:'page', background:'page', whole:'page', all:'page',
+  // section
+  section:'section', hero:'section', hero_banner:'section', banner:'section',
+  feature_grid:'section', features:'section', about:'section', about_us:'section',
+  testimonials:'section', reviews:'section', faq:'section', contact:'section',
+  pricing:'section', gallery:'section', products:'section', shop:'section',
+  services:'section', footer:'section', navigation:'section',
+  // component — everything else
+  component:'component', text:'component', heading:'component', headline:'component',
+  subheading:'component', paragraph:'component', copy:'component', card:'component',
+  feature_card:'component', testimonial_card:'component', product_card:'component',
+  button:'component', cta:'component', image:'component', logo:'component',
+  icon:'component', badge:'component', form:'component', input:'component',
+  nav:'component', menu:'component', carousel:'component', grid:'component',
+  list:'component', stat:'component', counter:'component', video:'component',
+  product_viewer:'component', product_360:'component', spin_360:'component',
+}
+
+// Preprocess targetType: coerce invalid strings (e.g. "text", "card") to valid enum values.
+const safeTargetType = z.preprocess(
+  (val) => {
+    if (val === null || val === undefined) return 'section'
+    if (typeof val !== 'string') return 'section'
+    const key = val.trim().toLowerCase().replace(/[-\s]/g, '_')
+    if ((val === 'page' || val === 'section' || val === 'component')) return val
+    return TARGET_TYPE_COERCE[key] ?? 'component'
+  },
+  z.enum(['page', 'section', 'component']),
+)
+
 const animationItemSchema = z.object({
-  targetType:      z.enum(['page', 'section', 'component']).default('section'),
-  targetKey:       z.string().max(80).default('global'),
-  animationPreset: z.enum(ANIMATION_PRESETS).default('fade_up'),
-  intensity:       z.enum(['subtle', 'balanced', 'cinematic']).default('balanced'),
-  durationMs:      z.number().int().min(100).max(3000).default(600),
-  delayMs:         z.number().int().min(0).max(2000).default(0),
-  staggerMs:       z.number().int().min(0).max(800).default(80),
-  easing:          z.enum(['standard', 'smooth', 'luxury', 'spring']).default('smooth'),
-  mobileEnabled:   z.boolean().default(true),
-  reason:          z.string().max(500).default(''),
-})
+  targetType:         safeTargetType.default('section'),
+  originalTargetType: z.string().optional(),  // preserved from normalization
+  targetKey:          z.string().max(80).default('global'),
+  animationPreset:    z.enum(ANIMATION_PRESETS).default('fade_up'),
+  intensity:          z.enum(['subtle', 'balanced', 'cinematic']).default('balanced'),
+  durationMs:         z.number().int().min(100).max(3000).default(600),
+  delayMs:            z.number().int().min(0).max(2000).default(0),
+  staggerMs:          z.number().int().min(0).max(800).default(80),
+  easing:             z.enum(['standard', 'smooth', 'luxury', 'spring']).default('smooth'),
+  mobileEnabled:      z.boolean().default(true),
+  reason:             z.string().max(500).default(''),
+  // Optional fields Gemini may include for component targeting
+  sectionId:          nullableUuid,
+  componentType:      z.string().max(80).optional().nullable(),
+  componentKey:       z.string().max(80).optional().nullable(),
+  componentSelector:  z.string().max(200).optional().nullable(),
+}).passthrough()
 
 const sectionUpgradeSchema = z.object({
   sectionId:            nullableUuid,

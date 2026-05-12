@@ -14,7 +14,11 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { callGeminiText } from '@/lib/ai/geminiRequest'
 import { validateAiAnimationPlan } from '@/lib/website/animations/validateAnimationConfig'
-import { normalizePremiumDesignPlan, safeStripSectionIds } from '@/lib/website/ai/normalizePremiumDesignPlan'
+import {
+  normalizePremiumDesignPlan,
+  safeStripSectionIds,
+  safeStripAnimationTargetTypes,
+} from '@/lib/website/ai/normalizePremiumDesignPlan'
 import { ANIMATION_PRESETS, STYLE_PRESETS, IMAGE_TREATMENTS, BUTTON_TREATMENTS } from '@/lib/website/animations/types'
 import type { AnimationScope, AnimationIntensity, AnimationPerformance, DesiredVibe } from '@/lib/website/animations/types'
 
@@ -296,14 +300,18 @@ Return ONLY the JSON. No markdown fences. No extra text.`
     return NextResponse.json({ error: 'AI returned unparseable response.' }, { status: 500 })
   }
 
-  // ── STEP 1: Normalize — map labels to real UUIDs or null ────────────────────
+  // ── STEP 1: Normalize — map labels→UUIDs, coerce targetType ─────────────────
+  // normalizePremiumDesignPlan handles BOTH sectionUpgrades AND animations.targetType
   const normalizedPlan = normalizePremiumDesignPlan(rawPlan, availableSections, {
     selectedSectionId: sectionId ?? null,
     scope,
   })
 
-  // ── STEP 2: Safety strip — final guard before Zod ──────────────────────────
-  const safePlan = safeStripSectionIds(normalizedPlan, availableSectionIds)
+  // ── STEP 2: Safety strips — final guards before Zod ──────────────────────
+  // Strip invalid sectionId values
+  const afterSectionStrip = safeStripSectionIds(normalizedPlan, availableSectionIds)
+  // Coerce any remaining invalid targetType values ("text", "card", etc.)
+  const safePlan = safeStripAnimationTargetTypes(afterSectionStrip)
 
   // ── STEP 3: Zod validation ──────────────────────────────────────────────────
   const { plan: validatedPlan, error: validationError } = validateAiAnimationPlan(safePlan)

@@ -86,11 +86,13 @@ export async function SafeSectionRenderer({
     const content = await renderSection(normalized, tenantId, mode)
 
     // Wrap in AnimatedSection (client component, fail-safe)
-    // Only animate in public mode; editor mode renders without animation wrapper
-    if (mode === 'public' && animationConfig?.enabled) {
+    // Animate in public AND preview modes; skip in editor mode to avoid conflicts
+    // with the DnD overlay system in EditableSectionList.
+    if (mode !== 'editor' && animationConfig?.enabled) {
       return (
         <AnimatedSection
           animationConfig={animationConfig}
+          as="div"
           key={normalized.id}
         >
           {content}
