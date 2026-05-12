@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { useBuilderStore } from '@/lib/builder/store'
 import { deleteSection } from '@/lib/builder/api'
 import { ClientSectionRenderer } from './ClientSectionRenderer'
+import { getAnimationBadges, PremiumDesignBadge } from '@/components/website/premium/PremiumDesignBadge'
 import type { BuilderSection } from '@/lib/builder/types'
 
 interface Props {
@@ -22,8 +23,9 @@ export function EditableSectionWrapper({ section, dragHandle }: Props) {
   const [hovered, setHovered] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  const isSelected = selectedSectionId === section.id
-  const isHidden   = !section.is_visible
+  const isSelected     = selectedSectionId === section.id
+  const isHidden       = !section.is_visible
+  const animBadges     = getAnimationBadges(section.animation_config ?? null)
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -91,6 +93,10 @@ export function EditableSectionWrapper({ section, dragHandle }: Props) {
           }}>
             {section.section_type.replace('_', ' ')}
           </span>
+          {/* Animation badges */}
+          {animBadges.map(badge => (
+            <PremiumDesignBadge key={badge} variant={badge} />
+          ))}
         </div>
       )}
 

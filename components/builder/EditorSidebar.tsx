@@ -26,7 +26,7 @@ import { AboutEditor }            from './editors/AboutEditor'
 import { Product360ViewerEditor } from './editors/Product360ViewerEditor'
 import { GenericEditor }          from './editors/GenericEditor'
 import { Toggle }                 from './editors/FormFields'
-import { AiPremiumDesignPanel }  from '@/components/website/builder/AiPremiumDesignPanel'
+import { PremiumDesignPanel }    from '@/components/website/premium/PremiumDesignPanel'
 
 const SIDEBAR_WIDTH = 380
 
@@ -711,20 +711,24 @@ export function EditorSidebar() {
             style={{
               width: '100%', padding: '0.75rem 1.25rem', background: 'none',
               border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
-              justifyContent: 'space-between', color: '#a78bfa',
+              justifyContent: 'space-between', color: '#f59e0b',
             }}
           >
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-              <span>✦</span> AI Premium Design
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.875rem' }}>✦</span>
+              AI Premium Design
+              <span style={{ fontSize: '0.5625rem', fontWeight: 700, padding: '0.125rem 0.375rem', borderRadius: '999px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
+                NEW
+              </span>
             </span>
             <span style={{ fontSize: '0.75rem', color: '#52525b' }}>{showPremiumDesign ? '▲' : '▼'}</span>
           </button>
           {showPremiumDesign && (
-            <div style={{ padding: '0 1.25rem 1.25rem' }}>
-              <AiPremiumDesignPanel
+            <div style={{ padding: '1rem 1.25rem 1.25rem' }}>
+              <PremiumDesignPanel
                 tenantId={tenantId}
-                sectionId={section.id}
-                pageId={null}
+                initialSectionId={section.id}
+                compact
               />
             </div>
           )}

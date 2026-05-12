@@ -4,16 +4,18 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 /** A section row from site_sections, enriched with client-side tracking */
 export interface BuilderSection {
-  id:           string
-  page_id:      string
-  tenant_id:    string
-  section_type: string
-  section_key:  string | null
-  content:      Record<string, unknown>
-  sort_order:   number
-  is_visible:   boolean
-  created_at:   string
-  updated_at:   string
+  id:               string
+  page_id:          string
+  tenant_id:        string
+  section_type:     string
+  section_key:      string | null
+  content:          Record<string, unknown>
+  sort_order:       number
+  is_visible:       boolean
+  animation_config?: Record<string, unknown> | null
+  style_config?:     Record<string, unknown> | null
+  created_at:       string
+  updated_at:       string
 }
 
 /** Metadata about available section types for the section picker */
