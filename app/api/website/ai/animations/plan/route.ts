@@ -189,6 +189,29 @@ TASK: Create a premium animation and UI design plan. Match the animation style t
 - SaaS/tech: sleek, futuristic, precise — micro-interactions
 - Boutique/luxury: editorial, slow, refined — luxury parallax
 
+CRITICAL — ANIMATION targetType RULES (read carefully, do NOT deviate):
+Every animation item in the "animations" array MUST use targetType as EXACTLY ONE of these three values:
+  "page"      — animating the whole page/website
+  "section"   — animating an entire section (hero, features, about, testimonials, faq, contact, etc.)
+  "component" — animating a sub-element inside a section (heading, text, card, button, image, icon, badge, form, carousel, grid, etc.)
+
+FORBIDDEN targetType values (will cause a validation error):
+  "text", "heading", "paragraph", "card", "button", "image", "hero", "feature",
+  "testimonial", "product", "nav", "cta", "form", "icon", "badge", "grid", "carousel",
+  "link", "stat", "counter", "video", "logo", "title", "subtitle", "label"
+
+If you want to animate a heading/text/button/card/image/icon use:
+  { "targetType": "component", "componentType": "heading" }
+  { "targetType": "component", "componentType": "button" }
+  { "targetType": "component", "componentType": "card" }
+  { "targetType": "component", "componentType": "image" }
+
+If you want to animate an entire section use:
+  { "targetType": "section", "targetKey": "hero" }
+
+If you want to animate the whole page use:
+  { "targetType": "page" }
+
 RULES:
 1. Do NOT over-animate. Prioritize conversion, readability, speed, mobile.
 2. Output ONLY valid JSON. No markdown. No code blocks. No extra text.
@@ -202,21 +225,15 @@ RULES:
 10. Include a clear "reason" for each animation.
 11. ${intensity === 'subtle' ? 'Keep all animations very subtle.' : intensity === 'cinematic' ? 'Make animations dramatic and premium.' : 'Balance animation quality with subtlety.'}
 
-Return JSON matching EXACTLY this schema:
+Return JSON matching EXACTLY this schema (ALL targetType values must be "page", "section", or "component"):
 {
   "summary": "1-2 sentence description of the premium design direction",
   "globalStyle": {
-    "visualTier": "clean" | "premium" | "luxury" | "ultra_luxury",
-    "mood": "modern" | "warm" | "bold" | "minimal" | "editorial" | "futuristic",
-    "recommendedPalette": {
-      "primary": "#hex",
-      "accent": "#hex",
-      "background": "#hex",
-      "surface": "#hex",
-      "text": "#hex"
-    },
-    "typographyTone": "minimal" | "editorial" | "luxury" | "tech" | "friendly",
-    "surfaceStyle": "flat" | "glass" | "soft_shadow" | "premium_card" | "editorial"
+    "visualTier": "premium",
+    "mood": "modern",
+    "recommendedPalette": { "primary": "#hex", "accent": "#hex", "background": "#hex", "surface": "#hex", "text": "#hex" },
+    "typographyTone": "minimal",
+    "surfaceStyle": "soft_shadow"
   },
   "animations": [
     {
@@ -229,7 +246,32 @@ Return JSON matching EXACTLY this schema:
       "staggerMs": 80,
       "easing": "luxury",
       "mobileEnabled": true,
-      "reason": "Reason this animation improves conversion"
+      "reason": "Smooth entrance builds trust and sets premium tone"
+    },
+    {
+      "targetType": "component",
+      "targetKey": "hero_heading",
+      "componentType": "heading",
+      "animationPreset": "text_reveal",
+      "intensity": "subtle",
+      "durationMs": 600,
+      "delayMs": 200,
+      "staggerMs": 0,
+      "easing": "smooth",
+      "mobileEnabled": true,
+      "reason": "Headline reveal draws attention to the value proposition"
+    },
+    {
+      "targetType": "section",
+      "targetKey": "features",
+      "animationPreset": "stagger_cards",
+      "intensity": "balanced",
+      "durationMs": 500,
+      "delayMs": 100,
+      "staggerMs": 80,
+      "easing": "standard",
+      "mobileEnabled": false,
+      "reason": "Cards stagger in to highlight each feature individually"
     }
   ],
   "sectionUpgrades": [
@@ -251,6 +293,7 @@ Return JSON matching EXACTLY this schema:
   }
 }
 
+REMINDER: "targetType" in "animations" must be ONLY "page", "section", or "component". Nothing else.
 Return ONLY the JSON. No markdown fences. No extra text.`
 
   // ── Call Gemini ─────────────────────────────────────────────────────────────

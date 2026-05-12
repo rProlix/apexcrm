@@ -77,20 +77,29 @@ const TARGET_TYPE_COERCE: Record<string, 'page' | 'section' | 'component'> = {
   product_viewer:'component', product_360:'component', spin_360:'component',
 }
 
-// Preprocess targetType: coerce invalid strings (e.g. "text", "card") to valid enum values.
+// Preprocess targetType: coerce ANY invalid string to a valid enum value.
+// This is the final defence-in-depth guard. The normalizer runs BEFORE Zod,
+// but even if that is bypassed this preprocess guarantees no crash.
+// Uses a standalone preprocess (no .default() chaining) for maximum compatibility
+// across Zod versions — the undefined→'section' fallback is built into the fn itself.
+const coerceTargetType = (val: unknown): 'page' | 'section' | 'component' => {
+  if (val === null || val === undefined || val === '') return 'section'
+  if (typeof val !== 'string') return 'section'
+  const trimmed = val.trim()
+  if (trimmed === 'page' || trimmed === 'section' || trimmed === 'component') {
+    return trimmed as 'page' | 'section' | 'component'
+  }
+  const key = trimmed.toLowerCase().replace(/[-\s]/g, '_')
+  return TARGET_TYPE_COERCE[key] ?? 'component'
+}
+
 const safeTargetType = z.preprocess(
-  (val) => {
-    if (val === null || val === undefined) return 'section'
-    if (typeof val !== 'string') return 'section'
-    const key = val.trim().toLowerCase().replace(/[-\s]/g, '_')
-    if ((val === 'page' || val === 'section' || val === 'component')) return val
-    return TARGET_TYPE_COERCE[key] ?? 'component'
-  },
+  coerceTargetType,
   z.enum(['page', 'section', 'component']),
 )
 
 const animationItemSchema = z.object({
-  targetType:         safeTargetType.default('section'),
+  targetType:         safeTargetType,
   originalTargetType: z.string().optional(),  // preserved from normalization
   targetKey:          z.string().max(80).default('global'),
   animationPreset:    z.enum(ANIMATION_PRESETS).default('fade_up'),
@@ -150,6 +159,21 @@ export function validateAiAnimationPlan(
   return { plan: result.data, error: null }
 }
 
+// ── Per-component animation entry ─────────────────────────────────────────────
+
+const componentAnimEntrySchema = z.object({
+  preset:       z.string().optional(),      // preset name; loose string for forward compat
+  intensity:    z.enum(['subtle', 'balanced', 'cinematic']).optional(),
+  durationMs:   z.number().int().min(100).max(3000).optional(),
+  delayMs:      z.number().int().min(0).max(2000).optional(),
+  staggerMs:    z.number().int().min(0).max(800).optional(),
+  easing:       z.string().optional(),
+  mobileEnabled: z.boolean().optional(),
+  disabled:     z.boolean().optional(),
+}).passthrough()
+
+export type ComponentAnimEntry = z.infer<typeof componentAnimEntrySchema>
+
 // ── Section animation config schema ───────────────────────────────────────────
 
 export const sectionAnimationConfigSchema = z.object({
@@ -177,6 +201,8 @@ export const sectionAnimationConfigSchema = z.object({
     lazyLoadBelowFold:              z.boolean().optional(),
     maxAnimatedElementsPerViewport: z.number().int().min(1).max(20).optional(),
   }).default({}),
+  // Component-level animations: keyed by componentType (heading, button, card, image…)
+  componentAnimations: z.record(z.string(), componentAnimEntrySchema).optional(),
   sourcePlanId: z.string().uuid().optional(),
 })
 

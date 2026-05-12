@@ -24,7 +24,10 @@ import {
 } from '@/lib/website/normalizeWebsiteSection'
 import { UnknownSection } from './sections/UnknownSection'
 import { AnimatedSection } from '@/components/website/animations/AnimatedSection'
-import { parseSectionAnimationConfig } from '@/lib/website/animations/validateAnimationConfig'
+import {
+  parseSectionAnimationConfig,
+  type ComponentAnimEntry,
+} from '@/lib/website/animations/validateAnimationConfig'
 
 // Section components (all must be defensive — see each file)
 import { HeroSection }         from './sections/HeroSection'
@@ -38,6 +41,9 @@ import { RichTextSection }     from './sections/RichTextSection'
 import { BannerSection }       from './sections/BannerSection'
 import { CtaSection }          from './sections/CtaSection'
 import { ImageGallerySection } from './sections/ImageGallerySection'
+
+// Type alias for the component animations map passed to section renderers
+export type SectionComponentAnimations = Record<string, ComponentAnimEntry>
 
 interface Props {
   /** Raw DB row or already-normalized section */
@@ -73,17 +79,23 @@ export async function SafeSectionRenderer({
 
   // Parse animation config (fail-safe: never crashes)
   let animationConfig = null
+  let componentAnimations: SectionComponentAnimations | undefined
   try {
     const raw = (rawSection as Record<string, unknown>)?.animation_config
     if (raw && typeof raw === 'object') {
       animationConfig = parseSectionAnimationConfig(raw)
+      // Extract component-level animations (heading, button, card, image, etc.)
+      const compRaw = (raw as Record<string, unknown>)?.componentAnimations
+      if (compRaw && typeof compRaw === 'object' && !Array.isArray(compRaw)) {
+        componentAnimations = compRaw as SectionComponentAnimations
+      }
     }
   } catch {
     // silently skip — animation is optional
   }
 
   try {
-    const content = await renderSection(normalized, tenantId, mode)
+    const content = await renderSection(normalized, tenantId, mode, componentAnimations)
 
     // Wrap in AnimatedSection (client component, fail-safe)
     // Animate in public AND preview modes; skip in editor mode to avoid conflicts
@@ -127,50 +139,52 @@ export async function SafeSectionRenderer({
 // ── Dispatcher ────────────────────────────────────────────────────────────────
 
 async function renderSection(
-  section:  NormalizedSection,
-  tenantId: string,
-  mode:     'public' | 'preview' | 'editor',
+  section:             NormalizedSection,
+  tenantId:            string,
+  mode:                'public' | 'preview' | 'editor',
+  componentAnimations: SectionComponentAnimations | undefined,
 ): Promise<React.ReactNode> {
-  const c = section.content
+  const c  = section.content
+  const ca = componentAnimations  // shorthand
 
   switch (section.type as CanonicalSectionType) {
     case 'hero':
-      return <HeroSection content={c as never} />
+      return <HeroSection content={c as never} componentAnimations={ca} />
 
     case 'about':
-      return <AboutSection content={c as never} />
+      return <AboutSection content={c as never} componentAnimations={ca} />
 
     case 'feature_grid':
-      return <FeatureGridSection content={c as never} />
+      return <FeatureGridSection content={c as never} componentAnimations={ca} />
 
     case 'testimonials':
-      return <TestimonialsSection content={c as never} />
+      return <TestimonialsSection content={c as never} componentAnimations={ca} />
 
     case 'faq':
-      return <FaqSection content={c as never} />
+      return <FaqSection content={c as never} componentAnimations={ca} />
 
     case 'contact':
-      return <ContactSection content={c as never} />
+      return <ContactSection content={c as never} componentAnimations={ca} />
 
     case 'product_grid':
-      return <ProductGridSection content={c as never} tenantId={tenantId} />
+      return <ProductGridSection content={c as never} tenantId={tenantId} componentAnimations={ca} />
 
     case 'rich_text':
-      return <RichTextSection content={c as never} />
+      return <RichTextSection content={c as never} componentAnimations={ca} />
 
     case 'banner':
-      return <BannerSection content={c as never} />
+      return <BannerSection content={c as never} componentAnimations={ca} />
 
     case 'cta':
-      return <CtaSection content={c as never} />
+      return <CtaSection content={c as never} componentAnimations={ca} />
 
     case 'gallery':
-      return <ImageGallerySection content={c as never} />
+      return <ImageGallerySection content={c as never} componentAnimations={ca} />
 
     case 'product_360': {
       // Lazy-import to avoid bundling Three.js on the server
       const { Product360ViewerSection } = await import('./sections/Product360ViewerSection')
-      return <Product360ViewerSection content={c as never} tenantId={tenantId} />
+      return <Product360ViewerSection content={c as never} tenantId={tenantId} componentAnimations={ca} />
     }
 
     case 'unknown':

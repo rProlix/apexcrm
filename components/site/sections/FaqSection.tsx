@@ -2,10 +2,15 @@
 // components/site/sections/FaqSection.tsx
 import { useState } from 'react'
 import type { FaqContent } from '@/lib/website/types'
+import { AnimatedElement } from '@/components/site/AnimatedElement'
+import type { SectionComponentAnimations } from '@/components/site/SafeSectionRenderer'
 
-interface Props { content: FaqContent }
+interface Props {
+  content:              FaqContent
+  componentAnimations?: SectionComponentAnimations
+}
 
-export function FaqSection({ content }: Props) {
+export function FaqSection({ content, componentAnimations: ca }: Props) {
   const c        = (content && typeof content === 'object' ? content : {}) as Partial<FaqContent>
   const headline = typeof c.headline === 'string' ? c.headline : ''
   const items    = Array.isArray(c.items) ? c.items : []
@@ -17,14 +22,14 @@ export function FaqSection({ content }: Props) {
     <section style={{ padding: '5rem 1.5rem', background: 'var(--color-bg)' }}>
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
         {headline && (
-          <h2 style={{
+          <AnimatedElement as="h2" animConfig={ca?.heading ?? ca?.text} style={{
             textAlign:  'center',
             fontSize:   'clamp(1.5rem, 3vw, 2.25rem)',
             fontWeight: 700,
             fontFamily: 'var(--font-heading)',
             color:      'var(--color-text)',
             margin:     '0 0 3rem',
-          }}>{headline}</h2>
+          }}>{headline}</AnimatedElement>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {items.map((item, i) => {
@@ -32,7 +37,7 @@ export function FaqSection({ content }: Props) {
             const answer   = typeof item?.answer === 'string'   ? item.answer   : ''
             if (!question) return null
             return (
-            <div key={i} style={{
+            <AnimatedElement key={i} animConfig={ca?.card} index={i} style={{
               border:       '1px solid var(--color-border)',
               borderRadius: '0.875rem',
               overflow:     'hidden',
@@ -75,7 +80,7 @@ export function FaqSection({ content }: Props) {
                   {answer}
                 </div>
               )}
-            </div>
+            </AnimatedElement>
             )
           })}
         </div>

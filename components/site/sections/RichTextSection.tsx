@@ -1,9 +1,13 @@
 // components/site/sections/RichTextSection.tsx
 import type { RichTextContent } from '@/lib/website/types'
+import type { SectionComponentAnimations } from '@/components/site/SafeSectionRenderer'
 
-interface Props { content: RichTextContent }
+interface Props {
+  content:              RichTextContent
+  componentAnimations?: SectionComponentAnimations
+}
 
-export function RichTextSection({ content }: Props) {
+export function RichTextSection({ content, componentAnimations: _ca }: Props) {
   const c    = (content && typeof content === 'object' ? content : {}) as Partial<RichTextContent>
   const html = typeof c.html === 'string' ? c.html : ''
   if (!html) return null

@@ -1,10 +1,15 @@
 // components/site/sections/CtaSection.tsx
 import Link from 'next/link'
 import type { CtaContent } from '@/lib/website/types'
+import { AnimatedElement } from '@/components/site/AnimatedElement'
+import type { SectionComponentAnimations } from '@/components/site/SafeSectionRenderer'
 
-interface Props { content: CtaContent }
+interface Props {
+  content:              CtaContent
+  componentAnimations?: SectionComponentAnimations
+}
 
-export function CtaSection({ content }: Props) {
+export function CtaSection({ content, componentAnimations: ca }: Props) {
   const c   = (content && typeof content === 'object' ? content : {}) as Partial<CtaContent>
   const raw = c as Record<string, unknown>
 
@@ -40,23 +45,24 @@ export function CtaSection({ content }: Props) {
         textAlign,
         gap:            '1.5rem',
       }}>
-        <h2 style={{
+        <AnimatedElement as="h2" animConfig={ca?.heading ?? ca?.text} style={{
           fontSize:   'clamp(1.75rem, 4vw, 2.75rem)',
           fontWeight: 800,
           color:      '#fff',
           fontFamily: 'var(--font-heading)',
           margin:     0,
-        }}>{headline}</h2>
+        }}>{headline}</AnimatedElement>
         {body && (
-          <p style={{
+          <AnimatedElement as="p" animConfig={ca?.paragraph ?? ca?.text} index={1} style={{
             fontSize:   '1.0625rem',
             color:      'rgba(255,255,255,0.8)',
             margin:     0,
             lineHeight: 1.6,
             maxWidth:   560,
-          }}>{body}</p>
+          }}>{body}</AnimatedElement>
         )}
         {ctaLabel && (
+          <AnimatedElement animConfig={ca?.button ?? ca?.cta} index={2}>
           <Link href={ctaHref || '/shop'} style={{
             background:     '#fff',
             color:          'var(--color-primary)',
@@ -69,6 +75,7 @@ export function CtaSection({ content }: Props) {
           }}>
             {ctaLabel}
           </Link>
+          </AnimatedElement>
         )}
       </div>
     </section>

@@ -4,12 +4,15 @@
 import { Product360BlockRenderer } from '@/components/product-360/Product360BlockRenderer'
 import type { Product360ViewerContent } from '@/lib/website/types'
 
+import type { SectionComponentAnimations } from '@/components/site/SafeSectionRenderer'
+
 interface Props {
-  content:  Partial<Product360ViewerContent>
-  tenantId: string
+  content:              Partial<Product360ViewerContent>
+  tenantId:             string
+  componentAnimations?: SectionComponentAnimations
 }
 
-export async function Product360ViewerSection({ content, tenantId }: Props) {
+export async function Product360ViewerSection({ content, tenantId, componentAnimations: _ca }: Props) {
   return (
     <section className="w-full py-10 px-4">
       <div className="mx-auto max-w-xl">

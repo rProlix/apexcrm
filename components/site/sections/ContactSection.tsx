@@ -2,10 +2,15 @@
 // components/site/sections/ContactSection.tsx
 // Client component — uses onSubmit form handler
 import type { ContactContent } from '@/lib/website/types'
+import { AnimatedElement } from '@/components/site/AnimatedElement'
+import type { SectionComponentAnimations } from '@/components/site/SafeSectionRenderer'
 
-interface Props { content: ContactContent }
+interface Props {
+  content:              ContactContent
+  componentAnimations?: SectionComponentAnimations
+}
 
-export function ContactSection({ content }: Props) {
+export function ContactSection({ content, componentAnimations: ca }: Props) {
   const c = (content && typeof content === 'object' ? content : {}) as Partial<ContactContent>
   const { headline, body, email, phone, address } = c
 
@@ -21,16 +26,16 @@ export function ContactSection({ content }: Props) {
         {/* Info column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {headline && (
-            <h2 style={{
+            <AnimatedElement as="h2" animConfig={ca?.heading ?? ca?.text} style={{
               fontSize:   'clamp(1.5rem, 3vw, 2rem)',
               fontWeight: 700,
               fontFamily: 'var(--font-heading)',
               color:      'var(--color-text)',
               margin:     0,
-            }}>{headline}</h2>
+            }}>{headline}</AnimatedElement>
           )}
           {body && (
-            <p style={{ color: 'var(--color-muted)', lineHeight: 1.6, margin: 0 }}>{body}</p>
+            <AnimatedElement as="p" animConfig={ca?.paragraph ?? ca?.text} index={1} style={{ color: 'var(--color-muted)', lineHeight: 1.6, margin: 0 }}>{body}</AnimatedElement>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
             {email && (

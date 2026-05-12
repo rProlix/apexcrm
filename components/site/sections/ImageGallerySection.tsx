@@ -1,10 +1,15 @@
 // components/site/sections/ImageGallerySection.tsx
 import Image from 'next/image'
 import type { ImageGalleryContent } from '@/lib/website/types'
+import { AnimatedElement } from '@/components/site/AnimatedElement'
+import type { SectionComponentAnimations } from '@/components/site/SafeSectionRenderer'
 
-interface Props { content: ImageGalleryContent }
+interface Props {
+  content:              ImageGalleryContent
+  componentAnimations?: SectionComponentAnimations
+}
 
-export function ImageGallerySection({ content }: Props) {
+export function ImageGallerySection({ content, componentAnimations: ca }: Props) {
   const c      = (content && typeof content === 'object' ? content : {}) as Partial<ImageGalleryContent>
   const headline = typeof c.headline === 'string' ? c.headline : ''
   const images   = Array.isArray(c.images) ? c.images : []
@@ -22,14 +27,14 @@ export function ImageGallerySection({ content }: Props) {
     <section style={{ padding: '5rem 1.5rem', background: 'var(--color-bg)' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         {headline && (
-          <h2 style={{
+          <AnimatedElement as="h2" animConfig={ca?.heading ?? ca?.text} style={{
             textAlign:  'center',
             fontSize:   'clamp(1.5rem, 3vw, 2.25rem)',
             fontWeight: 700,
             fontFamily: 'var(--font-heading)',
             color:      'var(--color-text)',
             margin:     '0 0 3rem',
-          }}>{headline}</h2>
+          }}>{headline}</AnimatedElement>
         )}
 
         <div style={{
@@ -43,7 +48,7 @@ export function ImageGallerySection({ content }: Props) {
             const caption = typeof img?.caption === 'string' ? img.caption : ''
             if (!url) return null
             return (
-            <div key={i} style={{
+            <AnimatedElement key={i} animConfig={ca?.image} index={i} style={{
               position:     'relative',
               borderRadius: '0.875rem',
               overflow:     'hidden',
@@ -75,7 +80,7 @@ export function ImageGallerySection({ content }: Props) {
                   }}>{caption}</p>
                 </div>
               )}
-            </div>
+            </AnimatedElement>
             )
           })}
         </div>

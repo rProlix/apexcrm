@@ -5,9 +5,13 @@ import Link from 'next/link'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { ProductGridContent } from '@/lib/website/types'
 
+import { AnimatedElement } from '@/components/site/AnimatedElement'
+import type { SectionComponentAnimations } from '@/components/site/SafeSectionRenderer'
+
 interface Props {
-  content:  ProductGridContent
-  tenantId: string
+  content:              ProductGridContent
+  tenantId:             string
+  componentAnimations?: SectionComponentAnimations
 }
 
 interface Product {
@@ -19,7 +23,7 @@ interface Product {
   status:      string
 }
 
-export async function ProductGridSection({ content, tenantId }: Props) {
+export async function ProductGridSection({ content, tenantId, componentAnimations: ca }: Props) {
   const c        = (content && typeof content === 'object' ? content : {}) as Partial<ProductGridContent>
   const headline = typeof c.headline === 'string' ? c.headline : ''
   const subtitle = typeof c.subtitle === 'string' ? c.subtitle : ''
@@ -48,13 +52,13 @@ export async function ProductGridSection({ content, tenantId }: Props) {
         {(headline || subtitle) && (
           <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
             {headline && (
-              <h2 style={{
+              <AnimatedElement as="h2" animConfig={ca?.heading ?? ca?.text} style={{
                 fontSize:   'clamp(1.5rem, 3vw, 2.25rem)',
                 fontWeight: 700,
                 fontFamily: 'var(--font-heading)',
                 color:      'var(--color-text)',
                 margin:     '0 0 0.5rem',
-              }}>{headline}</h2>
+              }}>{headline}</AnimatedElement>
             )}
             {subtitle && (
               <p style={{ color: 'var(--color-muted)', margin: 0 }}>{subtitle}</p>
@@ -68,9 +72,9 @@ export async function ProductGridSection({ content, tenantId }: Props) {
           gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
           gap:                 '1.25rem',
         }}>
-          {items.map((product) => (
+          {items.map((product, idx) => (
+            <AnimatedElement key={product.id} animConfig={ca?.card ?? ca?.product_card} index={idx}>
             <Link
-              key={product.id}
               href={`/shop/${product.id}`}
               style={{ textDecoration: 'none' }}
             >
@@ -145,6 +149,7 @@ export async function ProductGridSection({ content, tenantId }: Props) {
                 </div>
               </div>
             </Link>
+            </AnimatedElement>
           ))}
         </div>
 

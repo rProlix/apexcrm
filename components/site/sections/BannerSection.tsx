@@ -3,8 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import type { BannerContent } from '@/lib/website/types'
+import { AnimatedElement } from '@/components/site/AnimatedElement'
+import type { SectionComponentAnimations } from '@/components/site/SafeSectionRenderer'
 
-interface Props { content: BannerContent }
+interface Props {
+  content:              BannerContent
+  componentAnimations?: SectionComponentAnimations
+}
 
 const variantStyles: Record<string, React.CSSProperties> = {
   promo:   { background: 'var(--color-primary)',   color: '#fff' },
@@ -12,7 +17,7 @@ const variantStyles: Record<string, React.CSSProperties> = {
   warning: { background: '#d97706',                color: '#fff' },
 }
 
-export function BannerSection({ content }: Props) {
+export function BannerSection({ content, componentAnimations: ca }: Props) {
   const c          = (content && typeof content === 'object' ? content : {}) as Partial<BannerContent>
   const text       = typeof c.text === 'string'       ? c.text       : ''
   const ctaLabel   = typeof c.ctaLabel === 'string'   ? c.ctaLabel   : ''

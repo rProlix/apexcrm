@@ -1,10 +1,15 @@
 // components/site/sections/AboutSection.tsx
 import Image from 'next/image'
 import type { AboutContent } from '@/lib/website/types'
+import { AnimatedElement } from '@/components/site/AnimatedElement'
+import type { SectionComponentAnimations } from '@/components/site/SafeSectionRenderer'
 
-interface Props { content: AboutContent }
+interface Props {
+  content:              AboutContent
+  componentAnimations?: SectionComponentAnimations
+}
 
-export function AboutSection({ content }: Props) {
+export function AboutSection({ content, componentAnimations: ca }: Props) {
   const c   = (content && typeof content === 'object' ? content : {}) as Partial<AboutContent>
   const raw = c as Record<string, unknown>
 
@@ -12,7 +17,6 @@ export function AboutSection({ content }: Props) {
   const body      = typeof c.body === 'string'      ? c.body      : ''
   const teamItems = Array.isArray(c.teamItems)      ? c.teamItems : []
 
-  // Support both camelCase (current) and snake_case (legacy data) field names.
   const image =
     (typeof c.image === 'string'           ? c.image                 : null) ??
     (typeof raw.image_url === 'string'     ? raw.image_url as string : null) ??
@@ -32,29 +36,36 @@ export function AboutSection({ content }: Props) {
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {headline && (
-              <h2 style={{
+              <AnimatedElement as="h2" animConfig={ca?.heading ?? ca?.text} style={{
                 fontSize:   'clamp(1.5rem, 3vw, 2.25rem)',
                 fontWeight: 700,
                 fontFamily: 'var(--font-heading)',
                 color:      'var(--color-text)',
                 margin:     0,
-              }}>{headline}</h2>
+              }}>
+                {headline}
+              </AnimatedElement>
             )}
             {body && (
-              <p style={{ color: 'var(--color-muted)', lineHeight: 1.75, margin: 0, fontSize: '1rem' }}>
+              <AnimatedElement as="p" animConfig={ca?.paragraph ?? ca?.text} index={1} style={{
+                color: 'var(--color-muted)', lineHeight: 1.75, margin: 0, fontSize: '1rem',
+              }}>
                 {body}
-              </p>
+              </AnimatedElement>
             )}
           </div>
+
           {image && (
-            <Image
-              src={image}
-              alt={headline || 'About us'}
-              width={800}
-              height={400}
-              unoptimized
-              style={{ width: '100%', borderRadius: '1rem', objectFit: 'cover', maxHeight: 400 }}
-            />
+            <AnimatedElement animConfig={ca?.image} index={2}>
+              <Image
+                src={image}
+                alt={headline || 'About us'}
+                width={800}
+                height={400}
+                unoptimized
+                style={{ width: '100%', borderRadius: '1rem', objectFit: 'cover', maxHeight: 400 }}
+              />
+            </AnimatedElement>
           )}
         </div>
 
@@ -66,42 +77,30 @@ export function AboutSection({ content }: Props) {
             gap:                 '1.5rem',
           }}>
             {teamItems.map((member, i) => {
-              const name = typeof member?.name === 'string' ? member.name : ''
-              const role = typeof member?.role === 'string' ? member.role : ''
+              const name   = typeof member?.name === 'string'   ? member.name   : ''
+              const role   = typeof member?.role === 'string'   ? member.role   : ''
               const avatar = typeof member?.avatar === 'string' ? member.avatar : null
               return (
-              <div key={i} style={{
-                display:        'flex',
-                flexDirection:  'column',
-                alignItems:     'center',
-                gap:            '0.75rem',
-                textAlign:      'center',
-              }}>
-                {avatar
-                  ? <Image src={avatar} alt={name} width={80} height={80} unoptimized
-                      style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }} />
-                  : <div style={{
-                      width:          80,
-                      height:         80,
-                      borderRadius:   '50%',
-                      background:     'var(--color-border)',
-                      display:        'flex',
-                      alignItems:     'center',
-                      justifyContent: 'center',
-                      fontSize:       '1.75rem',
-                    }}>
-                      {name.charAt(0) || '?'}
-                    </div>
-                }
-                <div>
-                  <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9375rem' }}>
-                    {name}
-                  </p>
-                  <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-muted)' }}>
-                    {role}
-                  </p>
-                </div>
-              </div>
+                <AnimatedElement key={i} animConfig={ca?.card} index={i} style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', textAlign: 'center',
+                }}>
+                  {avatar
+                    ? <Image src={avatar} alt={name} width={80} height={80} unoptimized
+                        style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }} />
+                    : <div style={{
+                        width: 80, height: 80, borderRadius: '50%', background: 'var(--color-border)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.75rem',
+                      }}>
+                        {name.charAt(0) || '?'}
+                      </div>
+                  }
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9375rem' }}>
+                      {name}
+                    </p>
+                    <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-muted)' }}>{role}</p>
+                  </div>
+                </AnimatedElement>
               )
             })}
           </div>

@@ -27,6 +27,7 @@ import { Product360ViewerEditor } from './editors/Product360ViewerEditor'
 import { GenericEditor }          from './editors/GenericEditor'
 import { Toggle }                 from './editors/FormFields'
 import { PremiumDesignPanel }    from '@/components/website/premium/PremiumDesignPanel'
+import { SectionAnimationControls } from './SectionAnimationControls'
 
 const SIDEBAR_WIDTH = 380
 
@@ -371,6 +372,7 @@ export function EditorSidebar() {
   const [showDebug, setShowDebug]     = useState(false)
   const [debugInfo, setDebugInfo]     = useState<Record<string, unknown> | null>(null)
   const [showGallery, setShowGallery]         = useState(false)
+  const [showAnimations, setShowAnimations]   = useState(false)
   const [showPremiumDesign, setShowPremiumDesign] = useState(true)
   const [generateCount, setGenCount]          = useState<1 | 3 | 5>(1)
   const [galleryKey, setGalleryKey]           = useState(0)   // increment to force gallery reload
@@ -702,6 +704,30 @@ export function EditorSidebar() {
           )}
         </div>
       )}
+
+      {/* ── Section Animations panel ── */}
+      <div style={{ borderBottom: '1px solid #27272a', background: '#0c0c0e' }}>
+        <button
+          onClick={() => setShowAnimations(p => !p)}
+          style={{
+            width: '100%', padding: '0.75rem 1.25rem', background: 'none',
+            border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
+            justifyContent: 'space-between', color: '#a78bfa',
+          }}
+        >
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+            🎬 Section Animations
+          </span>
+          <span style={{ fontSize: '0.625rem', color: '#3f3f46' }}>
+            {showAnimations ? '▲ collapse' : '▼ expand'}
+          </span>
+        </button>
+        {showAnimations && (
+          <div style={{ padding: '0 1.25rem 1rem' }}>
+            <SectionAnimationControls sectionId={section.id} />
+          </div>
+        )}
+      </div>
 
       {/* ── AI Premium Design panel ── */}
       {tenantId && (
