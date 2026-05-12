@@ -19,6 +19,7 @@ import { z } from 'zod'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { ValidatedAiAnimationPlan } from '@/lib/website/animations/validateAnimationConfig'
+import { normalizeAnimationIntensity } from '@/lib/website/animations/validateAnimationConfig'
 import type { WebsiteAnimationPlan } from '@/lib/website/animations/types'
 
 const bodySchema = z.object({
@@ -68,10 +69,27 @@ export async function POST(req: NextRequest) {
 
   const tenantId = plan.tenant_id
   const aiPlan   = plan.ai_plan as Partial<ValidatedAiAnimationPlan>
-  const animations = aiPlan.animations ?? []
-  const upgrades   = aiPlan.sectionUpgrades ?? []
-  const scope      = body.applyScope ?? plan.scope
-  const now        = new Date().toISOString()
+  const rawAnimations = aiPlan.animations ?? []
+  const upgrades      = aiPlan.sectionUpgrades ?? []
+  const scope         = body.applyScope ?? plan.scope
+  const now           = new Date().toISOString()
+  const warnings: string[] = []
+
+  // ── Normalize intensity values in all animations (defense-in-depth) ─────────
+  // Plans stored before the normalization pipeline was deployed may contain
+  // raw values like "high", "medium", "bold". Normalise them here before saving
+  // into section configs so we never write invalid values to the DB.
+  const animations = rawAnimations.map((a, idx) => {
+    const raw = a.intensity as string | undefined
+    const normalized = normalizeAnimationIntensity(raw)
+    if (raw && raw !== normalized) {
+      warnings.push(
+        `Normalized animation intensity from "${raw}" to "${normalized}" for animation index ${idx} (targetKey: ${a.targetKey ?? 'unknown'})`
+      )
+      return { ...a, intensity: normalized }
+    }
+    return a
+  })
 
   // Filter to selected keys if specified
   const filteredAnimations = selectedAnimationKeys?.length
@@ -403,9 +421,10 @@ export async function POST(req: NextRequest) {
     appliedComponentAnimations,
     totalApplied: appliedPageAnimations + appliedSectionAnimations + appliedComponentAnimations,
     skippedAnimations: skippedAnimations.length ? skippedAnimations : undefined,
-    errors:   errors.length ? errors : undefined,
-    message:  errors.length
+    warnings:  warnings.length ? warnings : undefined,
+    errors:    errors.length ? errors : undefined,
+    message:   errors.length
       ? `Applied with ${errors.length} error(s).`
-      : `Applied: ${appliedSectionAnimations} section, ${appliedComponentAnimations} component, ${appliedPageAnimations} page animations.`,
+      : `Applied: ${appliedSectionAnimations} section, ${appliedComponentAnimations} component, ${appliedPageAnimations} page animations.${warnings.length ? ` (${warnings.length} intensity value(s) normalized)` : ''}`,
   })
 }

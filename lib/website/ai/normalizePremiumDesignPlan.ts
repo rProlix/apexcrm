@@ -30,6 +30,25 @@ export function isUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID_REGEX.test(value)
 }
 
+// ── Animation intensity normalization ────────────────────────────────────────
+// Maps any Gemini intensity value → the three valid DB values:
+//   "subtle" | "balanced" | "cinematic"
+
+export function normalizeIntensity(value: unknown): 'subtle' | 'balanced' | 'cinematic' {
+  const raw = String(value ?? '').toLowerCase().trim()
+  if (['low', 'light', 'soft', 'minimal', 'gentle', 'subtle', 'quiet'].includes(raw))
+    return 'subtle'
+  if (['high', 'strong', 'bold', 'dramatic', 'premium', 'luxury',
+       'cinematic', 'expensive', 'ultra', 'intense', 'maximum', 'max'].includes(raw))
+    return 'cinematic'
+  if (['medium', 'moderate', 'normal', 'standard', 'balanced',
+       'default', 'mid', 'middle', 'regular', 'average'].includes(raw))
+    return 'balanced'
+  if (raw === 'subtle' || raw === 'balanced' || raw === 'cinematic')
+    return raw as 'subtle' | 'balanced' | 'cinematic'
+  return 'balanced'
+}
+
 // ── Animation targetType normalization ───────────────────────────────────────
 // Maps any Gemini targetType value → the three valid DB values:
 //   "page" | "section" | "component"
@@ -283,6 +302,9 @@ export function normalizePremiumDesignPlan(
       targetTypeMappings.push({ original: rawTargetType, normalized: normalizedType })
     }
 
+    // Normalize intensity: "high" → "cinematic", "medium" → "balanced", etc.
+    const normalizedIntensity = normalizeIntensity(a.intensity ?? 'balanced')
+
     // When the raw targetType was a component-level term, preserve it as componentType
     // (unless componentType already exists)
     const isComponentTerm =
@@ -323,6 +345,7 @@ export function normalizePremiumDesignPlan(
       ...a,
       targetType:         normalizedType,
       originalTargetType: rawTargetType,
+      intensity:          normalizedIntensity,
       ...(componentType !== undefined ? { componentType } : {}),
       ...(normalizedType === 'section' ? { sectionId } : {}),
     }
@@ -349,20 +372,31 @@ export function normalizePremiumDesignPlan(
   return plan
 }
 
-// ── Final safety strip for targetType — run immediately before Zod ───────────
-// Converts any remaining invalid targetType to 'page'|'section'|'component'.
+// ── Final safety strip for targetType + intensity — run immediately before Zod ─
+// Converts any remaining invalid targetType to 'page'|'section'|'component'
+// and any remaining invalid intensity to 'subtle'|'balanced'|'cinematic'.
 
 export function safeStripAnimationTargetTypes(
   plan: Record<string, unknown>,
 ): Record<string, unknown> {
   const anims = Array.isArray(plan.animations) ? plan.animations : []
+  const validTypes = new Set(['page', 'section', 'component'])
+  const validIntensities = new Set(['subtle', 'balanced', 'cinematic'])
+
   plan.animations = anims.map((item: unknown) => {
     if (!item || typeof item !== 'object') return item
     const a = { ...(item as Record<string, unknown>) }
-    const valid = new Set(['page', 'section', 'component'])
-    if (!valid.has(a.targetType as string)) {
+
+    // targetType guard
+    if (!validTypes.has(a.targetType as string)) {
       a.targetType = normalizeTargetType(a.targetType)
     }
+
+    // intensity guard — normalise "high", "medium", "bold", etc.
+    if (!validIntensities.has(a.intensity as string)) {
+      a.intensity = normalizeIntensity(a.intensity)
+    }
+
     return a
   })
   return plan

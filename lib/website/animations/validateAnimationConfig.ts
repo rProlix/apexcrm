@@ -98,19 +98,60 @@ const safeTargetType = z.preprocess(
   z.enum(['page', 'section', 'component']),
 )
 
+// ── Animation intensity normalizer ────────────────────────────────────────────
+// Exported so normalizers and renderers can reuse the same logic.
+// Maps Gemini-generated values ("high", "medium", "bold", etc.) to the
+// canonical three-value enum the rest of the system uses.
+
+export function normalizeAnimationIntensity(
+  value: unknown,
+): 'subtle' | 'balanced' | 'cinematic' {
+  const raw = String(value ?? '').toLowerCase().trim()
+  if (['low', 'light', 'soft', 'minimal', 'gentle', 'subtle', 'quiet'].includes(raw))
+    return 'subtle'
+  if (['high', 'strong', 'bold', 'dramatic', 'premium', 'luxury',
+       'cinematic', 'expensive', 'ultra', 'intense', 'maximum', 'max'].includes(raw))
+    return 'cinematic'
+  if (['medium', 'moderate', 'normal', 'standard', 'balanced',
+       'default', 'mid', 'middle', 'regular', 'average'].includes(raw))
+    return 'balanced'
+  // If it's already a valid canonical value, pass through
+  if (raw === 'subtle' || raw === 'balanced' || raw === 'cinematic')
+    return raw as 'subtle' | 'balanced' | 'cinematic'
+  return 'balanced' // safe default for unknown values
+}
+
+// Zod preprocessor — wraps normalizeAnimationIntensity so it acts as last guard
+const coerceIntensity = (val: unknown): 'subtle' | 'balanced' | 'cinematic' =>
+  normalizeAnimationIntensity(val)
+
+const safeIntensity = z.preprocess(
+  coerceIntensity,
+  z.enum(['subtle', 'balanced', 'cinematic']),
+)
+
+// Also export a safe easing coercer
+const VALID_EASING = new Set(['standard', 'smooth', 'luxury', 'spring'])
+const coerceEasing = (val: unknown): string => {
+  if (typeof val === 'string' && VALID_EASING.has(val.toLowerCase().trim())) {
+    return val.toLowerCase().trim()
+  }
+  return 'smooth'
+}
+const safeEasing = z.preprocess(coerceEasing, z.enum(['standard', 'smooth', 'luxury', 'spring']))
+
 const animationItemSchema = z.object({
   targetType:         safeTargetType,
-  originalTargetType: z.string().optional(),  // preserved from normalization
+  originalTargetType: z.string().optional(),
   targetKey:          z.string().max(80).default('global'),
   animationPreset:    z.enum(ANIMATION_PRESETS).default('fade_up'),
-  intensity:          z.enum(['subtle', 'balanced', 'cinematic']).default('balanced'),
+  intensity:          safeIntensity,
   durationMs:         z.number().int().min(100).max(3000).default(600),
   delayMs:            z.number().int().min(0).max(2000).default(0),
   staggerMs:          z.number().int().min(0).max(800).default(80),
-  easing:             z.enum(['standard', 'smooth', 'luxury', 'spring']).default('smooth'),
+  easing:             safeEasing,
   mobileEnabled:      z.boolean().default(true),
   reason:             z.string().max(500).default(''),
-  // Optional fields Gemini may include for component targeting
   sectionId:          nullableUuid,
   componentType:      z.string().max(80).optional().nullable(),
   componentKey:       z.string().max(80).optional().nullable(),
@@ -180,14 +221,20 @@ export const sectionAnimationConfigSchema = z.object({
   v:        z.number().int().min(1).default(1),
   enabled:  z.boolean().default(true),
   animation: z.object({
-    preset:       z.enum(ANIMATION_PRESETS).optional(),
-    intensity:    z.enum(['subtle', 'balanced', 'cinematic']).optional(),
-    durationMs:   z.number().int().min(100).max(3000).optional(),
-    delayMs:      z.number().int().min(0).max(2000).optional(),
-    staggerMs:    z.number().int().min(0).max(800).optional(),
-    easing:       z.enum(['standard', 'smooth', 'luxury', 'spring']).optional(),
+    preset:        z.enum(ANIMATION_PRESETS).optional(),
+    intensity:     z.preprocess(
+                     (v) => v === undefined || v === null ? undefined : normalizeAnimationIntensity(v),
+                     z.enum(['subtle', 'balanced', 'cinematic']).optional()
+                   ),
+    durationMs:    z.number().int().min(100).max(3000).optional(),
+    delayMs:       z.number().int().min(0).max(2000).optional(),
+    staggerMs:     z.number().int().min(0).max(800).optional(),
+    easing:        z.preprocess(
+                     (v) => v === undefined || v === null ? undefined : coerceEasing(v),
+                     z.enum(['standard', 'smooth', 'luxury', 'spring']).optional()
+                   ),
     mobileEnabled: z.boolean().optional(),
-    disabled:     z.boolean().optional(),
+    disabled:      z.boolean().optional(),
   }).default({}),
   style: z.object({
     stylePreset:          z.enum(STYLE_PRESETS).optional(),

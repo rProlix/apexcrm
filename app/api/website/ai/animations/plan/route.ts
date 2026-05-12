@@ -212,6 +212,20 @@ If you want to animate an entire section use:
 If you want to animate the whole page use:
   { "targetType": "page" }
 
+CRITICAL — ANIMATION INTENSITY RULES:
+The "intensity" field must be EXACTLY one of these three values:
+  "subtle"    — light, minimal, barely-there
+  "balanced"  — normal, moderate, standard
+  "cinematic" — dramatic, premium, luxury, bold
+
+FORBIDDEN intensity values (will cause a validation error):
+  "high", "medium", "low", "bold", "strong", "dramatic", "premium", "luxury",
+  "soft", "light", "normal", "standard", "moderate", "ultra", "intense"
+
+Use "cinematic" instead of: high, bold, strong, dramatic, premium, luxury, ultra.
+Use "balanced" instead of: medium, normal, standard, moderate, default.
+Use "subtle" instead of: low, light, soft, minimal, gentle.
+
 RULES:
 1. Do NOT over-animate. Prioritize conversion, readability, speed, mobile.
 2. Output ONLY valid JSON. No markdown. No code blocks. No extra text.

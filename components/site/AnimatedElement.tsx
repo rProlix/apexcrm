@@ -88,6 +88,23 @@ const INTENSITY_SCALE: Record<string, number> = {
   cinematic: 1.4,
 }
 
+// ── Intensity normalizer (mirrors server-side normalizeAnimationIntensity) ─────
+// Ensures saved configs with "high"/"medium"/"bold" etc. render correctly
+// without crashing, even if old data predates the normalization pipeline.
+function safeIntensity(
+  raw: string | undefined | null,
+): 'subtle' | 'balanced' | 'cinematic' {
+  const v = String(raw ?? '').toLowerCase().trim()
+  if (['low', 'light', 'soft', 'minimal', 'gentle', 'subtle', 'quiet'].includes(v)) return 'subtle'
+  if (['high', 'strong', 'bold', 'dramatic', 'premium', 'luxury',
+       'cinematic', 'expensive', 'ultra', 'intense', 'maximum', 'max'].includes(v)) return 'cinematic'
+  if (['medium', 'moderate', 'normal', 'standard', 'balanced',
+       'default', 'mid', 'middle', 'regular', 'average'].includes(v)) return 'balanced'
+  if (v === 'subtle' || v === 'balanced' || v === 'cinematic')
+    return v as 'subtle' | 'balanced' | 'cinematic'
+  return 'balanced'
+}
+
 export function AnimatedElement({
   children,
   animConfig,
@@ -104,9 +121,10 @@ export function AnimatedElement({
     return <Tag className={className} style={style}>{children}</Tag>
   }
 
-  const preset   = animConfig.preset ?? 'fade_up'
-  const variant  = VARIANTS[preset] ?? VARIANTS.fade_up
-  const scale    = INTENSITY_SCALE[animConfig.intensity ?? 'balanced'] ?? 1
+  const preset     = animConfig.preset ?? 'fade_up'
+  const variant    = VARIANTS[preset] ?? VARIANTS.fade_up
+  const normalizedIntensity = safeIntensity(animConfig.intensity)
+  const scale      = INTENSITY_SCALE[normalizedIntensity] ?? 1
   const duration = ((animConfig.durationMs ?? 600) * scale) / 1000
   const delay    = ((animConfig.delayMs ?? 0) + index * (animConfig.staggerMs ?? 0)) / 1000
   const easing   = EASING_MAP[animConfig.easing ?? 'smooth'] ?? EASING_MAP.smooth
