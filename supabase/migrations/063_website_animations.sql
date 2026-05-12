@@ -150,4 +150,6 @@ END $$;
 -- Public/anon: no access (animation configs served server-side through trusted queries)
 -- (no policy created — default deny for anon/public)
 
-RAISE NOTICE 'Migration 063: website_animation_plans created. site_sections, site_pages, tenants extended.';
+DO $$ BEGIN
+  RAISE NOTICE 'Migration 063: website_animation_plans created. site_sections, site_pages, tenants extended.';
+END $$;
