@@ -21,7 +21,8 @@ export const DEFAULT_MODULE_STATES: Record<ModuleKey, boolean> = {
   rewards:       false,          // opt-in: not all businesses run loyalty programs
   vehicles:      false,          // opt-in: fleet/rental vertical only
   damage_ai:     false,          // opt-in: requires vehicle module + AI setup
-  product_360:      false,       // opt-in: AI 360 product studio
+  product_360:   false,          // opt-in: AI 360 product studio
+  inventory:     false,          // opt-in: inventory tracking module
 }
 
 /**

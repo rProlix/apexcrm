@@ -12,6 +12,7 @@ import { storeModule }         from '@/modules/store'
 import { websiteModule }       from '@/modules/website'
 import { customersModule }     from '@/modules/customers'
 import { product360Module }    from '@/modules/product_360'
+import { inventoryModule }     from '@/modules/inventory'
 
 export const MODULE_REGISTRY: Record<ModuleKey, ModuleDefinition> = {
   payments:       paymentsModule,
@@ -26,6 +27,7 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleDefinition> = {
   website:        websiteModule,
   customers:      customersModule,
   product_360:    product360Module,
+  inventory:      inventoryModule,
 }
 
 export type { ModuleKey, ModuleDefinition }

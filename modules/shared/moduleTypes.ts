@@ -14,6 +14,7 @@ export type ModuleKey =
   | 'website'
   | 'customers'
   | 'product_360'
+  | 'inventory'
 
 export type StatCategory = 'operations' | 'financial' | 'usage'
 

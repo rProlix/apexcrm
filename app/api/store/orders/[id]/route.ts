@@ -2,6 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveStoreUser, resolveStoreCustomer } from '@/lib/auth/resolveStoreUser'
+import { applyInventoryForCompletedOrder } from '@/lib/inventory/applyInventoryForOrder'
+
+const COMPLETION_STATUSES = new Set(['delivered', 'completed'])
 
 // ─── GET /api/store/orders/[id] ───────────────────────────────────────────────
 // admin/owner → full access (must match tenant)
@@ -111,6 +114,18 @@ export async function PATCH(
   if (error) {
     console.error('[PATCH /api/store/orders/:id]', error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Trigger inventory deduction when order reaches a completion status
+  if (
+    typeof body.status === 'string' &&
+    COMPLETION_STATUSES.has(body.status) &&
+    data?.id &&
+    data?.tenant_id
+  ) {
+    applyInventoryForCompletedOrder(data.id as string, data.tenant_id as string).catch((err) => {
+      console.warn('[inventory] applyInventoryForCompletedOrder failed:', err?.message)
+    })
   }
 
   return NextResponse.json({ order: data })

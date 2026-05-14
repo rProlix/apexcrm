@@ -22,6 +22,7 @@
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.1",
     "@types/three": "^0.184.0",
+    "@zxing/browser": "^0.2.0",
     "autoprefixer": "^10.5.0",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.5",
