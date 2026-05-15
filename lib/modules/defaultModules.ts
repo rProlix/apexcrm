@@ -23,6 +23,7 @@ export const DEFAULT_MODULE_STATES: Record<ModuleKey, boolean> = {
   damage_ai:     false,          // opt-in: requires vehicle module + AI setup
   product_360:   false,          // opt-in: AI 360 product studio
   inventory:     false,          // opt-in: inventory tracking module
+  pos:           false,          // opt-in: point of sale module
 }
 
 /**
