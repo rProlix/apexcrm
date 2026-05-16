@@ -37,9 +37,13 @@ export default async function CustomerLoginPage({ params, searchParams }: Props)
   // or via a tenant subdomain/custom domain (rewritten from the root).
   const headersList  = await headers()
   const isPlatform   = headersList.get('x-is-platform') === 'true'
-  const signupPath   = isPlatform
+  const signupPath  = isPlatform
     ? `/sites/${tenant}/signup${next !== '/account' ? `?next=${encodeURIComponent(next)}` : ''}`
     : `/signup${next !== '/account' ? `?next=${encodeURIComponent(next)}` : ''}`
+
+  const forgotPath  = isPlatform
+    ? `/sites/${tenant}/forgot-password`
+    : '/forgot-password'
 
   const businessName = config?.settings?.site_name ?? siteData.tenant.name
 
@@ -80,6 +84,7 @@ export default async function CustomerLoginPage({ params, searchParams }: Props)
         <CustomerLoginForm
           tenantId={siteData.tenant.id}
           signupHref={signupPath}
+          forgotHref={forgotPath}
           next={next.startsWith('/') ? next : '/account'}
         />
       </div>

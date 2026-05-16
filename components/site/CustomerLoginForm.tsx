@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { customerLogin } from '@/lib/actions/customer-auth'
 
 interface Props {
-  tenantId:    string
-  signupHref:  string
-  next:        string
+  tenantId:       string
+  signupHref:     string
+  forgotHref?:    string
+  next:           string
 }
 
 const inputStyle: React.CSSProperties = {
@@ -30,7 +31,7 @@ const labelStyle: React.CSSProperties = {
   marginBottom: '0.375rem',
 }
 
-export function CustomerLoginForm({ tenantId, signupHref, next }: Props) {
+export function CustomerLoginForm({ tenantId, signupHref, forgotHref, next }: Props) {
   const [state, action, pending] = useActionState(customerLogin, null)
 
   return (
@@ -96,6 +97,14 @@ export function CustomerLoginForm({ tenantId, signupHref, next }: Props) {
       >
         {pending ? 'Signing in…' : 'Sign In'}
       </button>
+
+      {forgotHref && (
+        <p style={{ textAlign: 'center', margin: '0.25rem 0 0', fontSize: '0.8125rem', color: 'var(--color-muted)' }}>
+          <Link href={forgotHref} style={{ color: 'var(--color-muted)', textDecoration: 'underline' }}>
+            Forgot password?
+          </Link>
+        </p>
+      )}
 
       <p style={{ textAlign: 'center', margin: 0, fontSize: '0.875rem', color: 'var(--color-muted)' }}>
         Don&apos;t have an account?{' '}

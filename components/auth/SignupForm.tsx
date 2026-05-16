@@ -108,6 +108,15 @@ export function SignupForm() {
     // We set role + businessName in user_metadata here so the JWT is correct
     // immediately. The server action (createTenantForUser) overwrites these via
     // the Admin API once the workspace is created, which is the authoritative value.
+    // emailRedirectTo must be derived from window.location.origin so that
+    // confirmation emails link back to the correct domain in every environment:
+    //   - nexoranow.com (production)
+    //   - *.vercel.app  (preview deployments)
+    //   - localhost      (local dev)
+    // Never hard-code a domain here — doing so would send all confirmation
+    // links to that hard-coded URL even in preview/dev environments.
+    const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent('/dashboard')}`
+
     const { data, error: signUpError } = await supabase.auth.signUp({
       email:    parsed.data.email,
       password: parsed.data.password,
@@ -116,6 +125,7 @@ export function SignupForm() {
           role:         'admin',
           businessName: parsed.data.businessName,
         },
+        emailRedirectTo,
       },
     })
 

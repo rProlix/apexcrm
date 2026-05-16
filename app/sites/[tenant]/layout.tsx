@@ -16,6 +16,7 @@ import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { normalizeTheme } from '@/lib/website/normalizeTheme'
 import { SiteHeader } from '@/components/site/SiteHeader'
 import { SiteFooter } from '@/components/site/SiteFooter'
+import { BusinessAdminBar } from '@/components/site/BusinessAdminBar'
 import { resolveSiteUser } from '@/lib/auth/resolveSiteUser'
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
@@ -133,12 +134,33 @@ export default async function SiteLayout({ children, params }: Props) {
     // or customer. This drives the header "Account" vs "Sign In" link only.
     // Fine-grained access control happens inside each individual page.
     let isAuthenticated = false
+    let adminBarProps: {
+      role: 'owner' | 'admin' | 'staff'
+      canEdit: boolean
+      tenantSlug: string | null
+    } | null = null
+
     try {
       const siteCtx = await resolveSiteUser(siteData.tenant.id)
       isAuthenticated = siteCtx !== null
+
+      // Show the business admin bar only to business users (not customers)
+      if (siteCtx && siteCtx.accessLevel !== 'customer') {
+        const role = siteCtx.role as 'owner' | 'admin' | 'staff'
+        adminBarProps = {
+          role,
+          canEdit:    siteCtx.canEditWebsite,
+          tenantSlug: siteData.tenant.slug ?? tenantSlug,
+        }
+      }
     } catch {
       // Non-fatal — show Login as the safe fallback
     }
+
+    // Add top padding when the admin bar is visible so content isn't hidden under it
+    const contentStyle = adminBarProps
+      ? { paddingTop: '2.75rem' }
+      : {}
 
     return (
       <div
@@ -150,13 +172,24 @@ export default async function SiteLayout({ children, params }: Props) {
           fontFamily: `"${theme.fontBody}", sans-serif`,
         }}
       >
-        <SiteHeader
-          config={config}
-          basePath={basePath}
-          isAuthenticated={isAuthenticated}
-        />
-        <main className="flex-1">{children}</main>
-        <SiteFooter config={config} />
+        {adminBarProps && (
+          <BusinessAdminBar
+            role={adminBarProps.role}
+            canEdit={adminBarProps.canEdit}
+            websiteHref={basePath ? `${basePath}/` : '/'}
+            dashboardHref="/dashboard"
+            tenantSlug={adminBarProps.tenantSlug}
+          />
+        )}
+        <div style={contentStyle}>
+          <SiteHeader
+            config={config}
+            basePath={basePath}
+            isAuthenticated={isAuthenticated}
+          />
+          <main className="flex-1">{children}</main>
+          <SiteFooter config={config} />
+        </div>
       </div>
     )
   } catch (err) {

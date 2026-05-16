@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import {
   createSessionServerClient,
   getSupabaseServerClient,
@@ -15,6 +16,24 @@ function sanitizeRedirect(next: unknown): string {
 }
 
 // ── Signup ────────────────────────────────────────────────────────────────────
+//
+// ROOT CAUSE FIX:
+//   Previously, customer DB records (customers + customer_accounts) were only
+//   created when Supabase returned a session immediately — i.e. when email
+//   confirmation was DISABLED. When email confirmation is enabled, signUp()
+//   returns user but not session, and the code returned early without creating
+//   any DB rows. This meant every confirmed customer got "not connected to this
+//   business" on login because customer_accounts had no row for them.
+//
+//   Fix: Always create DB records immediately after signUp(), regardless of
+//   session presence. Use status='pending_confirmation' when email is not yet
+//   confirmed. The /auth/callback route activates the row after confirmation.
+//
+//   emailRedirectTo fix:
+//   Supabase's signUp() needs an explicit emailRedirectTo or it uses the
+//   configured Site URL (often localhost in development, or wrong in production).
+//   We derive the current origin from request headers so the confirmation link
+//   always lands on the correct domain/subdomain.
 
 export async function customerSignup(
   _prev: unknown,
@@ -33,6 +52,20 @@ export async function customerSignup(
     return { error: 'Password must be at least 6 characters.' }
   }
 
+  // ── Build emailRedirectTo using the current request host ─────────────────
+  // This ensures confirmation emails always link back to the correct domain
+  // (production subdomain, custom domain, or Vercel preview), never localhost.
+  const headersList = await headers()
+  const host = headersList.get('host') ?? ''
+  const forwardedProto = headersList.get('x-forwarded-proto') ?? 'https'
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : forwardedProto
+  const origin = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://nexoranow.com')
+
+  // Include tenant_id in the callback URL so /auth/callback can activate the
+  // pending_confirmation account after the user clicks the email link.
+  const callbackNext = encodeURIComponent(next)
+  const emailRedirectTo = `${origin}/auth/callback?next=${callbackNext}&tenant_id=${encodeURIComponent(tenantId)}`
+
   const sessionClient = await createSessionServerClient()
 
   // 1. Create Supabase Auth user
@@ -41,23 +74,22 @@ export async function customerSignup(
     password,
     options: {
       data: { full_name: fullName, role: 'customer', tenant_id: tenantId },
+      emailRedirectTo,
     },
   })
 
-  if (signupError) return { error: signupError.message }
-  if (!signupData.user) return { error: 'Account creation failed. Please try again.' }
-
-  // If email confirmation is enabled, inform the customer and stop here.
-  // The DB records will be created after they confirm via the auth webhook,
-  // or you can disable "Confirm email" in the Supabase Auth dashboard.
-  if (!signupData.session) {
+  if (signupError) {
     return {
-      message:
-        'Check your inbox to confirm your email, then sign in.',
+      error: signupError.message.toLowerCase().includes('already registered')
+        ? 'An account with this email already exists. Try signing in instead.'
+        : signupError.message,
     }
   }
+  if (!signupData.user) return { error: 'Account creation failed. Please try again.' }
 
-  // 2. Use service role to insert DB records (bypasses RLS — runs server-side only)
+  // 2. Use service role to insert DB records — bypass RLS, runs server-side only.
+  //    CRITICAL: Do this whether or not we have a session. The customer_accounts
+  //    row must exist so that login succeeds after email confirmation.
   const serviceClient = getSupabaseServerClient()
 
   // Check for an existing customer with this email in the tenant
@@ -81,6 +113,7 @@ export async function customerSignup(
       .single()
 
     if (customerError || !newCustomer) {
+      // Clean up the auth user we just created to avoid orphaned accounts
       try { await serviceClient.auth.admin.deleteUser(signupData.user.id) } catch { /* no-op */ }
       return { error: 'Profile setup failed. Please try again.' }
     }
@@ -88,23 +121,47 @@ export async function customerSignup(
     customerId = newCustomer.id
   }
 
-  // Link the auth user to the customer record
+  // Determine account status:
+  //   active              — Supabase returned a session, email already confirmed.
+  //   pending_confirmation — Supabase requires email confirmation; activate after callback.
+  const accountStatus: string = signupData.session ? 'active' : 'pending_confirmation'
+
+  // Link the auth user to the customer record.
+  // Conflict target is (auth_user_id, tenant_id) — see migration 066.
+  // This allows one auth user to be a customer at multiple businesses.
   const { error: linkError } = await serviceClient
     .from('customer_accounts')
-    .upsert({
-      tenant_id:    tenantId,
-      customer_id:  customerId,
-      auth_user_id: signupData.user.id,
-      email,
-      status:       'active',
-    }, { onConflict: 'auth_user_id,tenant_id' })
+    .upsert(
+      {
+        tenant_id:    tenantId,
+        customer_id:  customerId,
+        auth_user_id: signupData.user.id,
+        email,
+        status:       accountStatus,
+      },
+      { onConflict: 'auth_user_id,tenant_id' },
+    )
 
   if (linkError) {
-    try { await serviceClient.from('customers').delete().eq('id', customerId) } catch { /* no-op */ }
-    try { await serviceClient.auth.admin.deleteUser(signupData.user.id) } catch { /* no-op */ }
-    return { error: 'Account link failed. Please try again.' }
+    // Log but do NOT delete the customer row — partial state is recoverable.
+    // The user can re-attempt login, which will try to link again.
+    console.error('[customerSignup] customer_accounts upsert error:', linkError.message, linkError.code)
+    return {
+      error: 'Account link failed. Please try again, or contact the business for an invite.',
+    }
   }
 
+  // 3. No session → email confirmation required; show "check inbox" message.
+  //    The customer + customer_accounts rows now exist (status: pending_confirmation),
+  //    so login will succeed as soon as they confirm.
+  if (!signupData.session) {
+    return {
+      message:
+        'We sent a confirmation email to your inbox. Click the link to activate your account, then sign in.',
+    }
+  }
+
+  // 4. Session returned → email confirmation is disabled; redirect immediately.
   redirect(next)
 }
 
@@ -127,6 +184,12 @@ export async function customerLogin(
   const { data: signInData, error } = await sessionClient.auth.signInWithPassword({ email, password })
 
   if (error || !signInData.user) {
+    // Supabase returns "Email not confirmed" as a specific error — surface it clearly.
+    if (error?.message?.toLowerCase().includes('email not confirmed')) {
+      return {
+        error: 'Please confirm your email address before signing in. Check your inbox for the confirmation link.',
+      }
+    }
     return { error: 'Invalid email or password.' }
   }
 
@@ -161,7 +224,11 @@ export async function customerLogin(
       if ((role === 'admin' || role === 'staff') && businessUser.tenant_id !== tenantId) {
         // Admin / staff of a DIFFERENT tenant — deny with a clear message
         await sessionClient.auth.signOut()
-        return { error: 'You do not have access to manage this site.' }
+        return {
+          error:
+            'This email is signed in as a staff member of a different business. ' +
+            'You do not have access to manage this site.',
+        }
       }
     }
 
@@ -174,19 +241,47 @@ export async function customerLogin(
       .maybeSingle()
 
     if (accountError && accountError.code !== 'PGRST116') {
-      // Unexpected DB error — log but allow the session to proceed rather than
-      // silently locking out the user; a lookup failure is not a security issue.
+      // Unexpected DB error — log but do not block the user. A lookup failure
+      // is not a security issue; the session cookie will protect the route.
       console.error('[customerLogin] account lookup error:', accountError.message)
     } else if (!account) {
-      // No identity found for this tenant — sign out with a clear message.
-      // We intentionally avoid "sign up first" because the user may have an
-      // account on a different tenant; the current credential is simply not
-      // linked to this storefront.
+      // No identity found for this tenant.
       await sessionClient.auth.signOut()
-      return { error: 'This account is not connected to this business website.' }
+      return {
+        error:
+          'This email is not connected to this business yet. ' +
+          'Ask the business owner to send you an invite, or create an account using the sign-up form.',
+      }
+    } else if (account.status === 'pending_confirmation') {
+      // Account exists but is awaiting email confirmation.
+      // Try to auto-activate: if Supabase says email is confirmed, activate now.
+      // (This handles the edge case where the callback activation failed.)
+      try {
+        const { data: authUserData } = await serviceClient.auth.admin.getUserById(signInData.user.id)
+        if (authUserData?.user?.email_confirmed_at) {
+          await serviceClient
+            .from('customer_accounts')
+            .update({ status: 'active' })
+            .eq('id', account.id)
+          // Activation succeeded — allow login to proceed
+        } else {
+          await sessionClient.auth.signOut()
+          return {
+            error:
+              'Please confirm your email address before signing in. ' +
+              'Check your inbox and click the confirmation link.',
+          }
+        }
+      } catch {
+        // Cannot verify confirmation state — fail safe and ask for confirmation
+        await sessionClient.auth.signOut()
+        return {
+          error: 'Your account is pending email confirmation. Please check your inbox.',
+        }
+      }
     } else if (account.status !== 'active') {
       await sessionClient.auth.signOut()
-      return { error: 'Your account is pending activation. Please check your email.' }
+      return { error: 'Your account has been suspended. Please contact the business.' }
     }
   }
 
@@ -201,4 +296,92 @@ export async function customerLogout(formData: FormData): Promise<void> {
   const sessionClient = await createSessionServerClient()
   await sessionClient.auth.signOut()
   redirect(redirectTo)
+}
+
+// ── Forgot password ───────────────────────────────────────────────────────────
+//
+// Sends a password reset email via Supabase Auth.
+// The reset link lands on /auth/callback?type=recovery which then redirects
+// to /reset-password so the user can set a new password.
+// The emailRedirectTo is set to the current request host so the link works
+// on any domain (main CRM, subdomain, custom domain, Vercel preview).
+
+export async function customerForgotPassword(
+  _prev: unknown,
+  formData: FormData,
+): Promise<{ error?: string; message?: string }> {
+  const email    = (formData.get('email') as string | null)?.trim() ?? ''
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: 'Please enter a valid email address.' }
+  }
+
+  const headersList = await headers()
+  const host = headersList.get('host') ?? ''
+  const forwardedProto = headersList.get('x-forwarded-proto') ?? 'https'
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : forwardedProto
+  const origin = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://nexoranow.com')
+
+  const emailRedirectTo = `${origin}/auth/callback?type=recovery&next=${encodeURIComponent('/reset-password')}`
+
+  const sessionClient = await createSessionServerClient()
+  const { error } = await sessionClient.auth.resetPasswordForEmail(email, { redirectTo: emailRedirectTo })
+
+  if (error) {
+    console.error('[customerForgotPassword] resetPasswordForEmail:', error.message)
+    // Do NOT confirm whether the email exists — prevent user enumeration.
+    // Show a generic success message regardless of whether the email exists.
+  }
+
+  return {
+    message:
+      'If an account with that email exists, you will receive a password reset link shortly. ' +
+      'Check your inbox and click the link to set a new password.',
+  }
+}
+
+// ── Reset password ────────────────────────────────────────────────────────────
+//
+// Updates the password for the currently authenticated user.
+// The user reaches this page after clicking the reset email link, which
+// exchanges the PKCE code and sets a temporary recovery session in /auth/callback.
+// Supabase's updateUser() works because the recovery session is valid.
+
+export async function customerResetPassword(
+  _prev: unknown,
+  formData: FormData,
+): Promise<{ error?: string; message?: string }> {
+  const password        = formData.get('password')         as string | null ?? ''
+  const confirmPassword = formData.get('confirm_password') as string | null ?? ''
+
+  if (!password || password.length < 6) {
+    return { error: 'Password must be at least 6 characters.' }
+  }
+  if (password !== confirmPassword) {
+    return { error: 'Passwords do not match.' }
+  }
+
+  const sessionClient = await createSessionServerClient()
+  const { data: { user }, error: userError } = await sessionClient.auth.getUser()
+
+  if (userError || !user) {
+    return {
+      error:
+        'Your reset link has expired or already been used. ' +
+        'Please request a new password reset link.',
+    }
+  }
+
+  const { error: updateError } = await sessionClient.auth.updateUser({ password })
+
+  if (updateError) {
+    console.error('[customerResetPassword] updateUser:', updateError.message)
+    return { error: updateError.message }
+  }
+
+  return {
+    message:
+      'Your password has been updated successfully. ' +
+      'You can now sign in with your new password.',
+  }
 }
