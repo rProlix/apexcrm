@@ -127,10 +127,18 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
 
       setPhase('success')
 
-      // Redirect to customer portal after a short delay
+      // Use window.location.href for the redirect because the target URL is the
+      // business storefront (e.g. erickvcontacf.nexoranow.com/account), which is
+      // a different origin from the current page (nexoranow.com/invite/customer).
+      // router.push() cannot navigate cross-origin.
       setTimeout(() => {
-        router.push(data.redirectTo ?? '/portal')
-        router.refresh()
+        const target = data.redirectTo ?? '/account'
+        if (target.startsWith('http://') || target.startsWith('https://')) {
+          window.location.href = target
+        } else {
+          router.push(target)
+          router.refresh()
+        }
       }, 2000)
     } catch {
       setFormError('Network error. Please check your connection and try again.')

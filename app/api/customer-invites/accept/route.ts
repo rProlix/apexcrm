@@ -238,8 +238,26 @@ export async function POST(req: NextRequest) {
     })
     .eq('id', invite.id)
 
-  // Build redirect target — customer portal
-  const redirectTo = '/portal'
+  // Build the post-accept redirect URL pointing to the business storefront so
+  // the customer lands on their own account page, not the main CRM domain.
+  const rootDomain    = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: tenantRow } = await (supabase as any)
+    .from('tenants')
+    .select('subdomain, custom_domain')
+    .eq('id', tenantId)
+    .maybeSingle()
+
+  let storefrontBase: string
+  if (tenantRow?.custom_domain) {
+    storefrontBase = `https://${tenantRow.custom_domain}`
+  } else if (tenantRow?.subdomain) {
+    storefrontBase = `https://${tenantRow.subdomain}.${rootDomain}`
+  } else {
+    storefrontBase = process.env.NEXT_PUBLIC_APP_URL ?? `https://${rootDomain}`
+  }
+
+  const redirectTo = `${storefrontBase}/account`
 
   return NextResponse.json({
     ok: true,

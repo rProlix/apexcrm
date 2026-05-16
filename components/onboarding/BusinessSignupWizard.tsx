@@ -256,6 +256,12 @@ export function BusinessSignupWizard() {
     const supabase = getSupabaseBrowserClient()
 
     // Step 1: Create auth user
+    // emailRedirectTo must point to the main CRM domain (nexoranow.com) because
+    // CRM admin signup always happens on the root domain. We use NEXT_PUBLIC_APP_URL
+    // so this works in Vercel preview environments too.
+    const crmAppUrl = (process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin).replace(/\/$/, '')
+    const emailRedirectTo = `${crmAppUrl}/auth/callback?next=${encodeURIComponent('/dashboard')}`
+
     const { data: authData, error: signUpErr } = await supabase.auth.signUp({
       email:    state.email,
       password: state.password,
@@ -265,6 +271,7 @@ export function BusinessSignupWizard() {
           businessName: state.businessName,
           full_name:    state.fullName,
         },
+        emailRedirectTo,
       },
     })
 

@@ -101,10 +101,18 @@ export async function middleware(req: NextRequest) {
 
   // ── Tenant subdomain rewrite ──────────────────────────────────────────────
   //
-  // /invite/* is served from the root app regardless of subdomain — the token
-  // contains full tenant context, so no per-tenant route rewrite is needed.
-  if (subdomain && pathname.startsWith('/invite/')) {
-    // Pass through — serve the root app's /invite/customer page
+  // Paths that must be served by the root app even on a subdomain:
+  //   /invite/*       — token contains full tenant context; no per-tenant route needed
+  //   /auth/callback  — single PKCE exchange handler shared by all domains
+  //
+  // These pass through to the root Next.js app unchanged; request.url in the
+  // handler still reflects the original subdomain host, so redirect URLs built
+  // from request.url will correctly point back to the subdomain.
+  if (subdomain && (
+    pathname.startsWith('/invite/') ||
+    pathname === '/auth/callback'   ||
+    pathname.startsWith('/auth/callback?')
+  )) {
     return sessionResponse
   }
 

@@ -6,6 +6,10 @@ import {
   createSessionServerClient,
   getSupabaseServerClient,
 } from '@/lib/supabase/server'
+import {
+  getStorefrontAuthRedirectUrl,
+  getStorefrontPasswordResetUrl,
+} from '@/lib/auth/getAuthRedirectUrl'
 
 // Only allow same-origin relative paths to prevent open redirect
 function sanitizeRedirect(next: unknown): string {
@@ -53,18 +57,22 @@ export async function customerSignup(
   }
 
   // ── Build emailRedirectTo using the current request host ─────────────────
-  // This ensures confirmation emails always link back to the correct domain
-  // (production subdomain, custom domain, or Vercel preview), never localhost.
+  // getStorefrontAuthRedirectUrl() prefers x-original-host (set by middleware
+  // for subdomain/custom-domain rewrites) over the raw host header to ensure
+  // the confirmation link always lands on the correct business domain, not on
+  // the main nexoranow.com domain.
   const headersList = await headers()
-  const host = headersList.get('host') ?? ''
-  const forwardedProto = headersList.get('x-forwarded-proto') ?? 'https'
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : forwardedProto
-  const origin = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://nexoranow.com')
+  const emailRedirectTo = getStorefrontAuthRedirectUrl(headersList, next, tenantId)
 
-  // Include tenant_id in the callback URL so /auth/callback can activate the
-  // pending_confirmation account after the user clicks the email link.
-  const callbackNext = encodeURIComponent(next)
-  const emailRedirectTo = `${origin}/auth/callback?next=${callbackNext}&tenant_id=${encodeURIComponent(tenantId)}`
+  // ── Diagnostics — never log passwords or tokens ────────────────────────
+  console.info('[auth:storefront_customer_signup]', {
+    flow:              'storefront_customer_signup',
+    email,
+    tenant_id:         tenantId,
+    request_host:      headersList.get('x-original-host') ?? headersList.get('host') ?? 'unknown',
+    email_redirect_to: emailRedirectTo,
+    uses_main_domain:  emailRedirectTo.startsWith(process.env.NEXT_PUBLIC_APP_URL ?? 'https://nexoranow.com'),
+  })
 
   const sessionClient = await createSessionServerClient()
 
@@ -317,12 +325,14 @@ export async function customerForgotPassword(
   }
 
   const headersList = await headers()
-  const host = headersList.get('host') ?? ''
-  const forwardedProto = headersList.get('x-forwarded-proto') ?? 'https'
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : forwardedProto
-  const origin = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://nexoranow.com')
+  const emailRedirectTo = getStorefrontPasswordResetUrl(headersList)
 
-  const emailRedirectTo = `${origin}/auth/callback?type=recovery&next=${encodeURIComponent('/reset-password')}`
+  console.info('[auth:storefront_password_reset]', {
+    flow:              'storefront_password_reset',
+    email,
+    request_host:      headersList.get('x-original-host') ?? headersList.get('host') ?? 'unknown',
+    email_redirect_to: emailRedirectTo,
+  })
 
   const sessionClient = await createSessionServerClient()
   const { error } = await sessionClient.auth.resetPasswordForEmail(email, { redirectTo: emailRedirectTo })
