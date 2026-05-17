@@ -7,9 +7,9 @@ import {
   getSupabaseServerClient,
 } from '@/lib/supabase/server'
 import {
-  getStorefrontAuthRedirectUrl,
-  getStorefrontPasswordResetUrl,
-} from '@/lib/auth/getAuthRedirectUrl'
+  getStorefrontEmailRedirectToFromHeaders,
+  getStorefrontPasswordResetRedirectToFromHeaders,
+} from '@/lib/auth/redirects'
 
 // Only allow same-origin relative paths to prevent open redirect
 function sanitizeRedirect(next: unknown): string {
@@ -62,7 +62,7 @@ export async function customerSignup(
   // the confirmation link always lands on the correct business domain, not on
   // the main nexoranow.com domain.
   const headersList = await headers()
-  const emailRedirectTo = getStorefrontAuthRedirectUrl(headersList, next, tenantId)
+  const emailRedirectTo = getStorefrontEmailRedirectToFromHeaders(headersList, next, tenantId)
 
   // ── Diagnostics — never log passwords or tokens ────────────────────────
   console.info('[auth:storefront_customer_signup]', {
@@ -325,7 +325,7 @@ export async function customerForgotPassword(
   }
 
   const headersList = await headers()
-  const emailRedirectTo = getStorefrontPasswordResetUrl(headersList)
+  const emailRedirectTo = getStorefrontPasswordResetRedirectToFromHeaders(headersList)
 
   console.info('[auth:storefront_password_reset]', {
     flow:              'storefront_password_reset',

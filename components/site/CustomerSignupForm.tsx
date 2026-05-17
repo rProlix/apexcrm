@@ -1,13 +1,25 @@
 'use client'
 
-import { useActionState } from 'react'
+// components/site/CustomerSignupForm.tsx
+//
+// Storefront customer signup form.
+//
+// Previously called the `customerSignup` server action which could not reliably
+// derive the storefront host in all Vercel/proxy configurations.
+//
+// This version POSTs to /api/storefront/auth/signup on the same origin the
+// browser is currently on. Because the API route receives an HTTP Request, it
+// can read new URL(request.url).origin to get the exact subdomain or custom
+// domain, and pass that as emailRedirectTo to Supabase — so confirmation emails
+// always link back to the business storefront, not to nexoranow.com.
+
+import { useState, FormEvent } from 'react'
 import Link from 'next/link'
-import { customerSignup } from '@/lib/actions/customer-auth'
 
 interface Props {
-  tenantId:   string
-  loginHref:  string
-  next:       string
+  tenantId:  string
+  loginHref: string
+  next:      string
 }
 
 const inputStyle: React.CSSProperties = {
@@ -31,24 +43,87 @@ const labelStyle: React.CSSProperties = {
 }
 
 export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
-  const [state, action, pending] = useActionState(customerSignup, null)
+  const [fullName,  setFullName]  = useState('')
+  const [email,     setEmail]     = useState('')
+  const [password,  setPassword]  = useState('')
+  const [pending,   setPending]   = useState(false)
+  const [error,     setError]     = useState<string | null>(null)
+  const [message,   setMessage]   = useState<string | null>(null)
+  const [debugInfo, setDebugInfo] = useState<string | null>(null)
 
-  if (state?.message) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    setMessage(null)
+    setDebugInfo(null)
+    setPending(true)
+
+    try {
+      // POST to the same origin the browser is on.
+      // If the page is on erickvcontacf.nexoranow.com, this request goes to
+      // erickvcontacf.nexoranow.com/api/storefront/auth/signup — so the route
+      // handler sees request.url with the correct subdomain host.
+      const res = await fetch('/api/storefront/auth/signup', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          email,
+          password,
+          full_name: fullName,
+          tenant_id: tenantId,
+          next,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!data.ok) {
+        setError(data.error ?? 'Sign up failed. Please try again.')
+        return
+      }
+
+      if (data.confirmed && data.next) {
+        // Email confirmation is disabled — redirect immediately
+        window.location.href = data.next
+        return
+      }
+
+      setMessage(
+        data.message ??
+        'We sent a confirmation email to your inbox. Click the link to activate your account, then sign in.',
+      )
+
+      // Show debug info in non-production (API includes it only in dev)
+      if (data._debug?.emailRedirectTo) {
+        setDebugInfo(`Debug: emailRedirectTo = ${data._debug.emailRedirectTo}`)
+      }
+    } catch {
+      setError('Network error. Please check your connection and try again.')
+    } finally {
+      setPending(false)
+    }
+  }
+
+  if (message) {
     return (
       <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-        <div style={{
-          fontSize:     '2.5rem',
-          marginBottom: '1rem',
-        }}>📬</div>
+        <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>📬</div>
         <h2 style={{
           fontWeight:   700,
           color:        'var(--color-text)',
           marginBottom: '0.75rem',
           fontSize:     '1.25rem',
-        }}>Check your inbox</h2>
+        }}>
+          Check your inbox
+        </h2>
         <p style={{ color: 'var(--color-muted)', lineHeight: 1.6, margin: 0 }}>
-          {state.message}
+          {message}
         </p>
+        {debugInfo && (
+          <p style={{ marginTop: '1rem', fontSize: '0.75rem', color: '#9ca3af', fontFamily: 'monospace' }}>
+            {debugInfo}
+          </p>
+        )}
         <Link
           href={loginHref}
           style={{
@@ -67,11 +142,8 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
   }
 
   return (
-    <form action={action} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <input type="hidden" name="tenant_id" value={tenantId} />
-      <input type="hidden" name="next"      value={next} />
-
-      {state?.error && (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {error && (
         <div role="alert" style={{
           background:   '#fef2f2',
           border:       '1px solid #fecaca',
@@ -80,7 +152,7 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
           color:        '#dc2626',
           fontSize:     '0.875rem',
         }}>
-          {state.error}
+          {error}
         </div>
       )}
 
@@ -93,6 +165,8 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
           autoComplete="name"
           required
           placeholder="Jane Smith"
+          value={fullName}
+          onChange={e => setFullName(e.target.value)}
           style={inputStyle}
         />
       </div>
@@ -106,6 +180,8 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
           autoComplete="email"
           required
           placeholder="you@example.com"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
           style={inputStyle}
         />
       </div>
@@ -120,6 +196,8 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
           required
           minLength={6}
           placeholder="Min. 6 characters"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
           style={inputStyle}
         />
       </div>
