@@ -2,30 +2,35 @@
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { createWebsiteSnapshotForTenant } from '@/lib/website/snapshot/createWebsiteSnapshotForTenant'
 import type { WebsiteSnapshot } from '@/lib/website/versionTypes'
 
 function forbidden() {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx || ctx.role !== 'owner') return forbidden()
   if (!ctx.tenant_id) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
 
+  const { searchParams } = new URL(req.url)
+  const runTest = searchParams.get('test') === 'true'
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = getSupabaseServerClient() as any
-  const tenantId = ctx.tenant_id
+  const db        = getSupabaseServerClient() as any
+  const tenantId  = ctx.tenant_id
   const warnings: string[] = []
 
-  const tables: Record<string, unknown>   = {}
-  const versionInfo: Record<string, unknown> = {}
-  const draftInfo: Record<string, unknown>   = {}
+  const tables:  Record<string, unknown> = {}
+  const versions: Record<string, unknown> = {}
+  const draft:   Record<string, unknown> = {}
+  const sections: Record<string, unknown> = {}
 
-  // ── Check site_versions ───────────────────────────────────────────────────
+  // ── site_versions ────────────────────────────────────────────────────────
   try {
     const { data, error } = await db
       .from('site_versions')
@@ -36,83 +41,83 @@ export async function GET() {
 
     if (error) {
       tables.site_versions = `ERROR: ${error.message}`
-      warnings.push(`site_versions query failed: ${error.message}`)
+      warnings.push(`site_versions: ${error.message}`)
     } else {
-      tables.site_versions = 'ok'
       const rows = (data ?? []) as Record<string, unknown>[]
       const published = rows.find((v) => v.status === 'published')
       const latest    = rows[0]
-
-      // Check if new columns exist (migration 067)
-      const hasMig067 = rows.length > 0
-        ? ('version_number' in rows[0] && 'source' in rows[0])
-        : 'no rows'
-
-      versionInfo.count      = rows.length
-      versionInfo.has_migration_067_columns = hasMig067
-      versionInfo.published  = published
-        ? {
-            id:             published.id,
-            version_number: published.version_number,
-            label:          published.label,
-            source:         published.source,
-            page_count:     published.page_count,
-            section_count:  published.section_count,
-            created_at:     published.created_at,
-          }
+      const hasNewColumns = rows.length > 0
+        ? 'version_number' in rows[0] && 'source' in rows[0]
         : null
 
-      if (latest) {
-        const snap = latest.snapshot as WebsiteSnapshot | null
-        const snapshotPageCount    = snap?.pages?.length ?? 0
-        const snapshotSectionCount = snap?.pages?.reduce((s, p) => s + p.sections.length, 0) ?? 0
-
-        versionInfo.latest = {
-          id:                    latest.id,
-          version_number:        latest.version_number,
-          label:                 latest.label,
-          source:                latest.source,
-          status:                latest.status,
-          stored_page_count:     latest.page_count,
-          stored_section_count:  latest.section_count,
-          snapshot_page_count:   snapshotPageCount,
-          snapshot_section_count: snapshotSectionCount,
-          created_at:            latest.created_at,
-        }
-
-        if (snapshotSectionCount === 0 && (latest.section_count as number) > 0) {
-          warnings.push(`Latest version #${latest.version_number} stored count=${latest.section_count} but snapshot has 0 sections`)
-        }
-        if ((latest.page_count as number) === 0) {
-          warnings.push(`Latest version #${latest.version_number} has page_count=0 — may be an old version without counts`)
-        }
-        if (snapshotPageCount === 0) {
-          warnings.push(`Latest version snapshot has no pages — checkpoint may have captured empty data`)
-        }
-      } else {
-        warnings.push('No versions found — no checkpoints have been created yet')
+      tables.site_versions = {
+        exists:      true,
+        count:       rows.length,
+        has_migration_068_columns: hasNewColumns,
       }
+
+      // Check constraint values
+      const { data: srcCheck } = await db
+        .from('site_versions')
+        .select('source')
+        .eq('tenant_id', tenantId)
+        .in('source', ['ai_animations', 'auto', 'system'])
+        .limit(1)
+      tables.site_versions = {
+        ...(tables.site_versions as object),
+        new_source_values_accessible: srcCheck !== null,
+      }
+
+      if (latest) {
+        const snap  = latest.snapshot as WebsiteSnapshot | null
+        const spages = snap?.pages?.length ?? 0
+        const ssec   = snap?.pages?.reduce((s, p) => s + (p.sections?.length ?? 0), 0) ?? 0
+
+        versions.latest = {
+          id:                     latest.id,
+          version_number:         latest.version_number,
+          label:                  latest.label,
+          source:                 latest.source,
+          status:                 latest.status,
+          stored_page_count:      latest.page_count,
+          stored_section_count:   latest.section_count,
+          snapshot_page_count:    spages,
+          snapshot_section_count: ssec,
+          created_at:             latest.created_at,
+        }
+
+        if (ssec === 0 && (latest.section_count as number) > 0) {
+          warnings.push(`Latest v${latest.version_number}: stored section_count=${latest.section_count} but snapshot has 0 sections`)
+        }
+        if (spages === 0) warnings.push(`Latest v${latest.version_number}: snapshot has no pages`)
+      } else {
+        warnings.push('No versions exist yet')
+      }
+
+      versions.published = published
+        ? { id: published.id, version_number: published.version_number, status: 'published' }
+        : null
     }
   } catch (err) {
     tables.site_versions = `EXCEPTION: ${err instanceof Error ? err.message : err}`
-    warnings.push('site_versions table check threw an exception')
+    warnings.push('site_versions exception — table may not exist')
   }
 
-  // ── Check website_version_events ─────────────────────────────────────────
+  // ── website_version_events ────────────────────────────────────────────────
   try {
     const { error } = await db
       .from('website_version_events')
       .select('id')
       .eq('tenant_id', tenantId)
       .limit(1)
-    tables.website_version_events = error ? `ERROR: ${error.message}` : 'ok'
+    tables.website_version_events = error ? `ERROR: ${error.message}` : { exists: true }
     if (error) warnings.push(`website_version_events: ${error.message}`)
   } catch (err) {
     tables.website_version_events = `EXCEPTION: ${err instanceof Error ? err.message : err}`
-    warnings.push('website_version_events table does not exist or is not accessible')
+    warnings.push('website_version_events table may be missing — run migration 067/068')
   }
 
-  // ── Check website_builder_drafts ──────────────────────────────────────────
+  // ── website_builder_drafts ────────────────────────────────────────────────
   try {
     const { data, error } = await db
       .from('website_builder_drafts')
@@ -120,74 +125,93 @@ export async function GET() {
       .eq('tenant_id', tenantId)
       .maybeSingle()
 
-    tables.website_builder_drafts = error ? `ERROR: ${error.message}` : 'ok'
-
-    if (!error) {
+    if (error) {
+      tables.website_builder_drafts = `ERROR: ${error.message}`
+      warnings.push(`website_builder_drafts: ${error.message}`)
+    } else {
+      tables.website_builder_drafts = { exists: true }
       if (data) {
         const snap = data.draft_snapshot as WebsiteSnapshot | null
-        const draftPageCount    = snap?.pages?.length ?? 0
-        const draftSectionCount = snap?.pages?.reduce((s: number, p: { sections: unknown[] }) => s + p.sections.length, 0) ?? 0
-
-        draftInfo.exists          = true
-        draftInfo.dirty           = data.dirty
-        draftInfo.page_count      = draftPageCount
-        draftInfo.section_count   = draftSectionCount
-        draftInfo.last_autosaved_at = data.last_autosaved_at
-        draftInfo.updated_at      = data.updated_at
-
-        if (draftSectionCount === 0) {
-          warnings.push('Draft exists but snapshot has 0 sections')
-        }
+        const dp = snap?.pages?.length ?? 0
+        const ds = snap?.pages?.reduce((s: number, p: { sections: unknown[] }) => s + p.sections.length, 0) ?? 0
+        draft.exists        = true
+        draft.dirty         = data.dirty
+        draft.page_count    = dp
+        draft.section_count = ds
+        draft.updated_at    = data.updated_at
+        draft.last_autosaved_at = data.last_autosaved_at
+        if (ds === 0) warnings.push('Draft snapshot has 0 sections')
       } else {
-        draftInfo.exists = false
+        draft.exists = false
         warnings.push('No draft record — PUT /api/website/draft has not been called yet')
       }
-    } else {
-      warnings.push(`website_builder_drafts: ${error.message}`)
     }
   } catch (err) {
     tables.website_builder_drafts = `EXCEPTION: ${err instanceof Error ? err.message : err}`
-    warnings.push('website_builder_drafts table does not exist — run migration 067')
+    warnings.push('website_builder_drafts missing — run migration 067/068')
   }
 
-  // ── Check site_sections sort_order coverage ───────────────────────────────
-  const sectionsInfo: Record<string, unknown> = {}
+  // ── site_sections coverage ────────────────────────────────────────────────
   try {
     const { data: secData } = await db
       .from('site_sections')
       .select('id,sort_order,is_visible')
       .eq('tenant_id', tenantId)
-
-    const sections = (secData ?? []) as Record<string, unknown>[]
-    const nullSortOrder  = sections.filter((s) => s.sort_order === null || s.sort_order === undefined).length
-    const hiddenSections = sections.filter((s) => s.is_visible === false).length
-
-    sectionsInfo.total            = sections.length
-    sectionsInfo.null_sort_order  = nullSortOrder
-    sectionsInfo.hidden           = hiddenSections
-    sectionsInfo.sort_order_ok    = nullSortOrder === 0
-
-    if (nullSortOrder > 0) {
-      warnings.push(`${nullSortOrder} sections have null sort_order — run repair-counts`)
+    const secs = (secData ?? []) as Record<string, unknown>[]
+    sections.total           = secs.length
+    sections.null_sort_order = secs.filter((s) => s.sort_order === null).length
+    sections.hidden          = secs.filter((s) => s.is_visible === false).length
+    if ((sections.null_sort_order as number) > 0) {
+      warnings.push(`${sections.null_sort_order} sections have null sort_order — run repair-counts`)
     }
-    if (sections.length === 0) {
-      warnings.push('No sections found — website has no content yet')
-    }
+    if (secs.length === 0) warnings.push('No sections in site_sections — website has no content')
   } catch (err) {
-    sectionsInfo.error = err instanceof Error ? err.message : String(err)
+    sections.error = err instanceof Error ? err.message : String(err)
+  }
+
+  // ── Optional: dry-run snapshot test ──────────────────────────────────────
+  let snapshotTest: Record<string, unknown> | null = null
+  if (runTest) {
+    const snapResult = await createWebsiteSnapshotForTenant({
+      tenantId,
+      userId:  ctx.id,
+      source:  'manual',
+    })
+    if (snapResult.ok) {
+      snapshotTest = {
+        ok:           true,
+        pageCount:    snapResult.pageCount,
+        sectionCount: snapResult.sectionCount,
+        estimatedKb:  Math.round(snapResult.estimatedKb * 10) / 10,
+        fromClient:   snapResult.fromClient,
+        warnings:     snapResult.warnings,
+        message:      'Snapshot would be valid for checkpoint insertion',
+      }
+    } else {
+      snapshotTest = {
+        ok:      false,
+        error:   snapResult.error,
+        details: snapResult.details,
+        step:    snapResult.step,
+      }
+      warnings.push(`Snapshot test failed at step "${snapResult.step}": ${snapResult.error}`)
+    }
   }
 
   return NextResponse.json({
-    ok:        warnings.length === 0,
-    tenant_id: tenantId,
+    ok:          warnings.length === 0,
+    tenant_id:   tenantId,
+    user_role:   ctx.role,
     tables,
-    versions:  versionInfo,
-    draft:     draftInfo,
-    sections:  sectionsInfo,
+    versions,
+    draft,
+    sections,
     warnings,
+    snapshot_test: snapshotTest,
     tips: [
-      'Run POST /api/owner/diagnostics/website-versioning/repair-counts to fix stored counts',
-      'Click "Create Checkpoint" in the website builder to create the first accurate version',
+      'Add ?test=true to run a dry-run snapshot build without inserting',
+      'Run POST /api/owner/diagnostics/website-versioning/repair-counts to fix counts',
+      'Run POST /api/website/versions/test to validate snapshot before creating checkpoint',
     ],
   })
 }

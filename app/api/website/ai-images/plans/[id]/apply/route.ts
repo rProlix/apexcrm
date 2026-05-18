@@ -1,13 +1,15 @@
 // app/api/website/ai-images/plans/[id]/apply/route.ts
 // POST /api/website/ai-images/plans/[id]/apply
 // Attaches the generated image to the correct site_section content field.
+// After applying, updates the draft snapshot so checkpoints stay accurate.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireAiAutofillAccess } from '@/lib/website-ai/tenantAccess'
 import { buildImageContentPatch, mergeImageIntoContent } from '@/lib/website-builder/imagePlacement'
-import { createWebsiteVersion } from '@/lib/website/versioning'
+import { getCurrentWebsiteSnapshot, updateDraftSnapshot } from '@/lib/website/versioning'
+import { normalizeSnapshotForInsert } from '@/lib/website/snapshot/safeJson'
 import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 
 export const dynamic = 'force-dynamic'
@@ -40,15 +42,7 @@ export async function POST(
   if (!access || access.tenantId !== typedPlan.tenant_id)
     return NextResponse.json({ error: 'Tenant access denied.' }, { status: 403 })
 
-  // Save "before AI images" version snapshot
-  await createWebsiteVersion({
-    tenantId:  access.tenantId,
-    label:     'Before AI Images',
-    description: `Auto-saved before applying AI image (plan ${planId})`,
-    source:    'manual',
-    status:    'autosave',
-    createdBy: ctx.id,
-  })
+  const { tenantId } = access
 
   if (!typedPlan.generated_asset_url)
     return NextResponse.json({ error: 'No generated image to apply. Generate first.' }, { status: 422 })
@@ -61,7 +55,7 @@ export async function POST(
     .from('site_sections')
     .select('id, section_type, content')
     .eq('id', typedPlan.section_id)
-    .eq('tenant_id', typedPlan.tenant_id)
+    .eq('tenant_id', tenantId)
     .single()
 
   if (sectionErr || !section)
@@ -84,22 +78,15 @@ export async function POST(
     .from('site_sections')
     .update({ content: mergedContent as never, updated_at: new Date().toISOString() } as never)
     .eq('id', typedPlan.section_id)
-    .eq('tenant_id', typedPlan.tenant_id)
+    .eq('tenant_id', tenantId)
 
   if (updateErr)
     return NextResponse.json({ error: updateErr.message }, { status: 500 })
 
-  // Save "after AI images" version snapshot
-  await createWebsiteVersion({
-    tenantId:  access.tenantId,
-    label:     'AI Image Applied',
-    description: `AI image applied to section ${typedPlan.section_id} (plan ${planId})`,
-    source:    'ai_images',
-    status:    'draft',
-    createdBy: ctx.id,
-  })
+  // Update draft snapshot so the applied image is captured in the next checkpoint
+  updateDraftAfterImageApply(tenantId, ctx.id ?? '', 'ai_images', `AI image applied to section ${typedPlan.section_id} (plan ${planId})`)
 
-  // Mark plan as applied — stamp applied_at (migration 054 column)
+  // Mark plan as applied
   await supabase
     .from('website_image_plans')
     .update({
@@ -114,5 +101,38 @@ export async function POST(
     sectionId:           typedPlan.section_id,
     imageUrl:            typedPlan.generated_asset_url,
     placementDescription,
+    draftSaved:          true,
+  })
+}
+
+/**
+ * Background: refresh draft snapshot after an image operation so the next
+ * checkpoint captures the applied image. Non-blocking — never fails the request.
+ */
+function updateDraftAfterImageApply(
+  tenantId: string,
+  userId: string,
+  source: string,
+  label: string,
+) {
+  Promise.resolve().then(async () => {
+    try {
+      const snapResult = await getCurrentWebsiteSnapshot(tenantId)
+      if (snapResult.data) {
+        const normalized = normalizeSnapshotForInsert(snapResult.data) as unknown as Parameters<typeof updateDraftSnapshot>[1]
+        await updateDraftSnapshot(tenantId, normalized, userId)
+      }
+      // Save a background version (non-blocking)
+      const { createWebsiteVersion } = await import('@/lib/website/versioning')
+      await createWebsiteVersion({
+        tenantId,
+        label,
+        source: source as Parameters<typeof createWebsiteVersion>[0]['source'],
+        status: 'draft',
+        createdBy: userId,
+      })
+    } catch (e) {
+      console.warn('[ai-images] Background draft update failed (non-fatal):', e instanceof Error ? e.message : e)
+    }
   })
 }

@@ -4,87 +4,167 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
-import {
-  getWebsiteVersions,
-  createWebsiteVersion,
-  getCurrentWebsiteSnapshot,
-} from '@/lib/website/versioning'
+import { getWebsiteVersions } from '@/lib/website/versioning'
+import { createWebsiteSnapshotForTenant } from '@/lib/website/snapshot/createWebsiteSnapshotForTenant'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { WebsiteVersionSource, ClientPageSections } from '@/lib/website/versionTypes'
 
 function forbidden() {
-  return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 })
 }
+
+function structuredError(
+  error: string,
+  details?: string,
+  step?: string,
+  status = 500,
+) {
+  return NextResponse.json({ ok: false, error, details, step }, { status })
+}
+
+// ── GET /api/website/versions ─────────────────────────────────────────────────
 
 export async function GET() {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
-  if (!ctx.tenant_id) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
+  if (!ctx.tenant_id) return structuredError('No tenant', undefined, 'tenant', 400)
 
   const result = await getWebsiteVersions(ctx.tenant_id)
-  if (result.error) return NextResponse.json({ error: result.error }, { status: 500 })
+  if (result.error) return structuredError(result.error, undefined, 'fetch')
 
-  return NextResponse.json({ versions: result.data ?? [] })
+  return NextResponse.json({ ok: true, versions: result.data ?? [] })
 }
+
+// ── POST /api/website/versions ────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
-  if (!ctx.tenant_id) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
+  if (!ctx.tenant_id) return structuredError('No tenant', undefined, 'tenant', 400)
 
-  const body = await req.json().catch(() => ({}))
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    body = {}
+  }
+
   const {
     label,
     description,
     source,
     clientPageSections,
+    snapshot:     clientSnapshot,
+    preferClientSnapshot,
   } = body as {
-    label?: string
-    description?: string
-    source?: WebsiteVersionSource
-    clientPageSections?: ClientPageSections
+    label?:               string
+    description?:         string
+    source?:              WebsiteVersionSource
+    clientPageSections?:  ClientPageSections
+    snapshot?:            unknown
+    preferClientSnapshot?: boolean
   }
 
-  // Validate clientPageSections if provided
-  let validatedClientSections: ClientPageSections | undefined
-  if (clientPageSections && typeof clientPageSections === 'object') {
-    const { pageId, pageSlug, sections } = clientPageSections
-    if (pageId && pageSlug && Array.isArray(sections)) {
-      validatedClientSections = clientPageSections
-      if (process.env.NODE_ENV === 'development') {
-        console.log(
-          `[POST /api/website/versions] client sections provided: pageId=${pageId} ` +
-          `sections=${sections.length} slug="${pageSlug}"`
-        )
-      }
-    }
+  const safeSource: WebsiteVersionSource =
+    ['manual','autosave','ai_autofill','ai_images','ai_animations','restore','publish','drag_drop','section_edit'].includes(source ?? '')
+      ? (source as WebsiteVersionSource)
+      : 'manual'
+
+  // ── Step: build snapshot ──────────────────────────────────────────────────
+  const snapResult = await createWebsiteSnapshotForTenant({
+    tenantId:            ctx.tenant_id,
+    userId:              ctx.id,
+    source:              safeSource,
+    clientSnapshot,
+    clientPageSections,
+    preferClientSnapshot: preferClientSnapshot ?? !!clientSnapshot,
+  })
+
+  if (!snapResult.ok) {
+    return structuredError(snapResult.error, snapResult.details, snapResult.step, 400)
   }
 
-  // Build snapshot: use client sections for the current page if provided,
-  // DB data for all other pages, settings, navigation
-  const snapResult = await getCurrentWebsiteSnapshot(ctx.tenant_id, validatedClientSections)
-  if (snapResult.error || !snapResult.data) {
-    return NextResponse.json(
-      { ok: false, error: snapResult.error ?? 'Could not capture snapshot' },
-      { status: 500 },
+  if (process.env.NODE_ENV === 'development') {
+    console.info('[website-versioning]', {
+      action:       'create_checkpoint',
+      tenantId:     ctx.tenant_id,
+      userId:       ctx.id,
+      source:       safeSource,
+      pageCount:    snapResult.pageCount,
+      sectionCount: snapResult.sectionCount,
+      fromClient:   snapResult.fromClient,
+      estimatedKb:  snapResult.estimatedKb.toFixed(1),
+      warnings:     snapResult.warnings,
+    })
+  }
+
+  // ── Step: get next version number ─────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = getSupabaseServerClient() as any
+  const { data: nextNumData, error: nextNumErr } = await db.rpc('get_next_site_version_number', {
+    p_tenant_id: ctx.tenant_id,
+  })
+  if (nextNumErr) {
+    return structuredError('Failed to get version number', nextNumErr.message, 'version_number')
+  }
+  const versionNumber = (nextNumData as number | null) ?? 1
+
+  // ── Step: insert into site_versions ───────────────────────────────────────
+  const now = new Date().toISOString()
+  const { data: inserted, error: insertErr } = await db
+    .from('site_versions')
+    .insert({
+      tenant_id:                ctx.tenant_id,
+      version_number:           versionNumber,
+      version_name:             label ?? 'Manual checkpoint',
+      label:                    label ?? 'Manual checkpoint',
+      description:              description ?? null,
+      status:                   'draft',
+      source:                   safeSource,
+      snapshot:                 snapResult.snapshot,
+      page_count:               snapResult.pageCount,
+      section_count:            snapResult.sectionCount,
+      created_by:               ctx.id ?? null,
+      restored_from_version_id: null,
+      published_at:             null,
+      created_at:               now,
+      updated_at:               now,
+    })
+    .select('id,version_number,label,source,status,page_count,section_count,created_at')
+    .single()
+
+  if (insertErr) {
+    console.error('[website-versioning] site_versions insert failed:', insertErr)
+    return structuredError(
+      'Checkpoint save failed',
+      insertErr.message,
+      'version_insert',
     )
   }
 
-  const result = await createWebsiteVersion({
-    tenantId:    ctx.tenant_id,
-    label:       label ?? 'Manual checkpoint',
-    description: description ?? undefined,
-    source:      source ?? 'manual',
-    status:      'draft',
-    createdBy:   ctx.id,
-    snapshot:    snapResult.data,
+  // ── Step: log version event (non-blocking — never fail checkpoint for this) ─
+  db.from('website_version_events').insert({
+    tenant_id:  ctx.tenant_id,
+    version_id: inserted.id,
+    event_type: 'created',
+    metadata: {
+      source:            safeSource,
+      pageCount:         snapResult.pageCount,
+      sectionCount:      snapResult.sectionCount,
+      estimatedKb:       snapResult.estimatedKb,
+      fromClientSnapshot: snapResult.fromClient,
+      warnings:          snapResult.warnings,
+    },
+    created_by: ctx.id ?? null,
   })
-
-  if (result.error) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 500 })
-  }
+  .then(() => null)
+  .catch((e: unknown) =>
+    console.warn('[website-versioning] event insert failed (non-fatal):', e instanceof Error ? e.message : e)
+  )
 
   return NextResponse.json({
     ok:      true,
-    version: result.data,
+    version: inserted,
+    warnings: snapResult.warnings.length > 0 ? snapResult.warnings : undefined,
   }, { status: 201 })
 }

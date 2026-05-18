@@ -1,13 +1,15 @@
 // app/api/website-ai/imports/[jobId]/apply/route.ts
 // POST /api/website-ai/imports/[jobId]/apply
 // Applies selected suggestions to the Website Builder.
+// After applying, saves draft snapshot so version checkpoints stay accurate.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireAiAutofillAccess, verifyJobAccess } from '@/lib/website-ai/tenantAccess'
 import { applyWebsiteSuggestions } from '@/lib/website-ai/applyWebsiteSuggestions'
-import { createWebsiteVersion } from '@/lib/website/versioning'
+import { getCurrentWebsiteSnapshot, updateDraftSnapshot } from '@/lib/website/versioning'
+import { normalizeSnapshotForInsert } from '@/lib/website/snapshot/safeJson'
 import type { PublishMode } from '@/lib/website-ai/types'
 
 type Params = { params: Promise<{ jobId: string }> }
@@ -23,11 +25,11 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const ctx = await getUserContext()
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!['owner', 'admin'].includes(ctx.role)) return forbidden('You do not have permission to use AI Autofill for this website.')
+  if (!['owner', 'admin'].includes(ctx.role))
+    return forbidden('You do not have permission to use AI Autofill for this website.')
 
   const access = await requireAiAutofillAccess()
   if (!access) return forbidden('You do not have permission to use AI Autofill for this website.')
-
   const { tenantId } = access
 
   if (!(await verifyJobAccess(jobId, tenantId))) {
@@ -81,17 +83,17 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'No matching suggestions found' }, { status: 404 })
   }
 
-  // Save "before AI autofill" version snapshot
-  await createWebsiteVersion({
+  // Save "before AI autofill" version — non-blocking, never block on failure
+  saveVersionQuietly({
     tenantId,
-    label:     'Before AI Autofill',
+    userId: ctx.id,
+    label: 'Before AI Autofill',
     description: `Auto-saved before applying AI autofill (job ${jobId})`,
-    source:    'manual',
-    status:    'autosave',
-    createdBy: ctx.id,
+    source: 'manual',
+    status: 'autosave',
   })
 
-  // Apply
+  // Apply suggestions to DB
   const result = await applyWebsiteSuggestions(
     suggestions as Parameters<typeof applyWebsiteSuggestions>[0],
     {
@@ -102,15 +104,26 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
   )
 
-  // Save "after AI autofill" version snapshot
+  // After AI autofill updates DB — refresh draft snapshot so checkpoints are accurate
   if (result.applied > 0) {
-    await createWebsiteVersion({
+    try {
+      const snapResult = await getCurrentWebsiteSnapshot(tenantId)
+      if (snapResult.data) {
+        const normalized = normalizeSnapshotForInsert(snapResult.data) as unknown as Parameters<typeof updateDraftSnapshot>[1]
+        await updateDraftSnapshot(tenantId, normalized, ctx.id ?? '')
+      }
+    } catch (e) {
+      console.warn('[ai-autofill] Failed to update draft snapshot after apply:', e instanceof Error ? e.message : e)
+    }
+
+    // Save "after AI autofill" version — non-blocking
+    saveVersionQuietly({
       tenantId,
-      label:     'AI Autofill Applied',
+      userId: ctx.id,
+      label: 'AI Autofill Applied',
       description: `AI autofill applied ${result.applied} change(s) (job ${jobId})`,
-      source:    'ai_autofill',
-      status:    'draft',
-      createdBy: ctx.id,
+      source: 'ai_autofill',
+      status: 'draft',
     })
   }
 
@@ -126,11 +139,10 @@ export async function POST(req: NextRequest, { params }: Params) {
       before_snapshot: c.before_snapshot,
       after_snapshot:  c.after_snapshot,
     }))
-
     await db.from('website_ai_applied_changes').insert(changeRows as never)
   }
 
-  // If all accepted suggestions are now applied, mark job as applied
+  // Mark job as applied if all pending suggestions are done
   const { data: remaining } = await db
     .from('website_ai_suggestions')
     .select('id')
@@ -146,9 +158,36 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   return NextResponse.json({
-    applied:  result.applied,
-    skipped:  result.skipped,
-    errors:   result.errors,
+    applied:   result.applied,
+    skipped:   result.skipped,
+    errors:    result.errors,
     published: publishMode === 'publish_now',
+    draftSaved: result.applied > 0,
   })
+}
+
+// Inserts a version without blocking the main response
+function saveVersionQuietly(opts: {
+  tenantId: string
+  userId: string | undefined
+  label: string
+  description: string
+  source: string
+  status: string
+}) {
+  Promise.resolve()
+    .then(async () => {
+      const { createWebsiteVersion } = await import('@/lib/website/versioning')
+      await createWebsiteVersion({
+        tenantId:    opts.tenantId,
+        label:       opts.label,
+        description: opts.description,
+        source:      opts.source as Parameters<typeof createWebsiteVersion>[0]['source'],
+        status:      opts.status as Parameters<typeof createWebsiteVersion>[0]['status'],
+        createdBy:   opts.userId,
+      })
+    })
+    .catch((e: unknown) =>
+      console.warn('[ai-autofill] Background version save failed (non-fatal):', e instanceof Error ? e.message : e)
+    )
 }

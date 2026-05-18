@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { buildImageContentPatch, mergeImageIntoContent } from '@/lib/website-builder/imagePlacement'
+import { getCurrentWebsiteSnapshot, updateDraftSnapshot } from '@/lib/website/versioning'
+import { normalizeSnapshotForInsert } from '@/lib/website/snapshot/safeJson'
 import type { WebsiteGeneratedImage } from '@/lib/builder/api'
 
 type RouteContext = {
@@ -111,6 +113,22 @@ export async function POST(_req: NextRequest, context: RouteContext) {
       .single()
 
     updatedSection = updated
+  }
+
+  // Update draft snapshot in background so the activated image is captured
+  // in the next checkpoint — non-blocking
+  if (ctx.tenant_id) {
+    const tid = ctx.tenant_id
+    const uid = ctx.id ?? ''
+    Promise.resolve().then(async () => {
+      try {
+        const snap = await getCurrentWebsiteSnapshot(tid)
+        if (snap.data) {
+          const n = normalizeSnapshotForInsert(snap.data)
+          await updateDraftSnapshot(tid, n as unknown as Parameters<typeof updateDraftSnapshot>[1], uid)
+        }
+      } catch { /* non-fatal */ }
+    })
   }
 
   return NextResponse.json({
