@@ -7,6 +7,7 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireAiAutofillAccess, verifyJobAccess } from '@/lib/website-ai/tenantAccess'
 import { applyWebsiteSuggestions } from '@/lib/website-ai/applyWebsiteSuggestions'
+import { createWebsiteVersion } from '@/lib/website/versioning'
 import type { PublishMode } from '@/lib/website-ai/types'
 
 type Params = { params: Promise<{ jobId: string }> }
@@ -80,6 +81,16 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'No matching suggestions found' }, { status: 404 })
   }
 
+  // Save "before AI autofill" version snapshot
+  await createWebsiteVersion({
+    tenantId,
+    label:     'Before AI Autofill',
+    description: `Auto-saved before applying AI autofill (job ${jobId})`,
+    source:    'manual',
+    status:    'autosave',
+    createdBy: ctx.id,
+  })
+
   // Apply
   const result = await applyWebsiteSuggestions(
     suggestions as Parameters<typeof applyWebsiteSuggestions>[0],
@@ -90,6 +101,18 @@ export async function POST(req: NextRequest, { params }: Params) {
       publishMode,
     }
   )
+
+  // Save "after AI autofill" version snapshot
+  if (result.applied > 0) {
+    await createWebsiteVersion({
+      tenantId,
+      label:     'AI Autofill Applied',
+      description: `AI autofill applied ${result.applied} change(s) (job ${jobId})`,
+      source:    'ai_autofill',
+      status:    'draft',
+      createdBy: ctx.id,
+    })
+  }
 
   // Persist applied_changes rows
   if (result.changes.length > 0) {

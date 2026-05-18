@@ -7,6 +7,7 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireAiAutofillAccess } from '@/lib/website-ai/tenantAccess'
 import { buildImageContentPatch, mergeImageIntoContent } from '@/lib/website-builder/imagePlacement'
+import { createWebsiteVersion } from '@/lib/website/versioning'
 import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 
 export const dynamic = 'force-dynamic'
@@ -38,6 +39,16 @@ export async function POST(
   )
   if (!access || access.tenantId !== typedPlan.tenant_id)
     return NextResponse.json({ error: 'Tenant access denied.' }, { status: 403 })
+
+  // Save "before AI images" version snapshot
+  await createWebsiteVersion({
+    tenantId:  access.tenantId,
+    label:     'Before AI Images',
+    description: `Auto-saved before applying AI image (plan ${planId})`,
+    source:    'manual',
+    status:    'autosave',
+    createdBy: ctx.id,
+  })
 
   if (!typedPlan.generated_asset_url)
     return NextResponse.json({ error: 'No generated image to apply. Generate first.' }, { status: 422 })
@@ -77,6 +88,16 @@ export async function POST(
 
   if (updateErr)
     return NextResponse.json({ error: updateErr.message }, { status: 500 })
+
+  // Save "after AI images" version snapshot
+  await createWebsiteVersion({
+    tenantId:  access.tenantId,
+    label:     'AI Image Applied',
+    description: `AI image applied to section ${typedPlan.section_id} (plan ${planId})`,
+    source:    'ai_images',
+    status:    'draft',
+    createdBy: ctx.id,
+  })
 
   // Mark plan as applied — stamp applied_at (migration 054 column)
   await supabase

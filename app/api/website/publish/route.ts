@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
+import { createWebsiteVersion } from '@/lib/website/versioning'
 
 function forbidden() {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -74,31 +75,20 @@ export async function POST(req: NextRequest) {
       .eq('tenant_id', tenantId)
       .eq('status', 'draft')
 
-    // Save version snapshot for rollback
-    const [pagesResult, navResult] = await Promise.all([
-      db
-        .from('site_pages')
-        .select('*, site_sections(*)')
-        .eq('tenant_id', tenantId)
-        .neq('status', 'archived'),
-      db
-        .from('site_navigation_items')
-        .select('*')
-        .eq('tenant_id', tenantId),
-    ])
-
-    const snapshot = {
-      settings:   settings,
-      pages:      pagesResult.data ?? [],
-      navigation: navResult.data ?? [],
-    }
-
+    // Archive old published versions and save new published version snapshot
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db.from('site_versions') as any).insert({
-      tenant_id:    tenantId,
-      version_name: `Published ${new Date().toISOString()}`,
-      snapshot:     snapshot,
-      status:       'published',
+    await (db.from('site_versions') as any)
+      .update({ status: 'archived' })
+      .eq('tenant_id', tenantId)
+      .eq('status', 'published')
+
+    const userId = ctx.id ?? undefined
+    await createWebsiteVersion({
+      tenantId,
+      label:     `Published ${new Date().toLocaleDateString()}`,
+      source:    'publish',
+      status:    'published',
+      createdBy: userId,
     })
   }
 

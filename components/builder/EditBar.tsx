@@ -2,12 +2,19 @@
 
 // components/builder/EditBar.tsx
 // Floating fixed top bar shown only to owners/admins while browsing the live site.
-// Provides: edit mode toggle, publish/unpublish, undo/redo, save status, and a
-// link back to the full dashboard builder.
+// Provides: edit mode toggle, publish/unpublish, undo/redo, save status, version
+// history, and checkpoint controls.
 
 import { useCallback, useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useBuilderStore } from '@/lib/builder/store'
 import { publishSite } from '@/lib/builder/api'
+import { createVersionCheckpoint, triggerAutosave } from '@/lib/builder/versionsApi'
+
+const VersionHistoryPanel = dynamic(
+  () => import('./VersionHistoryPanel').then((m) => m.VersionHistoryPanel),
+  { ssr: false },
+)
 
 // ── Premium Design wand icon (inline SVG so no import needed) ─────────────
 function WandIcon() {
@@ -31,7 +38,9 @@ export function EditBar() {
     showPremiumDrawer, setPremiumDrawer,
   } = useBuilderStore()
 
-  const [publishing, setPublishing] = useState(false)
+  const [publishing,   setPublishing]   = useState(false)
+  const [versionOpen,  setVersionOpen]  = useState(false)
+  const [checkpointOk, setCheckpointOk] = useState(false)
 
   // Push padding onto document body so the site header isn't hidden behind the bar
   useEffect(() => {
@@ -51,12 +60,23 @@ export function EditBar() {
   const handlePublish = useCallback(async () => {
     if (publishing) return
     setPublishing(true)
+    // Save autosave before publish
+    triggerAutosave().catch(() => null)
     const ok = await publishSite(tenantId, !isPublished)
     if (ok) setPublished(!isPublished)
     setPublishing(false)
   }, [publishing, tenantId, isPublished, setPublished])
 
+  const handleCheckpoint = useCallback(async () => {
+    const v = await createVersionCheckpoint('Manual checkpoint', 'manual')
+    if (v) {
+      setCheckpointOk(true)
+      setTimeout(() => setCheckpointOk(false), 2500)
+    }
+  }, [])
+
   return (
+    <>
     <div style={{
       position:       'fixed',
       top:            0,
@@ -133,6 +153,24 @@ export function EditBar() {
             title="Redo (Ctrl+Shift+Z)"
           >
             ↪
+          </IconButton>
+        </>
+      )}
+
+      {/* Version history + checkpoint — only in edit mode */}
+      {editMode && (
+        <>
+          <IconButton
+            onClick={() => setVersionOpen(true)}
+            title="Version History"
+          >
+            🕐
+          </IconButton>
+          <IconButton
+            onClick={handleCheckpoint}
+            title="Save Version Checkpoint"
+          >
+            {checkpointOk ? '✓' : '📌'}
           </IconButton>
         </>
       )}
@@ -220,6 +258,12 @@ export function EditBar() {
         )}
       </button>
     </div>
+
+    <VersionHistoryPanel
+      open={versionOpen}
+      onClose={() => setVersionOpen(false)}
+    />
+    </>
   )
 }
 
