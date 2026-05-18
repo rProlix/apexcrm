@@ -65,12 +65,39 @@ export function EditBar() {
   const handlePublish = useCallback(async () => {
     if (publishing) return
     setPublishing(true)
-    // Save autosave before publish
-    triggerAutosave().catch(() => null)
-    const ok = await publishSite(tenantId, !isPublished)
-    if (ok) setPublished(!isPublished)
-    setPublishing(false)
-  }, [publishing, tenantId, isPublished, setPublished])
+    try {
+      // 1. Flush any pending debounced saves so the latest editor state is in DB
+      //    before the publish snapshot is built from live tables.
+      await flushPendingSaves().catch(() => null)
+
+      // 2. Build client sections to send alongside the request so the server
+      //    can use them as an additional override even if flush was partial.
+      const clientPageSections = pageId ? buildClientPageSections({
+        pageId,
+        pageSlug:  pageSlug  || '/',
+        pageTitle: pageName  || 'Home',
+        pageType:  pageType  || 'page',
+        sections,
+      }) : undefined
+
+      const result = await publishSite(tenantId, !isPublished, { clientPageSections })
+
+      if (result.ok) {
+        setPublished(!isPublished)
+        if (result.warnings?.length) {
+          console.warn('[EditBar] Publish warnings:', result.warnings)
+        }
+      } else {
+        const msg = result.error ?? 'Publish failed'
+        const detail = result.details ? ` (${result.details})` : ''
+        console.error(`[EditBar] Publish error: ${msg}${detail}`)
+        // Surface error to user via alert (simple, visible)
+        window.alert(`Publish failed: ${msg}${detail}`)
+      }
+    } finally {
+      setPublishing(false)
+    }
+  }, [publishing, tenantId, isPublished, setPublished, flushPendingSaves, pageId, pageSlug, pageName, pageType, sections])
 
   const handleCheckpoint = useCallback(async () => {
     if (checkpointLoading) return

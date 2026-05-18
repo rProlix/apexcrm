@@ -40,12 +40,19 @@ export async function createWebsiteSnapshotForTenant(params: {
   clientSnapshot?:     unknown
   clientPageSections?: ClientPageSections
   preferClientSnapshot?: boolean
+  /**
+   * When true, skip the dirty website_builder_drafts snapshot and always read
+   * from live site_sections / site_pages. Use this on publish to ensure recent
+   * PATCH edits to site_sections are captured (not overridden by a stale draft).
+   */
+  forPublish?:         boolean
 }): Promise<SnapshotResult> {
   const {
     tenantId,
     clientSnapshot,
     clientPageSections,
     preferClientSnapshot = false,
+    forPublish           = false,
   } = params
 
   const warnings: string[] = []
@@ -70,7 +77,7 @@ export async function createWebsiteSnapshotForTenant(params: {
     warnings.push(`Client snapshot invalid: ${validated.reason} — falling back to server data`)
   }
 
-  // ── Path B: Draft snapshot (with optional client page override) ────────────
+  // ── Path B: Live tables snapshot (with optional client page override) ────────
   let serverSnapshot: WebsiteSnapshot | null = null
 
   // If we have clientPageSections, build from live tables with that override
@@ -83,8 +90,11 @@ export async function createWebsiteSnapshotForTenant(params: {
     }
   }
 
-  // Try draft if we don't have a snapshot yet
-  if (!serverSnapshot) {
+  // Try dirty draft snapshot ONLY when not publishing.
+  // When forPublish=true, always read from live site_sections so that recent
+  // PATCH edits (e.g. from AI restyle / template apply / builder edits) are
+  // captured — a stale website_builder_drafts row would override them otherwise.
+  if (!serverSnapshot && !forPublish) {
     const draftResult = await getDraftSnapshot(tenantId)
     if (draftResult.data?.pages?.length) {
       serverSnapshot = draftResult.data
@@ -93,11 +103,15 @@ export async function createWebsiteSnapshotForTenant(params: {
     }
   }
 
-  // Fall back to live tables
+  // Always read from live tables on publish (and as fallback otherwise)
   if (!serverSnapshot) {
     const liveResult = await getCurrentWebsiteSnapshot(tenantId)
     if (liveResult.data) {
       serverSnapshot = liveResult.data
+      if (forPublish && process.env.NODE_ENV === 'development') {
+        const sectionCount = liveResult.data.pages.reduce((s, p) => s + p.sections.length, 0)
+        console.info(`[snapshot] forPublish=true — reading ${sectionCount} sections from live tables`)
+      }
     } else {
       return {
         ok:      false,

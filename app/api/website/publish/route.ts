@@ -9,6 +9,7 @@ import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { applySnapshotToWebsiteTables } from '@/lib/website/versioning'
 import { createWebsiteSnapshotForTenant } from '@/lib/website/snapshot/createWebsiteSnapshotForTenant'
 import type { ClientPageSections } from '@/lib/website/versionTypes'
+import { revalidatePath, revalidateTag } from 'next/cache'
 
 function forbidden() {
   return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 })
@@ -23,17 +24,17 @@ function fail(error: string, details?: string, step?: string, status = 500) {
  * POST /api/website/publish
  *
  * Full publish flow (when publish: true):
- *   1. Build snapshot from client / draft / live tables
- *   2. Save as draft (dirty=false after this)
- *   3. Insert a "publish" site_versions checkpoint
- *   4. STOP HERE if checkpoint fails — never publish from unknown state
- *   5. Apply snapshot to live site_pages / site_sections
- *   6. Archive old published versions
- *   7. Mark this version as published
- *   8. Set site_settings.is_published = true
+ *   1. Build snapshot from live tables (always — skip stale dirty draft)
+ *   2. Insert a "publish" site_versions checkpoint
+ *   3. Apply snapshot to live site_pages / site_sections
+ *   4. Sync site_settings with design/template data from snapshot
+ *   5. Archive old published versions → mark new as published
+ *   6. Promote draft pages to published
+ *   7. Revalidate Next.js cache for all public routes
+ *   8. Return live URL + published version id
  *
  * Unpublish (publish: false):
- *   - Only updates site_settings.is_published = false
+ *   - Only updates site_settings.is_published = false + revalidates
  */
 export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
@@ -60,6 +61,14 @@ export async function POST(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getSupabaseServerClient() as any
 
+  // Resolve tenant slug for cache revalidation
+  const { data: tenantRow } = await db
+    .from('tenants')
+    .select('slug')
+    .eq('id', tenantId)
+    .maybeSingle() as { data: { slug: string } | null; error: unknown }
+  const tenantSlug = tenantRow?.slug ?? null
+
   // ── UNPUBLISH path ────────────────────────────────────────────────────────
   if (!isPublish) {
     const { data: settings, error: settingsErr } = await db
@@ -68,17 +77,24 @@ export async function POST(req: NextRequest) {
       .select('*')
       .single()
     if (settingsErr) return fail(settingsErr.message, undefined, 'settings_update')
+
+    // Revalidate so the public site shows "coming soon"
+    revalidatePublicRoutes(tenantId, tenantSlug)
+
     return NextResponse.json({ ok: true, published: false, settings })
   }
 
   // ── PUBLISH path ──────────────────────────────────────────────────────────
   const userId = ctx.id ?? undefined
 
-  // Extract optional client sections from request body
+  // Extract optional client sections from request body (sent by EditBar)
   const clientPageSections = body.clientPageSections as ClientPageSections | undefined
   const clientSnapshot     = body.snapshot
 
-  // Step 1: Build snapshot
+  // Step 1: Build snapshot.
+  // IMPORTANT: forPublish=true — always reads from live DB tables, never from
+  // a stale dirty website_builder_drafts snapshot. This ensures that section
+  // edits applied directly to site_sections are included.
   const snapResult = await createWebsiteSnapshotForTenant({
     tenantId,
     userId,
@@ -86,6 +102,7 @@ export async function POST(req: NextRequest) {
     clientSnapshot,
     clientPageSections,
     preferClientSnapshot: !!clientSnapshot,
+    forPublish:          true,
   })
 
   if (!snapResult.ok) {
@@ -95,15 +112,14 @@ export async function POST(req: NextRequest) {
   const { snapshot, pageCount, sectionCount } = snapResult
 
   if (process.env.NODE_ENV === 'development') {
-    console.info('[website-versioning]', {
-      action:       'publish',
+    console.info('[website-publish]', {
+      action:      'publish',
       tenantId,
       userId,
-      source:       'publish',
       pageCount,
       sectionCount,
-      estimatedKb:  snapResult.estimatedKb.toFixed(1),
-      fromClient:   snapResult.fromClient,
+      estimatedKb: snapResult.estimatedKb.toFixed(1),
+      fromClient:  snapResult.fromClient,
     })
   }
 
@@ -124,7 +140,7 @@ export async function POST(req: NextRequest) {
       version_name:   `Published ${new Date().toLocaleDateString()}`,
       label:          `Published ${new Date().toLocaleDateString()}`,
       description:    'Created automatically on publish',
-      status:         'draft', // will be updated to 'published' in step 7
+      status:         'draft',
       source:         'publish',
       snapshot,
       page_count:     pageCount,
@@ -138,7 +154,6 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (versionErr) {
-    // Checkpoint failed — DO NOT proceed with publish
     return fail(
       'Checkpoint save failed — publish aborted',
       versionErr.message,
@@ -171,10 +186,47 @@ export async function POST(req: NextRequest) {
     .update({ status: 'published', published_at: now })
     .eq('id', versionId)
 
-  // Step 7: Update site_settings
+  // Step 7: Sync site_settings — copy design/template fields from snapshot
+  // This is the critical step that was previously missing:
+  // AI restyle, template apply, and design changes write to site_settings
+  // directly, but the published state needs to capture them in the snapshot
+  // settings object and write them back here.
+  const snapshotSettings = (snapshot.settings ?? {}) as Record<string, unknown>
+
+  const settingsUpdate: Record<string, unknown> = {
+    tenant_id:      tenantId,
+    is_published:   true,
+    published_at:   now,
+    last_published_version_id: versionId,
+    has_unpublished_changes: false,
+  }
+
+  // Sync design fields from snapshot if present
+  if (snapshotSettings.design_system && typeof snapshotSettings.design_system === 'object') {
+    settingsUpdate.design_system = snapshotSettings.design_system
+  }
+  if (snapshotSettings.theme && typeof snapshotSettings.theme === 'object') {
+    settingsUpdate.theme = snapshotSettings.theme
+  }
+  if (snapshotSettings.active_template_key) {
+    settingsUpdate.active_template_key = snapshotSettings.active_template_key
+  }
+  if (snapshotSettings.active_template_id) {
+    settingsUpdate.active_template_id = snapshotSettings.active_template_id
+  }
+  if (snapshotSettings.template_config && typeof snapshotSettings.template_config === 'object') {
+    settingsUpdate.template_config = snapshotSettings.template_config
+  }
+  if (snapshotSettings.brand_colors && typeof snapshotSettings.brand_colors === 'object') {
+    settingsUpdate.brand_colors = snapshotSettings.brand_colors
+  }
+  if (snapshotSettings.fonts && typeof snapshotSettings.fonts === 'object') {
+    settingsUpdate.fonts = snapshotSettings.fonts
+  }
+
   const { data: settings, error: settingsErr } = await db
     .from('site_settings')
-    .upsert({ tenant_id: tenantId, is_published: true }, { onConflict: 'tenant_id' })
+    .upsert(settingsUpdate, { onConflict: 'tenant_id' })
     .select('*')
     .single()
 
@@ -186,7 +238,7 @@ export async function POST(req: NextRequest) {
   // Step 8: Promote draft pages to published
   await db
     .from('site_pages')
-    .update({ status: 'published' })
+    .update({ status: 'published', updated_at: now })
     .eq('tenant_id', tenantId)
     .eq('status', 'draft')
 
@@ -198,18 +250,39 @@ export async function POST(req: NextRequest) {
       { onConflict: 'tenant_id' },
     )
 
+  // Step 10: REVALIDATE — clear all Next.js cache for public routes
+  // This is critical: without this, the public site may show stale content.
+  revalidatePublicRoutes(tenantId, tenantSlug)
+
   // Log event (non-blocking)
   db.from('website_version_events').insert({
     tenant_id:  tenantId,
     version_id: versionId,
     event_type: 'published',
-    metadata:   {
-      pageCount,
-      sectionCount,
-      publishedAt: now,
-    },
+    metadata:   { pageCount, sectionCount, publishedAt: now },
     created_by: userId ?? null,
   }).then(() => null).catch(() => null)
+
+  // Step 11: Post-publish verification
+  const verificationWarnings: string[] = []
+  try {
+    const { data: verifiedSettings } = await db
+      .from('site_settings')
+      .select('is_published, active_template_key, published_at')
+      .eq('tenant_id', tenantId)
+      .maybeSingle() as { data: Record<string, unknown> | null; error: unknown }
+
+    if (!verifiedSettings?.is_published) {
+      verificationWarnings.push('WARNING: site_settings.is_published is still false after publish')
+    }
+    if (snapshotSettings.active_template_key && verifiedSettings?.active_template_key !== snapshotSettings.active_template_key) {
+      verificationWarnings.push('WARNING: active_template_key mismatch after publish')
+    }
+  } catch {
+    verificationWarnings.push('Could not verify publish state')
+  }
+
+  const liveUrl = tenantSlug ? `/sites/${tenantSlug}` : null
 
   return NextResponse.json({
     ok:          true,
@@ -218,7 +291,40 @@ export async function POST(req: NextRequest) {
     versionNumber,
     pageCount,
     sectionCount,
+    publishedAt: now,
+    liveUrl,
     settings:    settings ?? null,
-    warnings:    snapResult.warnings.length > 0 ? snapResult.warnings : undefined,
+    warnings: [
+      ...(snapResult.warnings.length > 0 ? snapResult.warnings : []),
+      ...verificationWarnings,
+    ].filter(Boolean),
   })
+}
+
+// ── Cache revalidation ────────────────────────────────────────────────────────
+
+function revalidatePublicRoutes(tenantId: string, tenantSlug: string | null) {
+  try {
+    // Revalidate all possible public routes for this tenant
+    revalidateTag(`website:${tenantId}`)
+    revalidateTag(`website:${tenantId}:public`)
+    revalidateTag(`tenant:${tenantId}`)
+
+    if (tenantSlug) {
+      revalidatePath(`/sites/${tenantSlug}`)
+      revalidatePath(`/sites/${tenantSlug}/`)
+      // Revalidate common page paths
+      for (const slug of ['about', 'services', 'menu', 'shop', 'contact', 'faq', 'book', 'reviews']) {
+        revalidatePath(`/sites/${tenantSlug}/${slug}`)
+      }
+      revalidateTag(`website:${tenantSlug}:public`)
+      revalidateTag(`tenant:${tenantSlug}`)
+    }
+
+    // Revalidate dashboard website overview (so published_at shows updated)
+    revalidatePath('/website')
+  } catch (err) {
+    // Non-fatal — log but don't fail publish
+    console.warn('[website-publish] cache revalidation error:', err instanceof Error ? err.message : err)
+  }
 }

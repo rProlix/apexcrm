@@ -18,7 +18,8 @@ interface SitePage {
 interface SiteSettings {
   id: string; tenant_id: string; site_name: string | null; logo_url: string | null
   is_published: boolean; custom_domain: string | null; subdomain: string | null
-  updated_at: string
+  updated_at: string; published_at?: string | null; has_unpublished_changes?: boolean
+  active_template_key?: string | null
 }
 
 interface Props {
@@ -35,7 +36,10 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
   const [publishing, setPublishing] = useState(false)
   const [error,      setError]      = useState<string | null>(null)
 
-  const isPublished  = settings?.is_published ?? false
+  const isPublished       = settings?.is_published ?? false
+  const publishedAt       = settings?.published_at ?? null
+  const hasUnpublished    = settings?.has_unpublished_changes ?? false
+  const activeTemplateKey = settings?.active_template_key ?? null
   const publishedUrl = settings?.custom_domain
     ? `https://${settings.custom_domain}`
     : settings?.subdomain
@@ -100,6 +104,30 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
         </div>
       </div>
 
+      {/* Publish status banners */}
+      {isPublished && hasUnpublished && (
+        <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-amber-300 flex items-center gap-2">
+          <Clock className="h-4 w-4 shrink-0" />
+          <span>
+            <strong>Draft has unpublished changes.</strong> Click &ldquo;Publish Site&rdquo; to push changes to your live website.
+            {activeTemplateKey && (
+              <span className="ml-1 text-amber-400/80">Template: {activeTemplateKey}</span>
+            )}
+          </span>
+        </div>
+      )}
+      {isPublished && publishedAt && !hasUnpublished && (
+        <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-300 flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>
+            Live website is up to date. Last published{' '}
+            <strong>{new Date(publishedAt).toLocaleString()}</strong>
+            {activeTemplateKey && (
+              <span className="ml-1 text-emerald-400/80">· Template: {activeTemplateKey}</span>
+            )}
+          </span>
+        </div>
+      )}
       {error && (
         <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
           {error}

@@ -129,10 +129,32 @@ export default async function SiteLayout({ children, params }: Props) {
       '--font-body':        `"${theme.fontBody}", sans-serif`,
     }
 
-    // Overlay design system CSS vars if AI has generated a design system
-    const settingsTheme = (config.settings as unknown as Record<string, unknown>)?.theme as Record<string, unknown> | null
-    const hasDesignSystem = settingsTheme && typeof settingsTheme === 'object' && settingsTheme.palette
-    if (hasDesignSystem) {
+    // Overlay design system CSS vars from the canonical design_system column first,
+    // then fall back to legacy theme.palette if design_system is absent.
+    // AI restyle, template apply, and premium design all write to design_system;
+    // the legacy theme column stores the raw user-picked colors/fonts.
+    const settingsRaw = config.settings as unknown as Record<string, unknown>
+    const designSystemCol = settingsRaw?.design_system as Record<string, unknown> | null | undefined
+    const settingsTheme   = settingsRaw?.theme           as Record<string, unknown> | null | undefined
+
+    // Priority 1: design_system column (AI restyle / template / premium design)
+    if (designSystemCol && typeof designSystemCol === 'object' && Object.keys(designSystemCol).length > 0) {
+      try {
+        const businessCategory = (designSystemCol.businessCategory as string | null) ?? null
+        const ds = normalizeDesignSystem(designSystemCol, businessCategory)
+        const dsCssVars = buildCssVars(ds)
+        Object.assign(baseCssVars, dsCssVars)
+        if (process.env.NODE_ENV === 'development') {
+          const palette = (designSystemCol as Record<string, unknown>)?.palette
+          const primary = palette && typeof palette === 'object' ? (palette as Record<string, unknown>).primary ?? '?' : '?'
+          console.info('[SiteLayout] CSS vars from design_system column, primary=', primary)
+        }
+      } catch {
+        // Non-critical
+      }
+    }
+    // Priority 2: legacy theme.palette (older AI autofill / manual theme picker)
+    else if (settingsTheme && typeof settingsTheme === 'object' && settingsTheme.palette) {
       try {
         const businessCategory = (settingsTheme.businessCategory as string) ?? null
         const ds = normalizeDesignSystem(settingsTheme, businessCategory)

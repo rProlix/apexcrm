@@ -73,16 +73,39 @@ export async function reorderSections(
 
 // ── Publish ───────────────────────────────────────────────────────────────────
 
+export interface PublishSiteResult {
+  ok:          boolean
+  published:   boolean
+  versionId?:  string
+  pageCount?:  number
+  sectionCount?: number
+  publishedAt?: string
+  liveUrl?:    string
+  warnings?:   string[]
+  error?:      string
+  details?:    string
+  step?:       string
+}
+
 export async function publishSite(
   tenantId: string,
-  publish: boolean,
-): Promise<boolean> {
+  publish:  boolean,
+  opts?: {
+    /** Current editor sections — sent to publish to ensure latest in-memory state is captured */
+    clientPageSections?: import('@/lib/website/versionTypes').ClientPageSections
+  },
+): Promise<PublishSiteResult> {
+  const body: Record<string, unknown> = { tenant_id: tenantId, publish }
+  if (opts?.clientPageSections) {
+    body.clientPageSections = opts.clientPageSections
+  }
   const res = await fetch('/api/website/publish', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ tenant_id: tenantId, publish }),
+    body:    JSON.stringify(body),
   })
-  return res.ok
+  const json = await res.json().catch(() => ({ ok: false, error: 'Invalid response' }))
+  return json as PublishSiteResult
 }
 
 // ── Image upload ──────────────────────────────────────────────────────────────

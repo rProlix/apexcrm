@@ -696,6 +696,42 @@ export async function applySnapshotToWebsiteTables(
       }
     }
 
+    // Sync site_settings with design / template fields from snapshot settings.
+    // This ensures that design_system, active_template_key, and template_config
+    // written by AI restyle or template apply are preserved in the published state.
+    const snapshotSettings = (snapshot.settings ?? {}) as Record<string, unknown>
+    const settingsSync: Record<string, unknown> = { tenant_id: tenantId }
+    if (snapshotSettings.design_system && typeof snapshotSettings.design_system === 'object') {
+      settingsSync.design_system = snapshotSettings.design_system
+    }
+    if (snapshotSettings.theme && typeof snapshotSettings.theme === 'object') {
+      settingsSync.theme = snapshotSettings.theme
+    }
+    if (snapshotSettings.active_template_key) {
+      settingsSync.active_template_key = snapshotSettings.active_template_key
+    }
+    if (snapshotSettings.active_template_id) {
+      settingsSync.active_template_id = snapshotSettings.active_template_id
+    }
+    if (snapshotSettings.template_config && typeof snapshotSettings.template_config === 'object') {
+      settingsSync.template_config = snapshotSettings.template_config
+    }
+    if (snapshotSettings.brand_colors && typeof snapshotSettings.brand_colors === 'object') {
+      settingsSync.brand_colors = snapshotSettings.brand_colors
+    }
+    if (snapshotSettings.fonts && typeof snapshotSettings.fonts === 'object') {
+      settingsSync.fonts = snapshotSettings.fonts
+    }
+
+    if (Object.keys(settingsSync).length > 1) {
+      const { error: syncErr } = await db
+        .from('site_settings')
+        .upsert(settingsSync, { onConflict: 'tenant_id' })
+      if (syncErr) {
+        console.warn('[versioning] applySnapshot settings sync failed:', syncErr.message)
+      }
+    }
+
     // Mark draft clean after apply
     await db
       .from('website_builder_drafts')
