@@ -44,6 +44,7 @@ export function EditorShell({ editorCtx }: Props) {
     setContext,
     setSaveStatus,
     selectedSectionId, selectSection,
+    registerFlush,
   } = useBuilderStore()
 
   // Initialise store from server-fetched data on first render
@@ -53,6 +54,8 @@ export function EditorShell({ editorCtx }: Props) {
       tenantId:    editorCtx.tenantId,
       pageId:      editorCtx.pageId,
       pageName:    editorCtx.pageName,
+      pageSlug:    editorCtx.pageSlug,
+      pageType:    'page',
       isPublished: editorCtx.isPublished,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,24 +81,50 @@ export function EditorShell({ editorCtx }: Props) {
   }, [selectSection])
 
   // ── Debounced auto-save ────────────────────────────────────────────────────
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const prevSectionsRef = useRef(sections)
+  const saveTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prevSectionsRef  = useRef(sections)
+  /** Track which sections have pending (not-yet-saved) changes */
+  const pendingSaves = useRef<Map<string, { content: Record<string, unknown>; is_visible?: boolean }>>(new Map())
+
+  const executeSave = useCallback(async (changedId: string, content: Record<string, unknown>, isVisible?: boolean) => {
+    const patch: Parameters<typeof saveSection>[1] = { content }
+    if (typeof isVisible === 'boolean') patch.is_visible = isVisible
+    const saved = await saveSection(changedId, patch)
+    pendingSaves.current.delete(changedId)
+    setSaveStatus(saved ? 'saved' : 'error')
+    setTimeout(() => setSaveStatus('idle'), 3000)
+  }, [setSaveStatus])
 
   const scheduleSave = useCallback(
     (changedId: string, content: Record<string, unknown>, isVisible?: boolean) => {
       setSaveStatus('saving')
+      pendingSaves.current.set(changedId, { content, is_visible: isVisible })
       if (saveTimer.current) clearTimeout(saveTimer.current)
-      saveTimer.current = setTimeout(async () => {
-        const patch: Parameters<typeof saveSection>[1] = { content }
-        if (typeof isVisible === 'boolean') patch.is_visible = isVisible
-        const saved = await saveSection(changedId, patch)
-        setSaveStatus(saved ? 'saved' : 'error')
-        // Reset to idle after 3 s
-        setTimeout(() => setSaveStatus('idle'), 3000)
+      saveTimer.current = setTimeout(() => {
+        const entries = Array.from(pendingSaves.current.entries())
+        pendingSaves.current.clear()
+        Promise.all(entries.map(([id, { content: c, is_visible: v }]) => executeSave(id, c, v)))
       }, 1500)
     },
-    [setSaveStatus],
+    [setSaveStatus, executeSave],
   )
+
+  // Register an immediate flush function in the store
+  // so the checkpoint button can force-save all pending edits
+  useEffect(() => {
+    const flushFn = async () => {
+      if (pendingSaves.current.size === 0) return
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current)
+        saveTimer.current = null
+      }
+      setSaveStatus('saving')
+      const entries = Array.from(pendingSaves.current.entries())
+      pendingSaves.current.clear()
+      await Promise.all(entries.map(([id, { content: c, is_visible: v }]) => executeSave(id, c, v)))
+    }
+    registerFlush(flushFn)
+  }, [registerFlush, setSaveStatus, executeSave])
 
   // Watch sections for content changes and trigger saves
   useEffect(() => {

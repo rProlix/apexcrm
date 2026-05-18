@@ -1,4 +1,5 @@
-// lib/website/versionTypes.ts — TypeScript types for website version history
+// lib/website/versionTypes.ts — Canonical types for website version history
+// Every part of the versioning system uses these types.
 
 export type WebsiteVersionStatus = 'draft' | 'published' | 'archived' | 'restored' | 'autosave'
 
@@ -25,7 +26,22 @@ export type WebsiteVersionEventType =
   | 'section_updated'
   | 'section_deleted'
 
-/** Normalized section inside a snapshot */
+/** A generated image attached to a section, captured inside a snapshot */
+export interface WebsiteSnapshotImage {
+  id: string
+  sectionId: string
+  url: string
+  storagePath?: string | null
+  alt?: string | null
+  prompt?: string | null
+  aspectRatio?: string | null
+  slotKey?: string
+  isActive: boolean
+  metadata?: Record<string, unknown>
+  createdAt?: string
+}
+
+/** Normalized section inside a snapshot — canonical shape used everywhere */
 export interface WebsiteSnapshotSection {
   id: string
   section_type: string
@@ -35,6 +51,10 @@ export interface WebsiteSnapshotSection {
   style_config: Record<string, unknown> | null
   animation_config: Record<string, unknown> | null
   is_visible: boolean
+  /** Generated images attached to this section */
+  images?: WebsiteSnapshotImage[]
+  /** The currently active image id (if any) */
+  activeImageId?: string | null
   created_at: string
   updated_at: string
 }
@@ -52,17 +72,34 @@ export interface WebsiteSnapshotPage {
   sections: WebsiteSnapshotSection[]
 }
 
-/** Full website snapshot stored in site_versions.snapshot */
+/** Navigation item captured in a snapshot */
+export interface WebsiteSnapshotNavItem {
+  id: string
+  label: string
+  url?: string | null
+  sort_order?: number
+  is_visible?: boolean
+  location?: string
+  [key: string]: unknown
+}
+
+/**
+ * Full website snapshot stored in site_versions.snapshot.
+ * This is the canonical shape that all version operations use.
+ */
 export interface WebsiteSnapshot {
-  schemaVersion: number
+  /** Always 1 for this version of the schema */
+  schemaVersion: 1
   tenantId: string
   capturedAt: string
+  /** How this snapshot was created */
+  source?: WebsiteVersionSource
   settings: Record<string, unknown>
-  navigation: Record<string, unknown>[]
+  navigation: WebsiteSnapshotNavItem[]
   pages: WebsiteSnapshotPage[]
 }
 
-/** Summary row returned from version list queries */
+/** Summary row returned from version list queries (no snapshot) */
 export interface WebsiteVersionSummary {
   id: string
   tenant_id: string
@@ -78,11 +115,11 @@ export interface WebsiteVersionSummary {
   published_at: string | null
   created_at: string
   updated_at: string
-  /** Populated when joining auth.users (optional) */
+  /** Optionally populated when joining auth.users */
   created_by_email?: string | null
 }
 
-/** Full version including snapshot */
+/** Full version row including the snapshot JSON */
 export interface WebsiteVersionFull extends WebsiteVersionSummary {
   snapshot: WebsiteSnapshot
 }
@@ -105,6 +142,7 @@ export interface CreateVersionInput {
   source?: WebsiteVersionSource
   status?: WebsiteVersionStatus
   createdBy?: string
+  /** If provided, used directly. If missing, getCurrentWebsiteSnapshot is called. */
   snapshot?: WebsiteSnapshot
   restoredFromVersionId?: string
 }
@@ -112,4 +150,28 @@ export interface CreateVersionInput {
 export interface VersionResult<T> {
   data: T | null
   error: string | null
+}
+
+/**
+ * Client-side section data sent from the Zustand store when creating a checkpoint.
+ * Used to override the current page's sections in the snapshot so unsaved
+ * content edits (still in the 1.5s debounce window) are captured correctly.
+ */
+export interface ClientPageSections {
+  pageId: string
+  pageSlug: string
+  pageTitle: string
+  pageType: string
+  sections: {
+    id: string
+    section_type: string
+    section_key?: string | null
+    sort_order: number
+    content: Record<string, unknown>
+    style_config?: Record<string, unknown> | null
+    animation_config?: Record<string, unknown> | null
+    is_visible: boolean
+    created_at?: string
+    updated_at?: string
+  }[]
 }

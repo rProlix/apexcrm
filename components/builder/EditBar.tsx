@@ -10,6 +10,7 @@ import dynamic from 'next/dynamic'
 import { useBuilderStore } from '@/lib/builder/store'
 import { publishSite } from '@/lib/builder/api'
 import { createVersionCheckpoint, triggerAutosave } from '@/lib/builder/versionsApi'
+import { buildClientPageSections } from '@/lib/builder/createSnapshotFromBuilderState'
 
 const VersionHistoryPanel = dynamic(
   () => import('./VersionHistoryPanel').then((m) => m.VersionHistoryPanel),
@@ -33,14 +34,17 @@ export function EditBar() {
   const {
     editMode, setEditMode,
     saveStatus,
-    tenantId, pageName, isPublished, setPublished,
+    tenantId, pageName, pageSlug, pageType, isPublished, setPublished,
     undo, redo, history, future,
     showPremiumDrawer, setPremiumDrawer,
+    sections, pageId,
+    flushPendingSaves,
   } = useBuilderStore()
 
-  const [publishing,   setPublishing]   = useState(false)
-  const [versionOpen,  setVersionOpen]  = useState(false)
-  const [checkpointOk, setCheckpointOk] = useState(false)
+  const [publishing,        setPublishing]        = useState(false)
+  const [versionOpen,       setVersionOpen]        = useState(false)
+  const [checkpointOk,      setCheckpointOk]      = useState(false)
+  const [checkpointLoading, setCheckpointLoading] = useState(false)
 
   // Push padding onto document body so the site header isn't hidden behind the bar
   useEffect(() => {
@@ -68,12 +72,31 @@ export function EditBar() {
   }, [publishing, tenantId, isPublished, setPublished])
 
   const handleCheckpoint = useCallback(async () => {
-    const v = await createVersionCheckpoint('Manual checkpoint', 'manual')
-    if (v) {
-      setCheckpointOk(true)
-      setTimeout(() => setCheckpointOk(false), 2500)
+    if (checkpointLoading) return
+    setCheckpointLoading(true)
+    try {
+      // 1. Flush any pending auto-save first (cancel debounce, save immediately)
+      await flushPendingSaves()
+
+      // 2. Build the client-side page sections so the checkpoint captures
+      //    the actual current state — not potentially stale DB data
+      const clientPageSections = pageId ? buildClientPageSections({
+        pageId,
+        pageSlug:  pageSlug  || '/',
+        pageTitle: pageName  || 'Home',
+        pageType:  pageType  || 'page',
+        sections,
+      }) : undefined
+
+      const v = await createVersionCheckpoint('Manual checkpoint', 'manual', clientPageSections)
+      if (v) {
+        setCheckpointOk(true)
+        setTimeout(() => setCheckpointOk(false), 2500)
+      }
+    } finally {
+      setCheckpointLoading(false)
     }
-  }, [])
+  }, [checkpointLoading, flushPendingSaves, pageId, pageSlug, pageName, pageType, sections])
 
   return (
     <>
@@ -120,19 +143,20 @@ export function EditBar() {
       <div style={{ flex: 1 }} />
 
       {/* Save status */}
-      {editMode && (
+      {editMode && saveStatus !== 'idle' && (
         <span style={{
           fontSize:  '0.75rem',
           color:     saveStatus === 'saved'  ? '#22c55e'
                    : saveStatus === 'saving' ? '#f59e0b'
                    : saveStatus === 'error'  ? '#ef4444'
                    : '#6b7280',
-          minWidth:  48,
+          minWidth:  64,
           textAlign: 'right',
+          flexShrink: 0,
         }}>
           {saveStatus === 'saving' ? 'Saving…'
           : saveStatus === 'saved'  ? 'Saved ✓'
-          : saveStatus === 'error'  ? 'Save error'
+          : saveStatus === 'error'  ? 'Save failed'
           : ''}
         </span>
       )}
@@ -168,9 +192,10 @@ export function EditBar() {
           </IconButton>
           <IconButton
             onClick={handleCheckpoint}
+            disabled={checkpointLoading}
             title="Save Version Checkpoint"
           >
-            {checkpointOk ? '✓' : '📌'}
+            {checkpointLoading ? '⋯' : checkpointOk ? '✓' : '📌'}
           </IconButton>
         </>
       )}

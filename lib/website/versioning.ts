@@ -1,20 +1,24 @@
 // lib/website/versioning.ts — Server-side website versioning service
 // All functions are safe to call from API routes and Server Components.
+// Never throws raw DB errors to the UI.
 
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type {
   WebsiteSnapshot,
   WebsiteSnapshotPage,
   WebsiteSnapshotSection,
+  WebsiteSnapshotImage,
+  WebsiteSnapshotNavItem,
   WebsiteVersionSummary,
   WebsiteVersionFull,
   WebsiteVersionSource,
   WebsiteVersionStatus,
   CreateVersionInput,
   VersionResult,
+  ClientPageSections,
 } from './versionTypes'
 
-// Cast to any to work around generated types not yet including new site_versions columns
+// Cast to any — generated types don't include new site_versions/website_builder_drafts columns
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DB = any
 
@@ -26,10 +30,19 @@ function getDB(): DB {
 
 /**
  * Builds a complete WebsiteSnapshot from the current live site_* tables.
+ *
+ * Includes sections with content, style_config, animation_config, and
+ * generated images from website_section_images.
+ *
+ * If clientPageOverride is provided, the sections for that specific page
+ * are replaced with the client-provided data (captures unsaved edits
+ * still in the auto-save debounce window).
+ *
  * Never throws — returns structured error on failure.
  */
 export async function getCurrentWebsiteSnapshot(
   tenantId: string,
+  clientPageOverride?: ClientPageSections,
 ): Promise<VersionResult<WebsiteSnapshot>> {
   try {
     const db = getDB()
@@ -52,17 +65,75 @@ export async function getCurrentWebsiteSnapshot(
     const pages: Record<string, unknown>[] = pagesRes.data ?? []
     const pageIds: string[] = pages.map((p) => p.id as string)
 
-    let sections: Record<string, unknown>[] = []
+    // Fetch all sections from DB
+    let dbSections: Record<string, unknown>[] = []
     if (pageIds.length > 0) {
       const { data } = await db
         .from('site_sections')
         .select('*')
         .in('page_id', pageIds)
         .order('sort_order', { ascending: true })
-      sections = data ?? []
+      dbSections = data ?? []
     }
 
-    const sectionsByPage = sections.reduce<Record<string, Record<string, unknown>[]>>(
+    // Fetch generated images for all sections (website_section_images)
+    let sectionImages: Record<string, unknown>[] = []
+    if (pageIds.length > 0) {
+      try {
+        const { data: imgData } = await db
+          .from('website_section_images')
+          .select('id,section_id,image_url,public_url,storage_path,alt_text,prompt,aspect_ratio,slot_key,is_active,is_archived,metadata,created_at')
+          .in('page_id', pageIds)
+          .eq('is_archived', false)
+          .order('created_at', { ascending: true })
+        sectionImages = imgData ?? []
+      } catch {
+        // website_section_images table might not exist yet — degrade gracefully
+        sectionImages = []
+      }
+    }
+
+    // Group images by section_id
+    const imagesBySectionId = sectionImages.reduce<Record<string, WebsiteSnapshotImage[]>>(
+      (acc, img) => {
+        const sid = img.section_id as string
+        if (!acc[sid]) acc[sid] = []
+        const activeImgId = sectionImages
+          .filter((i) => i.section_id === sid && i.is_active === true)
+          .map((i) => i.id as string)[0] ?? null
+        acc[sid].push({
+          id:          img.id as string,
+          sectionId:   sid,
+          url:         (img.image_url as string) || (img.public_url as string) || '',
+          storagePath: (img.storage_path as string | null) ?? null,
+          alt:         (img.alt_text as string | null) ?? null,
+          prompt:      (img.prompt as string | null) ?? null,
+          aspectRatio: (img.aspect_ratio as string | null) ?? null,
+          slotKey:     (img.slot_key as string) ?? 'primary',
+          isActive:    Boolean(img.is_active),
+          metadata:    (img.metadata as Record<string, unknown>) ?? {},
+          createdAt:   img.created_at as string,
+        })
+        // attach activeImageId on a separate pass below
+        void activeImgId
+        return acc
+      },
+      {},
+    )
+
+    // Determine active image id per section
+    const activeImageIdBySectionId = sectionImages.reduce<Record<string, string | null>>(
+      (acc, img) => {
+        if (img.is_active === true) {
+          acc[img.section_id as string] = img.id as string
+        }
+        return acc
+      },
+      {},
+    )
+
+    // Group DB sections by page_id
+    const sectionsByPage = dbSections.reduce<Record<string, Record<string, unknown>[]>>(
       (acc, s) => {
         const pid = s.page_id as string
         if (!acc[pid]) acc[pid] = []
@@ -72,16 +143,43 @@ export async function getCurrentWebsiteSnapshot(
       {},
     )
 
-    const snapshotPages: WebsiteSnapshotPage[] = pages.map((p) => ({
-      id:              p.id as string,
-      slug:            p.slug as string,
-      title:           (p.title as string | null) ?? null,
-      meta_description:(p.meta_description as string | null) ?? null,
-      page_type:       (p.page_type as string) ?? 'page',
-      status:          (p.status as string) ?? 'draft',
-      sort_order:      (p.sort_order as number) ?? 0,
-      seo:             (p.seo as Record<string, unknown>) ?? {},
-      sections: (sectionsByPage[p.id as string] ?? []).map((s): WebsiteSnapshotSection => ({
+    const snapshotPages: WebsiteSnapshotPage[] = pages.map((p) => {
+      const pid = p.id as string
+
+      // If client provided sections for this specific page, use those
+      if (clientPageOverride && clientPageOverride.pageId === pid) {
+        const clientSections = clientPageOverride.sections
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((s): WebsiteSnapshotSection => ({
+            id:               s.id,
+            section_type:     s.section_type,
+            section_key:      s.section_key ?? null,
+            sort_order:       s.sort_order,
+            content:          s.content ?? {},
+            style_config:     s.style_config ?? null,
+            animation_config: s.animation_config ?? null,
+            is_visible:       s.is_visible,
+            images:           imagesBySectionId[s.id] ?? [],
+            activeImageId:    activeImageIdBySectionId[s.id] ?? null,
+            created_at:       s.created_at ?? new Date().toISOString(),
+            updated_at:       s.updated_at ?? new Date().toISOString(),
+          }))
+
+        return {
+          id:               pid,
+          slug:             p.slug as string,
+          title:            (p.title as string | null) ?? null,
+          meta_description: (p.meta_description as string | null) ?? null,
+          page_type:        (p.page_type as string) ?? 'page',
+          status:           (p.status as string) ?? 'draft',
+          sort_order:       (p.sort_order as number) ?? 0,
+          seo:              (p.seo as Record<string, unknown>) ?? {},
+          sections:         clientSections,
+        }
+      }
+
+      // Otherwise use DB sections for this page
+      const pageSections = (sectionsByPage[pid] ?? []).map((s): WebsiteSnapshotSection => ({
         id:               s.id as string,
         section_type:     s.section_type as string,
         section_key:      (s.section_key as string | null) ?? null,
@@ -90,18 +188,41 @@ export async function getCurrentWebsiteSnapshot(
         style_config:     (s.style_config as Record<string, unknown> | null) ?? null,
         animation_config: (s.animation_config as Record<string, unknown> | null) ?? null,
         is_visible:       (s.is_visible as boolean) ?? true,
+        images:           imagesBySectionId[s.id as string] ?? [],
+        activeImageId:    activeImageIdBySectionId[s.id as string] ?? null,
         created_at:       s.created_at as string,
         updated_at:       s.updated_at as string,
-      })),
-    }))
+      }))
+
+      return {
+        id:               pid,
+        slug:             p.slug as string,
+        title:            (p.title as string | null) ?? null,
+        meta_description: (p.meta_description as string | null) ?? null,
+        page_type:        (p.page_type as string) ?? 'page',
+        status:           (p.status as string) ?? 'draft',
+        sort_order:       (p.sort_order as number) ?? 0,
+        seo:              (p.seo as Record<string, unknown>) ?? {},
+        sections:         pageSections,
+      }
+    })
 
     const snapshot: WebsiteSnapshot = {
       schemaVersion: 1,
       tenantId,
       capturedAt:    new Date().toISOString(),
-      settings:      settingsRes.data ?? {},
-      navigation:    navRes.data ?? [],
+      source:        'manual',
+      settings:      (settingsRes.data ?? {}) as Record<string, unknown>,
+      navigation:    ((navRes.data ?? []) as unknown as WebsiteSnapshotNavItem[]),
       pages:         snapshotPages,
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      const totalSections = snapshotPages.reduce((sum, p) => sum + p.sections.length, 0)
+      console.log(
+        `[versioning] snapshot captured: ${snapshotPages.length} pages, ${totalSections} sections` +
+        (clientPageOverride ? ` (page ${clientPageOverride.pageId} from client)` : ' (all from DB)'),
+      )
     }
 
     return { data: snapshot, error: null }
@@ -127,15 +248,17 @@ export async function createWebsiteVersion(
       snapshot = snapResult.data
     }
 
+    // Recalculate counts from the actual snapshot
     const pageCount    = snapshot.pages.length
     const sectionCount = snapshot.pages.reduce((sum, p) => sum + p.sections.length, 0)
 
-    // Get next version number
+    // Get next version number via RPC
     const { data: nextNumData } = await db.rpc('get_next_site_version_number', {
       p_tenant_id: input.tenantId,
     })
     const versionNumber = (nextNumData as number | null) ?? 1
 
+    const now = new Date().toISOString()
     const { data, error } = await db
       .from('site_versions')
       .insert({
@@ -151,14 +274,29 @@ export async function createWebsiteVersion(
         section_count:             sectionCount,
         created_by:                input.createdBy ?? null,
         restored_from_version_id:  input.restoredFromVersionId ?? null,
-        published_at:              input.status === 'published' ? new Date().toISOString() : null,
+        published_at:              input.status === 'published' ? now : null,
       })
       .select('*')
       .single()
 
     if (error) return { data: null, error: error.message }
 
-    return { data: data as WebsiteVersionSummary, error: null }
+    // Log version event
+    await db.from('website_version_events').insert({
+      tenant_id:  input.tenantId,
+      version_id: data.id,
+      event_type: 'created',
+      metadata:   {
+        source:        input.source ?? 'manual',
+        pageCount,
+        sectionCount,
+        snapshotCapturedAt: snapshot.capturedAt,
+        fromClientSnapshot: !!input.snapshot,
+      },
+      created_by: input.createdBy ?? null,
+    }).then(() => null).catch(() => null) // non-blocking
+
+    return { data: normalizeVersionRow(data) as WebsiteVersionSummary, error: null }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[versioning] createWebsiteVersion error:', msg)
@@ -176,14 +314,28 @@ export async function getWebsiteVersions(
     const db = getDB()
     const { data, error } = await db
       .from('site_versions')
-      .select('id,tenant_id,version_number,label,version_name,description,status,source,page_count,section_count,created_by,restored_from_version_id,published_at,created_at,updated_at')
+      .select('id,tenant_id,version_number,label,version_name,description,status,source,page_count,section_count,snapshot,created_by,restored_from_version_id,published_at,created_at,updated_at')
       .eq('tenant_id', tenantId)
       .order('version_number', { ascending: false })
       .limit(limit)
 
     if (error) return { data: null, error: error.message }
 
-    const versions = (data ?? []).map(normalizeVersionRow) as WebsiteVersionSummary[]
+    // Recompute counts from snapshot if stored counts are 0 but snapshot has data
+    const versions = (data ?? []).map((row: Record<string, unknown>) => {
+      const summary = normalizeVersionRow(row)
+      if ((summary.page_count === 0 || summary.section_count === 0) && row.snapshot) {
+        try {
+          const snap = row.snapshot as WebsiteSnapshot
+          if (snap?.pages?.length) {
+            summary.page_count    = snap.pages.length
+            summary.section_count = snap.pages.reduce((s, p) => s + p.sections.length, 0)
+          }
+        } catch { /* ignore */ }
+      }
+      return summary
+    }) as WebsiteVersionSummary[]
+
     return { data: versions, error: null }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -209,7 +361,16 @@ export async function getWebsiteVersion(
     if (error) return { data: null, error: error.message }
     if (!data)  return { data: null, error: 'Version not found' }
 
-    return { data: { ...normalizeVersionRow(data), snapshot: data.snapshot } as WebsiteVersionFull, error: null }
+    const summary = normalizeVersionRow(data)
+    const snapshot = data.snapshot as WebsiteSnapshot
+
+    // Recompute counts if missing
+    if ((summary.page_count === 0 || summary.section_count === 0) && snapshot?.pages?.length) {
+      summary.page_count    = snapshot.pages.length
+      summary.section_count = snapshot.pages.reduce((s, p) => s + p.sections.length, 0)
+    }
+
+    return { data: { ...summary, snapshot } as WebsiteVersionFull, error: null }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     return { data: null, error: msg }
@@ -229,34 +390,38 @@ export async function restoreWebsiteVersion(
     if (!targetResult.data) return { data: null, error: targetResult.error ?? 'Version not found' }
     const targetSnapshot = targetResult.data.snapshot
 
-    // 2. Save a "before restore" checkpoint of current state
+    if (!targetSnapshot?.pages) {
+      return { data: null, error: 'Version snapshot is invalid or empty' }
+    }
+
+    // 2. Save a "before restore" checkpoint of the current live state
     await createWebsiteVersion({
       tenantId,
-      label:      'Before restore',
+      label:       `Before restoring v${targetResult.data.version_number}`,
       description: `Auto-saved before restoring to version #${targetResult.data.version_number}`,
-      source:     'manual',
-      status:     'autosave',
-      createdBy:  userId,
+      source:      'restore',
+      status:      'autosave',
+      createdBy:   userId,
     })
 
-    // 3. Apply the snapshot back into live tables
+    // 3. Apply the target snapshot back into live tables
     const applyResult = await applySnapshotToWebsiteTables(tenantId, targetSnapshot, userId)
-    if (applyResult.error) return { data: null, error: applyResult.error }
+    if (!applyResult.data) return { data: null, error: applyResult.error ?? 'Apply failed' }
 
-    // 4. Create a new "restored" version record
+    // 4. Update the draft record to match the restored snapshot
+    await updateDraftSnapshot(tenantId, targetSnapshot, userId)
+
+    // 5. Create a new "restored" version record (history stays intact)
     const newVersionResult = await createWebsiteVersion({
       tenantId,
-      label:                   `Restored from v${targetResult.data.version_number}`,
-      description:             `Restored from version #${targetResult.data.version_number}`,
-      source:                  'restore',
-      status:                  'restored',
-      createdBy:               userId,
-      snapshot:                targetSnapshot,
-      restoredFromVersionId:   versionId,
+      label:                  `Restored from v${targetResult.data.version_number}`,
+      description:            `Restored from version #${targetResult.data.version_number}`,
+      source:                 'restore',
+      status:                 'restored',
+      createdBy:              userId,
+      snapshot:               targetSnapshot,
+      restoredFromVersionId:  versionId,
     })
-
-    // 5. Update draft record
-    await updateDraftSnapshot(tenantId, targetSnapshot, userId)
 
     return newVersionResult
   } catch (err) {
@@ -276,22 +441,27 @@ export async function publishWebsiteVersion(
   try {
     const db = getDB()
 
-    // Load the target version
+    // Load the target version snapshot
     const targetResult = await getWebsiteVersion(tenantId, versionId)
     if (!targetResult.data) return { data: null, error: targetResult.error ?? 'Version not found' }
+    const snap = targetResult.data.snapshot
+
+    if (!snap?.pages) {
+      return { data: null, error: 'Version snapshot is invalid or empty' }
+    }
 
     // Apply snapshot to live tables
-    const applyResult = await applySnapshotToWebsiteTables(tenantId, targetResult.data.snapshot, userId)
-    if (applyResult.error) return { data: null, error: applyResult.error }
+    const applyResult = await applySnapshotToWebsiteTables(tenantId, snap, userId)
+    if (!applyResult.data) return { data: null, error: applyResult.error ?? 'Apply failed' }
 
-    // Archive old published versions
+    // Archive all currently published versions
     await db
       .from('site_versions')
       .update({ status: 'archived' })
       .eq('tenant_id', tenantId)
       .eq('status', 'published')
 
-    // Mark target version as published
+    // Mark selected version as published
     const now = new Date().toISOString()
     const { data, error } = await db
       .from('site_versions')
@@ -302,19 +472,27 @@ export async function publishWebsiteVersion(
 
     if (error) return { data: null, error: error.message }
 
-    // Mark site as published
+    // Ensure site_settings is_published = true
     await db
       .from('site_settings')
       .upsert({ tenant_id: tenantId, is_published: true }, { onConflict: 'tenant_id' })
 
-    // Log event
-    await db.from('website_version_events').insert({
+    // Mark draft as clean
+    await db
+      .from('website_builder_drafts')
+      .upsert(
+        { tenant_id: tenantId, dirty: false, draft_snapshot: snap, base_version_id: versionId },
+        { onConflict: 'tenant_id' },
+      )
+
+    // Log event (non-blocking)
+    db.from('website_version_events').insert({
       tenant_id:  tenantId,
       version_id: versionId,
       event_type: 'published',
       metadata:   { published_at: now },
       created_by: userId,
-    })
+    }).then(() => null).catch(() => null)
 
     return { data: normalizeVersionRow(data) as WebsiteVersionSummary, error: null }
   } catch (err) {
@@ -333,12 +511,11 @@ export async function createAutosaveVersion(
   try {
     const db = getDB()
 
-    // Get current snapshot
     const snapResult = await getCurrentWebsiteSnapshot(tenantId)
     if (!snapResult.data) return { data: null, error: snapResult.error }
     const snapshot = snapResult.data
 
-    // Compare against last autosave to avoid duplicates
+    // Skip if identical to the last autosave
     const { data: lastAutosave } = await db
       .from('site_versions')
       .select('snapshot')
@@ -352,7 +529,7 @@ export async function createAutosaveVersion(
       const lastHash = simpleHash(JSON.stringify(lastAutosave.snapshot))
       const currHash = simpleHash(JSON.stringify(snapshot))
       if (lastHash === currHash) {
-        return { data: null, error: null } // no meaningful changes
+        return { data: null, error: null }
       }
     }
 
@@ -383,11 +560,11 @@ export async function updateDraftSnapshot(
       .from('website_builder_drafts')
       .upsert(
         {
-          tenant_id:       tenantId,
-          draft_snapshot:  snapshot,
-          dirty:           true,
+          tenant_id:         tenantId,
+          draft_snapshot:    snapshot,
+          dirty:             true,
           last_autosaved_at: new Date().toISOString(),
-          updated_by:      userId,
+          updated_by:        userId,
         },
         { onConflict: 'tenant_id' },
       )
@@ -417,7 +594,7 @@ export async function getDraftSnapshot(
       return { data: data.draft_snapshot as WebsiteSnapshot, error: null }
     }
 
-    // Fall back to current live snapshot
+    // Fall back to a fresh DB snapshot
     return getCurrentWebsiteSnapshot(tenantId)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -428,43 +605,56 @@ export async function getDraftSnapshot(
 // ── 10. applySnapshotToWebsiteTables ─────────────────────────────────────────
 
 /**
- * Writes snapshot data back into site_pages and site_sections.
- * Upserts pages and sections by ID; removes sections absent from snapshot.
- * Never touches other tenants' data.
+ * Writes snapshot back into the live site_pages, site_sections tables.
+ *
+ * - Upserts pages by ID (tenant-safe)
+ * - Upserts sections with content, style_config, animation_config, sort_order
+ * - Soft-hides (is_visible=false) sections absent from the snapshot
+ * - Never mutates rows belonging to other tenants
+ * - Returns counts of applied changes
  */
 export async function applySnapshotToWebsiteTables(
   tenantId: string,
   snapshot: WebsiteSnapshot,
   _userId: string,
-): Promise<VersionResult<boolean>> {
+): Promise<VersionResult<{ pagesApplied: number; sectionsApplied: number }>> {
+  let pagesApplied = 0
+  let sectionsApplied = 0
+
   try {
     const db = getDB()
 
     for (const page of snapshot.pages) {
-      // Upsert the page
-      await db
+      // Upsert page
+      const { error: pageErr } = await db
         .from('site_pages')
         .upsert(
           {
-            id:              page.id,
-            tenant_id:       tenantId,
-            slug:            page.slug,
-            title:           page.title,
+            id:               page.id,
+            tenant_id:        tenantId,
+            slug:             page.slug,
+            title:            page.title,
             meta_description: page.meta_description,
-            page_type:       page.page_type,
-            status:          page.status === 'published' ? 'published' : 'draft',
-            sort_order:      page.sort_order,
+            page_type:        page.page_type,
+            status:           page.status === 'published' ? 'published' : 'draft',
+            sort_order:       page.sort_order,
           },
           { onConflict: 'id' },
         )
 
-      // Determine which section IDs to keep
+      if (pageErr) {
+        console.error('[versioning] applySnapshot page upsert error:', pageErr.message)
+        continue
+      }
+      pagesApplied++
+
       const sectionIds = page.sections.map((s) => s.id)
 
-      // Upsert each section
+      // Upsert each section preserving sort_order from snapshot index
       for (let i = 0; i < page.sections.length; i++) {
         const s = page.sections[i]
-        await db
+
+        const { error: secErr } = await db
           .from('site_sections')
           .upsert(
             {
@@ -473,17 +663,23 @@ export async function applySnapshotToWebsiteTables(
               page_id:          page.id,
               section_type:     s.section_type,
               section_key:      s.section_key,
-              sort_order:       i,
-              content:          s.content,
+              sort_order:       i, // exact order from snapshot
+              content:          s.content ?? {},
               style_config:     s.style_config ?? {},
               animation_config: s.animation_config ?? {},
               is_visible:       s.is_visible,
             },
             { onConflict: 'id' },
           )
+
+        if (secErr) {
+          console.error('[versioning] applySnapshot section upsert error:', secErr.message)
+        } else {
+          sectionsApplied++
+        }
       }
 
-      // Soft-delete sections that are no longer in the snapshot
+      // Soft-hide sections no longer in snapshot
       if (sectionIds.length > 0) {
         await db
           .from('site_sections')
@@ -492,7 +688,6 @@ export async function applySnapshotToWebsiteTables(
           .eq('tenant_id', tenantId)
           .not('id', 'in', `(${sectionIds.map((id) => `'${id}'`).join(',')})`)
       } else {
-        // No sections in snapshot for this page — hide all
         await db
           .from('site_sections')
           .update({ is_visible: false })
@@ -501,7 +696,7 @@ export async function applySnapshotToWebsiteTables(
       }
     }
 
-    // Mark draft as clean after restore/publish
+    // Mark draft clean after apply
     await db
       .from('website_builder_drafts')
       .upsert(
@@ -509,7 +704,7 @@ export async function applySnapshotToWebsiteTables(
         { onConflict: 'tenant_id' },
       )
 
-    return { data: true, error: null }
+    return { data: { pagesApplied, sectionsApplied }, error: null }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[versioning] applySnapshotToWebsiteTables error:', msg)
@@ -549,7 +744,7 @@ function simpleHash(str: string): number {
   return hash
 }
 
-function normalizeVersionRow(row: Record<string, unknown>): WebsiteVersionSummary {
+export function normalizeVersionRow(row: Record<string, unknown>): WebsiteVersionSummary {
   return {
     id:                       row.id as string,
     tenant_id:                row.tenant_id as string,

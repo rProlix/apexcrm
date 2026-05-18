@@ -2,7 +2,7 @@
 
 // lib/builder/versionsApi.ts — Client-side API helpers for website versioning
 
-import type { WebsiteVersionSummary, WebsiteVersionSource } from '@/lib/website/versionTypes'
+import type { WebsiteVersionSummary, WebsiteVersionSource, ClientPageSections } from '@/lib/website/versionTypes'
 
 export async function fetchVersions(): Promise<WebsiteVersionSummary[]> {
   const res = await fetch('/api/website/versions')
@@ -11,16 +11,35 @@ export async function fetchVersions(): Promise<WebsiteVersionSummary[]> {
   return (json.versions ?? []) as WebsiteVersionSummary[]
 }
 
+/**
+ * Create a version checkpoint.
+ *
+ * If clientPageSections is provided it is sent to the API so the checkpoint
+ * captures unsaved content edits still in the auto-save debounce window.
+ */
 export async function createVersionCheckpoint(
   label?: string,
   source: WebsiteVersionSource = 'manual',
+  clientPageSections?: ClientPageSections,
 ): Promise<WebsiteVersionSummary | null> {
+  const body: Record<string, unknown> = {
+    label:  label ?? 'Manual checkpoint',
+    source,
+  }
+  if (clientPageSections) {
+    body.clientPageSections = clientPageSections
+  }
+
   const res = await fetch('/api/website/versions', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ label: label ?? 'Manual checkpoint', source }),
+    body:    JSON.stringify(body),
   })
-  if (!res.ok) return null
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    console.error('[versionsApi] createVersionCheckpoint failed', err)
+    return null
+  }
   const json = await res.json()
   return (json.version ?? null) as WebsiteVersionSummary | null
 }

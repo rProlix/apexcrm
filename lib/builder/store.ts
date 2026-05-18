@@ -38,11 +38,19 @@ interface BuilderState {
   tenantId:  string
   pageId:    string
   pageName:  string
+  pageSlug:  string
+  pageType:  string
   isPublished: boolean
   setContext: (ctx: {
-    tenantId: string; pageId: string; pageName: string; isPublished: boolean
+    tenantId: string; pageId: string; pageName: string; pageSlug: string; pageType?: string; isPublished: boolean
   }) => void
   setPublished: (v: boolean) => void
+  /** Registers an immediate flush callback from EditorShell's debounced save */
+  registerFlush: (fn: () => Promise<void>) => void
+  /** Call to force-save any pending section content edits before checkpointing */
+  flushPendingSaves: () => Promise<void>
+  /** Internal: holds the registered flush function */
+  _flushFn: (() => Promise<void>) | null
 
   // ── Undo / redo ───────────────────────────────────────────────────────────
   history:     BuilderSection[][]
@@ -108,9 +116,19 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
   tenantId:  '',
   pageId:    '',
   pageName:  '',
+  pageSlug:  '',
+  pageType:  'page',
   isPublished: false,
-  setContext: (ctx) => set(ctx),
+  setContext: (ctx) => set({ ...ctx, pageType: ctx.pageType ?? 'page' }),
   setPublished: (v) => set({ isPublished: v }),
+
+  // ── Flush / immediate save ─────────────────────────────────────────────────
+  _flushFn: null,
+  registerFlush: (fn: () => Promise<void>) => set({ _flushFn: fn }),
+  flushPendingSaves: async () => {
+    const fn = get()._flushFn
+    if (fn) await fn()
+  },
 
   // ── Undo / redo ───────────────────────────────────────────────────────────
   history: [],
