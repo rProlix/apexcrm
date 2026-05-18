@@ -176,6 +176,7 @@ export interface GeminiResult {
   detectedBusinessType:  DetectedBusinessType
   detectedContentTypes:  string[]
   overallConfidence:     number
+  designSystem?:         Record<string, unknown>
   suggestions:           GeminiSuggestion[]
   warnings:              string[]
   missingInfoQuestions:  string[]

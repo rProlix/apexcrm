@@ -28,6 +28,9 @@ import {
   parseSectionAnimationConfig,
   type ComponentAnimEntry,
 } from '@/lib/website/animations/validateAnimationConfig'
+import { PremiumSectionFrame } from './PremiumSectionFrame'
+import type { SectionDesign } from '@/lib/website/design/types'
+import { normalizeSectionDesign } from '@/lib/website/design/normalizeDesignSystem'
 
 // Section components (all must be defensive — see each file)
 import { HeroSection }         from './sections/HeroSection'
@@ -94,8 +97,32 @@ export async function SafeSectionRenderer({
     // silently skip — animation is optional
   }
 
+  // Extract section design from style_config
+  let sectionDesign: Partial<SectionDesign> | null = null
+  try {
+    const rawStyleConfig = (rawSection as Record<string, unknown>)?.style_config
+    if (rawStyleConfig && typeof rawStyleConfig === 'object') {
+      const sc = rawStyleConfig as Record<string, unknown>
+      if (sc.design && typeof sc.design === 'object') {
+        sectionDesign = normalizeSectionDesign(sc.design, {} as never)
+      }
+    }
+  } catch {
+    // non-critical; section renders without premium design
+  }
+
   try {
     const content = await renderSection(normalized, tenantId, mode, componentAnimations)
+
+    // Wrap in PremiumSectionFrame for premium styling (backgrounds, dividers, overlays)
+    const framed = (
+      <PremiumSectionFrame
+        sectionDesign={sectionDesign}
+        sectionType={normalized.type}
+      >
+        {content}
+      </PremiumSectionFrame>
+    )
 
     // Wrap in AnimatedSection (client component, fail-safe)
     // Animate in public AND preview modes; skip in editor mode to avoid conflicts
@@ -107,12 +134,12 @@ export async function SafeSectionRenderer({
           as="div"
           key={normalized.id}
         >
-          {content}
+          {framed}
         </AnimatedSection>
       )
     }
 
-    return content
+    return framed
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     const stack = err instanceof Error ? err.stack : undefined

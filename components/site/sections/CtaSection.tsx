@@ -30,48 +30,60 @@ export function CtaSection({ content, componentAnimations: ca }: Props) {
 
   return (
     <section style={{
-      padding:    '5rem 1.5rem',
+      padding:    'var(--section-padding-desk, 6rem 1.5rem)',
       background: backgroundImage
         ? `url(${backgroundImage}) center/cover no-repeat`
-        : 'var(--color-primary)',
+        : 'var(--ds-primary, var(--color-primary))',
       position: 'relative',
     }}>
+      {/* Gradient overlay for image backgrounds */}
+      {backgroundImage && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 0,
+          background: 'var(--gradient-overlay-dark)',
+        }} />
+      )}
       <div style={{
-        maxWidth:       800,
+        position:       'relative',
+        zIndex:         1,
+        maxWidth:       860,
         margin:         '0 auto',
         display:        'flex',
         flexDirection:  'column',
         alignItems,
         textAlign,
-        gap:            '1.5rem',
+        gap:            '1.75rem',
       }}>
         <AnimatedElement as="h2" animConfig={ca?.heading ?? ca?.text} style={{
-          fontSize:   'clamp(1.75rem, 4vw, 2.75rem)',
-          fontWeight: 800,
-          color:      '#fff',
-          fontFamily: 'var(--font-heading)',
-          margin:     0,
+          fontSize:      'clamp(1.75rem, 4vw, 3rem)',
+          fontWeight:    'var(--font-weight-heading, 800)' as React.CSSProperties['fontWeight'],
+          color:         '#fff',
+          fontFamily:    'var(--font-heading)',
+          letterSpacing: 'var(--letter-spacing, -0.02em)',
+          margin:        0,
+          textShadow:    '0 2px 8px rgba(0,0,0,0.20)',
         }}>{headline}</AnimatedElement>
         {body && (
           <AnimatedElement as="p" animConfig={ca?.paragraph ?? ca?.text} index={1} style={{
-            fontSize:   '1.0625rem',
-            color:      'rgba(255,255,255,0.8)',
+            fontSize:   '1.125rem',
+            color:      'rgba(255,255,255,0.88)',
             margin:     0,
-            lineHeight: 1.6,
-            maxWidth:   560,
+            lineHeight: 'var(--line-height, 1.65)',
+            maxWidth:   580,
           }}>{body}</AnimatedElement>
         )}
         {ctaLabel && (
           <AnimatedElement animConfig={ca?.button ?? ca?.cta} index={2}>
           <Link href={ctaHref || '/shop'} style={{
             background:     '#fff',
-            color:          'var(--color-primary)',
-            padding:        '0.875rem 2.25rem',
-            borderRadius:   '0.875rem',
+            color:          'var(--ds-primary, var(--color-primary))',
+            padding:        '0.9375rem 2.5rem',
+            borderRadius:   'var(--radius-button, 0.75rem)',
             fontWeight:     700,
             fontSize:       '1rem',
             textDecoration: 'none',
             display:        'inline-block',
+            boxShadow:      '0 4px 20px rgba(0,0,0,0.22)',
           }}>
             {ctaLabel}
           </Link>

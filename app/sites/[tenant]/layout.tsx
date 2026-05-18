@@ -18,6 +18,7 @@ import { SiteHeader } from '@/components/site/SiteHeader'
 import { SiteFooter } from '@/components/site/SiteFooter'
 import { BusinessAdminBar } from '@/components/site/BusinessAdminBar'
 import { resolveSiteUser } from '@/lib/auth/resolveSiteUser'
+import { normalizeDesignSystem, buildCssVars } from '@/lib/website/design/normalizeDesignSystem'
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
@@ -115,7 +116,8 @@ export default async function SiteLayout({ children, params }: Props) {
 
     const theme = normalizeTheme(config.settings)
 
-    const cssVars = {
+    // Base CSS vars from existing theme system
+    const baseCssVars: Record<string, string> = {
       '--color-primary':    theme.primaryColor,
       '--color-accent':     theme.accentColor,
       '--color-bg':         theme.backgroundColor,
@@ -125,7 +127,23 @@ export default async function SiteLayout({ children, params }: Props) {
       '--color-border':     theme.borderColor,
       '--font-heading':     `"${theme.fontHeading}", sans-serif`,
       '--font-body':        `"${theme.fontBody}", sans-serif`,
-    } as React.CSSProperties
+    }
+
+    // Overlay design system CSS vars if AI has generated a design system
+    const settingsTheme = (config.settings as unknown as Record<string, unknown>)?.theme as Record<string, unknown> | null
+    const hasDesignSystem = settingsTheme && typeof settingsTheme === 'object' && settingsTheme.palette
+    if (hasDesignSystem) {
+      try {
+        const businessCategory = (settingsTheme.businessCategory as string) ?? null
+        const ds = normalizeDesignSystem(settingsTheme, businessCategory)
+        const dsCssVars = buildCssVars(ds)
+        Object.assign(baseCssVars, dsCssVars)
+      } catch {
+        // Non-critical: fall through to base vars
+      }
+    }
+
+    const cssVars = baseCssVars as React.CSSProperties
 
     const isPlatform = headersList.get('x-is-platform') === 'true'
     const basePath   = isPlatform ? `/sites/${tenantSlug}` : ''

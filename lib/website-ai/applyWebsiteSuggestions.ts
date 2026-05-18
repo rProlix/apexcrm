@@ -5,12 +5,19 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { mapSuggestionToSection, isDuplicateReview, isDuplicateService, isDuplicateFaq } from './sectionMapper'
 import type { AiSuggestion, AiAppliedChange, ApplyResult, PublishMode } from './types'
 import type { TestimonialsContent, FeatureGridContent, FaqContent } from '@/lib/website/types'
+import { normalizeDesignSystem, serializeDesignSystem, buildCssVars } from '@/lib/website/design/normalizeDesignSystem'
+import { applySectionFlow } from '@/lib/website/design/sectionFlow'
+import { normalizeSectionDesign } from '@/lib/website/design/normalizeDesignSystem'
 
 interface ApplyContext {
-  tenantId:   string
-  jobId:      string
-  appliedBy:  string
+  tenantId:    string
+  jobId:       string
+  appliedBy:   string
   publishMode: PublishMode
+  /** Optional: raw design system from Gemini response */
+  rawDesignSystem?: Record<string, unknown>
+  /** Optional: detected business type from Gemini */
+  detectedBusinessType?: string
 }
 
 export async function applyWebsiteSuggestions(
@@ -40,6 +47,15 @@ export async function applyWebsiteSuggestions(
         `Failed to apply "${suggestion.title ?? suggestion.suggestion_type}": ${err instanceof Error ? err.message : String(err)}`
       )
       result.skipped++
+    }
+  }
+
+  // Apply design system to site_settings after sections are done
+  if (result.applied > 0) {
+    try {
+      await applyDesignSystem(ctx)
+    } catch (err) {
+      result.errors.push(`Design system save failed (non-critical): ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -77,6 +93,71 @@ async function applySingleSuggestion(
 
   // Default: map to a site_section
   return applySectionSuggestion(suggestion, ctx, homePageId)
+}
+
+// ── Design system application ──────────────────────────────────────────────────
+
+async function applyDesignSystem(ctx: ApplyContext): Promise<void> {
+  const db = getSupabaseServerClient()
+
+  // Normalize the AI-generated design system (falls back to category preset)
+  const normalizedDs = normalizeDesignSystem(
+    ctx.rawDesignSystem ?? {},
+    ctx.detectedBusinessType ?? null,
+  )
+  const serialized = serializeDesignSystem(normalizedDs)
+  const cssVars    = buildCssVars(normalizedDs)
+
+  // Save to site_settings.theme — this drives the CSS variables for the whole site
+  await db
+    .from('site_settings')
+    .update({
+      theme: { ...serialized, cssVars } as never,
+      brand_colors: {
+        primary:    normalizedDs.palette.primary,
+        secondary:  normalizedDs.palette.secondary,
+        accent:     normalizedDs.palette.accent,
+        background: normalizedDs.palette.background,
+        surface:    normalizedDs.palette.surface,
+        text:       normalizedDs.palette.textPrimary,
+        muted:      normalizedDs.palette.mutedText,
+        border:     normalizedDs.palette.border,
+      } as never,
+      fonts: {
+        heading: normalizedDs.typography.headingFontStack,
+        body:    normalizedDs.typography.bodyFontStack,
+      } as never,
+    } as never)
+    .eq('tenant_id', ctx.tenantId)
+
+  // Also apply section flow to all existing sections to create visual rhythm
+  const { data: allSections } = await db
+    .from('site_sections')
+    .select('id, section_type, style_config, sort_order')
+    .eq('tenant_id', ctx.tenantId)
+    .order('sort_order', { ascending: true })
+
+  if (allSections && allSections.length > 0) {
+    const sectionsWithDesign = applySectionFlow(
+      allSections.map((s) => {
+        const sr = s as unknown as Record<string, unknown>
+        return {
+          id:           sr.id as string,
+          type:         sr.section_type as string,
+          style_config: (sr.style_config as Record<string, unknown>) ?? {},
+        }
+      }),
+      normalizedDs,
+    )
+
+    for (const sec of sectionsWithDesign) {
+      await db
+        .from('site_sections')
+        .update({ style_config: sec.style_config } as never)
+        .eq('id', sec.id)
+        .eq('tenant_id', ctx.tenantId)
+    }
+  }
 }
 
 // ── Section-based application ──────────────────────────────────────────────────
@@ -143,6 +224,10 @@ async function applySectionSuggestion(
 
   const nextSort = ((maxSort?.sort_order as number) ?? -1) + 1
 
+  // Extract design from proposedSection if present (normalized to ensure valid enums)
+  const rawDesign = (suggestion.proposed_section as Record<string, unknown>)?.design
+  const sectionDesign = rawDesign ? normalizeSectionDesign(rawDesign, {} as never) : null
+
   const { data: created, error } = await db
     .from('site_sections')
     .insert({
@@ -153,6 +238,7 @@ async function applySectionSuggestion(
       content:      mapped.content as never,
       sort_order:   nextSort,
       is_visible:   true,
+      ...(sectionDesign ? { style_config: { design: sectionDesign } } : {}),
     } as never)
     .select('*')
     .single()

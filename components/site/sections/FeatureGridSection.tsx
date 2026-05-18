@@ -28,27 +28,35 @@ export function FeatureGridSection({ content, componentAnimations: ca }: Props) 
     : 'repeat(auto-fit, minmax(260px, 1fr))'
 
   return (
-    <section style={{ padding: '5rem 1.5rem', background: 'var(--color-bg)' }}>
+    <section style={{ padding: 'var(--section-padding-desk, 5rem 1.5rem)' }}>
       {bannerImage && (
         <div style={{ width: '100%', maxHeight: 360, overflow: 'hidden', marginBottom: '0' }}>
           <Image src={bannerImage} alt={headline || 'Services'} width={1200} height={360} unoptimized
-            style={{ width: '100%', height: 360, objectFit: 'cover' }} />
+            style={{ width: '100%', height: 360, objectFit: 'cover', borderRadius: 'var(--radius-image, 0)' }} />
         </div>
       )}
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ maxWidth: 'var(--max-width, 1200px)', margin: '0 auto' }}>
         {(headline || subtitle) && (
-          <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+          <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
             {headline && (
               <AnimatedElement as="h2" animConfig={ca?.heading ?? ca?.text} style={{
-                fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', fontWeight: 700, fontFamily: 'var(--font-heading)',
-                color: 'var(--color-text)', margin: '0 0 0.75rem',
+                fontSize:      'clamp(1.5rem, 3vw, 2.5rem)',
+                fontWeight:    'var(--font-weight-heading, 700)' as React.CSSProperties['fontWeight'],
+                fontFamily:    'var(--font-heading)',
+                letterSpacing: 'var(--letter-spacing, -0.02em)',
+                color:         'var(--ds-text, var(--color-text))',
+                margin:        '0 0 0.875rem',
               }}>
                 {headline}
               </AnimatedElement>
             )}
             {subtitle && (
               <AnimatedElement as="p" animConfig={ca?.subheading ?? ca?.text} index={1} style={{
-                fontSize: '1.0625rem', color: 'var(--color-muted)', margin: 0, maxWidth: 560,
+                fontSize:   '1.125rem',
+                color:      'var(--ds-muted, var(--color-muted))',
+                margin:     0,
+                maxWidth:   580,
+                lineHeight: 'var(--line-height, 1.65)',
                 marginLeft: 'auto', marginRight: 'auto',
               }}>
                 {subtitle}
@@ -57,7 +65,7 @@ export function FeatureGridSection({ content, componentAnimations: ca }: Props) 
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '1.75rem' }}>
           {items.map((item, i) => {
             const title       = typeof item?.title === 'string'       ? item.title       : ''
             const description = typeof item?.description === 'string' ? item.description : ''
@@ -65,28 +73,48 @@ export function FeatureGridSection({ content, componentAnimations: ca }: Props) 
             const image       = typeof item?.image === 'string'       ? item.image       : null
             return (
               <AnimatedElement key={i} animConfig={ca?.card ?? ca?.feature_card} index={i} style={{
-                background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-                borderRadius: '1rem', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '0.75rem',
+                background:   'var(--ds-surface, var(--color-surface))',
+                border:       '1px solid var(--ds-border, var(--color-border))',
+                borderRadius: 'var(--radius-card, 1rem)',
+                padding:      '2rem',
+                display:      'flex',
+                flexDirection:'column',
+                gap:          '0.875rem',
+                boxShadow:    'var(--shadow-card)',
+                transition:   'transform 0.2s ease, box-shadow 0.2s ease',
               }}>
                 {image && (
-                  <Image src={image} alt={title} width={400} height={140} unoptimized
-                    style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: '0.5rem' }} />
+                  <Image src={image} alt={title} width={400} height={160} unoptimized
+                    style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 'var(--radius-image, 0.5rem)' }} />
                 )}
                 {icon && !image && (
                   <div style={{
-                    width: 40, height: 40, borderRadius: '0.625rem',
-                    background: 'var(--color-primary)', opacity: 0.12,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem',
+                    width:        48,
+                    height:       48,
+                    borderRadius: '0.75rem',
+                    background:   'var(--ds-primary-light, rgba(37,99,235,0.10))',
+                    display:      'flex',
+                    alignItems:   'center',
+                    justifyContent: 'center',
+                    fontSize:     '1.5rem',
+                    flexShrink:   0,
                   }}>
                     {icon}
                   </div>
                 )}
                 <h3 style={{
-                  fontSize: '1.0625rem', fontWeight: 700, color: 'var(--color-text)',
-                  fontFamily: 'var(--font-heading)', margin: 0,
+                  fontSize:      '1.0625rem',
+                  fontWeight:    700,
+                  color:         'var(--ds-text, var(--color-text))',
+                  fontFamily:    'var(--font-heading)',
+                  letterSpacing: 'var(--letter-spacing, -0.01em)',
+                  margin:        0,
                 }}>{title}</h3>
                 <p style={{
-                  fontSize: '0.9375rem', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6,
+                  fontSize:   '0.9375rem',
+                  color:      'var(--ds-muted, var(--color-muted))',
+                  margin:     0,
+                  lineHeight: 'var(--line-height, 1.65)',
                 }}>{description}</p>
               </AnimatedElement>
             )

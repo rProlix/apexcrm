@@ -25,17 +25,22 @@ export function TestimonialsSection({ content, componentAnimations: ca }: Props)
 
   return (
     <section style={{
-      padding:    '5rem 1.5rem',
+      padding:    'var(--section-padding-desk, 5rem 1.5rem)',
       background: backgroundImage
         ? `url(${backgroundImage}) center/cover no-repeat`
-        : 'var(--color-surface)',
+        : undefined,
       position: 'relative',
     }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ maxWidth: 'var(--max-width, 1200px)', margin: '0 auto' }}>
         {headline && (
           <AnimatedElement as="h2" animConfig={ca?.heading ?? ca?.text} style={{
-            textAlign: 'center', fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', fontWeight: 700,
-            fontFamily: 'var(--font-heading)', color: 'var(--color-text)', margin: '0 0 3rem',
+            textAlign:     'center',
+            fontSize:      'clamp(1.5rem, 3vw, 2.5rem)',
+            fontWeight:    'var(--font-weight-heading, 700)' as React.CSSProperties['fontWeight'],
+            fontFamily:    'var(--font-heading)',
+            letterSpacing: 'var(--letter-spacing, -0.02em)',
+            color:         'var(--ds-text, var(--color-text))',
+            margin:        '0 0 3.5rem',
           }}>
             {headline}
           </AnimatedElement>
@@ -44,7 +49,7 @@ export function TestimonialsSection({ content, componentAnimations: ca }: Props)
         <div style={{
           display:             'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap:                 '1.5rem',
+          gap:                 '1.75rem',
         }}>
           {items.map((item, i) => {
             const name   = typeof item?.name === 'string'   ? item.name   : ''
@@ -57,31 +62,52 @@ export function TestimonialsSection({ content, componentAnimations: ca }: Props)
                 animConfig={ca?.card ?? ca?.testimonial_card ?? ca?.testimonial}
                 index={i}
                 style={{
-                  background: 'var(--color-bg)', border: '1px solid var(--color-border)',
-                  borderRadius: '1.25rem', padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1rem',
+                  background:   'var(--ds-bg, var(--color-bg))',
+                  border:       '1px solid var(--ds-border, var(--color-border))',
+                  borderRadius: 'var(--radius-card, 1.25rem)',
+                  padding:      '2rem',
+                  display:      'flex',
+                  flexDirection:'column',
+                  gap:          '1.125rem',
+                  boxShadow:    'var(--shadow-card)',
                 }}
               >
                 {/* Stars */}
                 {rating > 0 && (
                   <div style={{ display: 'flex', gap: '0.125rem' }}>
                     {Array.from({ length: 5 }).map((_, si) => (
-                      <span key={si} style={{ color: si < rating ? '#f59e0b' : 'var(--color-border)', fontSize: '0.875rem' }}>★</span>
+                      <span key={si} style={{ color: si < rating ? '#f59e0b' : 'var(--ds-border, var(--color-border))', fontSize: '0.9375rem' }}>★</span>
                     ))}
                   </div>
                 )}
                 {text && (
                   <p style={{
-                    fontSize: '0.9375rem', color: 'var(--color-text)', lineHeight: 1.6, margin: 0, fontStyle: 'italic',
+                    fontSize:   '0.9375rem',
+                    color:      'var(--ds-text, var(--color-text))',
+                    lineHeight: 'var(--line-height, 1.65)',
+                    margin:     0,
+                    fontStyle:  'italic',
                   }}>"{text}"</p>
                 )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: 'auto' }}>
                   {avatar && (
-                    <Image src={avatar} alt={name} width={36} height={36} unoptimized
-                      style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                    <Image src={avatar} alt={name} width={40} height={40} unoptimized
+                      style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  )}
+                  {!avatar && (
+                    <div style={{
+                      width:      40, height: 40, borderRadius: '50%',
+                      background: 'var(--ds-primary-light, rgba(37,99,235,0.10))',
+                      display:    'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize:   '1rem', fontWeight: 700, color: 'var(--ds-primary, var(--color-primary))',
+                      flexShrink: 0,
+                    }}>
+                      {name.charAt(0).toUpperCase()}
+                    </div>
                   )}
                   <div>
-                    <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)' }}>{name}</p>
-                    {role && <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-muted)' }}>{role}</p>}
+                    <p style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 700, color: 'var(--ds-text, var(--color-text))' }}>{name}</p>
+                    {role && <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--ds-muted, var(--color-muted))' }}>{role}</p>}
                   </div>
                 </div>
               </AnimatedElement>

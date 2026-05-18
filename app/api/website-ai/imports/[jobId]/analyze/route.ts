@@ -130,6 +130,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
       metadata:               {
         warnings:             result.warnings,
         missingInfoQuestions: result.missingInfoQuestions,
+        designSystem:         result.designSystem ?? null,
       } as never,
     })
     .eq('id', jobId)

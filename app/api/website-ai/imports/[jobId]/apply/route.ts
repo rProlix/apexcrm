@@ -93,6 +93,17 @@ export async function POST(req: NextRequest, { params }: Params) {
     status: 'autosave',
   })
 
+  // Load the job's full result to get the design system from Gemini
+  const { data: jobFull } = await db
+    .from('website_ai_import_jobs')
+    .select('metadata, detected_business_type')
+    .eq('id', jobId)
+    .eq('tenant_id', tenantId)
+    .single()
+
+  const rawDesignSystem = (jobFull?.metadata as Record<string, unknown>)?.designSystem as Record<string, unknown> | undefined
+  const detectedBusinessType = (jobFull as Record<string, unknown> | null)?.detected_business_type as string | undefined
+
   // Apply suggestions to DB
   const result = await applyWebsiteSuggestions(
     suggestions as Parameters<typeof applyWebsiteSuggestions>[0],
@@ -101,6 +112,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       jobId,
       appliedBy:   ctx.auth_id,
       publishMode,
+      rawDesignSystem,
+      detectedBusinessType,
     }
   )
 

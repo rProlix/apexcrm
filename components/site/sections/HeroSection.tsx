@@ -33,6 +33,12 @@ export function HeroSection({ content, componentAnimations: ca }: Props) {
   const textAlign  = align === 'center' ? 'center' : align === 'right' ? 'right' : 'left'
   const alignItems = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'
 
+  // Determine text color: use CSS var if no background image, otherwise white
+  const headlineColor   = backgroundImage ? '#fff' : 'var(--ds-text, var(--color-text))'
+  const subheadColor    = backgroundImage ? 'rgba(255,255,255,0.85)' : 'var(--ds-muted, var(--color-muted))'
+  const primaryBtnColor = 'var(--ds-primary, var(--color-primary))'
+  const primaryBtnText  = 'var(--ds-primary-text, #fff)'
+
   return (
     <section style={{
       position:       'relative',
@@ -42,14 +48,15 @@ export function HeroSection({ content, componentAnimations: ca }: Props) {
       justifyContent: 'center',
       background:     backgroundImage
         ? `url(${backgroundImage}) center/cover no-repeat`
-        : 'var(--color-surface)',
-      padding: '5rem 1.5rem',
+        : undefined,
+      padding: 'var(--section-padding-desk, 6rem 1.5rem)',
     }}>
-      {/* Overlay */}
+      {/* Overlay for background image */}
       {backgroundImage && overlay && (
         <div style={{
           position: 'absolute', inset: 0,
           background: `rgba(0,0,0,${overlayOpacity / 100})`,
+          zIndex: 0,
         }} />
       )}
 
@@ -66,42 +73,44 @@ export function HeroSection({ content, componentAnimations: ca }: Props) {
         gap:           '1.5rem',
       }}>
         <AnimatedElement as="h1" animConfig={ca?.heading ?? ca?.headline ?? ca?.text} style={{
-          fontSize:   'clamp(2rem, 5vw, 3.5rem)',
-          fontWeight: 800,
-          lineHeight: 1.1,
-          fontFamily: 'var(--font-heading)',
-          color:      backgroundImage ? '#fff' : 'var(--color-text)',
-          margin:     0,
+          fontSize:    'clamp(2rem, 5vw, 3.75rem)',
+          fontWeight:  'var(--font-weight-heading, 800)' as React.CSSProperties['fontWeight'],
+          lineHeight:  1.1,
+          fontFamily:  'var(--font-heading)',
+          letterSpacing: 'var(--letter-spacing, -0.02em)',
+          color:       headlineColor,
+          margin:      0,
         }}>
           {headline}
         </AnimatedElement>
 
         {subheadline && (
           <AnimatedElement as="p" animConfig={ca?.subheading ?? ca?.paragraph ?? ca?.text} index={1} style={{
-            fontSize:   'clamp(1rem, 2vw, 1.25rem)',
-            color:      backgroundImage ? 'rgba(255,255,255,0.8)' : 'var(--color-muted)',
+            fontSize:   'clamp(1rem, 2vw, 1.3125rem)',
+            color:      subheadColor,
             margin:     0,
-            lineHeight: 1.6,
-            maxWidth:   560,
+            lineHeight: 'var(--line-height, 1.65)',
+            maxWidth:   580,
           }}>
             {subheadline}
           </AnimatedElement>
         )}
 
         {/* CTAs */}
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: alignItems }}>
+        <div style={{ display: 'flex', gap: '0.875rem', flexWrap: 'wrap', justifyContent: alignItems, marginTop: '0.5rem' }}>
           {ctaLabel && (
             <AnimatedElement animConfig={ca?.button ?? ca?.cta} index={2}>
               <Link href={ctaHref || '/shop'} style={{
-                background:     'var(--color-primary)',
-                color:          '#fff',
-                padding:        '0.875rem 2rem',
-                borderRadius:   '0.875rem',
+                background:     primaryBtnColor,
+                color:          primaryBtnText,
+                padding:        '0.9375rem 2.25rem',
+                borderRadius:   'var(--radius-button, 0.75rem)',
                 fontWeight:     700,
                 fontSize:       '1rem',
                 textDecoration: 'none',
                 display:        'inline-block',
-                transition:     'opacity 0.15s',
+                boxShadow:      'var(--shadow-button, 0 4px 16px rgba(0,0,0,0.18))',
+                transition:     'opacity 0.15s, transform 0.15s',
               }}>
                 {ctaLabel}
               </Link>
@@ -111,14 +120,15 @@ export function HeroSection({ content, componentAnimations: ca }: Props) {
             <AnimatedElement animConfig={ca?.button} index={3}>
               <Link href={ctaSecondaryHref || '/'} style={{
                 background:     'rgba(255,255,255,0.12)',
-                color:          backgroundImage ? '#fff' : 'var(--color-text)',
-                border:         '1px solid rgba(255,255,255,0.2)',
-                padding:        '0.875rem 2rem',
-                borderRadius:   '0.875rem',
+                color:          backgroundImage ? '#fff' : 'var(--ds-text, var(--color-text))',
+                border:         '1px solid rgba(255,255,255,0.28)',
+                padding:        '0.9375rem 2.25rem',
+                borderRadius:   'var(--radius-button, 0.75rem)',
                 fontWeight:     600,
                 fontSize:       '1rem',
                 textDecoration: 'none',
                 display:        'inline-block',
+                backdropFilter: 'blur(8px)',
               }}>
                 {ctaSecondaryLabel}
               </Link>

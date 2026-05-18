@@ -49,6 +49,7 @@ export function parseGeminiResult(rawText: string): ParseResult {
     detectedBusinessType: asBusinessType(obj.detectedBusinessType),
     detectedContentTypes: asStringArray(obj.detectedContentTypes),
     overallConfidence:    asNumber(obj.overallConfidence, 0),
+    designSystem:         asObject(obj.designSystem) ?? undefined,
     suggestions,
     warnings:             asStringArray(obj.warnings),
     missingInfoQuestions: asStringArray(obj.missingInfoQuestions),
