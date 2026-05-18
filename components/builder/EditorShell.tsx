@@ -32,6 +32,11 @@ const PremiumDesignDrawer = dynamic(
   () => import('./PremiumDesignDrawer').then((m) => m.PremiumDesignDrawer),
   { ssr: false },
 )
+// Lazy-load the AI Restyle drawer (opened via EditBar "AI Restyle" button)
+const AiRestyleDrawer = dynamic(
+  () => import('./AiRestyleDrawer').then((m) => m.AiRestyleDrawer),
+  { ssr: false },
+)
 
 interface Props {
   editorCtx: EditorContext
@@ -149,6 +154,9 @@ export function EditorShell({ editorCtx }: Props) {
 
       {/* AI Premium Design floating drawer — opened via "✦ Premium Design" EditBar button */}
       <PremiumDesignDrawer />
+
+      {/* AI Restyle drawer — opened via "AI Restyle" EditBar button */}
+      <AiRestyleDrawer />
 
       {/* Main content area */}
       {editMode ? (

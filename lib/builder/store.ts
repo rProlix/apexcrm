@@ -62,6 +62,10 @@ interface BuilderState {
   // ── Premium Design floating drawer (EditBar button) ─────────────────────
   showPremiumDrawer:    boolean
   setPremiumDrawer:     (v: boolean) => void
+
+  // ── AI Restyle drawer (EditBar button) ───────────────────────────────────
+  showRestyleDrawer:    boolean
+  setRestyleDrawer:     (v: boolean) => void
 }
 
 export const useBuilderStore = create<BuilderState>((set, get) => ({
@@ -167,4 +171,8 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
   // ── Premium Design floating drawer (EditBar button) ─────────────────────
   showPremiumDrawer:    false,
   setPremiumDrawer:     (v) => set({ showPremiumDrawer: v }),
+
+  // ── AI Restyle drawer (EditBar button) ───────────────────────────────────
+  showRestyleDrawer:    false,
+  setRestyleDrawer:     (v) => set({ showRestyleDrawer: v }),
 }))

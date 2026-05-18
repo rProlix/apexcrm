@@ -8,10 +8,15 @@ export type WebsiteVersionSource =
   | 'autosave'
   | 'ai_autofill'
   | 'ai_images'
+  | 'ai_animations'
+  | 'ai_restyle'
+  | 'before_ai_restyle'
   | 'restore'
   | 'publish'
   | 'drag_drop'
   | 'section_edit'
+  | 'auto'
+  | 'system'
 
 export type WebsiteVersionEventType =
   | 'created'
