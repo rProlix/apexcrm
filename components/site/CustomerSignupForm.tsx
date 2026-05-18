@@ -83,7 +83,11 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
       }
 
       if (data.confirmed && data.next) {
-        // Email confirmation is disabled — redirect immediately
+        // Email confirmation is disabled in Supabase — session was returned
+        // immediately. Redirect the customer directly to their account page.
+        if (data._warning) {
+          console.warn('[CustomerSignupForm]', data._warning)
+        }
         window.location.href = data.next
         return
       }
