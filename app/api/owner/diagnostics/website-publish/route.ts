@@ -16,8 +16,8 @@ import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
 
 export async function GET(req: NextRequest) {
   const ctx = await getUserContext()
-  if (!ctx || ctx.role !== 'owner') {
-    return NextResponse.json({ ok: false, error: 'Owner only' }, { status: 403 })
+  if (!ctx || !['owner', 'admin'].includes(ctx.role)) {
+    return NextResponse.json({ ok: false, error: 'Owner or admin only' }, { status: 403 })
   }
 
   const params = req.nextUrl.searchParams
@@ -137,7 +137,6 @@ export async function GET(req: NextRequest) {
     const latestPublished = (versions ?? []).find((v) => v.status === 'published') ?? null
 
     // ── Column presence check ─────────────────────────────────────────────────
-    // Verify migration 072 columns exist by checking information_schema
     const { data: cols } = await db
       .from('information_schema.columns')
       .select('column_name')
@@ -152,6 +151,68 @@ export async function GET(req: NextRequest) {
 
     if (missingCols.length > 0) {
       suggestedFixes.push(`Missing columns on site_settings: ${missingCols.join(', ')}. Run migration 072_fix_website_publish_state.sql.`)
+    }
+
+    // ── Auth user vs profile ID check ─────────────────────────────────────────
+    // Verify ctx.auth_id is what gets written to site_versions.created_by.
+    // The FK requires auth.users.id, not public.users.id (ctx.id).
+    const authId  = ctx.auth_id
+    const profileId = ctx.id
+    const authIdValid   = typeof authId  === 'string' && /^[0-9a-f-]{36}$/i.test(authId)
+    const profileIdDiff = authId !== profileId
+
+    if (!authIdValid) {
+      suggestedFixes.push('ctx.auth_id is not a valid UUID. Cannot safely write site_versions.created_by.')
+    }
+
+    // ── Checkpoint insert test ────────────────────────────────────────────────
+    // Try inserting a diagnostic checkpoint row and immediately delete it.
+    let canInsertCheckpoint    = false
+    let checkpointInsertError: Record<string, unknown> | null = null
+
+    // Only run if we have a tenantId and a valid auth UUID
+    if (tenantId && authIdValid) {
+      try {
+        const { data: nextNum } = await db.rpc('get_next_site_version_number', { p_tenant_id: tenantId }) as
+          { data: number | null; error: unknown }
+
+        const testVersionNumber = (nextNum ?? 9000) + 9900 // far above real range
+
+        const { data: testRow, error: testInsertErr } = await db
+          .from('site_versions')
+          .insert({
+            tenant_id:      tenantId,
+            version_number: testVersionNumber,
+            label:          '_diagnostic_test',
+            source:         'manual',
+            status:         'draft',
+            snapshot:       { diagnostic: true },
+            page_count:     0,
+            section_count:  0,
+            created_by:     authId,
+          })
+          .select('id')
+          .single() as { data: { id: string } | null; error: Record<string, unknown> | null }
+
+        if (testInsertErr) {
+          checkpointInsertError = {
+            code:    testInsertErr.code,
+            message: testInsertErr.message,
+            details: testInsertErr.details,
+            hint:    testInsertErr.hint,
+          }
+          suggestedFixes.push(`Checkpoint insert test FAILED: ${testInsertErr.message ?? 'unknown error'}. ` +
+            'Check site_versions CHECK constraints and RLS policies.')
+        } else {
+          canInsertCheckpoint = true
+          // Clean up test row
+          if (testRow?.id) {
+            await db.from('site_versions').delete().eq('id', testRow.id)
+          }
+        }
+      } catch (checkErr) {
+        checkpointInsertError = { message: checkErr instanceof Error ? checkErr.message : String(checkErr) }
+      }
     }
 
     // ── Summary ───────────────────────────────────────────────────────────────
@@ -215,6 +276,20 @@ export async function GET(req: NextRequest) {
         has_unpublished_changes:   colSet.has('has_unpublished_changes'),
         design_system:             colSet.has('design_system'),
       },
+
+      // Auth ID health — most common cause of checkpoint failures
+      authCheck: {
+        authId,
+        profileId,
+        authIdValid,
+        profileIdDifferentFromAuthId: profileIdDiff,
+        noteIfFalse: 'If profileIdDifferentFromAuthId=false, ctx.auth_id and ctx.id are the same UUID (unusual)',
+        requirementNote: 'site_versions.created_by REFERENCES auth.users(id). Must use ctx.auth_id, not ctx.id.',
+      },
+
+      // Checkpoint test
+      canInsertCheckpoint,
+      checkpointInsertError,
 
       // Public loader behavior
       publicLoaderMode:          'public-published',

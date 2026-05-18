@@ -85,7 +85,10 @@ export async function POST(req: NextRequest) {
   }
 
   // ── PUBLISH path ──────────────────────────────────────────────────────────
-  const userId = ctx.id ?? undefined
+  // IMPORTANT: ctx.auth_id is the auth.users UUID required by the FK on
+  // site_versions.created_by. ctx.id is the public.users profile UUID — using
+  // it here caused "Checkpoint save failed" FK violations in all prior versions.
+  const userId = ctx.auth_id ?? undefined
 
   // Extract optional client sections from request body (sent by EditBar)
   const clientPageSections = body.clientPageSections as ClientPageSections | undefined
@@ -154,10 +157,42 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (versionErr) {
-    return fail(
-      'Checkpoint save failed — publish aborted',
-      versionErr.message,
-      'version_insert',
+    // Surface the exact Supabase error so the operator knows what to fix.
+    // Common causes: FK violation on created_by (use auth_id not profile id),
+    // CHECK constraint on source/status, UNIQUE conflict on version_number,
+    // or RLS policy blocking the insert.
+    const versionErrObj = versionErr as Record<string, unknown>
+    console.error('[website-publish] version insert failed:', {
+      code:    versionErrObj.code,
+      message: versionErrObj.message,
+      details: versionErrObj.details,
+      hint:    versionErrObj.hint,
+      tenantId,
+      userId,
+      versionNumber,
+      source: 'publish',
+      status: 'draft',
+    })
+    return NextResponse.json(
+      {
+        ok:    false,
+        error: 'CHECKPOINT_SAVE_FAILED',
+        message: 'Checkpoint save failed. Publish was aborted to protect data integrity.',
+        checkpointError: {
+          code:    versionErrObj.code    ?? null,
+          message: versionErrObj.message ?? null,
+          details: versionErrObj.details ?? null,
+          hint:    versionErrObj.hint    ?? null,
+        },
+        fixHint: [
+          'Verify site_versions.created_by uses auth.users.id (ctx.auth_id), not public.users.id (ctx.id)',
+          'Check site_versions CHECK constraints for source/status values',
+          'Check site_versions UNIQUE(tenant_id, version_number) is not violated',
+          'Run GET /api/owner/diagnostics/website-publish for full diagnostics',
+        ],
+        step: 'version_insert',
+      },
+      { status: 500 },
     )
   }
 

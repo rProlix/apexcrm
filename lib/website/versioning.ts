@@ -26,6 +26,20 @@ function getDB(): DB {
   return getSupabaseServerClient() as DB
 }
 
+/**
+ * Validates and returns a UUID that is safe to write to columns that
+ * REFERENCE auth.users(id).  Pass ctx.auth_id — NOT ctx.id (profile UUID).
+ *
+ * If the value is not a valid UUID (e.g. a profile row id was passed by
+ * mistake), returns null so the row still inserts without a FK violation.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function normalizeAuthUserId(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  return UUID_RE.test(value) ? value : null
+}
+
 // ── 1. getCurrentWebsiteSnapshot ─────────────────────────────────────────────
 
 /**
@@ -272,7 +286,10 @@ export async function createWebsiteVersion(
         snapshot,
         page_count:                pageCount,
         section_count:             sectionCount,
-        created_by:                input.createdBy ?? null,
+        // normalizeAuthUserId guards against accidentally passing public.users.id
+        // (ctx.id) instead of auth.users.id (ctx.auth_id). A wrong UUID would
+        // violate the FK constraint and abort the entire insert.
+        created_by:                normalizeAuthUserId(input.createdBy),
         restored_from_version_id:  input.restoredFromVersionId ?? null,
         published_at:              input.status === 'published' ? now : null,
       })
@@ -293,7 +310,7 @@ export async function createWebsiteVersion(
         snapshotCapturedAt: snapshot.capturedAt,
         fromClientSnapshot: !!input.snapshot,
       },
-      created_by: input.createdBy ?? null,
+      created_by: normalizeAuthUserId(input.createdBy),
     }).then(() => null).catch(() => null) // non-blocking
 
     return { data: normalizeVersionRow(data) as WebsiteVersionSummary, error: null }
@@ -491,7 +508,7 @@ export async function publishWebsiteVersion(
       version_id: versionId,
       event_type: 'published',
       metadata:   { published_at: now },
-      created_by: userId,
+      created_by: normalizeAuthUserId(userId),
     }).then(() => null).catch(() => null)
 
     return { data: normalizeVersionRow(data) as WebsiteVersionSummary, error: null }
@@ -564,7 +581,7 @@ export async function updateDraftSnapshot(
           draft_snapshot:    snapshot,
           dirty:             true,
           last_autosaved_at: new Date().toISOString(),
-          updated_by:        userId,
+          updated_by:        normalizeAuthUserId(userId),
         },
         { onConflict: 'tenant_id' },
       )
@@ -762,7 +779,7 @@ export async function logVersionEvent(
       version_id: options.versionId ?? null,
       event_type: eventType,
       metadata:   options.metadata ?? {},
-      created_by: options.createdBy ?? null,
+      created_by: normalizeAuthUserId(options.createdBy),
     })
   } catch (err) {
     console.error('[versioning] logVersionEvent error:', err instanceof Error ? err.message : err)

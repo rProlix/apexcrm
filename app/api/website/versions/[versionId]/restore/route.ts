@@ -17,9 +17,10 @@ export async function POST(_req: NextRequest, context: RouteContext) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
   if (!ctx.tenant_id) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
-  if (!ctx.id)    return NextResponse.json({ error: 'No user'   }, { status: 400 })
+  if (!ctx.auth_id)   return NextResponse.json({ error: 'No auth user' }, { status: 400 })
 
-  const result = await restoreWebsiteVersion(ctx.tenant_id, versionId, ctx.id)
+  // ctx.auth_id = auth.users UUID (required by site_versions.created_by FK)
+  const result = await restoreWebsiteVersion(ctx.tenant_id, versionId, ctx.auth_id)
   if (result.error) return NextResponse.json({ error: result.error }, { status: 500 })
 
   return NextResponse.json({ version: result.data, restored: true })

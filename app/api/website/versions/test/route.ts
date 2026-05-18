@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   const snapResult = await createWebsiteSnapshotForTenant({
     tenantId:            ctx.tenant_id,
-    userId:              ctx.id,
+    userId:              ctx.auth_id, // auth.users UUID, not profile UUID
     source:              'manual',
     clientSnapshot,
     clientPageSections,

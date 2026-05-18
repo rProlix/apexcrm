@@ -14,9 +14,10 @@ export async function POST() {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
   if (!ctx.tenant_id) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
-  if (!ctx.id)    return NextResponse.json({ error: 'No user'   }, { status: 400 })
+  if (!ctx.auth_id)   return NextResponse.json({ error: 'No auth user' }, { status: 400 })
 
-  const result = await createAutosaveVersion(ctx.tenant_id, ctx.id)
+  // ctx.auth_id = auth.users UUID (required by site_versions.created_by FK)
+  const result = await createAutosaveVersion(ctx.tenant_id, ctx.auth_id)
   if (result.error) return NextResponse.json({ error: result.error }, { status: 500 })
 
   return NextResponse.json({

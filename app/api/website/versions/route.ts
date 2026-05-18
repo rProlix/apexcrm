@@ -71,9 +71,14 @@ export async function POST(req: NextRequest) {
       : 'manual'
 
   // ── Step: build snapshot ──────────────────────────────────────────────────
+  // Use ctx.auth_id (auth.users UUID) — NOT ctx.id (public.users profile UUID).
+  // site_versions.created_by REFERENCES auth.users(id), so passing ctx.id
+  // causes a FK violation and "Checkpoint save failed" error.
+  const authUserId = ctx.auth_id ?? undefined
+
   const snapResult = await createWebsiteSnapshotForTenant({
     tenantId:            ctx.tenant_id,
-    userId:              ctx.id,
+    userId:              authUserId,
     source:              safeSource,
     clientSnapshot,
     clientPageSections,
@@ -88,7 +93,7 @@ export async function POST(req: NextRequest) {
     console.info('[website-versioning]', {
       action:       'create_checkpoint',
       tenantId:     ctx.tenant_id,
-      userId:       ctx.id,
+      authUserId,
       source:       safeSource,
       pageCount:    snapResult.pageCount,
       sectionCount: snapResult.sectionCount,
@@ -124,7 +129,7 @@ export async function POST(req: NextRequest) {
       snapshot:                 snapResult.snapshot,
       page_count:               snapResult.pageCount,
       section_count:            snapResult.sectionCount,
-      created_by:               ctx.id ?? null,
+      created_by:               authUserId ?? null,
       restored_from_version_id: null,
       published_at:             null,
       created_at:               now,
@@ -134,11 +139,32 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (insertErr) {
-    console.error('[website-versioning] site_versions insert failed:', insertErr)
-    return structuredError(
-      'Checkpoint save failed',
-      insertErr.message,
-      'version_insert',
+    const e = insertErr as Record<string, unknown>
+    console.error('[website-versioning] site_versions insert failed:', {
+      code:    e.code,
+      message: e.message,
+      details: e.details,
+      hint:    e.hint,
+      tenantId: ctx.tenant_id,
+      authUserId,
+      versionNumber,
+      source: safeSource,
+    })
+    return NextResponse.json(
+      {
+        ok:    false,
+        error: 'CHECKPOINT_SAVE_FAILED',
+        message: 'Checkpoint save failed.',
+        checkpointError: {
+          code:    e.code    ?? null,
+          message: e.message ?? null,
+          details: e.details ?? null,
+          hint:    e.hint    ?? null,
+        },
+        fixHint: 'Ensure created_by uses auth.users.id (ctx.auth_id). Run /api/owner/diagnostics/website-publish for details.',
+        step: 'version_insert',
+      },
+      { status: 500 },
     )
   }
 
@@ -155,7 +181,7 @@ export async function POST(req: NextRequest) {
       fromClientSnapshot: snapResult.fromClient,
       warnings:          snapResult.warnings,
     },
-    created_by: ctx.id ?? null,
+    created_by: authUserId ?? null,
   })
   .then(() => null)
   .catch((e: unknown) =>

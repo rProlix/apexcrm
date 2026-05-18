@@ -89,10 +89,14 @@ export function EditBar() {
         }
       } else {
         const msg = result.error ?? 'Publish failed'
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const checkpointErr = (result as any).checkpointError as Record<string, string> | undefined
+        const checkpointMsg = checkpointErr
+          ? `\n\nCheckpoint error: ${checkpointErr.message ?? ''}${checkpointErr.code ? ` (${checkpointErr.code})` : ''}${checkpointErr.hint ? `\nHint: ${checkpointErr.hint}` : ''}`
+          : ''
         const detail = result.details ? ` (${result.details})` : ''
-        console.error(`[EditBar] Publish error: ${msg}${detail}`)
-        // Surface error to user via alert (simple, visible)
-        window.alert(`Publish failed: ${msg}${detail}`)
+        console.error('[EditBar] Publish failed:', result)
+        window.alert(`Publish failed: ${msg}${detail}${checkpointMsg}\n\nRun /api/owner/diagnostics/website-publish for more details.`)
       }
     } finally {
       setPublishing(false)

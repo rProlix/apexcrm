@@ -59,7 +59,8 @@ export async function PUT(req: NextRequest) {
     snapshot = snapResult.data
   }
 
-  const result = await updateDraftSnapshot(ctx.tenant_id, snapshot, ctx.id)
+  // ctx.auth_id = auth.users UUID required by website_builder_drafts.updated_by FK
+  const result = await updateDraftSnapshot(ctx.tenant_id, snapshot, ctx.auth_id)
   if (result.error) return NextResponse.json({ error: result.error }, { status: 500 })
 
   return NextResponse.json({ success: true, dirty: true })
