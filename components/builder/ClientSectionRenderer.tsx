@@ -5,6 +5,9 @@
 // the Zustand store without SSR. Used for:
 //   1. Read-only view mode in EditorShell (when edit mode is OFF)
 //   2. Live preview inside each EditableSectionWrapper
+//
+// Wraps every section in PremiumSectionFrame so builder preview
+// matches the public site design output.
 
 import { HeroSection }         from '@/components/site/sections/HeroSection'
 import { FeatureGridSection }  from '@/components/site/sections/FeatureGridSection'
@@ -15,46 +18,73 @@ import { RichTextSection }     from '@/components/site/sections/RichTextSection'
 import { BannerSection }       from '@/components/site/sections/BannerSection'
 import { ContactSection }      from '@/components/site/sections/ContactSection'
 import { AboutSection }        from '@/components/site/sections/AboutSection'
+import { PremiumSectionFrame } from '@/components/site/PremiumSectionFrame'
+import { normalizeSectionDesign } from '@/lib/website/design/normalizeDesignSystem'
 import type { BuilderSection } from '@/lib/builder/types'
+import type { SectionDesign }  from '@/lib/website/design/types'
 
 interface Props {
   section: BuilderSection
 }
 
+/** Extract and normalize the design from a section's style_config */
+function extractDesign(section: BuilderSection): Partial<SectionDesign> | null {
+  try {
+    const sc = section.style_config
+    if (sc && typeof sc === 'object' && 'design' in sc && sc.design && typeof sc.design === 'object') {
+      return normalizeSectionDesign(sc.design, {} as never)
+    }
+  } catch { /* non-critical */ }
+  return null
+}
+
 export function ClientSectionRenderer({ section }: Props) {
   const c = section.content as Record<string, unknown>
+  const sectionDesign = extractDesign(section)
+
+  // Render the section content and wrap it in PremiumSectionFrame
+  // so builder preview matches the public site design output.
+  let inner: React.ReactNode
 
   switch (section.section_type) {
     case 'hero':
-      return <HeroSection content={c as never} />
+      inner = <HeroSection content={c as never} />
+      break
 
     case 'feature_grid':
-      return <FeatureGridSection content={c as never} />
+      inner = <FeatureGridSection content={c as never} />
+      break
 
     case 'testimonials':
-      return <TestimonialsSection content={c as never} />
+      inner = <TestimonialsSection content={c as never} />
+      break
 
     case 'faq':
-      return <FaqSection content={c as never} />
+      inner = <FaqSection content={c as never} />
+      break
 
     case 'cta':
-      return <CtaSection content={c as never} />
+      inner = <CtaSection content={c as never} />
+      break
 
     case 'rich_text':
-      return <RichTextSection content={c as never} />
+      inner = <RichTextSection content={c as never} />
+      break
 
     case 'banner':
-      return <BannerSection content={c as never} />
+      inner = <BannerSection content={c as never} />
+      break
 
     case 'contact':
-      return <ContactSection content={c as never} />
+      inner = <ContactSection content={c as never} />
+      break
 
     case 'about':
-      return <AboutSection content={c as never} />
+      inner = <AboutSection content={c as never} />
+      break
 
     case 'product_grid':
-      // Product grid needs server-side data fetching — show a placeholder in edit mode
-      return (
+      inner = (
         <div style={{
           padding:    '4rem 1.5rem',
           textAlign:  'center',
@@ -72,9 +102,10 @@ export function ClientSectionRenderer({ section }: Props) {
           </p>
         </div>
       )
+      break
 
     case 'image_gallery':
-      return (
+      inner = (
         <div style={{
           padding:    '4rem 1.5rem',
           textAlign:  'center',
@@ -89,9 +120,10 @@ export function ClientSectionRenderer({ section }: Props) {
           </p>
         </div>
       )
+      break
 
     case 'product_360_viewer':
-      return (
+      inner = (
         <div style={{
           padding:      '3rem 1.5rem',
           textAlign:    'center',
@@ -109,13 +141,23 @@ export function ClientSectionRenderer({ section }: Props) {
               ? `Product ID: ${(c.productId as string).slice(0, 8)}… · Configure in sidebar →`
               : 'Select a product in the sidebar to attach a 360° spin'}
           </p>
-          <p style={{ color: '#6d28d9', fontSize: '0.75rem', marginTop: '0.75rem' }}>
-            Interactive drag-to-rotate viewer will render on the live site
-          </p>
         </div>
       )
+      break
 
     default:
       return null
   }
+
+  // If there's no design data, skip the frame wrapper to avoid layout changes
+  if (!sectionDesign) return <>{inner}</>
+
+  return (
+    <PremiumSectionFrame
+      sectionDesign={sectionDesign}
+      sectionType={section.section_type}
+    >
+      {inner}
+    </PremiumSectionFrame>
+  )
 }

@@ -117,6 +117,10 @@ export interface WebsiteRestylePlan {
   contrastFixes: WebsiteContrastFix[]
   mobileFixes: WebsiteMobileFix[]
   warnings: string[]
+  /** AI may optionally recommend a template key */
+  recommendedTemplateKey?: string | null
+  /** Reason the AI recommends this template */
+  recommendedTemplateReason?: string | null
 }
 
 // ── API response types ────────────────────────────────────────────────────────

@@ -552,6 +552,36 @@ function PreviewPanel({
         </div>
       )}
 
+      {/* AI Recommended Template (if present) */}
+      {plan.recommendedTemplateKey && (
+        <div style={{
+          padding: '0.875rem 1rem', borderRadius: 10,
+          background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.25)',
+        }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#c9a84c', marginBottom: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            ✦ AI Recommended Template
+          </div>
+          <div style={{ fontSize: '0.875rem', color: '#e8e6e0', fontWeight: 600, marginBottom: '0.25rem' }}>
+            {plan.recommendedTemplateKey.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+          </div>
+          {plan.recommendedTemplateReason && (
+            <p style={{ fontSize: '0.75rem', color: '#a8a4a0', margin: '0 0 0.625rem', lineHeight: 1.5 }}>
+              {plan.recommendedTemplateReason}
+            </p>
+          )}
+          <a
+            href={`/website/templates`}
+            style={{
+              display: 'inline-block', padding: '0.375rem 0.75rem', borderRadius: 6,
+              background: 'rgba(201,168,76,0.15)', border: '1px solid rgba(201,168,76,0.3)',
+              color: '#c9a84c', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none',
+            }}
+          >
+            Browse Templates →
+          </a>
+        </div>
+      )}
+
       {/* Info */}
       <div style={{ fontSize: '0.6875rem', color: '#52525b', lineHeight: 1.5 }}>
         A version checkpoint will be saved before applying. You can always restore the previous design from Version History.
@@ -644,6 +674,17 @@ function DonePanel({
         >
           Try Another Style
         </button>
+        <a
+          href="/website/templates"
+          style={{
+            padding: '0.625rem', borderRadius: 8, border: '1px solid rgba(201,168,76,0.3)',
+            background: 'rgba(201,168,76,0.08)', color: '#c9a84c', fontSize: '0.8125rem',
+            fontWeight: 600, cursor: 'pointer', textAlign: 'center', display: 'block',
+            textDecoration: 'none',
+          }}
+        >
+          ✦ Browse Premium Templates
+        </a>
         <button
           onClick={onClose}
           style={{

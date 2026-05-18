@@ -145,6 +145,25 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
         </Link>
       </div>
 
+      {/* Templates quick-access card */}
+      <Link href="/website/templates">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1a1610] via-graphite-800/60 to-graphite-800/60 border border-[#c9a84c]/20 hover:border-[#c9a84c]/40 transition-all duration-200 hover:shadow-lg cursor-pointer px-5 py-4">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-xl bg-[#c9a84c]/10 border border-[#c9a84c]/20 flex items-center justify-center shrink-0 text-2xl">
+              ✦
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="text-sm font-semibold text-white group-hover:text-[#c9a84c] transition-colors">Premium Templates</p>
+                <span className="text-2xs font-bold px-1.5 py-0.5 rounded bg-[#c9a84c]/15 text-[#c9a84c] uppercase tracking-wide">10 templates</span>
+              </div>
+              <p className="text-xs text-white/40 leading-relaxed">Apply a luxury, restaurant, parallax, or product story layout — your content stays intact.</p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-[#c9a84c]/50 group-hover:text-[#c9a84c] group-hover:translate-x-1 transition-all duration-150 shrink-0" />
+          </div>
+        </div>
+      </Link>
+
       {/* Publish status banner */}
       <div className={cn(
         'rounded-2xl border px-5 py-4 flex items-center gap-4',

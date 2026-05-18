@@ -112,7 +112,7 @@ export async function SafeSectionRenderer({
   }
 
   try {
-    const content = await renderSection(normalized, tenantId, mode, componentAnimations)
+    const content = await renderSection(normalized, tenantId, mode, componentAnimations, sectionDesign)
 
     // Wrap in PremiumSectionFrame for premium styling (backgrounds, dividers, overlays)
     const framed = (
@@ -170,13 +170,14 @@ async function renderSection(
   tenantId:            string,
   mode:                'public' | 'preview' | 'editor',
   componentAnimations: SectionComponentAnimations | undefined,
+  sectionDesign?:      Partial<SectionDesign> | null,
 ): Promise<React.ReactNode> {
   const c  = section.content
   const ca = componentAnimations  // shorthand
 
   switch (section.type as CanonicalSectionType) {
     case 'hero':
-      return <HeroSection content={c as never} componentAnimations={ca} />
+      return <HeroSection content={c as never} componentAnimations={ca} sectionDesign={sectionDesign} />
 
     case 'about':
       return <AboutSection content={c as never} componentAnimations={ca} />

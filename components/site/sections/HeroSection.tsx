@@ -3,13 +3,16 @@ import Link from 'next/link'
 import type { HeroContent } from '@/lib/website/types'
 import { AnimatedElement } from '@/components/site/AnimatedElement'
 import type { SectionComponentAnimations } from '@/components/site/SafeSectionRenderer'
+import type { SectionDesign } from '@/lib/website/design/types'
 
 interface Props {
   content:             HeroContent
   componentAnimations?: SectionComponentAnimations
+  /** Design override from style_config.design — passed from SafeSectionRenderer or builder */
+  sectionDesign?:      Partial<SectionDesign> | null
 }
 
-export function HeroSection({ content, componentAnimations: ca }: Props) {
+export function HeroSection({ content, componentAnimations: ca, sectionDesign }: Props) {
   const c   = (content && typeof content === 'object' ? content : {}) as Partial<HeroContent>
   const raw = c as Record<string, unknown>
 
@@ -33,9 +36,9 @@ export function HeroSection({ content, componentAnimations: ca }: Props) {
   const textAlign  = align === 'center' ? 'center' : align === 'right' ? 'right' : 'left'
   const alignItems = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'
 
-  // Determine text color: use CSS var if no background image, otherwise white
-  const headlineColor   = backgroundImage ? '#fff' : 'var(--ds-text, var(--color-text))'
-  const subheadColor    = backgroundImage ? 'rgba(255,255,255,0.85)' : 'var(--ds-muted, var(--color-muted))'
+  // Determine text color: design overrides > image-based defaults > CSS vars
+  const headlineColor   = sectionDesign?.textColor    ?? (backgroundImage ? '#fff' : 'var(--ds-text, var(--color-text))')
+  const subheadColor    = sectionDesign?.subtextColor ?? (backgroundImage ? 'rgba(255,255,255,0.85)' : 'var(--ds-muted, var(--color-muted))')
   const primaryBtnColor = 'var(--ds-primary, var(--color-primary))'
   const primaryBtnText  = 'var(--ds-primary-text, #fff)'
 

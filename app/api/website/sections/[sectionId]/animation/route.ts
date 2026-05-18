@@ -54,13 +54,33 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
   const validatedConfig = parsedResult.data
 
-  // Update section
+  // Load existing style_config so we can merge — never clobber style_config.design
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existingRow } = await (supabase as any)
+    .from('site_sections')
+    .select('style_config')
+    .eq('id', sectionId)
+    .single() as { data: { style_config?: Record<string, unknown> } | null; error: unknown }
+
+  const existingStyleConfig =
+    existingRow?.style_config && typeof existingRow.style_config === 'object'
+      ? existingRow.style_config
+      : {}
+
+  // Merge: preserve existing style_config.design; set animation sub-key only
+  const mergedStyleConfig: Record<string, unknown> = {
+    ...existingStyleConfig,
+    animation: validatedConfig,
+  }
+
+  // Update section — animation_config is the canonical animation store;
+  // style_config merges animation without erasing design fields.
   const { data: updated, error: updateErr } = await supabase
     .from('site_sections')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .update({
       animation_config: validatedConfig as never,
-      style_config:     validatedConfig as never,
+      style_config:     mergedStyleConfig as never,
       updated_at:       new Date().toISOString(),
     } as never)
     .eq('id', sectionId)

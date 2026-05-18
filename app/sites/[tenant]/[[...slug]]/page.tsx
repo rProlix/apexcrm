@@ -17,6 +17,7 @@ export const revalidate = 0
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig, getDraftSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { SafeSectionRenderer } from '@/components/site/SafeSectionRenderer'
+import { TemplateRenderer } from '@/components/site/TemplateRenderer'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { normalizeSection, isPublicVisible, bySortOrder } from '@/lib/website/normalizeWebsiteSection'
 import type { BuilderSection, EditorContext } from '@/lib/builder/types'
@@ -206,6 +207,27 @@ export default async function TenantPage({ params }: Props) {
     )
   }
 
+  // Detect active template from site settings
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const settingsRaw = config.settings as unknown as Record<string, unknown>
+  const activeTemplateKey = (settingsRaw.active_template_key as string | null | undefined) ?? null
+  const templateConfig    = (settingsRaw.template_config as Record<string, unknown> | null | undefined) ?? {}
+
+  // If an active template is set, route through TemplateRenderer for premium layout
+  if (activeTemplateKey) {
+    return (
+      <TemplateRenderer
+        activeTemplateKey={activeTemplateKey}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        sections={sections.map((s) => s!.raw as any)}
+        tenantId={tenantId}
+        mode="public"
+        templateConfig={templateConfig}
+      />
+    )
+  }
+
+  // Default: standard section-by-section rendering
   return (
     <div>
       {await Promise.all(
