@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse }   from 'next/server'
 import { resolveP360ApiUser }          from '@/lib/product-360/auth'
 import { getSupabaseServerClient }     from '@/lib/supabase/server'
+import { P360_REFERENCE_BUCKET, getReferencePath } from '@/lib/product-360/storage'
 
 export const dynamic    = 'force-dynamic'
 export const maxDuration = 30
@@ -22,17 +23,6 @@ type Ctx = { params: Promise<{ packageId: string }> }
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  // 10 MB
 const ALLOWED_TYPES       = new Set(['image/jpeg', 'image/png', 'image/webp'])
-const BUCKET              = 'spin-360-assets'
-
-function getRefPath(
-  tenantId:  string,
-  productId: string,
-  packageId: string,
-  ext:       string,
-): string {
-  return `tenants/${tenantId}/360/${productId}/packages/${packageId}/reference.${ext}`
-}
-
 export async function POST(req: NextRequest, ctx: Ctx) {
   const { packageId } = await ctx.params
 
@@ -69,7 +59,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }, { status: 400 })
   }
 
-  const imageFile = formData.get('image')
+  const imageFile = formData.get('image') ?? formData.get('file')
   if (!imageFile || !(imageFile instanceof Blob)) {
     return NextResponse.json({
       ok: false,
@@ -120,13 +110,13 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // Build storage path
   const extMap: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
   const ext          = extMap[contentType] ?? 'jpg'
-  const storagePath  = getRefPath(tenantId, productId, packageId, ext)
+  const storagePath  = getReferencePath(tenantId, productId, packageId, ext)
 
   // Upload to Supabase Storage
   const imageBuffer  = Buffer.from(await imageFile.arrayBuffer())
 
   const { error: uploadErr } = await supabase.storage
-    .from(BUCKET)
+    .from(P360_REFERENCE_BUCKET)
     .upload(storagePath, imageBuffer, {
       contentType,
       upsert: true,
@@ -140,7 +130,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         error: {
           type:    'storage_error',
           title:   'Storage not configured',
-          message: `Storage bucket "${BUCKET}" not found. Run the storage migration to create it.`,
+          message: `Storage bucket "${P360_REFERENCE_BUCKET}" not found. Run the product 360 Leonardo reference workflow migration to create it.`,
         },
       }, { status: 503 })
     }
@@ -151,7 +141,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   // Get public URL
-  const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(storagePath)
+  const { data: { publicUrl } } = supabase.storage.from(P360_REFERENCE_BUCKET).getPublicUrl(storagePath)
 
   // Update package record (cast to bypass typed client — new columns from migration 046)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -160,6 +150,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     .update({
       reference_image_url:          publicUrl,
       reference_image_storage_path: storagePath,
+      reference_image_path:         storagePath,
       updated_at:                   new Date().toISOString(),
     })
     .eq('id', packageId)

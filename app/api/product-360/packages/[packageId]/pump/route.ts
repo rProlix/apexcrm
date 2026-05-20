@@ -48,6 +48,7 @@ import { hasLockedScene, getLockedScene }    from '@/lib/product-360/lockedScene
 import type { P360GenerationConfig }          from '@/lib/ai/360/types'
 
 export const dynamic     = 'force-dynamic'
+export const runtime     = 'nodejs'
 export const maxDuration = 120   // one Imagen call: 10–60 s on average
 
 type Ctx = { params: Promise<{ packageId: string }> }
@@ -55,6 +56,63 @@ type Ctx = { params: Promise<{ packageId: string }> }
 const PUMPABLE = new Set([
   'queued', 'planning', 'generating', 'processing', 'paused_quota', 'failed',
 ])
+
+function getLeonardoTextVariablesFormat(): 'json' | 'text' {
+  return process.env.LEONARDO_360_TEXT_VARIABLES_FORMAT?.trim().toLowerCase() === 'json' ? 'json' : 'text'
+}
+
+function buildLeonardoTextVariablesPayload(input: {
+  frameIndex: number
+  angleDegrees: number
+  lockedScenePrompt: string
+  retryPrompt: string
+  sceneBlueprint: Record<string, unknown>
+  identityText?: string | null
+}): string {
+  const consistencyRules = [
+    'Use the reference image as the visual identity anchor.',
+    'Preserve the exact product identity.',
+    'Preserve the exact plate, bowl, container, packaging, or vessel.',
+    'Preserve the same table surface.',
+    'Preserve the same wall and background.',
+    'Preserve the same lighting, shadows, highlights, and atmosphere.',
+    'Preserve the same camera distance, lens, crop, scale, and composition.',
+    'Preserve the same props and object count.',
+    'Preserve the same food toppings, ingredients, garnish, sauces, and surface details exactly.',
+    'Only rotate the product or viewing angle to the requested angleDegrees.',
+    'Do not add new objects.',
+    'Do not remove objects.',
+    'Do not zoom in or out.',
+    'Do not change dish type, ingredients, colors, toppings, garnish, shape, scale, crop, surface, utensils, table, wall, or background.',
+  ]
+  const variables = {
+    frameIndex: input.frameIndex,
+    angleDegrees: input.angleDegrees,
+    orbitInstruction: `Render the same product from a ${input.angleDegrees} degree clockwise orbit angle.`,
+    lockedScenePrompt: input.lockedScenePrompt,
+    framePrompt: input.retryPrompt,
+    identityText: input.identityText ?? '',
+    sceneBlueprint: input.sceneBlueprint,
+    consistencyRules,
+  }
+
+  if (getLeonardoTextVariablesFormat() === 'json') return JSON.stringify(variables)
+
+  return [
+    input.lockedScenePrompt,
+    '',
+    input.identityText ?? '',
+    '',
+    `FRAME INDEX: ${input.frameIndex}`,
+    `ANGLE DEGREES: ${input.angleDegrees}`,
+    variables.orbitInstruction,
+    '',
+    'STRICT CONSISTENCY RULES:',
+    ...consistencyRules.map(rule => `- ${rule}`),
+    '',
+    input.retryPrompt,
+  ].filter(Boolean).join('\n')
+}
 
 // ─── Structured error helper ──────────────────────────────────────────────────
 
@@ -69,8 +127,16 @@ function pumpError(opts: {
   console.error(
     `[P360] pump:error stage=${opts.failedStage} code=${opts.errorCode} msg="${opts.errorMessage}"`,
   )
-  return NextResponse.json({
+    return NextResponse.json({
     ok:           false,
+      status:       null,
+      framesDone:   null,
+      targetFrameCount: null,
+      progressPercent: null,
+      nextFrameIndex: null,
+      previewImageUrl: null,
+      error:        opts.errorMessage,
+      details:      opts.errorDetails ?? null,
     packageId:    opts.packageId,
     errorCode:    opts.errorCode,
     errorMessage: opts.errorMessage,
@@ -214,7 +280,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const provider = getProduct360Provider(providerName)
   if (!provider.isAvailable()) {
     const errs = provider.configErrors()
-    const msg  = `360 provider "${providerName}" is not configured: ${errs.join('; ')}`
+    const missingVars = errs.map(e => e.replace(/^Missing\s+/, '')).join(', ')
+    const msg  = providerName === 'leonardo'
+      ? `Missing Leonardo environment variables: ${missingVars}. Fix: add ${missingVars} to your server environment and restart the app.`
+      : `360 provider "${providerName}" is not configured: ${errs.join('; ')}`
     await db.from('product_360_packages').update({
       status: 'failed', generation_error: msg, last_error_message: msg,
       last_provider_error: errs[0] ?? msg,
@@ -224,9 +293,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       errorMessage: msg, failedStage: 'provider-init' })
   }
 
-  // Reference image URL — resolved with fallback chain:
-  //   package.reference_image_url → package.master_frame_url → product.image_url (resolved after product load)
-  // For Leonardo: strongly recommended; will warn but not block if absent.
+  // Reference image URL — Leonardo uses package.reference_image_url or package.master_frame_url only.
+  // Product catalog images are not stable enough to act as the consistent blueprint anchor.
   const referenceImageUrl: string | null = (pkg.reference_image_url as string | null) ?? null
 
   // ── Load product (separate query — avoids FK ambiguity, no column assumptions) ─
@@ -240,26 +308,27 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const productName  = (productRaw?.name        as string | null) || (pkg.name as string) || 'Product'
   const productDesc  = (productRaw?.description as string | null) || (pkg.description as string) || ''
   const productCat   = (productRaw?.category    as string | null) ?? null
-  const productImageUrl = (productRaw as Record<string, unknown> | null)?.image_url as string | null
-    ?? (productRaw as Record<string, unknown> | null)?.images as string | null
-    ?? null
 
   console.info(`[P360] pump:product-loaded name="${productName}"`)
 
   // ── Reference image fallback chain ────────────────────────────────────────
   // Resolved here (after product load) so we can fall back to the product image.
   const resolvedReferenceImageUrl: string | null =
-    referenceImageUrl                                                           ||  // package.reference_image_url
-    (pkg.master_frame_url as string | null)                                    ||  // first generated frame (best visual anchor)
-    (typeof productImageUrl === 'string' ? productImageUrl : null)             ||  // product image
+    referenceImageUrl ||
+    (pkg.master_frame_url as string | null) ||
     null
 
   if (providerName === 'leonardo' && !resolvedReferenceImageUrl) {
-    console.warn(
-      `[P360] pump:leonardo-no-reference packageId=${packageId} — ` +
-      `No reference image URL available (package.reference_image_url, master_frame_url, product.image_url are all null). ` +
-      `Upload a reference image for best 360 consistency.`,
-    )
+    const msg = 'Leonardo generation requires a reference image or master frame. Upload a product reference image or generate a master frame first.'
+    await db.from('product_360_packages').update({
+      status: 'failed',
+      generation_stage: 'failed',
+      generation_error: msg,
+      last_error_message: msg,
+      last_error_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq('id', packageId)
+    return pumpError({ packageId, status: 422, errorCode: 'missing_reference_image', errorMessage: msg, failedStage: 'reference-check' })
   }
 
   // ── Build normalized subject + blueprint ──────────────────────────────────
@@ -397,7 +466,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // ── Find next frame to process ────────────────────────────────────────────
   const { data: existingFrames, error: framesErr } = await db
     .from('product_360_frames')
-    .select('frame_index, image_url, provider_job_id, provider_execution_id, provider_status, status')
+    .select('frame_index, image_url, provider_job_id, provider_execution_id, provider_status, status, needs_regeneration')
     .eq('package_id', packageId)
     .order('frame_index', { ascending: true })
 
@@ -412,8 +481,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     provider_execution_id: string | null
     provider_status:       string | null
     status:                string | null
+    needs_regeneration:    boolean | null
   }>
-  const completedSet = new Set(frames.filter(f => !!f.image_url).map(f => f.frame_index))
+  const completedSet = new Set(frames.filter(f => !!f.image_url && !f.needs_regeneration).map(f => f.frame_index))
   // Track frames that have a pending async execution (not yet complete but started)
   // Prefer provider_execution_id over provider_job_id (provider_execution_id added in 047)
   const pollingFrameMap = new Map(
@@ -528,6 +598,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const isMasterFramePoll = nextFrameIndex === 0
     const angleDegPoll      = getFrameAngle(nextFrameIndex, totalFrames)
     const shotDirPoll       = getShotDirection(angleDegPoll)
+    const promptUsedPoll    = isMasterFramePoll
+      ? buildMasterFramePrompt(subject, genConfig, blueprint)
+      : buildLockedFramePrompt(lockedPrompt, blueprint, angleDegPoll, nextFrameIndex, totalFrames, shotDirPoll, 0)
 
     await db.from('product_360_packages').update({
       generation_stage: 'uploading',
@@ -549,6 +622,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       try {
         fetchRes = await fetch(pollResult.imageUrl, { signal: AbortSignal.timeout(30_000) })
         if (!fetchRes.ok) throw new Error(`Remote frame fetch failed: HTTP ${fetchRes.status}`)
+        const contentType = fetchRes.headers.get('content-type') ?? ''
+        if (!contentType.toLowerCase().startsWith('image/')) {
+          throw new Error(`Remote frame fetch did not return an image content-type. Got: ${contentType || 'unknown'}`)
+        }
       } catch (fetchErr) {
         const fetchMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
         // Image URL exists but download failed — save it directly as image_url without re-uploading
@@ -558,6 +635,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           package_id: packageId, tenant_id: tenantIdPkg, product_id: productId,
           frame_index: nextFrameIndex, angle_degrees: angleDegPoll,
           image_url: pollResult.imageUrl, status: 'completed',
+          prompt_used: promptUsedPoll.slice(0, 4000),
           is_master_frame: isMasterFramePoll,
           provider: 'leonardo', provider_status: 'completed', provider_job_id: null, provider_execution_id: null,
           alt_text: `${productName} – ${shotDirPoll} view`,
@@ -584,10 +662,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         }
         return NextResponse.json({ ok: true, packageId, hasMore: true, done: false, packageStatus: 'generating', generationStage: 'generating', progressPercent: progressF, framesDone: newDoneF, totalFrames, remainingFrames: totalFrames - newDoneF, processedFrameIndex: nextFrameIndex, imageUrl: pollResult.imageUrl, message: `Frame ${newDoneF} of ${totalFrames} generated (Leonardo, URL-only).` })
       }
+      const fetchContentType = fetchRes.headers.get('content-type') ?? mimePoll
       const buf = Buffer.from(await fetchRes.arrayBuffer())
       const up  = await uploadFrame({
         tenantId: tenantIdPkg, productId, packageId, frameIndex: nextFrameIndex,
-        buffer: buf, contentType: fetchRes.headers.get('content-type') ?? mimePoll, ext: extPoll,
+        buffer: buf, contentType: fetchContentType, ext: fetchContentType.includes('jpeg') ? 'jpg' : 'png',
       })
       uploadedUrlPoll = up.imageUrl; storagePathPoll = up.storagePath
     } else {
@@ -633,6 +712,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       image_url:              uploadedUrlPoll,
       storage_path:           storagePathPoll,
       status:                 'completed',
+      prompt_used:            promptUsedPoll.slice(0, 4000),
       is_master_frame:        isMasterFramePoll,
       provider:               'leonardo',
       provider_job_id:        null,         // clear now that it's done
@@ -750,15 +830,25 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     try {
       // Build text variables for Leonardo (includes locked identity + angle)
-      const textVars = identityBp
+      const identityText = identityBp
         ? serializeIdentityBlueprintToTextVariables(
             identityBp,
             angleDeg,
             nextFrameIndex,
             totalFrames,
-            resolvedReferenceImageUrl ? 'Use the provided reference image as visual anchor.' : undefined,
+            'Use the provided reference image as the exact visual anchor. Match every visible detail precisely.',
           )
-        : retryPrompt
+        : null
+      const textVars = providerName === 'leonardo'
+        ? buildLeonardoTextVariablesPayload({
+            frameIndex: nextFrameIndex,
+            angleDegrees: angleDeg,
+            lockedScenePrompt: lockedPrompt,
+            retryPrompt,
+            sceneBlueprint: blueprint as unknown as Record<string, unknown>,
+            identityText,
+          })
+        : (identityText ?? retryPrompt)
 
       console.info(`[P360] pump:provider:start provider="${providerName}" frame=${nextFrameIndex} attempt=${attempt + 1}`)
 
@@ -984,6 +1074,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       try {
         fetchRes = await fetch(result.imageUrl, { signal: AbortSignal.timeout(30_000) })
         if (!fetchRes.ok) throw new Error(`Remote frame fetch failed: HTTP ${fetchRes.status} for ${result.imageUrl}`)
+        const contentType = fetchRes.headers.get('content-type') ?? ''
+        if (!contentType.toLowerCase().startsWith('image/')) {
+          throw new Error(`Remote frame fetch did not return an image content-type. Got: ${contentType || 'unknown'}`)
+        }
       } catch (fetchErr) {
         // Fetch failed but we have the URL — store it directly rather than failing the frame
         const fetchMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
@@ -992,10 +1086,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         fetchRes = null as unknown as Response
       }
       if (fetchRes) {
+        const fetchContentType = fetchRes.headers.get('content-type') ?? mimeType
         const buf = Buffer.from(await fetchRes.arrayBuffer())
         const up  = await uploadFrame({
           tenantId: tenantIdPkg, productId, packageId, frameIndex: nextFrameIndex,
-          buffer: buf, contentType: fetchRes.headers.get('content-type') ?? mimeType, ext,
+          buffer: buf, contentType: fetchContentType, ext: fetchContentType.includes('jpeg') ? 'jpg' : 'png',
         })
         uploadedUrl = up.imageUrl; storagePath = up.storagePath
       } else {

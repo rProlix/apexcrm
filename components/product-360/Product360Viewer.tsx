@@ -426,7 +426,7 @@ export function Product360Viewer({
     return (
       <div className={className}>
         <div className="mb-1.5 text-[10px] text-amber-400/70 bg-amber-400/10 border border-amber-400/20 rounded-xl px-3 py-1.5">
-          Safe preview mode — WebGL not available on this device.
+          3D preview unavailable on this device, using image spin fallback.
         </div>
         <Product360SequencePreview
           frameUrls={frameUrls}

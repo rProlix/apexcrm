@@ -22,6 +22,8 @@ export async function GET(req: NextRequest) {
   const blueprintVersionId   = process.env.LEONARDO_360_BLUEPRINT_VERSION_ID?.trim()
   const referenceImageNodeId = process.env.LEONARDO_360_REFERENCE_IMAGE_NODE_ID?.trim()
   const textVariablesNodeId  = process.env.LEONARDO_360_TEXT_VARIABLES_NODE_ID?.trim()
+  const outputImageNodeId    = process.env.LEONARDO_360_OUTPUT_IMAGE_NODE_ID?.trim()
+  const textVariablesFormat  = process.env.LEONARDO_360_TEXT_VARIABLES_FORMAT?.trim().toLowerCase() === 'json' ? 'json' : 'text'
   const extraRaw             = process.env.LEONARDO_360_EXTRA_TEXT_VARIABLE_NODE_IDS?.trim() ?? ''
   const extraNodeIds         = extraRaw ? extraRaw.split(',').map(s => s.trim()).filter(Boolean) : []
 
@@ -33,8 +35,8 @@ export async function GET(req: NextRequest) {
 
   const configured = missing.length === 0
 
-  const pollAttempts = parseInt(process.env.PRODUCT_360_PROVIDER_POLL_ATTEMPTS ?? '30', 10) || 30
-  const pollDelayMs  = parseInt(process.env.PRODUCT_360_PROVIDER_POLL_DELAY_MS  ?? '2000', 10) || 2000
+  const pollAttempts = parseInt(process.env.LEONARDO_360_MAX_POLL_ATTEMPTS ?? process.env.PRODUCT_360_PROVIDER_POLL_ATTEMPTS ?? '40', 10) || 40
+  const pollDelayMs  = parseInt(process.env.LEONARDO_360_POLL_INTERVAL_MS ?? process.env.PRODUCT_360_PROVIDER_POLL_DELAY_MS  ?? '3000', 10) || 3000
 
   const notes: string[] = []
   if (!configured) {
@@ -56,7 +58,9 @@ export async function GET(req: NextRequest) {
       blueprintVersionIdPresent:   Boolean(blueprintVersionId),
       referenceImageNodeIdPresent: Boolean(referenceImageNodeId),
       textVariablesNodeIdPresent:  Boolean(textVariablesNodeId),
+      outputImageNodeIdPresent:    Boolean(outputImageNodeId),
       extraTextVariableNodeCount:  extraNodeIds.length,
+      textVariablesFormat,
       defaultProvider:             process.env.NEXT_PUBLIC_360_DEFAULT_PROVIDER ?? 'gemini',
       pollConfig:                  { maxAttempts: pollAttempts, delayMs: pollDelayMs },
       notes,

@@ -1,14 +1,15 @@
 // lib/product-360/storage.ts
 // Supabase Storage helpers for the product_360 module.
-// Bucket: spin-360-assets (canonical — see lib/storage/buckets.ts)
-// Path:   tenants/{tenantId}/360/{productId}/packages/{packageId}/frames/frame_001.webp
+// Buckets:
+//   product-360-frames     — generated 360 frames
+//   product-360-references — uploaded visual anchors
+// Path: {tenant_id}/{product_id}/{package_id}/frame-0000.png
 //
 // SERVER-ONLY. Never import from client components.
 
 import { getSupabaseServerClient }  from '@/lib/supabase/server'
-import { STORAGE_BUCKETS }          from '@/lib/storage/buckets'
-
-export const P360_BUCKET = STORAGE_BUCKETS.SPIN_360_ASSETS
+export const P360_BUCKET = process.env.P360_STORAGE_BUCKET ?? 'product-360-frames'
+export const P360_REFERENCE_BUCKET = process.env.P360_REFERENCE_BUCKET ?? 'product-360-references'
 
 // ─── Path helpers ─────────────────────────────────────────────────────────────
 
@@ -17,10 +18,19 @@ export function getFramePath(
   productId:  string,
   packageId:  string,
   frameIndex: number,
-  ext = 'webp',
+  ext = 'png',
 ): string {
-  const padded = String(frameIndex).padStart(3, '0')
-  return `tenants/${tenantId}/360/${productId}/packages/${packageId}/frames/frame_${padded}.${ext}`
+  const padded = String(frameIndex).padStart(4, '0')
+  return `${tenantId}/${productId}/${packageId}/frame-${padded}.${ext}`
+}
+
+export function getReferencePath(
+  tenantId:  string,
+  productId: string,
+  packageId: string,
+  ext = 'png',
+): string {
+  return `${tenantId}/${productId}/${packageId}/reference.${ext}`
 }
 
 export function getCoverPath(
@@ -68,7 +78,7 @@ export interface UploadResult {
 export async function uploadFrame(params: UploadFrameParams): Promise<UploadResult> {
   const {
     tenantId, productId, packageId, frameIndex,
-    buffer, contentType = 'image/webp', ext = 'webp',
+    buffer, contentType = 'image/png', ext = 'png',
   } = params
   const supabase    = getSupabaseServerClient()
   const storagePath = getFramePath(tenantId, productId, packageId, frameIndex, ext)
@@ -83,7 +93,7 @@ export async function uploadFrame(params: UploadFrameParams): Promise<UploadResu
     if (msg.includes('bucket') || msg.includes('not found')) {
       throw new Error(
         `Storage bucket "${P360_BUCKET}" is not configured. ` +
-        `Run migration 032_storage_buckets_and_policies.sql to create all required buckets.`,
+        `Run the product 360 Leonardo reference workflow migration to create all required buckets.`,
       )
     }
     throw new Error(`Storage upload failed: ${error.message}`)
@@ -105,11 +115,15 @@ export async function fetchAndUploadFrame(params: {
   if (!res.ok) {
     throw new Error(`Failed to fetch frame image (HTTP ${res.status}): ${sourceUrl}`)
   }
+  const contentType = res.headers.get('content-type') ?? ''
+  if (!contentType.toLowerCase().startsWith('image/')) {
+    throw new Error(`Remote frame URL did not return an image content-type. Got: ${contentType || 'unknown'}`)
+  }
   const buffer = await res.arrayBuffer()
   return uploadFrame({
     ...rest,
     buffer,
-    contentType: res.headers.get('content-type') ?? 'image/webp',
+    contentType,
   })
 }
 

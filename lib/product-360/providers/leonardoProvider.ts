@@ -12,8 +12,10 @@
 //   LEONARDO_360_REFERENCE_IMAGE_NODE_ID       Required
 //   LEONARDO_360_TEXT_VARIABLES_NODE_ID        Required
 //   LEONARDO_360_EXTRA_TEXT_VARIABLE_NODE_IDS  Optional  comma-separated extra text-variable node IDs
-//   PRODUCT_360_PROVIDER_POLL_ATTEMPTS         Optional  default 30
-//   PRODUCT_360_PROVIDER_POLL_DELAY_MS         Optional  default 2000
+//   LEONARDO_360_OUTPUT_IMAGE_NODE_ID          Optional  preferred output image node
+//   LEONARDO_360_TEXT_VARIABLES_FORMAT         Optional  json | text, default text
+//   LEONARDO_360_POLL_INTERVAL_MS              Optional  default 3000
+//   LEONARDO_360_MAX_POLL_ATTEMPTS             Optional  default 40
 //
 // SERVER-ONLY. Never import from client components.
 
@@ -43,10 +45,34 @@ function getConfig() {
     blueprintVersionId:   process.env.LEONARDO_360_BLUEPRINT_VERSION_ID?.trim()    ?? '',
     referenceImageNodeId: process.env.LEONARDO_360_REFERENCE_IMAGE_NODE_ID?.trim() ?? '',
     textVariablesNodeId:  process.env.LEONARDO_360_TEXT_VARIABLES_NODE_ID?.trim()  ?? '',
+    outputImageNodeId:    process.env.LEONARDO_360_OUTPUT_IMAGE_NODE_ID?.trim()    ?? '',
+    textVariablesFormat:  (process.env.LEONARDO_360_TEXT_VARIABLES_FORMAT?.trim().toLowerCase() === 'json' ? 'json' : 'text') as 'json' | 'text',
     extraTextVariableNodeIds: extraNodeIds,
-    maxPollAttempts:      parseInt(process.env.PRODUCT_360_PROVIDER_POLL_ATTEMPTS  ?? '30', 10) || 30,
-    pollDelayMs:          parseInt(process.env.PRODUCT_360_PROVIDER_POLL_DELAY_MS  ?? '2000', 10) || 2000,
+    maxPollAttempts:      parseInt(process.env.LEONARDO_360_MAX_POLL_ATTEMPTS ?? process.env.PRODUCT_360_PROVIDER_POLL_ATTEMPTS ?? '40', 10) || 40,
+    pollDelayMs:          parseInt(process.env.LEONARDO_360_POLL_INTERVAL_MS ?? process.env.PRODUCT_360_PROVIDER_POLL_DELAY_MS ?? '3000', 10) || 3000,
   }
+}
+
+export type Leonardo360FrameInput = {
+  packageId: string
+  frameIndex: number
+  angleDegrees: number
+  referenceImageUrl: string
+  productName: string
+  productDescription?: string | null
+  lockedScenePrompt: string
+  sceneBlueprint: Record<string, unknown>
+  width?: number
+  height?: number
+}
+
+export type GeneratedImageResult = {
+  provider: 'leonardo'
+  imageUrl?: string
+  imageBuffer?: Buffer
+  mimeType?: string
+  executionId?: string
+  raw?: unknown
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -77,6 +103,7 @@ export type LeonardoNormalizedResponse = {
     topLevelKeys:         string[]
     candidateCount:       number
     candidateKeys:        string[][]
+    candidateOutputKeys:  string[][]
     hasImageUrl:          boolean
     hasExecutionId:       boolean
     extractedStatus:      string | null
@@ -229,6 +256,46 @@ export function extractUrlFromValue(value: unknown): string | null {
   return null
 }
 
+function extractUrlForOutputNode(value: unknown, outputNodeId: string): string | null {
+  if (!outputNodeId || !value || typeof value !== 'object') return null
+  const seen = new Set<unknown>()
+
+  function visit(input: unknown, depth = 0): string | null {
+    if (depth > 9 || !input || typeof input !== 'object') return null
+    if (seen.has(input)) return null
+    seen.add(input)
+
+    if (Array.isArray(input)) {
+      for (const item of input) {
+        const found = visit(item, depth + 1)
+        if (found) return found
+      }
+      return null
+    }
+
+    const obj = input as Record<string, unknown>
+    const nodeId =
+      typeof obj.nodeId === 'string' ? obj.nodeId :
+      typeof obj.node_id === 'string' ? obj.node_id :
+      typeof obj.id === 'string' ? obj.id :
+      typeof obj.outputNodeId === 'string' ? obj.outputNodeId :
+      null
+
+    if (nodeId === outputNodeId) {
+      const direct = extractUrlFromValue(obj)
+      if (direct) return direct
+    }
+
+    for (const child of Object.values(obj)) {
+      const found = visit(child, depth + 1)
+      if (found) return found
+    }
+    return null
+  }
+
+  return visit(value)
+}
+
 function extractIdFromCandidates(candidates: unknown[]): string | null {
   const idKeys = [
     'id', 'executionId', 'execution_id',
@@ -283,7 +350,7 @@ const COMPLETE_STATUSES = new Set([
  *  - Array-as-object:      { "0": { id, status } }
  *  - Nested outputs
  */
-export function normalizeLeonardoResponse(raw: unknown): LeonardoNormalizedResponse {
+export function normalizeLeonardoResponse(raw: unknown, outputImageNodeId = getConfig().outputImageNodeId): LeonardoNormalizedResponse {
   const candidates  = unwrapLeonardoCandidates(raw)
 
   // ── GraphQL / API error detection ──────────────────────────────────────────
@@ -302,7 +369,7 @@ export function normalizeLeonardoResponse(raw: unknown): LeonardoNormalizedRespo
   }
 
   // ── Normal extraction ──────────────────────────────────────────────────────
-  const imageUrl    = extractUrlFromValue(raw)
+  const imageUrl    = extractUrlForOutputNode(raw, outputImageNodeId) ?? extractUrlFromValue(raw)
   const executionId = hasApiError ? null : extractIdFromCandidates(candidates)
   const status      = hasApiError ? 'failed' : extractStatusFromCandidates(candidates)
 
@@ -352,6 +419,7 @@ export function normalizeLeonardoResponse(raw: unknown): LeonardoNormalizedRespo
       topLevelKeys:         getObjectKeysSafe(raw),
       candidateCount:       candidates.length,
       candidateKeys:        allCandidateKeys,
+      candidateOutputKeys:   allCandidateKeys,
       hasImageUrl:          Boolean(imageUrl),
       hasExecutionId:       Boolean(executionId),
       extractedStatus:      status,
@@ -727,8 +795,13 @@ export class LeonardoProduct360Provider implements Product360Provider {
           try {
             const imgRes = await fetch(normalized.imageUrl, { signal: AbortSignal.timeout(30_000) })
             if (imgRes.ok) {
-              imageBuffer = Buffer.from(await imgRes.arrayBuffer())
-              mimeType    = imgRes.headers.get('content-type') ?? 'image/png'
+              const contentType = imgRes.headers.get('content-type') ?? ''
+              if (contentType.toLowerCase().startsWith('image/')) {
+                imageBuffer = Buffer.from(await imgRes.arrayBuffer())
+                mimeType    = contentType
+              } else {
+                console.warn(`[leonardoProvider] Image download returned non-image content-type "${contentType}" — using URL directly`)
+              }
             } else {
               console.warn(`[leonardoProvider] Image download HTTP ${imgRes.status} — using URL directly`)
             }
@@ -778,8 +851,105 @@ export function getLeonardoProvider(): LeonardoProduct360Provider {
   return _instance
 }
 
+function buildStandaloneTextVariables(input: Leonardo360FrameInput): string {
+  const variables = {
+    frameIndex: input.frameIndex,
+    angleDegrees: input.angleDegrees,
+    orbitInstruction: `Render the same product from a ${input.angleDegrees} degree clockwise orbit angle.`,
+    lockedScenePrompt: input.lockedScenePrompt,
+    productName: input.productName,
+    productDescription: input.productDescription ?? '',
+    sceneBlueprint: input.sceneBlueprint,
+    consistencyRules: [
+      'Use the reference image as the visual identity anchor.',
+      'Preserve the exact product identity.',
+      'Preserve the exact plate, bowl, container, packaging, or vessel.',
+      'Preserve the same table surface.',
+      'Preserve the same wall and background.',
+      'Preserve the same lighting, shadows, highlights, and atmosphere.',
+      'Preserve the same camera distance, lens, crop, scale, and composition.',
+      'Preserve the same props and object count.',
+      'Preserve the same food toppings, ingredients, garnish, sauces, and surface details exactly.',
+      'Only rotate the product or viewing angle to the requested angleDegrees.',
+      'Do not add new objects.',
+      'Do not remove objects.',
+      'Do not zoom in or out.',
+      'Do not change dish type, ingredients, colors, toppings, garnish, shape, scale, crop, surface, utensils, table, wall, or background.',
+    ],
+  }
+
+  if (getConfig().textVariablesFormat === 'json') return JSON.stringify(variables)
+
+  return [
+    variables.lockedScenePrompt,
+    '',
+    `Frame index: ${variables.frameIndex}`,
+    `Angle degrees: ${variables.angleDegrees}`,
+    variables.orbitInstruction,
+    '',
+    'Consistency rules:',
+    ...variables.consistencyRules.map(rule => `- ${rule}`),
+  ].join('\n')
+}
+
+export async function generateLeonardo360Frame(input: Leonardo360FrameInput): Promise<GeneratedImageResult> {
+  const provider = getLeonardoProvider()
+  const errors = provider.configErrors()
+  if (errors.length > 0) {
+    throw new Error(`Missing Leonardo environment variables: ${errors.map(e => e.replace(/^Missing /, '')).join(', ')}. Add them to your server environment and restart the app.`)
+  }
+  if (!input.referenceImageUrl) {
+    throw new Error('Leonardo generation requires a reference image URL.')
+  }
+
+  const textVariables = buildStandaloneTextVariables(input)
+  const result = await provider.generateFrame({
+    prompt: input.lockedScenePrompt,
+    angleDegrees: input.angleDegrees,
+    frameIndex: input.frameIndex,
+    totalFrames: 1,
+    width: input.width ?? 1024,
+    height: input.height ?? 1024,
+    referenceImageUrl: input.referenceImageUrl,
+    textVariables,
+  })
+
+  if (result.status === 'completed') {
+    if (!result.imageUrl && !result.imageBuffer) throw new Error('Leonardo returned completed without an image URL or image buffer.')
+    return { provider: 'leonardo', imageUrl: result.imageUrl, imageBuffer: result.imageBuffer, mimeType: result.mimeType, raw: result.rawResponse }
+  }
+
+  if (result.status === 'pending' && result.pendingExecutionId && provider.pollExecution) {
+    const poll = await provider.pollExecution({ executionId: result.pendingExecutionId })
+    if (poll.status === 'completed' && (poll.imageUrl || poll.imageBuffer)) {
+      return {
+        provider: 'leonardo',
+        imageUrl: poll.imageUrl,
+        imageBuffer: poll.imageBuffer,
+        mimeType: poll.mimeType,
+        executionId: result.pendingExecutionId,
+      }
+    }
+    throw new Error(poll.error?.message ?? `Leonardo execution ${result.pendingExecutionId} did not complete with an image.`)
+  }
+
+  throw new Error(result.error?.message ?? 'Leonardo did not return an image URL, image buffer, or execution id.')
+}
+
 // ─── Legacy compat exports ────────────────────────────────────────────────────
 
+export function normalizeLeonardoResponseShape(raw: unknown): LeonardoNormalizedResponse {
+  return normalizeLeonardoResponse(raw)
+}
+export function extractLeonardoStatus(raw: unknown): string | null {
+  return normalizeLeonardoResponse(raw).status
+}
+export function extractLeonardoFailureMessage(raw: unknown): string | null {
+  return normalizeLeonardoResponse(raw).failureMessage
+}
+export async function pollLeonardoExecution(executionId: string): Promise<PollExecutionResult> {
+  return getLeonardoProvider().pollExecution({ executionId })
+}
 /** @deprecated Use normalizeLeonardoResponse instead */
 export function extractLeonardoExecutionId(raw: unknown): string | null {
   return normalizeLeonardoResponse(raw).executionId

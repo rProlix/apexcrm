@@ -45,6 +45,7 @@ export function Product360SequencePreview({
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isDragging,   setIsDragging]   = useState(false)
   const [showHint,     setShowHint]     = useState(true)
+  const [zoom,         setZoom]         = useState(1)
 
   const dragStartXRef = useRef(0)
   const accumRef      = useRef(0)
@@ -150,6 +151,10 @@ export function Product360SequencePreview({
     }
   }, [isDragging, frameCount, sensitivity, resetIdleTimer])
 
+  const applyZoom = useCallback((delta: number) => {
+    setZoom(z => Math.max(0.75, Math.min(3, z + delta)))
+  }, [])
+
   // ── Empty state ────────────────────────────────────────────────────────────
 
   if (frameCount === 0) {
@@ -199,6 +204,7 @@ export function Product360SequencePreview({
       onTouchStart={e => { if (e.touches.length === 1) onDragStart(e.touches[0].clientX) }}
       onTouchMove={e  => { e.preventDefault(); if (e.touches.length === 1) onDragMove(e.touches[0].clientX) }}
       onTouchEnd={onDragEnd}
+      onWheel={e => { e.preventDefault(); applyZoom(-e.deltaY * 0.001) }}
     >
       {/* Frame image */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -206,6 +212,7 @@ export function Product360SequencePreview({
         src={currentUrl}
         alt={productName ? `${productName} — 360° frame ${safeIndex + 1}` : `360° frame ${safeIndex + 1}`}
         className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+        style={{ transform: `scale(${zoom})`, transition: isDragging ? 'none' : 'transform 120ms ease-out' }}
         draggable={false}
       />
 
@@ -238,10 +245,25 @@ export function Product360SequencePreview({
 
       {/* Frame counter */}
       {frameCount > 1 && (
-        <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 border border-white/10 px-2 py-0.5 text-[10px] font-bold tracking-widest text-white/40 backdrop-blur-sm z-10">
-          {safeIndex + 1}/{frameCount}
+        <div className="absolute bottom-3 right-3 rounded-full bg-black/60 border border-white/10 px-2 py-0.5 text-[10px] font-bold tracking-widest text-white/40 backdrop-blur-sm z-10 flex items-center gap-2">
+          <span className="pointer-events-none">{safeIndex + 1}/{frameCount}</span>
+          <input
+            aria-label="Scrub 360 frames"
+            type="range"
+            min={0}
+            max={frameCount - 1}
+            value={safeIndex}
+            onChange={e => { setShowHint(false); setCurrentIndex(Number(e.target.value)) }}
+            className="w-20 accent-white/60"
+          />
         </div>
       )}
+
+      <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-black/60 border border-white/10 px-1.5 py-0.5 backdrop-blur-sm">
+        <button type="button" onClick={() => applyZoom(-0.15)} className="h-5 w-5 text-white/50 hover:text-white text-xs" aria-label="Zoom out">-</button>
+        <button type="button" onClick={() => setZoom(1)} className="h-5 px-1 text-white/40 hover:text-white text-[9px]" aria-label="Reset zoom">{Math.round(zoom * 100)}%</button>
+        <button type="button" onClick={() => applyZoom(0.15)} className="h-5 w-5 text-white/50 hover:text-white text-xs" aria-label="Zoom in">+</button>
+      </div>
 
       {/* 360° badge */}
       <div className="pointer-events-none absolute top-2 right-2 rounded-full bg-black/60 border border-white/10 px-2 py-0.5 text-[10px] font-bold tracking-widest text-white/40 backdrop-blur-sm z-10">

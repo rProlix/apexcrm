@@ -150,6 +150,8 @@ export interface P360Package {
   reference_image_url:             string | null
   /** Supabase Storage path for the reference image. */
   reference_image_storage_path:    string | null
+  /** Alias used by the Leonardo reference workflow migration. */
+  reference_image_path:            string | null
   /** When true, generation refuses to start without a reference image. */
   reference_image_required:        boolean
   /** Override blueprintVersionId per-package (falls back to env var). */
@@ -170,6 +172,10 @@ export interface P360Package {
   angle_strategy:                  string
   /** Provider-specific settings blob. */
   provider_settings:               Record<string, unknown>
+  /** Provider alias/config/debug columns used by the Leonardo workflow. */
+  provider:                        string | null
+  provider_config:                 Record<string, unknown>
+  generation_debug:                Record<string, unknown>
   /** Fine-grained internal stage for the current/last generation run. */
   generation_stage:                string | null
   /** Short error label from the last provider failure (displayed in UI). */
@@ -209,6 +215,7 @@ export interface P360Frame {
   angle_degrees:       number
   image_url:           string
   storage_path:        string | null
+  storage_status:      string | null
   width:               number | null
   height:              number | null
   file_size:           number | null
