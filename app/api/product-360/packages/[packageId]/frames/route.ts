@@ -1,7 +1,7 @@
 // app/api/product-360/packages/[packageId]/frames/route.ts
 import { NextRequest, NextResponse }      from 'next/server'
 import { resolveP360ApiUser }             from '@/lib/product-360/auth'
-import { listFrames, upsertFrame, syncPackageAfterFrameUpload } from '@/lib/product-360/frameService'
+import { upsertFrame, syncPackageAfterFrameUpload } from '@/lib/product-360/frameService'
 import { uploadFrame }                    from '@/lib/product-360/storage'
 import { getSupabaseServerClient }        from '@/lib/supabase/server'
 
@@ -16,7 +16,26 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const frames = await listFrames(packageId)
+    const tenantId = user.isOwner
+      ? (req.nextUrl.searchParams.get('tenantId') ?? user.tenantId)
+      : user.tenantId
+    const supabase = getSupabaseServerClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: pkg } = await (supabase as any)
+      .from('product_360_packages')
+      .select('id')
+      .eq('id', packageId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!pkg) return NextResponse.json({ error: 'Package not found' }, { status: 404 })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: frames, error } = await (supabase as any)
+      .from('product_360_frames')
+      .select('*')
+      .eq('package_id', packageId)
+      .eq('tenant_id', tenantId)
+      .order('frame_index', { ascending: true })
+    if (error) throw new Error(error.message)
     return NextResponse.json({ frames })
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed' }, { status: 500 })

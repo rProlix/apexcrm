@@ -10,12 +10,17 @@
 //   LEONARDO_API_KEY                           Required
 //   LEONARDO_360_BLUEPRINT_VERSION_ID          Required
 //   LEONARDO_360_REFERENCE_IMAGE_NODE_ID       Required
-//   LEONARDO_360_TEXT_VARIABLES_NODE_ID        Required
+//   LEONARDO_360_PROMPT_NODE_ID                Required (falls back to legacy TEXT_VARIABLES_NODE_ID)
+//   LEONARDO_360_ANGLE_NODE_ID                 Required
+//   LEONARDO_360_CAMERA_NODE_ID                Required
+//   LEONARDO_360_LIGHTING_NODE_ID              Required
+//   LEONARDO_360_BACKGROUND_NODE_ID            Required
 //   LEONARDO_360_EXTRA_TEXT_VARIABLE_NODE_IDS  Optional  comma-separated extra text-variable node IDs
-//   LEONARDO_360_OUTPUT_IMAGE_NODE_ID          Optional  preferred output image node
+//   LEONARDO_360_OUTPUT_IMAGE_URL_PATH         Optional  dot/bracket path to image URL
+//   LEONARDO_360_OUTPUT_IMAGE_NODE_ID          Optional  legacy preferred output image node
 //   LEONARDO_360_TEXT_VARIABLES_FORMAT         Optional  json | text, default text
-//   LEONARDO_360_POLL_INTERVAL_MS              Optional  default 3000
-//   LEONARDO_360_MAX_POLL_ATTEMPTS             Optional  default 40
+//   LEONARDO_360_POLL_INTERVAL_MS              Optional  default 2500
+//   LEONARDO_360_MAX_POLL_MS                   Optional  default 120000
 //
 // SERVER-ONLY. Never import from client components.
 
@@ -44,12 +49,20 @@ function getConfig() {
     apiKey:               process.env.LEONARDO_API_KEY?.trim()                     ?? '',
     blueprintVersionId:   process.env.LEONARDO_360_BLUEPRINT_VERSION_ID?.trim()    ?? '',
     referenceImageNodeId: process.env.LEONARDO_360_REFERENCE_IMAGE_NODE_ID?.trim() ?? '',
+    promptNodeId:         process.env.LEONARDO_360_PROMPT_NODE_ID?.trim()
+      ?? process.env.LEONARDO_360_TEXT_VARIABLES_NODE_ID?.trim()
+      ?? '',
+    angleNodeId:          process.env.LEONARDO_360_ANGLE_NODE_ID?.trim()           ?? '',
+    cameraNodeId:         process.env.LEONARDO_360_CAMERA_NODE_ID?.trim()          ?? '',
+    lightingNodeId:       process.env.LEONARDO_360_LIGHTING_NODE_ID?.trim()        ?? '',
+    backgroundNodeId:     process.env.LEONARDO_360_BACKGROUND_NODE_ID?.trim()      ?? '',
     textVariablesNodeId:  process.env.LEONARDO_360_TEXT_VARIABLES_NODE_ID?.trim()  ?? '',
     outputImageNodeId:    process.env.LEONARDO_360_OUTPUT_IMAGE_NODE_ID?.trim()    ?? '',
+    outputImageUrlPath:   process.env.LEONARDO_360_OUTPUT_IMAGE_URL_PATH?.trim()   ?? '',
     textVariablesFormat:  (process.env.LEONARDO_360_TEXT_VARIABLES_FORMAT?.trim().toLowerCase() === 'json' ? 'json' : 'text') as 'json' | 'text',
     extraTextVariableNodeIds: extraNodeIds,
-    maxPollAttempts:      parseInt(process.env.LEONARDO_360_MAX_POLL_ATTEMPTS ?? process.env.PRODUCT_360_PROVIDER_POLL_ATTEMPTS ?? '40', 10) || 40,
-    pollDelayMs:          parseInt(process.env.LEONARDO_360_POLL_INTERVAL_MS ?? process.env.PRODUCT_360_PROVIDER_POLL_DELAY_MS ?? '3000', 10) || 3000,
+    maxPollMs:            parseInt(process.env.LEONARDO_360_MAX_POLL_MS ?? '120000', 10) || 120000,
+    pollDelayMs:          parseInt(process.env.LEONARDO_360_POLL_INTERVAL_MS ?? process.env.PRODUCT_360_PROVIDER_POLL_DELAY_MS ?? '2500', 10) || 2500,
   }
 }
 
@@ -256,6 +269,29 @@ export function extractUrlFromValue(value: unknown): string | null {
   return null
 }
 
+function getValueAtPath(value: unknown, path: string): unknown {
+  if (!path.trim()) return undefined
+  const parts = path
+    .replace(/\[(\d+)\]/g, '.$1')
+    .split('.')
+    .map(part => part.trim())
+    .filter(Boolean)
+
+  let current = value
+  for (const part of parts) {
+    if (current === null || current === undefined) return undefined
+    if (Array.isArray(current)) {
+      const index = Number(part)
+      if (!Number.isInteger(index)) return undefined
+      current = current[index]
+      continue
+    }
+    if (typeof current !== 'object') return undefined
+    current = (current as Record<string, unknown>)[part]
+  }
+  return current
+}
+
 function extractUrlForOutputNode(value: unknown, outputNodeId: string): string | null {
   if (!outputNodeId || !value || typeof value !== 'object') return null
   const seen = new Set<unknown>()
@@ -350,7 +386,11 @@ const COMPLETE_STATUSES = new Set([
  *  - Array-as-object:      { "0": { id, status } }
  *  - Nested outputs
  */
-export function normalizeLeonardoResponse(raw: unknown, outputImageNodeId = getConfig().outputImageNodeId): LeonardoNormalizedResponse {
+export function normalizeLeonardoResponse(
+  raw: unknown,
+  outputImageNodeId = getConfig().outputImageNodeId,
+  outputImageUrlPath = getConfig().outputImageUrlPath,
+): LeonardoNormalizedResponse {
   const candidates  = unwrapLeonardoCandidates(raw)
 
   // ── GraphQL / API error detection ──────────────────────────────────────────
@@ -369,7 +409,10 @@ export function normalizeLeonardoResponse(raw: unknown, outputImageNodeId = getC
   }
 
   // ── Normal extraction ──────────────────────────────────────────────────────
-  const imageUrl    = extractUrlForOutputNode(raw, outputImageNodeId) ?? extractUrlFromValue(raw)
+  const imageUrlFromPath = outputImageUrlPath
+    ? extractUrlFromValue(getValueAtPath(raw, outputImageUrlPath))
+    : null
+  const imageUrl    = imageUrlFromPath ?? extractUrlForOutputNode(raw, outputImageNodeId) ?? extractUrlFromValue(raw)
   const executionId = hasApiError ? null : extractIdFromCandidates(candidates)
   const status      = hasApiError ? 'failed' : extractStatusFromCandidates(candidates)
 
@@ -463,7 +506,13 @@ function buildRequestDebug(
   return {
     blueprintVersionIdPresent:   Boolean(cfg.blueprintVersionId),
     referenceImageNodeIdPresent: Boolean(cfg.referenceImageNodeId),
-    textVariablesNodeIdPresent:  Boolean(cfg.textVariablesNodeId),
+    promptNodeIdPresent:         Boolean(cfg.promptNodeId),
+    angleNodeIdPresent:          Boolean(cfg.angleNodeId),
+    cameraNodeIdPresent:         Boolean(cfg.cameraNodeId),
+    lightingNodeIdPresent:       Boolean(cfg.lightingNodeId),
+    backgroundNodeIdPresent:     Boolean(cfg.backgroundNodeId),
+    legacyTextVariablesNodeIdPresent: Boolean(cfg.textVariablesNodeId),
+    outputImageUrlPathPresent:   Boolean(cfg.outputImageUrlPath),
     extraNodeCount:              cfg.extraTextVariableNodeIds.length,
     nodeInputCount,
     settingNames,
@@ -510,14 +559,42 @@ async function createBlueprintExecution(
   cfg:               ReturnType<typeof getConfig>,
   referenceImageUrl: string | null,
   textVariables:     string,
+  frame: {
+    angleDegrees: number
+    prompt: string
+  },
 ): Promise<CreateExecutionResult> {
   const nodeInputs: Array<{ nodeId: string; value: string; settingName: string }> = []
 
   if (cfg.referenceImageNodeId && referenceImageUrl) {
     nodeInputs.push({ nodeId: cfg.referenceImageNodeId, value: referenceImageUrl, settingName: 'imageUrl' })
   }
-  if (cfg.textVariablesNodeId && textVariables) {
-    nodeInputs.push({ nodeId: cfg.textVariablesNodeId, value: textVariables, settingName: 'textVariables' })
+  if (cfg.promptNodeId && textVariables) {
+    nodeInputs.push({ nodeId: cfg.promptNodeId, value: textVariables, settingName: cfg.textVariablesNodeId ? 'textVariables' : 'prompt' })
+  }
+  if (cfg.angleNodeId) {
+    nodeInputs.push({ nodeId: cfg.angleNodeId, value: String(frame.angleDegrees), settingName: 'angleDegrees' })
+  }
+  if (cfg.cameraNodeId) {
+    nodeInputs.push({
+      nodeId: cfg.cameraNodeId,
+      value: `Keep camera distance, lens, crop, scale, and composition locked to the reference image. Orbit angle: ${frame.angleDegrees} degrees.`,
+      settingName: 'camera',
+    })
+  }
+  if (cfg.lightingNodeId) {
+    nodeInputs.push({
+      nodeId: cfg.lightingNodeId,
+      value: 'Preserve the exact lighting direction, softness, intensity, shadow style, highlights, and atmosphere from the reference image.',
+      settingName: 'lighting',
+    })
+  }
+  if (cfg.backgroundNodeId) {
+    nodeInputs.push({
+      nodeId: cfg.backgroundNodeId,
+      value: 'Preserve the exact background, wall/backdrop, table surface, props, and object arrangement from the reference image.',
+      settingName: 'background',
+    })
   }
   // Optional extra text-variable nodes (multi-node blueprints)
   for (const nodeId of cfg.extraTextVariableNodeIds) {
@@ -571,12 +648,12 @@ async function createBlueprintExecution(
     const lower = errMsg.toLowerCase()
     if (lower.includes('imageurl') || lower.includes('image_url') || lower.includes('required')) {
       hint = ' Make sure LEONARDO_360_REFERENCE_IMAGE_NODE_ID is correct and a reference image URL is provided.'
-    } else if (lower.includes('textvariables') || lower.includes('text_variables')) {
-      hint = ' Make sure LEONARDO_360_TEXT_VARIABLES_NODE_ID is correct and text variables are provided.'
+    } else if (lower.includes('textvariables') || lower.includes('text_variables') || lower.includes('prompt')) {
+      hint = ' Make sure LEONARDO_360_PROMPT_NODE_ID is correct and prompt/text variables are provided.'
     } else if (lower.includes('blueprintversion') || lower.includes('blueprint')) {
       hint = ' Make sure LEONARDO_360_BLUEPRINT_VERSION_ID matches a published blueprint you have access to.'
     } else if (lower.includes('node') || lower.includes('nodeid') || lower.includes('node_id')) {
-      hint = ' Make sure LEONARDO_360_REFERENCE_IMAGE_NODE_ID and LEONARDO_360_TEXT_VARIABLES_NODE_ID match the node IDs in your blueprint.'
+      hint = ' Make sure LEONARDO_360_REFERENCE_IMAGE_NODE_ID, LEONARDO_360_PROMPT_NODE_ID, LEONARDO_360_ANGLE_NODE_ID, LEONARDO_360_CAMERA_NODE_ID, LEONARDO_360_LIGHTING_NODE_ID, and LEONARDO_360_BACKGROUND_NODE_ID match the node IDs in your blueprint.'
     }
 
     return {
@@ -695,7 +772,11 @@ export class LeonardoProduct360Provider implements Product360Provider {
     if (!cfg.apiKey)               errors.push('Missing LEONARDO_API_KEY')
     if (!cfg.blueprintVersionId)   errors.push('Missing LEONARDO_360_BLUEPRINT_VERSION_ID')
     if (!cfg.referenceImageNodeId) errors.push('Missing LEONARDO_360_REFERENCE_IMAGE_NODE_ID')
-    if (!cfg.textVariablesNodeId)  errors.push('Missing LEONARDO_360_TEXT_VARIABLES_NODE_ID')
+    if (!cfg.promptNodeId)         errors.push('Missing LEONARDO_360_PROMPT_NODE_ID')
+    if (!cfg.angleNodeId)          errors.push('Missing LEONARDO_360_ANGLE_NODE_ID')
+    if (!cfg.cameraNodeId)         errors.push('Missing LEONARDO_360_CAMERA_NODE_ID')
+    if (!cfg.lightingNodeId)       errors.push('Missing LEONARDO_360_LIGHTING_NODE_ID')
+    if (!cfg.backgroundNodeId)     errors.push('Missing LEONARDO_360_BACKGROUND_NODE_ID')
     return errors
   }
 
@@ -724,7 +805,10 @@ export class LeonardoProduct360Provider implements Product360Provider {
     }
 
     try {
-      const createResult = await createBlueprintExecution(cfg, refImageUrl, textVariables)
+      const createResult = await createBlueprintExecution(cfg, refImageUrl, textVariables, {
+        angleDegrees: input.angleDegrees,
+        prompt: input.prompt,
+      })
 
       if (createResult.kind === 'immediate') {
         console.info(`[leonardoProvider] Blueprint returned immediate image frame=${input.frameIndex}`)
@@ -756,11 +840,12 @@ export class LeonardoProduct360Provider implements Product360Provider {
         error: { code: 'missing_env_vars', message: 'LEONARDO_API_KEY is not set', isRetryable: false, isQuotaError: false } }
     }
 
-    const { maxPollAttempts, pollDelayMs } = cfg
+    const { maxPollMs, pollDelayMs } = cfg
     const { executionId } = input
+    const maxPollAttempts = Math.max(1, Math.ceil(maxPollMs / pollDelayMs))
 
     if (process.env.NODE_ENV !== 'production') {
-      console.info(`[leonardoProvider] pollExecution start executionId=${executionId} maxAttempts=${maxPollAttempts} delayMs=${pollDelayMs}`)
+      console.info(`[leonardoProvider] pollExecution start executionId=${executionId} maxMs=${maxPollMs} maxAttempts=${maxPollAttempts} delayMs=${pollDelayMs}`)
     }
 
     for (let attempt = 1; attempt <= maxPollAttempts; attempt++) {

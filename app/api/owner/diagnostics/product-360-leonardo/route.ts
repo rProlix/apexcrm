@@ -9,11 +9,21 @@ const REQUIRED_ENV = [
   'LEONARDO_API_KEY',
   'LEONARDO_360_BLUEPRINT_VERSION_ID',
   'LEONARDO_360_REFERENCE_IMAGE_NODE_ID',
-  'LEONARDO_360_TEXT_VARIABLES_NODE_ID',
+  'LEONARDO_360_PROMPT_NODE_ID',
+  'LEONARDO_360_ANGLE_NODE_ID',
+  'LEONARDO_360_CAMERA_NODE_ID',
+  'LEONARDO_360_LIGHTING_NODE_ID',
+  'LEONARDO_360_BACKGROUND_NODE_ID',
 ] as const
 
 const PACKAGE_COLUMNS = [
   'reference_image_url',
+  'reference_storage_path',
+  'reference_source',
+  'blueprint_version_id',
+  'generation_mode',
+  'provider',
+  'label',
   'master_frame_url',
   'scene_blueprint',
   'locked_generation_prompt',
@@ -113,11 +123,31 @@ export async function GET() {
           settingName: 'imageUrl',
         },
         {
-          nodeId: process.env.LEONARDO_360_TEXT_VARIABLES_NODE_ID || 'MISSING_LEONARDO_360_TEXT_VARIABLES_NODE_ID',
+          nodeId: process.env.LEONARDO_360_PROMPT_NODE_ID || 'MISSING_LEONARDO_360_PROMPT_NODE_ID',
           value: textVariablesFormat === 'json'
             ? { frameIndex: 5, angleDegrees: 75, orbitInstruction: 'Render the same product from a 75 degree clockwise orbit angle.' }
             : 'FRAME INDEX: 5\nANGLE DEGREES: 75\nRender the same product from a 75 degree clockwise orbit angle.',
-          settingName: 'textVariables',
+          settingName: 'prompt',
+        },
+        {
+          nodeId: process.env.LEONARDO_360_ANGLE_NODE_ID || 'MISSING_LEONARDO_360_ANGLE_NODE_ID',
+          value: '75',
+          settingName: 'angleDegrees',
+        },
+        {
+          nodeId: process.env.LEONARDO_360_CAMERA_NODE_ID || 'MISSING_LEONARDO_360_CAMERA_NODE_ID',
+          value: 'Preserve camera distance, lens, crop, scale, and composition from the reference image.',
+          settingName: 'camera',
+        },
+        {
+          nodeId: process.env.LEONARDO_360_LIGHTING_NODE_ID || 'MISSING_LEONARDO_360_LIGHTING_NODE_ID',
+          value: 'Preserve lighting, shadows, highlights, and atmosphere from the reference image.',
+          settingName: 'lighting',
+        },
+        {
+          nodeId: process.env.LEONARDO_360_BACKGROUND_NODE_ID || 'MISSING_LEONARDO_360_BACKGROUND_NODE_ID',
+          value: 'Preserve background, table surface, wall/backdrop, props, and arrangement from the reference image.',
+          settingName: 'background',
         },
       ],
       public: true,
@@ -140,10 +170,10 @@ export async function GET() {
     timestamp: new Date().toISOString(),
     env: {
       ...env,
-      LEONARDO_360_OUTPUT_IMAGE_NODE_ID: process.env.LEONARDO_360_OUTPUT_IMAGE_NODE_ID ? 'present' : 'optional-not-set',
+      LEONARDO_360_OUTPUT_IMAGE_URL_PATH: process.env.LEONARDO_360_OUTPUT_IMAGE_URL_PATH ? 'present' : 'optional-not-set',
       LEONARDO_360_TEXT_VARIABLES_FORMAT: textVariablesFormat,
-      LEONARDO_360_POLL_INTERVAL_MS: process.env.LEONARDO_360_POLL_INTERVAL_MS ?? '3000',
-      LEONARDO_360_MAX_POLL_ATTEMPTS: process.env.LEONARDO_360_MAX_POLL_ATTEMPTS ?? '40',
+      LEONARDO_360_POLL_INTERVAL_MS: process.env.LEONARDO_360_POLL_INTERVAL_MS ?? '2500',
+      LEONARDO_360_MAX_POLL_MS: process.env.LEONARDO_360_MAX_POLL_MS ?? '120000',
     },
     supabase: {
       buckets: {
@@ -162,7 +192,11 @@ export async function GET() {
       error: leonardoError,
       blueprintVersionConfigured: Boolean(process.env.LEONARDO_360_BLUEPRINT_VERSION_ID),
       referenceNodeConfigured: Boolean(process.env.LEONARDO_360_REFERENCE_IMAGE_NODE_ID),
-      textVariablesNodeConfigured: Boolean(process.env.LEONARDO_360_TEXT_VARIABLES_NODE_ID),
+      promptNodeConfigured: Boolean(process.env.LEONARDO_360_PROMPT_NODE_ID),
+      angleNodeConfigured: Boolean(process.env.LEONARDO_360_ANGLE_NODE_ID),
+      cameraNodeConfigured: Boolean(process.env.LEONARDO_360_CAMERA_NODE_ID),
+      lightingNodeConfigured: Boolean(process.env.LEONARDO_360_LIGHTING_NODE_ID),
+      backgroundNodeConfigured: Boolean(process.env.LEONARDO_360_BACKGROUND_NODE_ID),
     },
     examplePayload,
     fixes,

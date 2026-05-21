@@ -21,8 +21,10 @@ import { resolveP360ApiUser }         from '@/lib/product-360/auth'
 import { getSupabaseServerClient }    from '@/lib/supabase/server'
 import { generatePackage }            from '@/lib/product-360/generationService'
 import { getP360Provider }            from '@/lib/ai/360/provider'
+import { getProduct360Provider }       from '@/lib/product-360/providers'
 
 export const dynamic     = 'force-dynamic'
+export const runtime     = 'nodejs'
 export const maxDuration = 300  // seconds — Vercel Pro/Enterprise
 
 type Ctx = { params: Promise<{ packageId: string }> }
@@ -55,7 +57,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // ── Validate package ────────────────────────────────────────────────────────
   const { data: pkg } = await db
     .from('product_360_packages')
-    .select('id, status, product_id, frames_done, target_frame_count, next_retry_at')
+    .select('id, status, product_id, frames_done, target_frame_count, next_retry_at, generation_provider, provider, reference_image_url, master_frame_url')
     .eq('id', packageId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -121,30 +123,62 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   console.info(`[p360:generate/route] pkg=${packageId} queued (was: ${currentStatus}), verifying provider…`)
 
-  // ── Verify AI provider is configured ────────────────────────────────────────
-  // Checked AFTER the status update so failures land in DB as 'failed' (not 'draft').
-  const provider = getP360Provider()
-  if (!provider) {
-    const errMsg = 'AI image generation is not configured. Add GEMINI_API_KEY to your Vercel environment variables (Settings → Environment Variables).'
-    await db.from('product_360_packages').update({
-      status:             'failed',
-      generation_error:   errMsg,
-      last_error_message: errMsg,
-      updated_at:         new Date().toISOString(),
-    }).eq('id', packageId)
-    console.error(`[p360:generate/route] pkg=${packageId} — provider not configured, marked failed`)
-    return NextResponse.json({
-      ok: false,
-      error: {
-        type:      'auth_error',
-        title:     'AI not configured',
-        message:   errMsg,
-        retryable: false,
-      },
-    }, { status: 503 })
-  }
+  // ── Verify selected provider is configured ──────────────────────────────────
+  // Leonardo uses the product-360 provider stack; Gemini/Imagen keeps the legacy
+  // sync provider stack for existing packages.
+  const providerName = String((pkg as Record<string, unknown>).generation_provider ?? (pkg as Record<string, unknown>).provider ?? 'gemini').toLowerCase()
+  if (providerName === 'leonardo') {
+    const p360Provider = getProduct360Provider('leonardo')
+    if (!p360Provider.isAvailable()) {
+      const missingVars = p360Provider.configErrors().map(e => e.replace(/^Missing\s+/, '')).join(', ')
+      const errMsg = `Missing Leonardo environment variables: ${missingVars}. Fix: add ${missingVars} to your server environment and restart/redeploy.`
+      await db.from('product_360_packages').update({
+        status: 'failed',
+        generation_stage: 'failed',
+        generation_error: errMsg,
+        last_error_message: errMsg,
+        last_provider_error: 'missing_env_vars',
+        last_provider_error_details: errMsg,
+        updated_at: new Date().toISOString(),
+      }).eq('id', packageId)
+      return NextResponse.json({ ok: false, error: { type: 'missing_env_vars', title: 'Leonardo not configured', message: errMsg, retryable: false } }, { status: 503 })
+    }
 
-  console.info(`[p360:generate/route] pkg=${packageId} provider="${provider.name}" model="${provider.model}", starting…`)
+    const hasReference = Boolean((pkg as Record<string, unknown>).reference_image_url || (pkg as Record<string, unknown>).master_frame_url)
+    if (!hasReference) {
+      const errMsg = 'Leonardo generation requires a reference image or master frame. Upload a product reference image or generate a master frame first.'
+      await db.from('product_360_packages').update({
+        status: 'failed',
+        generation_stage: 'failed',
+        generation_error: errMsg,
+        last_error_message: errMsg,
+        updated_at: new Date().toISOString(),
+      }).eq('id', packageId)
+      return NextResponse.json({ ok: false, error: { type: 'missing_reference_image', title: 'Reference image required', message: errMsg, retryable: false } }, { status: 422 })
+    }
+  } else {
+    const provider = getP360Provider()
+    if (!provider) {
+      const errMsg = 'AI image generation is not configured. Add GEMINI_API_KEY to your Vercel environment variables (Settings → Environment Variables).'
+      await db.from('product_360_packages').update({
+        status:             'failed',
+        generation_error:   errMsg,
+        last_error_message: errMsg,
+        updated_at:         new Date().toISOString(),
+      }).eq('id', packageId)
+      console.error(`[p360:generate/route] pkg=${packageId} — provider not configured, marked failed`)
+      return NextResponse.json({
+        ok: false,
+        error: {
+          type:      'auth_error',
+          title:     'AI not configured',
+          message:   errMsg,
+          retryable: false,
+        },
+      }, { status: 503 })
+    }
+    console.info(`[p360:generate/route] pkg=${packageId} provider="${provider.name}" model="${provider.model}", starting…`)
+  }
 
   // ── Pump mode: return immediately so the client drives frame-by-frame gen ────
   //

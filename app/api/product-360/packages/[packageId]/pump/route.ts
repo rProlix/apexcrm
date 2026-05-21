@@ -635,6 +635,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           package_id: packageId, tenant_id: tenantIdPkg, product_id: productId,
           frame_index: nextFrameIndex, angle_degrees: angleDegPoll,
           image_url: pollResult.imageUrl, status: 'completed',
+          storage_path: pollResult.imageUrl,
+          storage_status: 'remote_url_fallback',
           prompt_used: promptUsedPoll.slice(0, 4000),
           is_master_frame: isMasterFramePoll,
           provider: 'leonardo', provider_status: 'completed', provider_job_id: null, provider_execution_id: null,
@@ -1058,6 +1060,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const mimeType = result.mimeType ?? 'image/png'
     const ext      = mimeType.includes('jpeg') ? 'jpg' : 'png'
     let   uploadedUrl: string, storagePath: string
+    let   storageStatus: string | null = null
 
     const storageBucket = process.env.P360_STORAGE_BUCKET ?? 'spin-360-assets'
     const storagePfx    = `tenants/${tenantIdPkg}/360/${productId}/packages/${packageId}/frames/frame_${String(nextFrameIndex).padStart(3, '0')}.${ext}`
@@ -1095,7 +1098,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         uploadedUrl = up.imageUrl; storagePath = up.storagePath
       } else {
         // Could not download — use the remote URL directly as the frame image
-        uploadedUrl = result.imageUrl; storagePath = result.imageUrl
+        uploadedUrl = result.imageUrl; storagePath = result.imageUrl; storageStatus = 'remote_url_fallback'
       }
     } else {
       // Provider returned a result with no imageBuffer and no imageUrl.
@@ -1158,6 +1161,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       angle_degrees:           angleDeg,
       image_url:               uploadedUrl,
       storage_path:            storagePath,
+      storage_status:          storageStatus,
       status:                  'completed',
       prompt_used:             (isMasterFrame
         ? buildMasterFramePrompt(subject, genConfig, blueprint)

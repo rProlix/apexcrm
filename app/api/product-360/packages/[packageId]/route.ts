@@ -44,7 +44,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
   const allowed = [
-    'name','slug','description','status','is_enabled',
+    'name','slug','label','description','status','is_enabled',
     // Both is_default and is_primary are accepted; packageService normalises them.
     'is_default','is_primary',
     // Generic preset label
@@ -62,7 +62,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     'reflection_intensity','turn_direction','output_width','output_height',
     'promo_tag',
     // AI model: both names accepted
-    'ai_model','generation_model',
+    'ai_model','generation_model','generation_provider','provider','generation_mode',
+    'reference_image_url','reference_image_path','reference_storage_path','reference_source',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of allowed) {

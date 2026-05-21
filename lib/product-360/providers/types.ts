@@ -41,6 +41,9 @@ export interface Generate360FrameInput {
    * Contains locked scene description + current angle info.
    */
   textVariables?:  string
+  cameraInstruction?: string
+  lightingInstruction?: string
+  backgroundInstruction?: string
   /**
    * Resume an in-progress async provider execution.
    * When set, the provider polls this job rather than creating a new one.

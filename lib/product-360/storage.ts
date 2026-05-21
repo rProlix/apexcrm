@@ -3,7 +3,7 @@
 // Buckets:
 //   product-360-frames     — generated 360 frames
 //   product-360-references — uploaded visual anchors
-// Path: {tenant_id}/{product_id}/{package_id}/frame-0000.png
+// Path: {tenant_id}/{product_id}/{package_id}/frames/frame-0001.png
 //
 // SERVER-ONLY. Never import from client components.
 
@@ -20,8 +20,8 @@ export function getFramePath(
   frameIndex: number,
   ext = 'png',
 ): string {
-  const padded = String(frameIndex).padStart(4, '0')
-  return `${tenantId}/${productId}/${packageId}/frame-${padded}.${ext}`
+  const padded = String(frameIndex + 1).padStart(4, '0')
+  return `${tenantId}/${productId}/${packageId}/frames/frame-${padded}.${ext}`
 }
 
 export function getReferencePath(
@@ -30,7 +30,7 @@ export function getReferencePath(
   packageId: string,
   ext = 'png',
 ): string {
-  return `${tenantId}/${productId}/${packageId}/reference.${ext}`
+  return `${tenantId}/${productId}/${packageId}/reference/reference.${ext}`
 }
 
 export function getCoverPath(

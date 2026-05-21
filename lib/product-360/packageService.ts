@@ -108,6 +108,7 @@ export interface CreatePackageOpts {
   productId:            string
   createdBy:            string | null
   name:                 string
+  label?:               string | null
   description?:         string
   packageType?:         string
   /** Generic preset shorthand label (e.g. "standard", "premium") */
@@ -141,6 +142,7 @@ export interface CreatePackageOpts {
   aiModel?:                 string
   /** AI provider: 'gemini' (default) or 'leonardo' */
   generationProvider?:      'gemini' | 'leonardo'
+  generationMode?:          'text_to_image' | 'reference_image'
   /** Whether generation requires a reference image to be uploaded first */
   referenceImageRequired?:  boolean
   /** Consistency enforcement level */
@@ -175,6 +177,7 @@ export async function createPackage(opts: CreatePackageOpts): Promise<P360Packag
       product_id:           validated.productId,
       created_by:           validated.createdBy,
       name:                 validated.name,
+      label:                opts.label ?? null,
       slug,
       description:          validated.description     ?? null,
       package_type:         validated.packageType     ?? 'ai_generated',
@@ -193,6 +196,9 @@ export async function createPackage(opts: CreatePackageOpts): Promise<P360Packag
       promo_starts_at:      validated.startsAt             ?? null,
       promo_ends_at:        validated.endsAt               ?? null,
       generation_provider:       validated.generationProvider ?? 'gemini',
+      provider:                  validated.generationProvider ?? 'gemini',
+      generation_mode:           opts.generationMode ?? (validated.generationProvider === 'leonardo' ? 'reference_image' : 'text_to_image'),
+      blueprint_version_id:      validated.generationProvider === 'leonardo' ? (process.env.LEONARDO_360_BLUEPRINT_VERSION_ID ?? null) : null,
       reference_image_required:  validated.referenceImageRequired ?? false,
       consistency_mode:          validated.consistencyMode ?? 'ultra_strict',
       angle_strategy:            validated.angleStrategy ?? 'orbit_locked',

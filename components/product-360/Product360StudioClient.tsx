@@ -533,7 +533,7 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
         is_primary: p.id === pkg.id,
         is_default: p.id === pkg.id,
       })))
-      const res = await fetch(`/api/product-360/packages/${pkg.id}/set-primary?tenantId=${tenantId}`, {
+      const res = await fetch(`/api/product-360/packages/${pkg.id}/activate?tenantId=${tenantId}`, {
         method: 'POST',
       })
       if (!res.ok) {
@@ -2257,8 +2257,14 @@ type LeonardoHealthData = {
   apiKeyPresent:               boolean
   blueprintVersionIdPresent:   boolean
   referenceImageNodeIdPresent: boolean
-  textVariablesNodeIdPresent:  boolean
+  promptNodeIdPresent:         boolean
+  angleNodeIdPresent:          boolean
+  cameraNodeIdPresent:         boolean
+  lightingNodeIdPresent:       boolean
+  backgroundNodeIdPresent:     boolean
+  outputImageUrlPathPresent?:  boolean
   extraTextVariableNodeCount:  number
+  textVariablesFormat?:        string
   defaultProvider:             string
   notes:                       string[]
 }
@@ -2353,7 +2359,11 @@ function ProviderDiagnosticsCard({ pkg }: { pkg: P360Package }) {
                     ['API Key',             health.apiKeyPresent],
                     ['Blueprint Version ID',health.blueprintVersionIdPresent],
                     ['Ref Image Node ID',   health.referenceImageNodeIdPresent],
-                    ['Text Variables Node', health.textVariablesNodeIdPresent],
+                    ['Prompt Node',          health.promptNodeIdPresent],
+                    ['Angle Node',           health.angleNodeIdPresent],
+                    ['Camera Node',          health.cameraNodeIdPresent],
+                    ['Lighting Node',        health.lightingNodeIdPresent],
+                    ['Background Node',      health.backgroundNodeIdPresent],
                   ] as [string, boolean][]).map(([label, present]) => (
                     <div key={label} className="flex items-center justify-between text-[10px]">
                       <span className="text-white/30">{label}</span>
@@ -2634,10 +2644,11 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
   const [type,       setType]       = useState<'ai_generated' | 'uploaded_frames'>('ai_generated')
   const [frames,     setFrames]     = useState(36)
   const [provider,   setProvider]   = useState<'gemini' | 'leonardo'>(
-    (process.env.NEXT_PUBLIC_360_DEFAULT_PROVIDER as 'gemini' | 'leonardo' | undefined) ?? 'gemini',
+    (process.env.NEXT_PUBLIC_360_DEFAULT_PROVIDER as 'gemini' | 'leonardo' | undefined) ?? 'leonardo',
   )
   const [refImageFile,    setRefImageFile]    = useState<File | null>(null)
   const [refImagePreview, setRefImagePreview] = useState<string | null>(null)
+  const [useProductImage, setUseProductImage] = useState(false)
   const refImageInputRef = useRef<HTMLInputElement>(null)
   const [lighting,   setLighting]   = useState('')
   const [background, setBackground] = useState('')
@@ -2663,6 +2674,8 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
     setFieldError({})
   }
 
+  const selectedProductForReference = products.find(p => p.id === product) ?? null
+
   async function handleSubmit() {
     if (!product || !name.trim()) {
       setFieldError({ ...((!product) ? { productId: 'Please select a product.' } : {}), ...((!name.trim()) ? { name: 'Please enter a package name.' } : {}) })
@@ -2679,6 +2692,7 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
           productId:              product,
           name:                   name.trim(),
           description:            desc.trim()    || undefined,
+          label:                  preset.trim()  || undefined,
           preset:                 preset.trim()  || null,
           is_primary:             isPrimary,
           packageType:            type,
@@ -2695,6 +2709,7 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
           reflectionIntensity:    reflection,
           promoTag:               promoTag.trim() || null,
           generationProvider:     provider,
+          generationMode:         provider === 'leonardo' ? 'reference_image' : 'text_to_image',
           referenceImageRequired: provider === 'leonardo' && !refImageFile ? false : undefined,
         }),
       })
@@ -2714,19 +2729,31 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
       }
       const pkg = json.data?.package ?? json.package
 
-      // Upload reference image if provided
-      if (refImageFile && pkg?.id) {
+      // Attach/upload reference image if provided
+      if (pkg?.id && (refImageFile || useProductImage)) {
         try {
-          const fd = new FormData()
-          fd.append('image', refImageFile)
-          const upRes = await fetch(`/api/product-360/packages/${pkg.id}/upload-reference`, {
-            method: 'POST',
-            body:   fd,
-          })
+          let upRes: Response
+          if (refImageFile) {
+            const fd = new FormData()
+            fd.append('image', refImageFile)
+            upRes = await fetch(`/api/product-360/packages/${pkg.id}/reference?tenantId=${tenantId}`, {
+              method: 'POST',
+              body:   fd,
+            })
+          } else {
+            upRes = await fetch(`/api/product-360/packages/${pkg.id}/reference?tenantId=${tenantId}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                source: 'product_image',
+                imageUrl: selectedProductForReference?.image_url ?? undefined,
+              }),
+            })
+          }
           if (!upRes.ok) {
             const upJson = await upRes.json().catch(() => ({}))
             console.warn('Reference image upload failed:', upJson)
-            setError(`Package created, but reference image upload failed: ${upJson?.error?.message ?? 'Unknown error'}`)
+            setError(`Package created, but reference image attach failed: ${upJson?.error?.message ?? upJson?.error ?? 'Unknown error'}`)
           }
         } catch (upErr) {
           console.warn('Reference image upload error:', upErr)
@@ -2872,6 +2899,7 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
                 onChange={e => {
                   const file = e.target.files?.[0] ?? null
                   setRefImageFile(file)
+                  setUseProductImage(false)
                   if (file) {
                     const reader = new FileReader()
                     reader.onload = ev => setRefImagePreview(ev.target?.result as string)
@@ -2888,7 +2916,7 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-white/60 truncate">{refImageFile?.name}</p>
                     <p className="text-[10px] text-white/30">{refImageFile ? `${Math.round(refImageFile.size / 1024)} KB` : ''}</p>
-                    <button type="button" onClick={() => { setRefImageFile(null); setRefImagePreview(null); if (refImageInputRef.current) refImageInputRef.current.value = '' }}
+                    <button type="button" onClick={() => { setRefImageFile(null); setRefImagePreview(null); setUseProductImage(false); if (refImageInputRef.current) refImageInputRef.current.value = '' }}
                       className="mt-1 text-[10px] text-red-400/60 hover:text-red-400 transition-colors">Remove</button>
                   </div>
                 </div>
@@ -2901,6 +2929,20 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
                   }`}>
                   <Upload className="h-4 w-4" />
                   {provider === 'leonardo' ? 'Upload reference photo of your product' : 'Upload reference image (optional)'}
+                </button>
+              )}
+              {provider === 'leonardo' && selectedProductForReference?.image_url && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRefImageFile(null)
+                    setUseProductImage(true)
+                    setRefImagePreview(selectedProductForReference.image_url)
+                    if (refImageInputRef.current) refImageInputRef.current.value = ''
+                  }}
+                  className="mt-2 text-[10px] text-indigo-300/70 hover:text-indigo-300 underline underline-offset-2"
+                >
+                  Use existing product image as reference
                 </button>
               )}
             </Field>

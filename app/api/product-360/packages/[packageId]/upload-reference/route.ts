@@ -151,6 +151,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       reference_image_url:          publicUrl,
       reference_image_storage_path: storagePath,
       reference_image_path:         storagePath,
+      reference_storage_path:       storagePath,
+      reference_source:             'upload',
       updated_at:                   new Date().toISOString(),
     })
     .eq('id', packageId)

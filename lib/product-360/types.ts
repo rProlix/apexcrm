@@ -54,6 +54,7 @@ export interface P360Package {
   product_id:           string | null
   created_by:           string | null
   name:                 string
+  label:                string | null
   slug:                 string
   description:          string | null
   status:               P360Status
@@ -152,6 +153,8 @@ export interface P360Package {
   reference_image_storage_path:    string | null
   /** Alias used by the Leonardo reference workflow migration. */
   reference_image_path:            string | null
+  reference_storage_path:          string | null
+  reference_source:                string | null
   /** When true, generation refuses to start without a reference image. */
   reference_image_required:        boolean
   /** Override blueprintVersionId per-package (falls back to env var). */
@@ -174,6 +177,9 @@ export interface P360Package {
   provider_settings:               Record<string, unknown>
   /** Provider alias/config/debug columns used by the Leonardo workflow. */
   provider:                        string | null
+  generation_mode:                 string | null
+  planner_model:                   string | null
+  blueprint_version_id:            string | null
   provider_config:                 Record<string, unknown>
   generation_debug:                Record<string, unknown>
   /** Fine-grained internal stage for the current/last generation run. */
