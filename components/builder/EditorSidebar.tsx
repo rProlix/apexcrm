@@ -24,6 +24,7 @@ import { TestimonialsEditor }     from './editors/TestimonialsEditor'
 import { FaqEditor }              from './editors/FaqEditor'
 import { AboutEditor }            from './editors/AboutEditor'
 import { Product360ViewerEditor } from './editors/Product360ViewerEditor'
+import { Premium3DScrollHeroEditor } from './editors/Premium3DScrollHeroEditor'
 import { GenericEditor }          from './editors/GenericEditor'
 import { Toggle }                 from './editors/FormFields'
 import { PremiumDesignPanel }    from '@/components/website/premium/PremiumDesignPanel'
@@ -90,6 +91,7 @@ function renderEditor(sectionType: string, sectionId: string) {
   if (t === 'faq')          return <FaqEditor sectionId={sectionId} />
   if (t === 'about')        return <AboutEditor sectionId={sectionId} />
   if (t === 'product_360')  return <Product360ViewerEditor sectionId={sectionId} />
+  if (t === 'premium_3d_scroll_hero') return <Premium3DScrollHeroEditor sectionId={sectionId} />
   return <GenericEditor sectionId={sectionId} />
 }
 

@@ -1,5 +1,7 @@
 // lib/builder/sectionTypes.ts — Section type registry for the website builder
 
+import { defaultPremium3DScrollHeroContent } from '@/lib/website/premium3d/types'
+
 export const CANONICAL_SECTION_TYPES = [
   'hero',
   'about',
@@ -13,6 +15,7 @@ export const CANONICAL_SECTION_TYPES = [
   'cta',
   'gallery',
   'product_360',
+  'premium_3d_scroll_hero',
   'custom',
 ] as const
 
@@ -91,6 +94,15 @@ const SECTION_TYPE_ALIASES: Record<string, CanonicalSectionType> = {
   '360_viewer':         'product_360',
   '360 viewer':         'product_360',
   'product360':         'product_360',
+
+  // Premium 3D Scroll Hero variants
+  'premium 3d scroll hero': 'premium_3d_scroll_hero',
+  'premium_3d_hero':        'premium_3d_scroll_hero',
+  'scroll hero':            'premium_3d_scroll_hero',
+  'scroll_hero':            'premium_3d_scroll_hero',
+  '3d hero':                'premium_3d_scroll_hero',
+  'parallax hero':          'premium_3d_scroll_hero',
+  'cinematic hero':         'premium_3d_scroll_hero',
 }
 
 /** Normalise a raw section type string to a canonical type */
@@ -119,6 +131,7 @@ export function getSectionDisplayName(type: string): string {
     cta:           'Call to Action',
     gallery:       'Gallery',
     product_360:   '360° Product Viewer',
+    premium_3d_scroll_hero: 'Premium 3D Scroll Hero',
     custom:        'Custom Section',
   }
   return names[canonical] ?? type
@@ -140,6 +153,7 @@ export function getSectionIconName(type: string): string {
     cta:           '🎯',
     gallery:       '🖼️',
     product_360:   '🔄',
+    premium_3d_scroll_hero: '🎬',
     custom:        '🧩',
   }
   return icons[canonical] ?? '📄'
@@ -230,6 +244,7 @@ export function getDefaultSectionContent(type: string): Record<string, unknown> 
       title: '360° Product Viewer',
       product_id: null,
     },
+    premium_3d_scroll_hero: defaultPremium3DScrollHeroContent() as unknown as Record<string, unknown>,
     custom: {
       html: '',
     },

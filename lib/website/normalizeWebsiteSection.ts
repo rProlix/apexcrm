@@ -23,6 +23,7 @@ export type CanonicalSectionType =
   | 'cta'
   | 'gallery'
   | 'product_360'
+  | 'premium_3d_scroll_hero'
   | 'unknown'
 
 export interface NormalizedSection {
@@ -155,6 +156,16 @@ const TYPE_ALIASES: Record<string, CanonicalSectionType> = {
   '360 spin':           'product_360',
   product_spin:         'product_360',
   interactive_product:  'product_360',
+
+  // ── Premium 3D Scroll Hero ──
+  premium_3d_scroll_hero: 'premium_3d_scroll_hero',
+  premium_3d_hero:        'premium_3d_scroll_hero',
+  scroll_hero:            'premium_3d_scroll_hero',
+  scroll_story:           'premium_3d_scroll_hero',
+  '3d_scroll_hero':       'premium_3d_scroll_hero',
+  three_scroll_hero:      'premium_3d_scroll_hero',
+  parallax_hero:          'premium_3d_scroll_hero',
+  cinematic_hero:         'premium_3d_scroll_hero',
 
   // ── Custom / fallback ──
   custom: 'rich_text', // treat custom as rich_text so it renders

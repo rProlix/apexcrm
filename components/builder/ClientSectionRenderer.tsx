@@ -18,6 +18,8 @@ import { RichTextSection }     from '@/components/site/sections/RichTextSection'
 import { BannerSection }       from '@/components/site/sections/BannerSection'
 import { ContactSection }      from '@/components/site/sections/ContactSection'
 import { AboutSection }        from '@/components/site/sections/AboutSection'
+import { Premium3DScrollHeroClient } from '@/components/website/3d/Premium3DScrollHeroClient'
+import { normalizeScrollHeroContent } from '@/lib/website/premium3d/types'
 import { PremiumSectionFrame } from '@/components/site/PremiumSectionFrame'
 import { normalizeSectionDesign } from '@/lib/website/design/normalizeDesignSystem'
 import type { BuilderSection } from '@/lib/builder/types'
@@ -142,6 +144,15 @@ export function ClientSectionRenderer({ section }: Props) {
               : 'Select a product in the sidebar to attach a 360° spin'}
           </p>
         </div>
+      )
+      break
+
+    case 'premium_3d_scroll_hero':
+      inner = (
+        <Premium3DScrollHeroClient
+          content={normalizeScrollHeroContent(c)}
+          isPreview
+        />
       )
       break
 

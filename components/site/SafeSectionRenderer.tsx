@@ -215,6 +215,12 @@ async function renderSection(
       return <Product360ViewerSection content={c as never} tenantId={tenantId} componentAnimations={ca} />
     }
 
+    case 'premium_3d_scroll_hero': {
+      // Server-safe wrapper; heavy WebGL/video loads client-side only.
+      const { Premium3DScrollHero } = await import('@/components/website/3d/Premium3DScrollHero')
+      return <Premium3DScrollHero content={c} mode={mode} />
+    }
+
     case 'unknown':
     default:
       return <UnknownSection section={section} mode={mode} />

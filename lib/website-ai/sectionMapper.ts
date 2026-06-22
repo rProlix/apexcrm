@@ -2,6 +2,7 @@
 // Maps a GeminiSuggestion's proposedSection into the existing site_sections schema.
 
 import type { GeminiSuggestion } from './types'
+import { recommendScrollHero } from './recommendScrollHero'
 import type {
   SectionType,
   HeroContent,
@@ -77,6 +78,12 @@ export function mapSuggestionToSection(suggestion: GeminiSuggestion): MappedSect
       return {
         section_type: 'banner',
         content: mapBanner(ps),
+      }
+
+    case 'premium_3d_scroll_hero':
+      return {
+        section_type: 'premium_3d_scroll_hero',
+        content: mapScrollHero(ps, suggestion.data),
       }
 
     case 'seo':
@@ -207,6 +214,18 @@ function mapBanner(ps: Record<string, unknown>): BannerContent {
     variant:     'promo',
     dismissible: true,
   }
+}
+
+function mapScrollHero(ps: Record<string, unknown>, data: Record<string, unknown>): unknown {
+  const businessType = str(data.businessType ?? ps.businessType ?? ps.industry, '')
+  const rec = recommendScrollHero(businessType || null, {
+    headline:    str(ps.heading ?? ps.headline, 'Experience It In Motion'),
+    subheadline: str(ps.subheading ?? ps.subheadline, 'Scroll to explore every detail.'),
+    eyebrow:     str(ps.eyebrow, 'Premium'),
+    renderMode:  ps.renderMode === 'video_scrub' ? 'video_scrub' : undefined,
+  })
+  // recommendScrollHero never fabricates assets; it returns a safe placeholder.
+  return rec.content
 }
 
 function mapRichText(ps: Record<string, unknown>): RichTextContent {

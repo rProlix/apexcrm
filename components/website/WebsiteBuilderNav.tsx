@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutGrid, FileText, Navigation, Palette, Settings,
-  Download, Wand2, Sparkles, ImageIcon, Wand, History,
+  Download, Wand2, Sparkles, ImageIcon, Wand, History, Box,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +29,7 @@ const TABS: Tab[] = [
   { href: '/website/ai-images',          label: 'AI Images',    icon: ImageIcon, badge: 'NEW' },
   { href: '/website/ai-premium-design',  label: 'AI Animations', icon: Wand,     badge: 'NEW' },
   { href: '/website/versions',           label: 'Versions',      icon: History,  badge: 'NEW' },
+  { href: '/website/3d-diagnostics',     label: '3D Hero',       icon: Box,      badge: 'NEW' },
   { href: '/website/import',             label: 'Import',        icon: Download, ownerOnly: true },
 ]
 

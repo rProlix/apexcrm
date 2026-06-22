@@ -1,5 +1,12 @@
 // lib/website/types.ts
 
+import type { Premium3DScrollHeroContent } from './premium3d/types'
+import { defaultPremium3DScrollHeroContent } from './premium3d/types'
+
+// Re-export so callers can import the Premium 3D Scroll Hero content type from
+// the central website types module.
+export type { Premium3DScrollHeroContent } from './premium3d/types'
+
 // ── Scalar enums ─────────────────────────────────────────────────────────────
 
 export type PageType =
@@ -30,6 +37,7 @@ export type SectionType =
   | 'banner'
   | 'about'
   | 'product_360_viewer'
+  | 'premium_3d_scroll_hero'
   | 'custom'
 
 export type NavLocation = 'header' | 'footer'
@@ -199,6 +207,7 @@ export type SectionContent =
   | ImageGalleryContent
   | AboutContent
   | Product360ViewerContent
+  | Premium3DScrollHeroContent
   | Record<string, unknown>
 
 // ── Site config sub-objects ───────────────────────────────────────────────────
@@ -505,6 +514,13 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
       speed:      18,
       label:      '',
     } as Product360ViewerContent,
+  },
+  premium_3d_scroll_hero: {
+    type: 'premium_3d_scroll_hero',
+    label: 'Premium 3D Scroll Hero',
+    description: 'Scroll-driven 3D model or video-scrub cinematic hero',
+    icon: 'box',
+    defaultContent: defaultPremium3DScrollHeroContent() as unknown as SectionContent,
   },
   custom: {
     type: 'custom',

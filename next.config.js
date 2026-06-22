@@ -1,3 +1,5 @@
+const path = require('path')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
@@ -21,6 +23,25 @@ const nextConfig = {
 
   // Keep Supabase SSR server-side only — reduces client bundle size
   serverExternalPackages: ['@supabase/ssr'],
+
+  // Bundler-only alias for the heavy React-Three-Fiber scene. This file is
+  // excluded from the app TypeScript program (see tsconfig "exclude") so R3F's
+  // global JSX augmentation cannot poison the rest of the app's types. The
+  // bundler still resolves and ships the real component at runtime.
+  // Mirrored for Turbopack (`next dev --turbopack`).
+  turbopack: {
+    resolveAlias: {
+      '@three-hero/ThreeScrollScene': './components/website/3d/ThreeScrollScene.tsx',
+    },
+  },
+
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      '@three-hero': path.resolve(__dirname, 'components/website/3d'),
+    }
+    return config
+  },
 
   // Warnings are not build-blockers; errors already fail the build cleanly.
   eslint: { ignoreDuringBuilds: true },

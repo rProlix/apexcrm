@@ -42,6 +42,7 @@ export type AiSuggestionType =
   | 'section'
   | 'seo'
   | 'promotion'
+  | 'premium_3d_scroll_hero'
   | 'unknown'
 
 export type AiSuggestionAction = 'create' | 'update' | 'append' | 'replace' | 'ignore'

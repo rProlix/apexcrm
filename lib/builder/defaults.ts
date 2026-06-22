@@ -1,6 +1,7 @@
 // lib/builder/defaults.ts — Default content + metadata for every section type
 
 import type { SectionTypeDef } from './types'
+import { defaultPremium3DScrollHeroContent } from '@/lib/website/premium3d/types'
 
 export const SECTION_TYPES: SectionTypeDef[] = [
   {
@@ -154,6 +155,13 @@ export const SECTION_TYPES: SectionTypeDef[] = [
       showLabel:    false,
       layout:       'card',
     },
+  },
+  {
+    type:  'premium_3d_scroll_hero',
+    label: 'Premium 3D Scroll Hero',
+    description: 'Scroll-driven 3D model or video-scrub cinematic hero (Three.js / video)',
+    icon:  '🎬',
+    defaultContent: defaultPremium3DScrollHeroContent() as unknown as Record<string, unknown>,
   },
 ]
 

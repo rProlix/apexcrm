@@ -128,6 +128,59 @@ export async function uploadSectionImage(
   return (json.url as string) ?? null
 }
 
+// ── Premium 3D Scroll Hero assets ─────────────────────────────────────────────
+
+export interface Website3DAsset {
+  id:               string
+  tenant_id:        string
+  name:             string
+  asset_type:       string
+  public_url:       string | null
+  storage_path:     string | null
+  mime_type:        string | null
+  file_size_bytes:  number | null
+  metadata:         Record<string, unknown>
+  created_at:       string
+}
+
+/**
+ * Upload a 3D model / video / poster / fallback / environment asset for the
+ * Premium 3D Scroll Hero. Returns the public URL + the created asset row.
+ */
+export async function uploadWebsite3DAsset(
+  file:      File,
+  tenantId:  string,
+  assetType: string,
+): Promise<{ url: string; asset: Website3DAsset } | null> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('tenant_id', tenantId)
+  form.append('asset_type', assetType)
+  form.append('name', file.name)
+
+  const res = await fetch('/api/website/3d-assets/upload', { method: 'POST', body: form })
+  if (!res.ok) {
+    console.error('[builder] uploadWebsite3DAsset failed', await res.text())
+    return null
+  }
+  const json = await res.json()
+  return { url: json.url as string, asset: json.asset as Website3DAsset }
+}
+
+/** List existing 3D assets for a tenant, optionally filtered by asset type. */
+export async function getWebsite3DAssets(
+  tenantId:   string,
+  assetType?: string,
+): Promise<Website3DAsset[]> {
+  const url = new URL('/api/website/3d-assets', window.location.origin)
+  url.searchParams.set('tenantId', tenantId)
+  if (assetType) url.searchParams.set('assetType', assetType)
+  const res = await fetch(url.toString())
+  if (!res.ok) return []
+  const json = await res.json()
+  return (json.assets as Website3DAsset[]) ?? []
+}
+
 // ── AI Image generation ───────────────────────────────────────────────────────
 
 export interface SectionAiImageResult {
