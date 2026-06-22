@@ -19,7 +19,7 @@ import {
   type ScrollHeroPalette,
 } from '@/lib/website/premium3d/types'
 import { INDUSTRY_PRESETS, buildContentFromPreset } from '@/lib/website/premium3d/presets'
-import { Premium3DHeroMediaPanel } from '@/components/website/3d/Premium3DHeroMediaPanel'
+import { Premium3DHeroMediaStudio } from '@/components/website/3d/Premium3DHeroMediaStudio'
 
 interface Props { sectionId: string }
 
@@ -200,7 +200,7 @@ export function Premium3DScrollHeroEditor({ sectionId }: Props) {
           ]} />
         </>
       ) : (
-        <Premium3DHeroMediaPanel sectionId={sectionId} />
+        <Premium3DHeroMediaStudio sectionId={sectionId} />
       )}
 
       {/* Library picker */}

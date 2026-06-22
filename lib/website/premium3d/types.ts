@@ -76,11 +76,38 @@ export type CameraPathPreset =
 
 export type StageRevealMode = 'none' | 'sequential' | 'crossfade'
 
-/** What mobile devices should show instead of a heavy 3D / full video scrub */
-export type MobileFallbackMode = 'poster' | 'lowRes' | 'fullScrub' | 'staticImage'
+/**
+ * What mobile devices should show instead of a heavy 3D / full video scrub.
+ * Superset union: legacy values (lowRes/fullScrub/staticImage) and the Media
+ * Studio values (static/reduced_video/full_scrub/image_sequence) both validate.
+ */
+export type MobileFallbackMode =
+  | 'poster'
+  | 'static'
+  | 'staticImage'
+  | 'reduced_video'
+  | 'lowRes'
+  | 'full_scrub'
+  | 'fullScrub'
+  | 'image_sequence'
 
 /** What reduced-motion users should see (no scroll-driven animation) */
-export type ReducedMotionFallback = 'poster' | 'staticImage' | 'firstFrame'
+export type ReducedMotionFallback = 'poster' | 'static' | 'staticImage' | 'firstFrame'
+
+/** Hero section height options */
+export type HeroHeight = '100vh' | '120vh' | '150vh' | 'custom'
+
+/** When the overlay copy reveals across the scroll timeline */
+export type TextRevealTiming = 'early' | 'middle' | 'late'
+
+/** Horizontal alignment of the overlay copy */
+export type ContentAlignment = 'left' | 'center' | 'right'
+
+/** How image-sequence frames are ordered */
+export type FrameOrder = 'filename' | 'upload' | 'manual'
+
+/** How many image-sequence frames to preload */
+export type FramePreloadStrategy = 'nearby' | 'first20' | 'all'
 
 export type VideoScrubQuality = 'auto' | 'high' | 'medium' | 'low'
 export type VideoObjectFit = 'cover' | 'contain'
@@ -110,9 +137,19 @@ export interface VideoScrubSettings {
   objectFit:             VideoObjectFit
   mobileFallbackMode:    MobileFallbackMode
   reducedMotionFallback: ReducedMotionFallback
-  startTime?:            number
-  endTime?:              number
-  fps?:                  number
+  startTime?:            number | null
+  endTime?:              number | null
+  fps?:                  number | null
+  // ── Media Studio presentation controls ──
+  overlayOpacity:           number
+  backgroundGradientStrength: number
+  heroHeight:               HeroHeight
+  customHeroHeight?:        string | null
+  textRevealTiming:         TextRevealTiming
+  contentAlignment:         ContentAlignment
+  // ── Image-sequence controls ──
+  frameOrder?:              FrameOrder
+  preloadStrategy?:         FramePreloadStrategy
 }
 
 /** Optional camera keyframe used by an advanced custom scrollTimeline */
@@ -204,6 +241,13 @@ export interface Premium3DScrollHeroContent {
   videoScrubQuality?:     VideoScrubQuality
   mobileFallbackMode?:    MobileFallbackMode
   reducedMotionFallback?: ReducedMotionFallback
+  // ── Presentation (flat mirror of videoScrub for the renderer) ──
+  overlayOpacity?:            number
+  backgroundGradientStrength?: number
+  heroHeight?:                HeroHeight
+  customHeroHeight?:          string | null
+  textRevealTiming?:          TextRevealTiming
+  contentAlignment?:          ContentAlignment
 
   // ── three_model tuning ──
   modelScale?:      number
@@ -217,6 +261,8 @@ export interface Premium3DScrollHeroContent {
   presetKey?: string
   /** Set by AI autofill when no real asset exists yet (never fakes assets) */
   assetPlaceholder?: boolean
+  /** Set by AI/templates when the section still needs a real uploaded asset */
+  assetNeeded?:      boolean
   /** Human-readable note describing what asset is still needed */
   assetNeededNote?:  string
 }
@@ -257,6 +303,12 @@ export function defaultPremium3DScrollHeroContent(): Premium3DScrollHeroContent 
     videoScrubQuality:     'auto',
     mobileFallbackMode:    'poster',
     reducedMotionFallback: 'poster',
+    overlayOpacity:        0.35,
+    backgroundGradientStrength: 0.45,
+    heroHeight:            '100vh',
+    customHeroHeight:      null,
+    textRevealTiming:      'middle',
+    contentAlignment:      'left',
     modelScale:            1,
     initialRotation:       { x: 0, y: 0, z: 0 },
     targetRotation:        { x: 0, y: Math.PI * 2, z: 0 },
@@ -338,6 +390,16 @@ export function normalizeScrollHeroContent(raw: unknown): Premium3DScrollHeroCon
   const reducedMotionFallback = (str(c.reducedMotionFallback, d.reducedMotionFallback!) as ReducedMotionFallback)
   const pinOnScroll = bool(c.pinOnScroll, !!d.pinOnScroll)
   const scrollLength = num(c.scrollLength, d.scrollLength!)
+  const clamp01 = (n: number) => Math.min(1, Math.max(0, n))
+  const overlayOpacity = clamp01(num(c.overlayOpacity, d.overlayOpacity!))
+  const backgroundGradientStrength = clamp01(num(c.backgroundGradientStrength, d.backgroundGradientStrength!))
+  const heroHeight = (['100vh', '120vh', '150vh', 'custom'].includes(str(c.heroHeight))
+    ? str(c.heroHeight) : d.heroHeight!) as HeroHeight
+  const customHeroHeight = c.customHeroHeight ? str(c.customHeroHeight) : null
+  const textRevealTiming = (['early', 'middle', 'late'].includes(str(c.textRevealTiming))
+    ? str(c.textRevealTiming) : d.textRevealTiming!) as TextRevealTiming
+  const contentAlignment = (['left', 'center', 'right'].includes(str(c.contentAlignment))
+    ? str(c.contentAlignment) : d.contentAlignment!) as ContentAlignment
 
   const videoScrub: VideoScrubSettings = {
     enabled:               bool(vsRaw.enabled, renderMode === 'video_scrub'),
@@ -345,7 +407,7 @@ export function normalizeScrollHeroContent(raw: unknown): Premium3DScrollHeroCon
     playbackBehavior:      'scroll_scrub',
     pinOnScroll:           bool(vsRaw.pinOnScroll, pinOnScroll),
     scrollLength:          num(vsRaw.scrollLength, scrollLength),
-    scrubSmoothing:        Math.min(1, Math.max(0, num(vsRaw.scrubSmoothing, scrubSmoothing))),
+    scrubSmoothing:        clamp01(num(vsRaw.scrubSmoothing, scrubSmoothing)),
     preload:               (str(vsRaw.preload, 'metadata') as VideoPreload),
     muted:                 bool(vsRaw.muted, true),
     playsInline:           bool(vsRaw.playsInline, true),
@@ -356,6 +418,19 @@ export function normalizeScrollHeroContent(raw: unknown): Premium3DScrollHeroCon
     startTime:             vsRaw.startTime != null ? num(vsRaw.startTime, 0) : undefined,
     endTime:               vsRaw.endTime != null ? num(vsRaw.endTime, 0) : undefined,
     fps:                   vsRaw.fps != null ? num(vsRaw.fps, 30) : undefined,
+    overlayOpacity:           clamp01(num(vsRaw.overlayOpacity, overlayOpacity)),
+    backgroundGradientStrength: clamp01(num(vsRaw.backgroundGradientStrength, backgroundGradientStrength)),
+    heroHeight:               (['100vh', '120vh', '150vh', 'custom'].includes(str(vsRaw.heroHeight))
+                                ? str(vsRaw.heroHeight) : heroHeight) as HeroHeight,
+    customHeroHeight:         vsRaw.customHeroHeight ? str(vsRaw.customHeroHeight) : customHeroHeight,
+    textRevealTiming:         (['early', 'middle', 'late'].includes(str(vsRaw.textRevealTiming))
+                                ? str(vsRaw.textRevealTiming) : textRevealTiming) as TextRevealTiming,
+    contentAlignment:         (['left', 'center', 'right'].includes(str(vsRaw.contentAlignment))
+                                ? str(vsRaw.contentAlignment) : contentAlignment) as ContentAlignment,
+    frameOrder:               (['filename', 'upload', 'manual'].includes(str(vsRaw.frameOrder))
+                                ? str(vsRaw.frameOrder) : 'filename') as FrameOrder,
+    preloadStrategy:          (['nearby', 'first20', 'all'].includes(str(vsRaw.preloadStrategy))
+                                ? str(vsRaw.preloadStrategy) : 'nearby') as FramePreloadStrategy,
   }
 
   return {
@@ -399,6 +474,12 @@ export function normalizeScrollHeroContent(raw: unknown): Premium3DScrollHeroCon
     videoScrubQuality:     (str(c.videoScrubQuality, d.videoScrubQuality!) as VideoScrubQuality),
     mobileFallbackMode:    (str(c.mobileFallbackMode, d.mobileFallbackMode!) as MobileFallbackMode),
     reducedMotionFallback: (str(c.reducedMotionFallback, d.reducedMotionFallback!) as ReducedMotionFallback),
+    overlayOpacity,
+    backgroundGradientStrength,
+    heroHeight,
+    customHeroHeight,
+    textRevealTiming,
+    contentAlignment,
     modelScale:            num(c.modelScale, d.modelScale!),
     initialRotation:       vec3(c.initialRotation, d.initialRotation!),
     targetRotation:        vec3(c.targetRotation, d.targetRotation!),
@@ -407,6 +488,7 @@ export function normalizeScrollHeroContent(raw: unknown): Premium3DScrollHeroCon
     shadowIntensity:       Math.min(1, Math.max(0, num(c.shadowIntensity, d.shadowIntensity!))),
     presetKey:             c.presetKey ? str(c.presetKey) : undefined,
     assetPlaceholder:      bool(c.assetPlaceholder, false),
+    assetNeeded:           bool(c.assetNeeded, false),
     assetNeededNote:       c.assetNeededNote ? str(c.assetNeededNote) : undefined,
   }
 }

@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
   const websiteId  = (form.get('website_id') as string | null) || null
   const businessId = (form.get('business_id') as string | null) || null
   const sectionId  = (form.get('section_id') as string | null) || null
+  const sequenceId = (form.get('sequence_id') as string | null) || null
   const renderMode = (form.get('render_mode') as string | null) || null
   const sortOrder  = intOrNull(form.get('sort_order')) ?? 0
   let metadata: Record<string, unknown> = {}
@@ -131,6 +132,7 @@ export async function POST(req: NextRequest) {
       website_id:      websiteId,
       business_id:     businessId,
       section_id:      sectionId,
+      sequence_id:     sequenceId,
       name,
       asset_type:      assetType,
       render_mode:     renderMode,

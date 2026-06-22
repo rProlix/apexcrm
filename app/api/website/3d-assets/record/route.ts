@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
       website_id:       b.website_id ?? null,
       business_id:      b.business_id ?? null,
       section_id:       b.section_id ?? null,
+      sequence_id:      b.sequence_id ?? null,
       name:             b.name ?? 'asset',
       asset_type:       assetType,
       render_mode:      b.render_mode ?? null,

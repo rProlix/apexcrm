@@ -62,6 +62,7 @@ export function recommendScrollHero(
     ...cleanOverrides,
     // Always honest: no real asset was created by AI.
     assetPlaceholder: true,
+    assetNeeded: true,
     assetNeededNote:
       preset?.assetNeeded ??
       'Upload a GLB/GLTF model (3D mode) or an H.264 MP4 / image sequence (video mode) for the full effect.',

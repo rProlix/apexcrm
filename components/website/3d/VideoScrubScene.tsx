@@ -28,8 +28,8 @@ export default function VideoScrubScene({ content, progressRef, active }: Props)
     progressRef,
     active,
     smoothing: content.scrubSmoothing ?? content.videoScrub?.scrubSmoothing ?? 0.12,
-    startTime: content.videoScrub?.startTime,
-    endTime:   content.videoScrub?.endTime,
+    startTime: content.videoScrub?.startTime ?? undefined,
+    endTime:   content.videoScrub?.endTime ?? undefined,
   })
 
   if (errored) {

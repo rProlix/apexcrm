@@ -73,7 +73,10 @@ export function Premium3DScrollHeroClient({ content, isPreview = false }: Props)
 
   const hasAsset = hasUsableAsset(content)
   const allowInteractiveOnMobile =
-    content.mobileFallbackMode === 'fullScrub' || content.mobileFallbackMode === 'lowRes'
+    content.mobileFallbackMode === 'fullScrub' ||
+    content.mobileFallbackMode === 'full_scrub' ||
+    content.mobileFallbackMode === 'lowRes' ||
+    content.mobileFallbackMode === 'reduced_video'
 
   const canInteract =
     content.renderMode === 'three_model'
@@ -104,6 +107,19 @@ export function Premium3DScrollHeroClient({ content, isPreview = false }: Props)
     background: '#0b0b12', foreground: '#f5f5f7',
     accent: '#7c3aed', muted: '#a1a1aa', glow: '#a855f7',
   }
+
+  // Presentation controls (Media Studio)
+  const heroHeight =
+    content.heroHeight === 'custom'
+      ? (content.customHeroHeight || '100vh')
+      : (content.heroHeight ?? '100vh')
+  const overlayOpacity = content.overlayOpacity ?? 0.35
+  const gradientStrength = content.backgroundGradientStrength ?? 0.45
+  const alignItemsX =
+    content.contentAlignment === 'center' ? 'center'
+    : content.contentAlignment === 'right' ? 'flex-end'
+    : 'flex-start'
+  const textAlignX = (content.contentAlignment ?? 'left') as 'left' | 'center' | 'right'
 
   // section-scoped CSS variables (always present)
   const cssVars = {
@@ -176,7 +192,7 @@ export function Premium3DScrollHeroClient({ content, isPreview = false }: Props)
         style={{
           position: 'relative',
           width: '100%',
-          height: '100vh',
+          height: heroHeight,
           minHeight: 480,
           overflow: 'hidden',
         }}
@@ -190,11 +206,11 @@ export function Premium3DScrollHeroClient({ content, isPreview = false }: Props)
           ) : (
             FallbackVisual
           )}
-          {/* readability scrim */}
+          {/* readability scrim (overlay opacity + gradient strength) */}
           <div
             style={{
               position: 'absolute', inset: 0, pointerEvents: 'none',
-              background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.0) 35%, rgba(0,0,0,0.45) 100%)',
+              background: `linear-gradient(180deg, rgba(0,0,0,${0.15 * gradientStrength * 2}) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,${overlayOpacity}) 100%)`,
             }}
           />
         </div>
@@ -204,7 +220,10 @@ export function Premium3DScrollHeroClient({ content, isPreview = false }: Props)
           style={{
             position: 'relative', zIndex: 2, height: '100%',
             display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+            alignItems: alignItemsX, textAlign: textAlignX,
             padding: 'clamp(1.5rem, 5vw, 5rem)', maxWidth: 880,
+            marginLeft: textAlignX === 'center' ? 'auto' : undefined,
+            marginRight: textAlignX === 'center' || textAlignX === 'right' ? 'auto' : undefined,
           }}
         >
           {content.eyebrow ? (

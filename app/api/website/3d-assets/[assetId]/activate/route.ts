@@ -19,6 +19,17 @@ type RouteContext = { params: Promise<{ assetId: string }> }
 type ActivateMode = 'video' | 'image_sequence' | 'poster' | 'fallback'
 const VALID_MODES = new Set<ActivateMode>(['video', 'image_sequence', 'poster', 'fallback'])
 
+/** Studio sends activationType (hero_video, …); map it onto the internal mode. */
+function resolveMode(raw: { mode?: string; activationType?: string }): ActivateMode | undefined {
+  const a = raw.activationType
+  if (a === 'hero_video') return 'video'
+  if (a === 'hero_image_sequence') return 'image_sequence'
+  if (a === 'poster') return 'poster'
+  if (a === 'fallback') return 'fallback'
+  if (raw.mode && VALID_MODES.has(raw.mode as ActivateMode)) return raw.mode as ActivateMode
+  return undefined
+}
+
 function forbidden() {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 }
@@ -37,13 +48,14 @@ export async function POST(req: NextRequest, context: RouteContext) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  let body: { section_id?: string; mode?: string } = {}
+  let body: { section_id?: string; sectionId?: string; mode?: string; activationType?: string; sequence_id?: string; sequenceId?: string } = {}
   try { body = await req.json() } catch { /* allow empty */ }
 
-  const sectionId = body.section_id || null
-  const mode = body.mode as ActivateMode | undefined
-  if (!mode || !VALID_MODES.has(mode)) {
-    return NextResponse.json({ error: 'mode must be video | image_sequence | poster | fallback' }, { status: 400 })
+  const sectionId = body.section_id || body.sectionId || null
+  const sequenceId = body.sequence_id || body.sequenceId || null
+  const mode = resolveMode(body)
+  if (!mode) {
+    return NextResponse.json({ error: 'mode/activationType must resolve to video | image_sequence | poster | fallback' }, { status: 400 })
   }
 
   const db = getSupabaseServerClient()
@@ -63,21 +75,25 @@ export async function POST(req: NextRequest, context: RouteContext) {
   // Resolve the ordered frame URLs for an image sequence.
   let imageSequenceUrls: string[] | undefined
   if (mode === 'image_sequence') {
-    const sequenceId = (asset.metadata?.sequenceId as string | undefined) ?? null
+    const resolvedSeqId =
+      sequenceId
+      ?? (asset.sequence_id as string | undefined)
+      ?? (asset.metadata?.sequenceId as string | undefined)
+      ?? null
     const metaFrames = Array.isArray(asset.metadata?.frameUrls)
       ? (asset.metadata.frameUrls as unknown[]).filter((u): u is string => typeof u === 'string')
       : null
 
     if (metaFrames && metaFrames.length > 0) {
       imageSequenceUrls = metaFrames
-    } else if (sequenceId) {
+    } else if (resolvedSeqId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: frames } = await (db as any)
         .from('website_3d_assets')
         .select('*')
         .eq('tenant_id', tenantId)
         .eq('asset_type', 'image_sequence_frame')
-        .contains('metadata', { sequenceId })
+        .or(`sequence_id.eq.${resolvedSeqId},metadata->>sequenceId.eq.${resolvedSeqId}`)
       const ordered = (frames ?? []) as Asset[]
       ordered.sort((a, b) => {
         const fa = a.frame_index ?? a.sort_order ?? 0
@@ -124,14 +140,17 @@ export async function POST(req: NextRequest, context: RouteContext) {
       videoUrl: url,
       activeVideoAssetId: assetId,
       activeAssetId: assetId,
+      assetNeeded: false,
     }
   } else if (mode === 'image_sequence') {
+    const seqRef = sequenceId || (asset.sequence_id as string | undefined) || assetId
     contentPatch = {
       renderMode: 'video_scrub',
       useImageSequence: true,
       imageSequenceUrls: imageSequenceUrls ?? [],
-      activeImageSequenceAssetId: assetId,
-      activeAssetId: assetId,
+      activeImageSequenceAssetId: seqRef,
+      activeAssetId: seqRef,
+      assetNeeded: false,
     }
   } else if (mode === 'poster') {
     contentPatch = { posterUrl: url, posterAssetId: assetId }

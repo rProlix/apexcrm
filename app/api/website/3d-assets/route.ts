@@ -23,6 +23,8 @@ export async function GET(req: NextRequest) {
   const businessId = sp.get('businessId')
   const sectionId  = sp.get('sectionId')
   const renderMode = sp.get('renderMode')
+  const sequenceId = sp.get('sequenceId')
+  const includeArchived = sp.get('includeArchived') === 'true'
 
   const db = getSupabaseServerClient()
   // website_3d_assets is not in the generated Supabase types yet — cast to any.
@@ -39,10 +41,22 @@ export async function GET(req: NextRequest) {
   if (businessId) q = q.eq('business_id', businessId)
   if (sectionId)  q = q.eq('section_id', sectionId)
   if (renderMode) q = q.eq('render_mode', renderMode)
+  if (sequenceId) q = q.eq('sequence_id', sequenceId)
+  if (!includeArchived) q = q.eq('is_archived', false)
 
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ assets: data ?? [] })
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = (data ?? []) as Record<string, any>[]
+  const grouped = {
+    videos:         rows.filter((a) => a.asset_type === 'video'),
+    imageSequences: rows.filter((a) => a.asset_type === 'image_sequence'),
+    posters:        rows.filter((a) => a.asset_type === 'poster'),
+    fallbacks:      rows.filter((a) => a.asset_type === 'fallback'),
+    frames:         rows.filter((a) => a.asset_type === 'image_sequence_frame'),
+  }
+  return NextResponse.json({ assets: rows, ...grouped })
 }
 
 export async function DELETE(req: NextRequest) {

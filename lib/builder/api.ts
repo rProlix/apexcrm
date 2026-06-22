@@ -136,6 +136,7 @@ export interface Website3DAsset {
   website_id?:      string | null
   business_id?:     string | null
   section_id?:      string | null
+  sequence_id?:     string | null
   name:             string
   asset_type:       string
   render_mode?:     string | null
@@ -152,8 +153,18 @@ export interface Website3DAsset {
   fps?:             number | null
   sort_order?:      number | null
   is_active?:       boolean | null
+  is_archived?:     boolean | null
   metadata:         Record<string, unknown>
   created_at:       string
+  updated_at?:      string
+}
+
+export interface Website3DAssetGroups {
+  videos:         Website3DAsset[]
+  imageSequences: Website3DAsset[]
+  posters:        Website3DAsset[]
+  fallbacks:      Website3DAsset[]
+  frames:         Website3DAsset[]
 }
 
 export interface Upload3DAssetOptions {
@@ -161,6 +172,8 @@ export interface Upload3DAssetOptions {
   websiteId?:  string | null
   businessId?: string | null
   sectionId?:  string | null
+  sequenceId?: string | null
+  frameIndex?: number | null
   renderMode?: 'three_model' | 'video_scrub' | null
   sortOrder?:  number
   name?:       string
@@ -172,7 +185,9 @@ export interface Get3DAssetsFilters {
   websiteId?:  string
   businessId?: string
   sectionId?:  string
+  sequenceId?: string
   renderMode?: string
+  includeArchived?: boolean
 }
 
 /**
@@ -226,6 +241,8 @@ export async function uploadWebsite3DAsset(
             business_id:     opts.businessId ?? null,
             section_id:      opts.sectionId ?? null,
             name:            opts.name ?? file.name,
+            sequence_id:     opts.sequenceId ?? null,
+            frame_index:     opts.frameIndex ?? null,
             bucket,
             storage_path:    path,
             public_url:      publicUrl,
@@ -257,6 +274,8 @@ export async function uploadWebsite3DAsset(
   if (opts.websiteId)  form.append('website_id', opts.websiteId)
   if (opts.businessId) form.append('business_id', opts.businessId)
   if (opts.sectionId)  form.append('section_id', opts.sectionId)
+  if (opts.sequenceId) form.append('sequence_id', opts.sequenceId)
+  if (opts.frameIndex != null) form.append('frame_index', String(opts.frameIndex))
   if (opts.renderMode) form.append('render_mode', opts.renderMode)
   if (opts.sortOrder != null) form.append('sort_order', String(opts.sortOrder))
   if (opts.metadata)   form.append('metadata', JSON.stringify(opts.metadata))
@@ -276,17 +295,108 @@ export async function getWebsite3DAssets(
   filters?: string | Get3DAssetsFilters,
 ): Promise<Website3DAsset[]> {
   const f: Get3DAssetsFilters = typeof filters === 'string' ? { assetType: filters } : (filters ?? {})
+  const url = build3DAssetsUrl(tenantId, f)
+  const res = await fetch(url)
+  if (!res.ok) return []
+  const json = await res.json()
+  return (json.assets as Website3DAsset[]) ?? []
+}
+
+function build3DAssetsUrl(tenantId: string, f: Get3DAssetsFilters): string {
   const url = new URL('/api/website/3d-assets', window.location.origin)
   url.searchParams.set('tenantId', tenantId)
   if (f.assetType)  url.searchParams.set('assetType', f.assetType)
   if (f.websiteId)  url.searchParams.set('websiteId', f.websiteId)
   if (f.businessId) url.searchParams.set('businessId', f.businessId)
   if (f.sectionId)  url.searchParams.set('sectionId', f.sectionId)
+  if (f.sequenceId) url.searchParams.set('sequenceId', f.sequenceId)
   if (f.renderMode) url.searchParams.set('renderMode', f.renderMode)
-  const res = await fetch(url.toString())
-  if (!res.ok) return []
+  if (f.includeArchived) url.searchParams.set('includeArchived', 'true')
+  return url.toString()
+}
+
+/** Fetch tenant 3D assets already grouped by asset_type. */
+export async function getWebsite3DAssetGroups(
+  tenantId: string,
+  filters?: Get3DAssetsFilters,
+): Promise<Website3DAssetGroups> {
+  const empty: Website3DAssetGroups = { videos: [], imageSequences: [], posters: [], fallbacks: [], frames: [] }
+  const res = await fetch(build3DAssetsUrl(tenantId, filters ?? {}))
+  if (!res.ok) return empty
   const json = await res.json()
-  return (json.assets as Website3DAsset[]) ?? []
+  return {
+    videos:         (json.videos as Website3DAsset[]) ?? [],
+    imageSequences: (json.imageSequences as Website3DAsset[]) ?? [],
+    posters:        (json.posters as Website3DAsset[]) ?? [],
+    fallbacks:      (json.fallbacks as Website3DAsset[]) ?? [],
+    frames:         (json.frames as Website3DAsset[]) ?? [],
+  }
+}
+
+/**
+ * Record a website_3d_assets row WITHOUT uploading a new file (e.g. a parent
+ * "image_sequence" group row that references already-uploaded frame URLs).
+ */
+export async function recordWebsite3DAsset(
+  tenantId: string,
+  body: {
+    assetType:   string
+    name:        string
+    publicUrl:   string
+    storagePath: string
+    bucket?:     string | null
+    sectionId?:  string | null
+    websiteId?:  string | null
+    sequenceId?: string | null
+    renderMode?: string | null
+    frameCount?: number | null
+    fps?:        number | null
+    metadata?:   Record<string, unknown>
+  },
+): Promise<Website3DAsset | null> {
+  const res = await fetch('/api/website/3d-assets/record', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({
+      tenant_id:    tenantId,
+      asset_type:   body.assetType,
+      name:         body.name,
+      public_url:   body.publicUrl,
+      storage_path: body.storagePath,
+      bucket:       body.bucket ?? null,
+      section_id:   body.sectionId ?? null,
+      website_id:   body.websiteId ?? null,
+      sequence_id:  body.sequenceId ?? null,
+      render_mode:  body.renderMode ?? null,
+      frame_count:  body.frameCount ?? null,
+      fps:          body.fps ?? null,
+      metadata:     body.metadata ?? {},
+    }),
+  })
+  if (!res.ok) return null
+  const json = await res.json()
+  return (json.asset as Website3DAsset) ?? null
+}
+
+/** Rename / re-sort / update metadata / archive a 3D asset (PATCH). */
+export async function updateWebsite3DAsset(
+  assetId: string,
+  patch: { name?: string; sort_order?: number; is_archived?: boolean; is_active?: boolean; metadata?: Record<string, unknown> },
+): Promise<Website3DAsset | null> {
+  const res = await fetch(`/api/website/3d-assets/${assetId}`, {
+    method:  'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(patch),
+  })
+  if (!res.ok) return null
+  const json = await res.json()
+  return (json.asset as Website3DAsset) ?? null
+}
+
+/** Archive (soft-delete) a 3D asset. */
+export async function archiveWebsite3DAsset(assetId: string): Promise<boolean> {
+  const res = await fetch(`/api/website/3d-assets/${assetId}`, { method: 'DELETE' })
+  return res.ok
 }
 
 /**
@@ -298,11 +408,12 @@ export async function activateWebsite3DAsset(
   assetId:   string,
   mode:      'video' | 'image_sequence' | 'poster' | 'fallback',
   sectionId?: string,
+  opts?: { sequenceId?: string | null },
 ): Promise<{ contentPatch: Record<string, unknown>; asset: Website3DAsset } | null> {
   const res = await fetch(`/api/website/3d-assets/${assetId}/activate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode, section_id: sectionId ?? null }),
+    body: JSON.stringify({ mode, section_id: sectionId ?? null, sequence_id: opts?.sequenceId ?? null }),
   })
   if (!res.ok) {
     console.error('[builder] activateWebsite3DAsset failed', await res.text())
