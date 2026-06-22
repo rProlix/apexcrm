@@ -133,30 +133,133 @@ export async function uploadSectionImage(
 export interface Website3DAsset {
   id:               string
   tenant_id:        string
+  website_id?:      string | null
+  business_id?:     string | null
+  section_id?:      string | null
   name:             string
   asset_type:       string
+  render_mode?:     string | null
   public_url:       string | null
   storage_path:     string | null
+  bucket?:          string | null
   mime_type:        string | null
   file_size_bytes:  number | null
+  width?:           number | null
+  height?:          number | null
+  duration_seconds?: number | null
+  frame_count?:     number | null
+  frame_index?:     number | null
+  fps?:             number | null
+  sort_order?:      number | null
+  is_active?:       boolean | null
   metadata:         Record<string, unknown>
   created_at:       string
 }
 
+export interface Upload3DAssetOptions {
+  assetType:   string
+  websiteId?:  string | null
+  businessId?: string | null
+  sectionId?:  string | null
+  renderMode?: 'three_model' | 'video_scrub' | null
+  sortOrder?:  number
+  name?:       string
+  metadata?:   Record<string, unknown>
+}
+
+export interface Get3DAssetsFilters {
+  assetType?:  string
+  websiteId?:  string
+  businessId?: string
+  sectionId?:  string
+  renderMode?: string
+}
+
 /**
- * Upload a 3D model / video / poster / fallback / environment asset for the
- * Premium 3D Scroll Hero. Returns the public URL + the created asset row.
+ * Upload a 3D model / video / poster / fallback / environment / image-sequence
+ * frame asset. Accepts either a plain asset-type string (legacy) or a full
+ * options object (Media Manager). Returns the public URL + created asset row.
+ *
+ * Vercel-safe: large files (videos/models up to 100 MB) are uploaded DIRECTLY
+ * to Supabase Storage via a one-time signed upload URL, so they never pass
+ * through the serverless function (which caps request bodies at ~4.5 MB). If
+ * signing/direct upload is unavailable, it falls back to the multipart route
+ * (fine for small files / local dev).
  */
 export async function uploadWebsite3DAsset(
   file:      File,
   tenantId:  string,
-  assetType: string,
+  options:   string | Upload3DAssetOptions,
 ): Promise<{ url: string; asset: Website3DAsset } | null> {
+  const opts: Upload3DAssetOptions = typeof options === 'string' ? { assetType: options } : options
+
+  // ── Preferred path: signed direct-to-storage upload ──
+  try {
+    const signRes = await fetch('/api/website/3d-assets/sign-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenant_id:   tenantId,
+        asset_type:  opts.assetType,
+        render_mode: opts.renderMode ?? null,
+        website_id:  opts.websiteId ?? null,
+        section_id:  opts.sectionId ?? null,
+        filename:    opts.name ?? file.name,
+      }),
+    })
+    if (signRes.ok) {
+      const { bucket, path, token, publicUrl } = await signRes.json()
+      const { createClient } = await import('@/lib/supabase/browser')
+      const supabase = createClient()
+      const { error: upErr } = await supabase.storage
+        .from(bucket)
+        .uploadToSignedUrl(path, token, file, { contentType: file.type || undefined })
+      if (!upErr) {
+        const recRes = await fetch('/api/website/3d-assets/record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenant_id:       tenantId,
+            asset_type:      opts.assetType,
+            render_mode:     opts.renderMode ?? null,
+            website_id:      opts.websiteId ?? null,
+            business_id:     opts.businessId ?? null,
+            section_id:      opts.sectionId ?? null,
+            name:            opts.name ?? file.name,
+            bucket,
+            storage_path:    path,
+            public_url:      publicUrl,
+            file_size_bytes: file.size,
+            mime_type:       file.type || null,
+            sort_order:      opts.sortOrder ?? 0,
+            metadata:        opts.metadata ?? {},
+          }),
+        })
+        if (recRes.ok) {
+          const json = await recRes.json()
+          return { url: (json.url ?? publicUrl) as string, asset: json.asset as Website3DAsset }
+        }
+        // Recorded file exists even if the DB row failed — return URL.
+        return { url: publicUrl as string, asset: null as unknown as Website3DAsset }
+      }
+      console.warn('[builder] signed upload failed, falling back to multipart', upErr.message)
+    }
+  } catch (e) {
+    console.warn('[builder] signed upload unavailable, falling back to multipart', e)
+  }
+
+  // ── Fallback: multipart route (small files / environments without signing) ──
   const form = new FormData()
   form.append('file', file)
   form.append('tenant_id', tenantId)
-  form.append('asset_type', assetType)
-  form.append('name', file.name)
+  form.append('asset_type', opts.assetType)
+  form.append('name', opts.name ?? file.name)
+  if (opts.websiteId)  form.append('website_id', opts.websiteId)
+  if (opts.businessId) form.append('business_id', opts.businessId)
+  if (opts.sectionId)  form.append('section_id', opts.sectionId)
+  if (opts.renderMode) form.append('render_mode', opts.renderMode)
+  if (opts.sortOrder != null) form.append('sort_order', String(opts.sortOrder))
+  if (opts.metadata)   form.append('metadata', JSON.stringify(opts.metadata))
 
   const res = await fetch('/api/website/3d-assets/upload', { method: 'POST', body: form })
   if (!res.ok) {
@@ -167,18 +270,54 @@ export async function uploadWebsite3DAsset(
   return { url: json.url as string, asset: json.asset as Website3DAsset }
 }
 
-/** List existing 3D assets for a tenant, optionally filtered by asset type. */
+/** List existing 3D assets for a tenant, optionally filtered. */
 export async function getWebsite3DAssets(
-  tenantId:   string,
-  assetType?: string,
+  tenantId: string,
+  filters?: string | Get3DAssetsFilters,
 ): Promise<Website3DAsset[]> {
+  const f: Get3DAssetsFilters = typeof filters === 'string' ? { assetType: filters } : (filters ?? {})
   const url = new URL('/api/website/3d-assets', window.location.origin)
   url.searchParams.set('tenantId', tenantId)
-  if (assetType) url.searchParams.set('assetType', assetType)
+  if (f.assetType)  url.searchParams.set('assetType', f.assetType)
+  if (f.websiteId)  url.searchParams.set('websiteId', f.websiteId)
+  if (f.businessId) url.searchParams.set('businessId', f.businessId)
+  if (f.sectionId)  url.searchParams.set('sectionId', f.sectionId)
+  if (f.renderMode) url.searchParams.set('renderMode', f.renderMode)
   const res = await fetch(url.toString())
   if (!res.ok) return []
   const json = await res.json()
   return (json.assets as Website3DAsset[]) ?? []
+}
+
+/**
+ * Activate an uploaded asset as the active hero media for a section. Flips the
+ * is_active flag server-side and returns the content patch the caller should
+ * merge into the draft section content (autosaved through the builder store).
+ */
+export async function activateWebsite3DAsset(
+  assetId:   string,
+  mode:      'video' | 'image_sequence' | 'poster' | 'fallback',
+  sectionId?: string,
+): Promise<{ contentPatch: Record<string, unknown>; asset: Website3DAsset } | null> {
+  const res = await fetch(`/api/website/3d-assets/${assetId}/activate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode, section_id: sectionId ?? null }),
+  })
+  if (!res.ok) {
+    console.error('[builder] activateWebsite3DAsset failed', await res.text())
+    return null
+  }
+  const json = await res.json()
+  return { contentPatch: json.contentPatch ?? {}, asset: json.asset as Website3DAsset }
+}
+
+/** Delete a 3D asset by id. */
+export async function deleteWebsite3DAsset(id: string): Promise<boolean> {
+  const url = new URL('/api/website/3d-assets', window.location.origin)
+  url.searchParams.set('id', id)
+  const res = await fetch(url.toString(), { method: 'DELETE' })
+  return res.ok
 }
 
 // ── AI Image generation ───────────────────────────────────────────────────────

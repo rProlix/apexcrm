@@ -17,9 +17,26 @@ const BUCKET = STORAGE_BUCKETS.WEBSITE_ASSETS
 const MAX_BYTES = 100 * 1024 * 1024 // 100 MB
 
 const VALID_ASSET_TYPES = new Set([
-  'glb', 'gltf', 'video', 'image_sequence', 'thumbnail',
+  'glb', 'gltf', 'video', 'image_sequence', 'image_sequence_frame', 'thumbnail',
   'poster', 'fallback', 'environment', 'texture',
 ])
+
+const VALID_RENDER_MODES = new Set(['three_model', 'video_scrub'])
+
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80) || 'asset'
+}
+
+function intOrNull(v: FormDataEntryValue | null): number | null {
+  if (v == null) return null
+  const n = parseInt(String(v), 10)
+  return Number.isFinite(n) ? n : null
+}
+function numOrNull(v: FormDataEntryValue | null): number | null {
+  if (v == null) return null
+  const n = parseFloat(String(v))
+  return Number.isFinite(n) ? n : null
+}
 
 // Reject any Spline-related upload defensively.
 const BLOCKED_EXT = new Set(['splinecode', 'spline'])
@@ -53,9 +70,24 @@ export async function POST(req: NextRequest) {
   const assetType = (form.get('asset_type') as string | null) ?? 'glb'
   const name      = (form.get('name') as string | null) ?? (file?.name ?? 'asset')
 
+  // Optional grouping / scoping fields (Media Manager).
+  const websiteId  = (form.get('website_id') as string | null) || null
+  const businessId = (form.get('business_id') as string | null) || null
+  const sectionId  = (form.get('section_id') as string | null) || null
+  const renderMode = (form.get('render_mode') as string | null) || null
+  const sortOrder  = intOrNull(form.get('sort_order')) ?? 0
+  let metadata: Record<string, unknown> = {}
+  try {
+    const m = form.get('metadata')
+    if (m) metadata = JSON.parse(String(m))
+  } catch { /* ignore malformed metadata */ }
+
   if (!file) return NextResponse.json({ error: 'file required' }, { status: 400 })
   if (!VALID_ASSET_TYPES.has(assetType)) {
     return NextResponse.json({ error: `Invalid asset_type "${assetType}"` }, { status: 422 })
+  }
+  if (renderMode && !VALID_RENDER_MODES.has(renderMode)) {
+    return NextResponse.json({ error: `Invalid render_mode "${renderMode}"` }, { status: 422 })
   }
   if (file.size > MAX_BYTES) {
     return NextResponse.json({ error: `File exceeds ${MAX_BYTES / 1024 / 1024}MB limit` }, { status: 413 })
@@ -67,7 +99,10 @@ export async function POST(req: NextRequest) {
   }
 
   const contentType = EXT_MIME[ext] ?? file.type ?? 'application/octet-stream'
-  const filename = `${tenantId}/3d/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  // Tenant-safe, structured storage path.
+  const safeName = sanitizeFilename(file.name)
+  const scope = websiteId ? `${websiteId}/${sectionId ?? 'unassigned'}` : '_library'
+  const filename = `tenants/${tenantId}/website-builder/3d-hero/${scope}/${assetType}/${Date.now()}-${safeName}`
 
   const db = getSupabaseServerClient()
 
@@ -93,15 +128,27 @@ export async function POST(req: NextRequest) {
     .from('website_3d_assets')
     .insert({
       tenant_id:       tenantId,
+      website_id:      websiteId,
+      business_id:     businessId,
+      section_id:      sectionId,
       name,
       asset_type:      assetType,
+      render_mode:     renderMode,
       storage_provider:'supabase',
+      bucket:          BUCKET,
       storage_path:    filename,
       public_url:      publicUrl,
       file_size_bytes: file.size,
       mime_type:       contentType,
+      width:           intOrNull(form.get('width')),
+      height:          intOrNull(form.get('height')),
+      duration_seconds: numOrNull(form.get('duration_seconds')),
+      frame_count:     intOrNull(form.get('frame_count')),
+      frame_index:     intOrNull(form.get('frame_index')),
+      fps:             numOrNull(form.get('fps')),
+      sort_order:      sortOrder,
       created_by:      ctx.id ?? null,
-      metadata:        { original_name: file.name },
+      metadata:        { original_name: file.name, ...metadata },
     })
     .select('*')
     .single()

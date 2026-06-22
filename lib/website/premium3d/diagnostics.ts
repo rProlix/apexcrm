@@ -19,6 +19,17 @@ export interface SectionDiagnostic {
   renderMode:   string
   rawRenderMode: string
   headline:     string
+  // Active media references
+  activeVideoAssetId:         string | null
+  activeImageSequenceAssetId: string | null
+  posterAssetId:              string | null
+  fallbackAssetId:            string | null
+  videoUrlPresent:           boolean
+  posterUrlPresent:          boolean
+  fallbackUrlPresent:        boolean
+  imageSequenceFrameCount:   number
+  /** True when the page is published (this section is live publicly) */
+  isLive:       boolean
   issues:       string[]
   warnings:     string[]
 }
@@ -110,14 +121,29 @@ export async function buildScrollHeroDiagnostics(tenantId: string): Promise<Scro
 
     if (!c.fallbackImageUrl) { warnings.push('No fallback image set'); missingFallback++ }
 
+    const status = pageStatus.get(row.page_id as string) ?? 'unknown'
+    const isLive = status === 'published'
+    if (!isLive && c.renderMode === 'video_scrub' && (c.videoUrl || (c.imageSequenceUrls?.length ?? 0) > 1)) {
+      warnings.push('Media is saved in draft — publish the website to show it publicly')
+    }
+
     sections.push({
       sectionId:    row.id as string,
       pageId:       row.page_id as string,
-      pageStatus:   pageStatus.get(row.page_id as string) ?? 'unknown',
+      pageStatus:   status,
       isVisible:    row.is_visible !== false,
       renderMode:   c.renderMode,
       rawRenderMode: rawMode || c.renderMode,
       headline:     c.headline,
+      activeVideoAssetId:         c.activeVideoAssetId ?? null,
+      activeImageSequenceAssetId: c.activeImageSequenceAssetId ?? null,
+      posterAssetId:              c.posterAssetId ?? null,
+      fallbackAssetId:            c.fallbackAssetId ?? null,
+      videoUrlPresent:           !!c.videoUrl,
+      posterUrlPresent:          !!c.posterUrl,
+      fallbackUrlPresent:        !!c.fallbackImageUrl,
+      imageSequenceFrameCount:   c.imageSequenceUrls?.length ?? 0,
+      isLive,
       issues,
       warnings,
     })

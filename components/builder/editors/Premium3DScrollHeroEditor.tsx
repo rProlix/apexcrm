@@ -19,6 +19,7 @@ import {
   type ScrollHeroPalette,
 } from '@/lib/website/premium3d/types'
 import { INDUSTRY_PRESETS, buildContentFromPreset } from '@/lib/website/premium3d/presets'
+import { Premium3DHeroMediaPanel } from '@/components/website/3d/Premium3DHeroMediaPanel'
 
 interface Props { sectionId: string }
 
@@ -40,7 +41,6 @@ export function Premium3DScrollHeroEditor({ sectionId }: Props) {
 
   const [uploading, setUploading] = useState<string | null>(null)
   const [library, setLibrary] = useState<Website3DAsset[]>([])
-  const [seqText, setSeqText] = useState((content.imageSequenceUrls ?? []).join('\n'))
 
   const patch = useCallback((changes: Partial<Premium3DScrollHeroContent>) => {
     if (!section) return
@@ -200,101 +200,7 @@ export function Premium3DScrollHeroEditor({ sectionId }: Props) {
           ]} />
         </>
       ) : (
-        <>
-          <div style={groupStyle}>
-            <Toggle
-              label="Use image sequence (frame-perfect)"
-              value={!!content.useImageSequence}
-              onChange={(v) => patch({ useImageSequence: v })}
-            />
-          </div>
-
-          {content.useImageSequence ? (
-            <div style={groupStyle}>
-              <label style={labelStyle}>Image sequence frame URLs (one per line, in order)</label>
-              <Textarea
-                value={seqText}
-                rows={5}
-                placeholder="https://…/frame_001.webp&#10;https://…/frame_002.webp"
-                onChange={(v) => {
-                  setSeqText(v)
-                  const urls = v.split('\n').map((s) => s.trim()).filter(Boolean)
-                  patch({ imageSequenceUrls: urls })
-                }}
-              />
-              <FileUploadRow
-                label="Add a frame (uploads & appends)"
-                accept="image/webp,image/jpeg,image/png"
-                uploading={uploading === 'imageSequenceUrls'}
-                onFile={async (f) => {
-                  if (!tenantId) return
-                  setUploading('imageSequenceUrls')
-                  try {
-                    const res = await uploadWebsite3DAsset(f, tenantId, 'image_sequence')
-                    if (res?.url) {
-                      const urls = [...(content.imageSequenceUrls ?? []), res.url]
-                      setSeqText(urls.join('\n'))
-                      patch({ imageSequenceUrls: urls })
-                    }
-                  } finally { setUploading(null) }
-                }}
-              />
-            </div>
-          ) : (
-            <FileUploadRow
-              label="Video (H.264 MP4)"
-              accept="video/mp4,.mp4"
-              uploading={uploading === 'videoUrl'}
-              currentUrl={content.videoUrl}
-              onFile={(f) => handleUpload(f, 'video', 'videoUrl')}
-              onClear={() => patch({ videoUrl: null })}
-            />
-          )}
-
-          <FileUploadRow
-            label="Poster image (required)"
-            accept="image/*"
-            uploading={uploading === 'posterUrl'}
-            currentUrl={content.posterUrl}
-            onFile={(f) => handleImageUpload(f, 'posterUrl')}
-            onClear={() => patch({ posterUrl: null })}
-          />
-          <FileUploadRow
-            label="Fallback image"
-            accept="image/*"
-            uploading={uploading === 'fallbackImageUrl'}
-            currentUrl={content.fallbackImageUrl}
-            onFile={(f) => handleImageUpload(f, 'fallbackImageUrl')}
-            onClear={() => patch({ fallbackImageUrl: null })}
-          />
-          <div style={groupStyle}>
-            <label style={labelStyle}>Mobile fallback behaviour</label>
-            <Select
-              value={content.mobileFallbackMode ?? 'poster'}
-              onChange={(v) => patch({ mobileFallbackMode: v as Premium3DScrollHeroContent['mobileFallbackMode'] })}
-              options={[
-                { value: 'poster', label: 'Show poster (lightest)' },
-                { value: 'staticImage', label: 'Static fallback image' },
-                { value: 'lowRes', label: 'Low-res scrub' },
-                { value: 'fullScrub', label: 'Full scrub on mobile' },
-              ]}
-            />
-          </div>
-          <div style={groupStyle}>
-            <label style={labelStyle}>Video fit</label>
-            <Select
-              value={content.videoObjectFit ?? 'cover'}
-              onChange={(v) => patch({ videoObjectFit: v as Premium3DScrollHeroContent['videoObjectFit'] })}
-              options={[{ value: 'cover', label: 'Cover' }, { value: 'contain', label: 'Contain' }]}
-            />
-          </div>
-          <SpecHint lines={[
-            'MP4 H.264, muted, no audio required.',
-            '1080p max by default; short progression clip.',
-            'Poster image required.',
-            'Image sequence recommended for frame-perfect scroll.',
-          ]} />
-        </>
+        <Premium3DHeroMediaPanel sectionId={sectionId} />
       )}
 
       {/* Library picker */}
@@ -321,11 +227,10 @@ export function Premium3DScrollHeroEditor({ sectionId }: Props) {
         </div>
       )}
 
-      {/* ── Scene controls ── */}
-      <h4 style={sectionHead}>Scene & motion</h4>
-
+      {/* ── Scene controls (3D model only; video uses the media panel above) ── */}
       {isThree && (
         <>
+          <h4 style={sectionHead}>Scene & motion</h4>
           <RangeRow label="Model scale" min={0.1} max={4} step={0.1} value={content.modelScale ?? 1}
             onChange={(v) => patch({ modelScale: v })} />
           <RangeRow label="Rotation amount (final Y angle, turns)" min={0} max={3} step={0.25}
@@ -359,17 +264,16 @@ export function Premium3DScrollHeroEditor({ sectionId }: Props) {
               onChange={(v) => patch({ stageRevealMode: v as Premium3DScrollHeroContent['stageRevealMode'] })}
               options={['none', 'sequential', 'crossfade'].map((o) => ({ value: o, label: o }))} />
           </div>
+          <RangeRow label="Scroll length (× viewport height)" min={1} max={6} step={0.5} value={content.scrollLength ?? 2.5}
+            onChange={(v) => patch({ scrollLength: v })} />
+          <RangeRow label="Scrub smoothing" min={0} max={1} step={0.02} value={content.scrubSmoothing ?? 0.12}
+            onChange={(v) => patch({ scrubSmoothing: v })} />
+          <div style={groupStyle}>
+            <Toggle label="Pin hero while scrolling" value={content.pinOnScroll !== false}
+              onChange={(v) => patch({ pinOnScroll: v })} />
+          </div>
         </>
       )}
-
-      <RangeRow label="Scroll length (× viewport height)" min={1} max={6} step={0.5} value={content.scrollLength ?? 2.5}
-        onChange={(v) => patch({ scrollLength: v })} />
-      <RangeRow label="Scrub smoothing" min={0} max={1} step={0.02} value={content.scrubSmoothing ?? 0.12}
-        onChange={(v) => patch({ scrubSmoothing: v })} />
-      <div style={groupStyle}>
-        <Toggle label="Pin hero while scrolling" value={content.pinOnScroll !== false}
-          onChange={(v) => patch({ pinOnScroll: v })} />
-      </div>
 
       {/* ── Text & effects ── */}
       <h4 style={sectionHead}>Headline & effects</h4>
@@ -386,18 +290,22 @@ export function Premium3DScrollHeroEditor({ sectionId }: Props) {
           options={['none', 'liquidReveal', 'softGlass', 'heatWave', 'premiumGlow', 'pageRipple', 'productAura'].map((o) => ({ value: o, label: o }))} />
       </div>
 
-      {/* ── Accessibility ── */}
-      <h4 style={sectionHead}>Accessibility & fallback</h4>
-      <div style={groupStyle}>
-        <label style={labelStyle}>Reduced-motion fallback</label>
-        <Select value={content.reducedMotionFallback ?? 'poster'}
-          onChange={(v) => patch({ reducedMotionFallback: v as Premium3DScrollHeroContent['reducedMotionFallback'] })}
-          options={[
-            { value: 'poster', label: 'Poster image' },
-            { value: 'staticImage', label: 'Static fallback image' },
-            { value: 'firstFrame', label: 'First frame' },
-          ]} />
-      </div>
+      {/* ── Accessibility (3D model only; video uses the media panel above) ── */}
+      {isThree && (
+        <>
+          <h4 style={sectionHead}>Accessibility & fallback</h4>
+          <div style={groupStyle}>
+            <label style={labelStyle}>Reduced-motion fallback</label>
+            <Select value={content.reducedMotionFallback ?? 'poster'}
+              onChange={(v) => patch({ reducedMotionFallback: v as Premium3DScrollHeroContent['reducedMotionFallback'] })}
+              options={[
+                { value: 'poster', label: 'Poster image' },
+                { value: 'staticImage', label: 'Static fallback image' },
+                { value: 'firstFrame', label: 'First frame' },
+              ]} />
+          </div>
+        </>
+      )}
 
       {/* ── Palette ── */}
       <h4 style={sectionHead}>Section palette</h4>

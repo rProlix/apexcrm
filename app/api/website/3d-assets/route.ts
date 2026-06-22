@@ -17,7 +17,12 @@ export async function GET(req: NextRequest) {
   if (!tenantId) return NextResponse.json({ error: 'tenantId required' }, { status: 400 })
   if (ctx.role !== 'owner' && ctx.tenant_id !== tenantId) return forbidden()
 
-  const assetType = req.nextUrl.searchParams.get('assetType')
+  const sp = req.nextUrl.searchParams
+  const assetType  = sp.get('assetType')
+  const websiteId  = sp.get('websiteId')
+  const businessId = sp.get('businessId')
+  const sectionId  = sp.get('sectionId')
+  const renderMode = sp.get('renderMode')
 
   const db = getSupabaseServerClient()
   // website_3d_assets is not in the generated Supabase types yet — cast to any.
@@ -26,9 +31,14 @@ export async function GET(req: NextRequest) {
     .from('website_3d_assets')
     .select('*')
     .eq('tenant_id', tenantId)
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
 
-  if (assetType) q = q.eq('asset_type', assetType)
+  if (assetType)  q = q.eq('asset_type', assetType)
+  if (websiteId)  q = q.eq('website_id', websiteId)
+  if (businessId) q = q.eq('business_id', businessId)
+  if (sectionId)  q = q.eq('section_id', sectionId)
+  if (renderMode) q = q.eq('render_mode', renderMode)
 
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -105,7 +105,7 @@ const t10 = normalizeSceneBlueprint({}, foodSubject, baseConfig)
 assert(typeof t10.consistencyRules === 'object' && Array.isArray(t10.consistencyRules), 'consistencyRules is array')
 assert(typeof t10.lighting.style === 'string' && t10.lighting.style.length > 0, `lighting.style: "${t10.lighting.style}"`)
 assert(typeof t10.background.style === 'string', `background.style: "${t10.background.style}"`)
-assert(t10.camera.orbitMode === 'yaw_only', 'orbitMode is yaw_only')
+assert(t10.camera.orbitMode === 'turntable_orbit', 'orbitMode is turntable_orbit')
 
 // ── Test 11: stringified JSON blueprint ──────────────────────────────────────
 console.log('\nTest 11: stringified JSON blueprint parses and merges')

@@ -113,6 +113,15 @@ export function ScrollHeroDiagnosticsClient({ diagnostics }: Props) {
                 <span style={pill(s.isVisible)}>{s.isVisible ? 'visible' : 'hidden'}</span>
               </div>
             </div>
+            {s.renderMode === 'video_scrub' && (
+              <p style={{ margin: '0.35rem 0 0', fontSize: '0.7rem', color: '#a1a1aa' }}>
+                {s.videoUrlPresent ? '● video set' : '○ no video'}
+                {' · '}{s.imageSequenceFrameCount > 0 ? `${s.imageSequenceFrameCount} frames` : 'no sequence'}
+                {' · '}{s.posterUrlPresent ? 'poster ✓' : 'poster ✗'}
+                {' · '}{s.fallbackUrlPresent ? 'fallback ✓' : 'fallback ✗'}
+                {' · '}{s.isLive ? 'LIVE' : 'draft only'}
+              </p>
+            )}
             {s.issues.map((i, idx) => (
               <p key={`i${idx}`} style={{ margin: '0.35rem 0 0', fontSize: '0.75rem', color: '#f87171' }}>✕ {i}</p>
             ))}

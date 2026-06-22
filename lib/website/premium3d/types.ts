@@ -85,6 +85,36 @@ export type ReducedMotionFallback = 'poster' | 'staticImage' | 'firstFrame'
 export type VideoScrubQuality = 'auto' | 'high' | 'medium' | 'low'
 export type VideoObjectFit = 'cover' | 'contain'
 
+/** Whether video_scrub mode uses an MP4 video or a frame image sequence */
+export type VideoScrubSubMode = 'video' | 'image_sequence'
+export type VideoPreload = 'metadata' | 'auto' | 'none'
+
+/**
+ * Structured video/image-scrub settings (Media Manager). This is an additive,
+ * convenience mirror of the canonical flat fields (videoUrl, useImageSequence,
+ * scrubSmoothing, …). `normalizeScrollHeroContent` always derives a fully
+ * populated `videoScrub` object from the flat fields so both old and new
+ * persisted sections work. The flat fields remain the runtime source of truth.
+ */
+export interface VideoScrubSettings {
+  enabled:               boolean
+  mode:                  VideoScrubSubMode
+  playbackBehavior:      'scroll_scrub'
+  pinOnScroll:           boolean
+  scrollLength:          number
+  scrubSmoothing:        number
+  preload:               VideoPreload
+  muted:                 boolean
+  playsInline:           boolean
+  loop:                  boolean
+  objectFit:             VideoObjectFit
+  mobileFallbackMode:    MobileFallbackMode
+  reducedMotionFallback: ReducedMotionFallback
+  startTime?:            number
+  endTime?:              number
+  fps?:                  number
+}
+
 /** Optional camera keyframe used by an advanced custom scrollTimeline */
 export interface CameraKeyframe {
   /** 0..1 scroll progress */
@@ -130,6 +160,16 @@ export interface Premium3DScrollHeroContent {
   posterUrl?:         string | null
   fallbackImageUrl?:  string | null
   environmentUrl?:    string | null
+
+  // ── Active asset references (Media Manager / version history) ──
+  activeAssetId?:              string | null
+  activeVideoAssetId?:         string | null
+  activeImageSequenceAssetId?: string | null
+  posterAssetId?:             string | null
+  fallbackAssetId?:           string | null
+
+  // ── Structured video scrub settings (derived mirror of flat fields) ──
+  videoScrub?: VideoScrubSettings
 
   // ── Copy ──
   eyebrow?:      string
@@ -286,6 +326,38 @@ export function normalizeScrollHeroContent(raw: unknown): Premium3DScrollHeroCon
       }
     : d.palette
 
+  // Structured videoScrub settings: read persisted overrides if present, else
+  // derive from the canonical flat fields so old sections keep working.
+  const vsRaw = (c.videoScrub && typeof c.videoScrub === 'object')
+    ? (c.videoScrub as Record<string, unknown>)
+    : {}
+  const useSeq = bool(c.useImageSequence, !!d.useImageSequence)
+  const scrubSmoothing = Math.min(1, Math.max(0, num(c.scrubSmoothing, d.scrubSmoothing!)))
+  const objectFit = (str(c.videoObjectFit, d.videoObjectFit!) as VideoObjectFit)
+  const mobileFallbackMode = (str(c.mobileFallbackMode, d.mobileFallbackMode!) as MobileFallbackMode)
+  const reducedMotionFallback = (str(c.reducedMotionFallback, d.reducedMotionFallback!) as ReducedMotionFallback)
+  const pinOnScroll = bool(c.pinOnScroll, !!d.pinOnScroll)
+  const scrollLength = num(c.scrollLength, d.scrollLength!)
+
+  const videoScrub: VideoScrubSettings = {
+    enabled:               bool(vsRaw.enabled, renderMode === 'video_scrub'),
+    mode:                  (vsRaw.mode === 'image_sequence' || useSeq) ? 'image_sequence' : 'video',
+    playbackBehavior:      'scroll_scrub',
+    pinOnScroll:           bool(vsRaw.pinOnScroll, pinOnScroll),
+    scrollLength:          num(vsRaw.scrollLength, scrollLength),
+    scrubSmoothing:        Math.min(1, Math.max(0, num(vsRaw.scrubSmoothing, scrubSmoothing))),
+    preload:               (str(vsRaw.preload, 'metadata') as VideoPreload),
+    muted:                 bool(vsRaw.muted, true),
+    playsInline:           bool(vsRaw.playsInline, true),
+    loop:                  bool(vsRaw.loop, false),
+    objectFit:             (str(vsRaw.objectFit, objectFit) as VideoObjectFit),
+    mobileFallbackMode:    (str(vsRaw.mobileFallbackMode, mobileFallbackMode) as MobileFallbackMode),
+    reducedMotionFallback: (str(vsRaw.reducedMotionFallback, reducedMotionFallback) as ReducedMotionFallback),
+    startTime:             vsRaw.startTime != null ? num(vsRaw.startTime, 0) : undefined,
+    endTime:               vsRaw.endTime != null ? num(vsRaw.endTime, 0) : undefined,
+    fps:                   vsRaw.fps != null ? num(vsRaw.fps, 30) : undefined,
+  }
+
   return {
     sectionType:           'premium_3d_scroll_hero',
     renderMode,
@@ -296,6 +368,12 @@ export function normalizeScrollHeroContent(raw: unknown): Premium3DScrollHeroCon
     posterUrl:             c.posterUrl ? str(c.posterUrl) : null,
     fallbackImageUrl:      c.fallbackImageUrl ? str(c.fallbackImageUrl) : null,
     environmentUrl:        c.environmentUrl ? str(c.environmentUrl) : null,
+    activeAssetId:              c.activeAssetId ? str(c.activeAssetId) : null,
+    activeVideoAssetId:         c.activeVideoAssetId ? str(c.activeVideoAssetId) : null,
+    activeImageSequenceAssetId: c.activeImageSequenceAssetId ? str(c.activeImageSequenceAssetId) : null,
+    posterAssetId:             c.posterAssetId ? str(c.posterAssetId) : null,
+    fallbackAssetId:           c.fallbackAssetId ? str(c.fallbackAssetId) : null,
+    videoScrub,
     eyebrow:               str(c.eyebrow, d.eyebrow),
     headline:              str(c.headline, d.headline),
     subheadline:           str(c.subheadline, d.subheadline),
