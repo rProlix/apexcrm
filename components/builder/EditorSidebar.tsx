@@ -25,6 +25,7 @@ import { FaqEditor }              from './editors/FaqEditor'
 import { AboutEditor }            from './editors/AboutEditor'
 import { Product360ViewerEditor } from './editors/Product360ViewerEditor'
 import { Premium3DScrollHeroEditor } from './editors/Premium3DScrollHeroEditor'
+import { Premium3DHeroUploadPanel } from '@/components/website/3d/Premium3DHeroUploadPanel'
 import { GenericEditor }          from './editors/GenericEditor'
 import { Toggle }                 from './editors/FormFields'
 import { PremiumDesignPanel }    from '@/components/website/premium/PremiumDesignPanel'
@@ -510,6 +511,28 @@ export function EditorSidebar() {
           onChange={() => toggleSectionVisibility(section.id)}
         />
       </div>
+
+      {/* ── Premium 3D Scroll Hero uploads (mounted immediately when this section is selected) ── */}
+      {section.section_type === 'premium_3d_scroll_hero' && (
+        <div style={{ padding: '1rem 1.25rem 0' }}>
+          {/* Temporary debug visibility block — builder/admin only */}
+          <div style={{
+            borderRadius: '0.5rem',
+            border: '1px solid rgba(245,158,11,0.4)',
+            background: 'rgba(245,158,11,0.1)',
+            padding: '0.625rem 0.75rem',
+            fontSize: '0.7rem',
+            color: '#fcd34d',
+            marginBottom: '0.75rem',
+            lineHeight: 1.5,
+          }}>
+            <strong style={{ display: 'block', marginBottom: '0.25rem' }}>3D Hero Debug</strong>
+            <div>Selected section id: {section.id || 'none'}</div>
+            <div>Selected section type: {section.section_type || 'unknown'}</div>
+          </div>
+          <Premium3DHeroUploadPanel sectionId={section.id} />
+        </div>
+      )}
 
       {/* ── AI Images panel ── */}
       {canGenerateImage && (
