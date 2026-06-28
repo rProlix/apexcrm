@@ -49,11 +49,15 @@ export async function PATCH(req: NextRequest) {
     'site_name', 'logo_url', 'favicon_url',
     'brand_colors', 'fonts', 'theme',
     'seo_defaults', 'header_config', 'footer_config',
-    'custom_domain', 'subdomain',
+    'custom_domain', 'subdomain', 'website_type',
   ]
+  const WEBSITE_TYPES = ['business', 'creative', 'invitational', 'pov_event']
   const patch: Record<string, unknown> = {}
   for (const key of allowed) {
     if (key in body) patch[key] = body[key]
+  }
+  if ('website_type' in patch && !WEBSITE_TYPES.includes(String(patch.website_type))) {
+    return NextResponse.json({ error: 'Invalid website_type' }, { status: 400 })
   }
 
   const db = getSupabaseServerClient()

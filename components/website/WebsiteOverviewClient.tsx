@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import {
   Globe, FileText, Navigation, Palette, Settings,
   CheckCircle2, Clock, ExternalLink, Zap, Eye, Sparkles, ArrowRight, Wand,
+  Camera,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { fadeUp, staggerContainer } from '@/lib/motion'
@@ -133,6 +134,25 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
           {error}
         </div>
       )}
+
+      {/* What are you building? */}
+      <Link href="/website/create">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-900/25 via-graphite-800/60 to-graphite-800/60 border border-emerald-500/20 hover:border-emerald-400/40 transition-all duration-200 hover:shadow-lg cursor-pointer px-5 py-4">
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0">
+              <Camera className="h-5 w-5 text-emerald-400" strokeWidth={1.75} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="text-sm font-semibold text-white group-hover:text-emerald-300 transition-colors">What are you building?</p>
+                <span className="text-2xs font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 uppercase tracking-wide">New</span>
+              </div>
+              <p className="text-xs text-white/40 leading-relaxed">Business, Creative, Invitation, or a POV Event App — a private event camera with a next-day gallery reveal.</p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-emerald-400/50 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all duration-150 shrink-0" />
+          </div>
+        </div>
+      </Link>
 
       {/* AI feature highlights */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

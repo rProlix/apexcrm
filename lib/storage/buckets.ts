@@ -19,6 +19,8 @@ export const STORAGE_BUCKETS = {
   SPIN_360_ASSETS: 'spin-360-assets',
   /** Public. Tenant logos, favicons, OG images, dark/light logo variants. */
   BRAND_ASSETS: 'brand-assets',
+  /** Public. POV Event App guest media — photos, 15s video clips, 30s audio. */
+  EVENT_MEDIA: 'event-media',
   /** Private. Customer avatars, order attachments, account documents. */
   CUSTOMER_ASSETS: 'customer-assets',
   /** Private. Appointment before/after photos, service images, notes. */
@@ -42,6 +44,7 @@ export const PUBLIC_BUCKETS: ReadonlySet<StorageBucket> = new Set([
   STORAGE_BUCKETS.PRODUCT_ASSETS,
   STORAGE_BUCKETS.SPIN_360_ASSETS,
   STORAGE_BUCKETS.BRAND_ASSETS,
+  STORAGE_BUCKETS.EVENT_MEDIA,
 ])
 
 export const PRIVATE_BUCKETS: ReadonlySet<StorageBucket> = new Set([
@@ -64,6 +67,11 @@ export const ALLOWED_MIME_TYPES: Record<StorageBucket, string[]> = {
   'product-assets':          ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'],
   'spin-360-assets':         ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
   'brand-assets':            ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml', 'image/x-icon'],
+  'event-media':             [
+    'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+    'video/mp4', 'video/quicktime', 'video/webm',
+    'audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/x-m4a', 'audio/m4a', 'audio/aac', 'audio/wav', 'audio/x-wav', 'audio/ogg',
+  ],
   'customer-assets':         ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf', 'text/plain'],
   'appointment-assets':      ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'],
   'damage-assessment-assets':['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'],
@@ -79,6 +87,7 @@ export const MAX_FILE_SIZE_BYTES: Record<StorageBucket, number> = {
   'product-assets':           15 * 1024 * 1024,   // 15 MB
   'spin-360-assets':          25 * 1024 * 1024,   // 25 MB
   'brand-assets':              5 * 1024 * 1024,   //  5 MB
+  'event-media':              70 * 1024 * 1024,   // 70 MB (short video clips)
   'customer-assets':          20 * 1024 * 1024,   // 20 MB
   'appointment-assets':       20 * 1024 * 1024,   // 20 MB
   'damage-assessment-assets': 30 * 1024 * 1024,   // 30 MB
