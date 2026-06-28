@@ -5,15 +5,17 @@
 // design; Converted Mode rebuilds editable NexoraNow sections.
 
 import { useState } from 'react'
-import { Sparkles, Link2, Code2, Upload, Camera, Images, Check, Trash2, Eye, ArrowRight, RotateCcw, Rocket, Save, Copy, ExternalLink, ChevronDown } from 'lucide-react'
+import { Sparkles, Link2, Code2, Upload, Camera, Images, Check, Trash2, Eye, ArrowRight, RotateCcw, Rocket, Save, Copy, ExternalLink, ChevronDown, FileText, Wand2, LayoutGrid } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { CANVA_APPROXIMATION_NOTICE } from '@/lib/website/canva/types'
 import { parseCanvaEmbedSource, type CanvaEmbedSource } from '@/lib/website/canva/canva-url'
 import { CanvaPreserveEmbed, type CanvaEmbedStatus } from '@/components/website/canva/CanvaPreserveEmbed'
 
-type SourceMode = 'canva_url' | 'embed_code' | 'html_upload' | 'asset_upload'
+type SourceMode = 'canva_url' | 'embed_code' | 'html_upload' | 'asset_upload' | 'pdf_upload'
 type ImportMode = 'preserve' | 'converted'
+type ConversionStyle = 'faithful' | 'clean_premium' | 'mobile_first'
+type AnimationLevel = 'subtle' | 'balanced' | 'premium_cinematic'
 
 interface Props {
   tenantId:    string
@@ -74,6 +76,13 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
   // Test Embed (live in-panel preview).
   const [testSource, setTestSource] = useState<CanvaEmbedSource | null>(null)
   const [embedLoadState, setEmbedLoadState] = useState<CanvaEmbedStatus | null>(null)
+
+  // Canva PDF import.
+  const [pdfFile, setPdfFile] = useState<File | null>(null)
+  const [conversionStyle, setConversionStyle] = useState<ConversionStyle>('faithful')
+  const [animationLevel, setAnimationLevel] = useState<AnimationLevel>('balanced')
+  const [pdfStep, setPdfStep] = useState<string | null>(null)
+  const [pdfDiag, setPdfDiag] = useState<Record<string, unknown> | null>(null)
 
   const [opts, setOpts] = useState({
     useAsHomepage: true,
@@ -275,6 +284,53 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
     } finally { setBusy(false) }
   }
 
+  async function doPdfConvert() {
+    if (!pdfFile) { setError('Upload a Canva PDF export first.'); return }
+    setBusy(true); setError(null); setSavedMsg(null); setPdfStep('Uploading PDF…')
+    try {
+      const fd = new FormData()
+      fd.append('tenant_id', tenantId)
+      if (eventDraft?.websiteId) fd.append('websiteId', eventDraft.websiteId)
+      fd.append('websiteName', siteName || '')
+      fd.append('povEnabled', povEventId ? 'true' : 'false')
+      if (povEventId) fd.append('povEventId', povEventId)
+      fd.append('conversionStyle', conversionStyle)
+      fd.append('animationRecreationLevel', animationLevel)
+      fd.append('file', pdfFile)
+
+      const up = await fetch('/api/website/canva/pdf/upload', { method: 'POST', body: fd })
+      const upJson = await up.json()
+      if (!up.ok || !upJson.ok) throw new Error((upJson as { error?: string }).error ?? 'PDF upload failed')
+
+      setPdfStep('Converting with AI — recreating your design…')
+      const conv = await fetch('/api/website/canva/pdf/convert', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId, websiteId: upJson.websiteId, importId: upJson.importId }),
+      })
+      const convJson = await conv.json()
+      if (!conv.ok || !convJson.ok) throw new Error((convJson as { error?: string }).error ?? 'AI conversion failed')
+
+      setEventDraft({
+        websiteId: convJson.websiteId, publicSlug: upJson.publicSlug, status: 'draft',
+        draftPreviewUrl: convJson.draftPreviewUrl, liveUrl: convJson.liveUrl, importId: upJson.importId,
+      })
+      setPdfDiag({
+        websiteId: convJson.websiteId, importId: upJson.importId, sourceType: 'pdf_upload',
+        pdfFileName: pdfFile.name, pdfStoragePath: upJson.pdfStoragePath, pageCount: convJson.pageCount,
+        aiConversionStatus: 'converted', convertedSections: convJson.sectionCount,
+        animationMappingCount: convJson.animationMappingCount, povEnabled: !!povEventId, povEventId: povEventId ?? null,
+        warnings: convJson.warnings ?? [],
+      })
+      setPdfStep(null)
+      setSavedMsg(`Canva PDF converted to website draft — ${convJson.sectionCount} section(s) created.`)
+      onSaved?.({ websiteId: convJson.websiteId, publicSlug: upJson.publicSlug, status: 'draft' })
+      onApplied?.()
+    } catch (e) {
+      setPdfStep(null)
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+    } finally { setBusy(false) }
+  }
+
   function doTestEmbed() {
     setError(null)
     const source = parseCanvaEmbedSource({
@@ -356,6 +412,7 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
       <div className="flex flex-wrap gap-2">
         <SrcTab icon={Link2}  label="Canva URL"     on={sourceMode === 'canva_url'}  onClick={() => setSourceMode('canva_url')} />
         <SrcTab icon={Code2}  label="Embed code"    on={sourceMode === 'embed_code'} onClick={() => setSourceMode('embed_code')} />
+        <SrcTab icon={FileText} label="Upload Canva PDF Export" on={sourceMode === 'pdf_upload'} onClick={() => setSourceMode('pdf_upload')} />
         <SrcTab icon={Upload} label="Upload HTML"   on={sourceMode === 'html_upload'} onClick={() => setSourceMode('html_upload')} />
         <SrcTab icon={Images} label="Upload assets" on={sourceMode === 'asset_upload'} onClick={() => setSourceMode('asset_upload')} />
       </div>
@@ -387,6 +444,86 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
         <input type="file" accept={sourceMode === 'html_upload' ? '.html,.htm,text/html' : 'image/*,.zip'}
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           className="block w-full text-xs text-white/60 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-white/80" />
+      )}
+
+      {sourceMode === 'pdf_upload' && (
+        <div className="rounded-xl border border-surface-border bg-graphite-900/40 p-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-gold-400" />
+            <p className="text-sm font-semibold text-white">Upload Canva PDF Export</p>
+          </div>
+          <p className="text-2xs text-white/40 leading-relaxed">
+            Upload a Canva PDF export to turn the design into an editable NexoraNow event website. PDF exports are static, so Canva animations will be recreated using NexoraNow animations where possible.
+          </p>
+
+          <input type="file" accept="application/pdf,.pdf"
+            onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+            className="block w-full text-xs text-white/60 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-white/80" />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="space-y-1">
+              <span className="block text-2xs font-medium text-white/60 flex items-center gap-1"><LayoutGrid className="h-3 w-3" /> Conversion style</span>
+              <select className={inputCls} value={conversionStyle} onChange={(e) => setConversionStyle(e.target.value as ConversionStyle)}>
+                <option value="faithful">Faithful to Canva</option>
+                <option value="clean_premium">Clean premium rebuild</option>
+                <option value="mobile_first">Mobile-first event website</option>
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="block text-2xs font-medium text-white/60 flex items-center gap-1"><Wand2 className="h-3 w-3" /> Animation recreation</span>
+              <select className={inputCls} value={animationLevel} onChange={(e) => setAnimationLevel(e.target.value as AnimationLevel)}>
+                <option value="subtle">Subtle</option>
+                <option value="balanced">Balanced</option>
+                <option value="premium_cinematic">Premium cinematic</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-2xs text-amber-300 leading-relaxed">
+            PDF exports are static, so Canva animations are recreated as NexoraNow animations where possible. For exact Canva animation playback, use Preserve Canva Mode with a Canva URL/embed.
+          </div>
+
+          <Button variant="primary" onClick={doPdfConvert} loading={busy}>
+            <Wand2 className="h-4 w-4" /> Analyze &amp; Convert to Website Draft
+          </Button>
+          {pdfStep && <p className="text-2xs text-sky-300">{pdfStep}</p>}
+
+          {eventDraft?.websiteId && pdfDiag && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" size="sm" onClick={() => window.open(eventDraft.draftPreviewUrl, '_blank')}>
+                <Eye className="h-4 w-4" /> Preview Draft
+              </Button>
+              <Button variant="primary" size="sm" onClick={doEventPublish} loading={busy}>
+                <Rocket className="h-4 w-4" /> Publish to Site
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => doEventRollback('undo')} loading={busy}>Undo Import</Button>
+              <Button variant="secondary" size="sm" onClick={() => doEventRollback('restore-last-published')} loading={busy}>Restore Last Published Version</Button>
+              <Button variant="ghost" size="sm" onClick={() => window.open('/website/sites', '_blank')}>
+                <ExternalLink className="h-4 w-4" /> Open My Sites &amp; Apps
+              </Button>
+              {eventDraft.status === 'published' && (
+                <Button variant="ghost" size="sm" onClick={() => window.open(eventDraft.liveUrl, '_blank')}>
+                  <ExternalLink className="h-4 w-4" /> Open Live Site
+                </Button>
+              )}
+            </div>
+          )}
+
+          {pdfDiag && (
+            <div className="rounded-lg border border-surface-border bg-graphite-900/60 p-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-2xs text-white/50">
+              <Diag k="websiteId" v={String(pdfDiag.websiteId ?? '—')} />
+              <Diag k="importId" v={String(pdfDiag.importId ?? '—')} />
+              <Diag k="sourceType" v="pdf_upload" />
+              <Diag k="PDF file" v={String(pdfDiag.pdfFileName ?? '—')} />
+              <Diag k="storage path" v={String(pdfDiag.pdfStoragePath ?? '—')} />
+              <Diag k="page count" v={String(pdfDiag.pageCount ?? '—')} />
+              <Diag k="AI conversion" v={String(pdfDiag.aiConversionStatus ?? '—')} />
+              <Diag k="converted sections" v={String(pdfDiag.convertedSections ?? '—')} />
+              <Diag k="animation mappings" v={String(pdfDiag.animationMappingCount ?? '—')} />
+              <Diag k="POV enabled" v={pdfDiag.povEnabled ? 'yes' : 'no'} />
+            </div>
+          )}
+        </div>
       )}
 
       {/* Custom Canva domain confirmation */}

@@ -15,6 +15,7 @@ import { resolveEvent } from '@/lib/pov/events'
 import { PovGuestClient } from '@/components/pov/PovGuestClient'
 import { resolvePublicEventWebsite } from '@/lib/website/canva/eventWebsite'
 import { CanvaEventPublicView } from '@/components/website/canva/CanvaEventPublicView'
+import { CanvaConvertedEventView } from '@/components/website/canva/CanvaConvertedEventView'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { povDb } from '@/lib/pov/db'
 
@@ -68,6 +69,21 @@ export default async function EventPublicPage({ params, searchParams }: Props) {
           <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>This event website isn’t published yet</h1>
           <p style={{ color: 'var(--color-muted,#999)', maxWidth: 460 }}>Please check back soon.</p>
         </main>
+      )
+    }
+
+    // Canva PDF → native converted sections (no iframe).
+    if ((site.config as Record<string, unknown> | null)?.sourceType === 'canva_pdf') {
+      const cfg = site.config as Record<string, unknown>
+      const pages = (cfg.pages as Array<Record<string, unknown>> | undefined) ?? []
+      const sections = (pages[0]?.sections as Array<Record<string, unknown>> | undefined) ?? []
+      return (
+        <CanvaConvertedEventView
+          title={site.name}
+          sections={sections as never}
+          theme={(cfg.theme as Record<string, unknown>) ?? undefined}
+          isDraftPreview={site.isDraftPreview}
+        />
       )
     }
 
