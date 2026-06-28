@@ -1,21 +1,29 @@
 'use client'
 // components/website/canva/CanvaConvertedEventView.tsx
-// Public renderer for a Canva PDF that was AI-converted into native NexoraNow
-// Invitation/Event website sections. Renders editable section types with
-// recreated NexoraNow animations — NO Canva iframe. POV CTAs stay native.
+// Public renderer for AI-converted Canva PDF event websites: visual page
+// sections, native sections, working links, and animations.
 
 import type { CSSProperties } from 'react'
+import Link from 'next/link'
 import { AnimatedReveal } from './AnimatedReveal'
+import { CanvaPdfVisualSection, type CanvaPdfVisualSectionConfig } from './CanvaPdfVisualSection'
 import type { NexoraAnimationPreset } from '@/lib/website/canva/pdf-animation-recreator'
+import type { MappedLink } from '@/lib/website/canva/link-mapper'
 
 interface SectionAnim { preset: NexoraAnimationPreset; delay?: number; duration?: number; stagger?: number; hover?: boolean }
 interface Section { section_type: string; section_key?: string; content?: Record<string, unknown>; animation?: SectionAnim }
 
+interface PageDef { title?: string; slug?: string; sections?: Section[] }
+
 interface Props {
   title: string
-  sections: Section[]
+  sections?: Section[]
+  pages?: PageDef[]
   theme?: Record<string, unknown>
+  linkMapping?: MappedLink[]
+  eventSlug?: string
   isDraftPreview?: boolean
+  warnings?: string[]
 }
 
 function themeVars(theme?: Record<string, unknown>): CSSProperties {
@@ -40,16 +48,42 @@ const cta: CSSProperties = {
 
 function str(v: unknown, fallback = ''): string { return typeof v === 'string' ? v : fallback }
 
-function SectionView({ section }: { section: Section }) {
+function resolveHref(href: string, eventSlug?: string): string {
+  if (!href || href === '#') return href
+  if (href.startsWith('/') || /^https?:\/\//i.test(href)) return href
+  if (eventSlug) return `/events/${eventSlug}/${href.replace(/^\//, '')}`
+  return href
+}
+
+function CtaLink({ href, label, eventSlug }: { href: string; label: string; eventSlug?: string }) {
+  const resolved = resolveHref(href, eventSlug)
+  if (resolved.startsWith('/') && !/^https?:\/\//i.test(resolved)) {
+    return <Link href={resolved} style={cta}>{label}</Link>
+  }
+  return <a href={resolved} style={cta} target="_blank" rel="noopener noreferrer">{label}</a>
+}
+
+function SectionView({ section, linkMapping, eventSlug }: { section: Section; linkMapping?: MappedLink[]; eventSlug?: string }) {
   const c = section.content ?? {}
   const anim = section.animation ?? { preset: 'fadeUp' as NexoraAnimationPreset }
   const reveal = (node: React.ReactNode) => (
     <AnimatedReveal preset={anim.preset} delay={anim.delay} duration={anim.duration}>{node}</AnimatedReveal>
   )
 
+  if (section.section_type === 'canva_pdf_visual_section') {
+    const cfg = { ...c, type: 'canva_pdf_visual_section', linkMapping } as CanvaPdfVisualSectionConfig
+    if (cfg.renderedImageUrl) return <CanvaPdfVisualSection config={cfg} />
+    return null
+  }
+
   switch (section.section_type) {
     case 'hero': {
       const bg = str(c.backgroundImage)
+      let ctaHref = str(c.ctaHref)
+      if (ctaHref && ctaHref === '#') {
+        const mapped = linkMapping?.find((l) => l.label === str(c.ctaLabel) && !l.dead)
+        if (mapped) ctaHref = mapped.href
+      }
       return (
         <section style={{ position: 'relative', minHeight: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', overflow: 'hidden', background: bg ? `url(${bg}) center/cover no-repeat` : 'var(--color-bg)' }}>
           {bg && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }} />}
@@ -57,7 +91,7 @@ function SectionView({ section }: { section: Section }) {
             {reveal(<>
               <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(2rem,6vw,4rem)', fontWeight: 800, color: 'var(--color-text)', margin: 0 }}>{str(c.headline, 'Our Event')}</h1>
               {str(c.subheadline) && <p style={{ color: 'var(--color-text)', opacity: 0.85, fontSize: 'clamp(1rem,2.4vw,1.4rem)', marginTop: '1rem' }}>{str(c.subheadline)}</p>}
-              {str(c.ctaLabel) && <div style={{ marginTop: '1.75rem' }}><a href={str(c.ctaHref, '#')} style={cta}>{str(c.ctaLabel)}</a></div>}
+              {str(c.ctaLabel) && ctaHref && ctaHref !== '#' && <div style={{ marginTop: '1.75rem' }}><CtaLink href={ctaHref} label={str(c.ctaLabel)} eventSlug={eventSlug} /></div>}
             </>)}
           </div>
         </section>
@@ -65,7 +99,7 @@ function SectionView({ section }: { section: Section }) {
     }
     case 'about':
       return (
-        <section style={{ padding: '4rem 0', background: 'var(--color-bg)' }}>
+        <section id="event-details" style={{ padding: '4rem 0', background: 'var(--color-bg)' }}>
           <div style={wrap}>{reveal(<>
             <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.5rem,4vw,2.5rem)', fontWeight: 700, color: 'var(--color-text)' }}>{str(c.headline)}</h2>
             <p style={{ color: 'var(--color-text)', opacity: 0.8, lineHeight: 1.7, marginTop: '1rem', fontSize: '1.05rem', whiteSpace: 'pre-wrap' }}>{str(c.body)}</p>
@@ -111,16 +145,22 @@ function SectionView({ section }: { section: Section }) {
         </section>
       )
     }
-    case 'cta':
+    case 'cta': {
+      let ctaHref = str(c.ctaHref)
+      if ((!ctaHref || ctaHref === '#') && str(c.ctaLabel)) {
+        const mapped = linkMapping?.find((l) => l.label.toLowerCase() === str(c.ctaLabel).toLowerCase() && !l.dead)
+        if (mapped) ctaHref = mapped.href
+      }
       return (
         <section style={{ padding: '4rem 0', background: 'var(--color-bg)', textAlign: 'center' }}>
           <div style={wrap}>{reveal(<>
             <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.4rem,4vw,2.2rem)', fontWeight: 700, color: 'var(--color-text)' }}>{str(c.headline)}</h2>
             {str(c.body) && <p style={{ color: 'var(--color-text)', opacity: 0.8, marginTop: '0.75rem', maxWidth: 560, marginInline: 'auto' }}>{str(c.body)}</p>}
-            {str(c.ctaLabel) && <div style={{ marginTop: '1.5rem' }}><a href={str(c.ctaHref, '#')} style={cta}>{str(c.ctaLabel)}</a></div>}
+            {str(c.ctaLabel) && ctaHref && ctaHref !== '#' && <div style={{ marginTop: '1.5rem' }}><CtaLink href={ctaHref} label={str(c.ctaLabel)} eventSlug={eventSlug} /></div>}
           </>)}</div>
         </section>
       )
+    }
     case 'rich_text':
     default:
       return (
@@ -135,20 +175,37 @@ function SectionView({ section }: { section: Section }) {
   }
 }
 
-export function CanvaConvertedEventView({ title, sections, theme, isDraftPreview }: Props) {
+export function CanvaConvertedEventView({ title, sections, pages, theme, linkMapping, eventSlug, isDraftPreview, warnings }: Props) {
+  const homeSections = sections ?? pages?.find((p) => p.slug === 'home' || !p.slug)?.sections ?? pages?.[0]?.sections ?? []
+  const topLinks = (linkMapping ?? []).filter((l) => !l.dead).slice(0, 6)
+
   return (
     <main style={{ minHeight: '100vh', background: 'var(--color-bg,#0b0b0b)', ...themeVars(theme) }}>
       {isDraftPreview && (
         <div style={{ background: '#7c3aed', color: '#fff', textAlign: 'center', padding: '0.5rem 1rem', fontSize: '0.8125rem', fontWeight: 600 }}>
-          Draft preview — this is how your event website will look once published.
+          Draft preview — visuals, links, RSVP, and animations as they will appear when published.
         </div>
       )}
-      {sections.length === 0 ? (
+      {topLinks.length > 0 && (
+        <nav style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center', padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.35)' }}>
+          {topLinks.map((l) => (
+            <CtaLink key={l.id} href={l.href} label={l.label} eventSlug={eventSlug} />
+          ))}
+        </nav>
+      )}
+      {homeSections.length === 0 ? (
         <div style={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text)', opacity: 0.7 }}>
           <p>{title}</p>
         </div>
       ) : (
-        sections.map((s, i) => <SectionView key={s.section_key ?? i} section={s} />)
+        homeSections.map((s, i) => (
+          <SectionView key={s.section_key ?? i} section={s} linkMapping={linkMapping} eventSlug={eventSlug} />
+        ))
+      )}
+      {Array.isArray(warnings) && warnings.length > 0 && isDraftPreview && (
+        <div style={{ maxWidth: 720, margin: '2rem auto', padding: '0 1.25rem', fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)' }}>
+          {warnings.slice(0, 4).map((w, i) => <p key={i}>• {w}</p>)}
+        </div>
       )}
     </main>
   )

@@ -83,6 +83,7 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
   const [animationLevel, setAnimationLevel] = useState<AnimationLevel>('balanced')
   const [pdfStep, setPdfStep] = useState<string | null>(null)
   const [pdfDiag, setPdfDiag] = useState<Record<string, unknown> | null>(null)
+  const [pdfLinkMapping, setPdfLinkMapping] = useState<Array<{ id: string; label: string; actionType: string; href: string; dead?: boolean; pageNumber?: number }>>([])
 
   const [opts, setOpts] = useState({
     useAsHomepage: true,
@@ -324,9 +325,17 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
         pdfFileName: pdfFile.name, pdfStoragePath: upJson.pdfStoragePath, pageCount: convJson.pageCount,
         aiConversionStatus: 'converted', convertedSections: convJson.sectionCount,
         animationMappingCount: convJson.animationMappingCount, povEnabled: !!povEventId, povEventId: povEventId ?? null,
-        hasRequiredSchema: true, draftSaved: true, lastError: null,
+        hasRequiredSchema: true, draftSaved: true, lastError: null, publishAvailable: convJson.publishAvailable !== false,
+        renderedPageCount: convJson.renderedPageCount, extractedGraphicsCount: convJson.extractedGraphicsCount,
+        extractedLinksCount: convJson.extractedLinksCount, detectedButtonsCount: convJson.detectedButtonsCount,
+        mappedLinksCount: convJson.mappedLinksCount, deadLinksCount: convJson.deadLinksCount,
+        rsvpDetected: convJson.rsvpDetected, rsvpPageCreated: convJson.rsvpPageCreated,
+        visualSectionsCount: convJson.visualSectionsCount, characterAnimationCount: convJson.characterAnimationCount,
         warnings: convJson.warnings ?? [],
       })
+      if (Array.isArray(convJson.linkMapping)) {
+        setPdfLinkMapping(convJson.linkMapping as typeof pdfLinkMapping)
+      }
       setPdfStep(null)
       setSavedMsg(`Canva PDF converted to website draft — ${convJson.sectionCount} section(s) created.`)
       onSaved?.({ websiteId: convJson.websiteId, publicSlug: upJson.publicSlug, status: 'draft' })
@@ -526,21 +535,52 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
           )}
 
           {pdfDiag && (
-            <div className="rounded-lg border border-surface-border bg-graphite-900/60 p-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-2xs text-white/50">
-              <Diag k="websiteId" v={String(pdfDiag.websiteId ?? '—')} />
-              <Diag k="importId" v={String(pdfDiag.importId ?? '—')} />
-              <Diag k="sourceType" v="pdf_upload" />
-              <Diag k="PDF file" v={String(pdfDiag.pdfFileName ?? '—')} />
-              <Diag k="storage path" v={String(pdfDiag.pdfStoragePath ?? '—')} />
-              <Diag k="page count" v={String(pdfDiag.pageCount ?? '—')} />
-              <Diag k="AI conversion" v={String(pdfDiag.aiConversionStatus ?? '—')} />
-              <Diag k="converted sections" v={String(pdfDiag.convertedSections ?? '—')} />
-              <Diag k="animation mappings" v={String(pdfDiag.animationMappingCount ?? '—')} />
-              <Diag k="has required schema" v={pdfDiag.hasRequiredSchema === false ? 'no' : 'yes'} />
-              <Diag k="draft saved" v={pdfDiag.draftSaved ? 'yes' : 'no'} />
-              <Diag k="publish button visible" v={eventDraft?.websiteId ? 'yes' : 'no'} />
-              <Diag k="POV enabled" v={pdfDiag.povEnabled ? 'yes' : 'no'} />
-              <Diag k="last error" v={String(pdfDiag.lastError ?? 'none')} />
+            <div className="rounded-lg border border-surface-border bg-graphite-900/60 p-3 space-y-3">
+              <p className="text-2xs font-semibold text-white/70">Canva PDF Import Diagnostics</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-2xs text-white/50">
+                <Diag k="websiteId" v={String(pdfDiag.websiteId ?? '—')} />
+                <Diag k="importId" v={String(pdfDiag.importId ?? '—')} />
+                <Diag k="PDF pages" v={String(pdfDiag.pageCount ?? '—')} />
+                <Diag k="rendered pages" v={String(pdfDiag.renderedPageCount ?? '—')} />
+                <Diag k="extracted graphics" v={String(pdfDiag.extractedGraphicsCount ?? '—')} />
+                <Diag k="extracted links" v={String(pdfDiag.extractedLinksCount ?? '—')} />
+                <Diag k="detected buttons" v={String(pdfDiag.detectedButtonsCount ?? '—')} />
+                <Diag k="mapped links" v={String(pdfDiag.mappedLinksCount ?? '—')} />
+                <Diag k="dead links" v={String(pdfDiag.deadLinksCount ?? '0')} />
+                <Diag k="RSVP detected" v={pdfDiag.rsvpDetected ? 'yes' : 'no'} />
+                <Diag k="RSVP page created" v={pdfDiag.rsvpPageCreated ? 'yes' : 'no'} />
+                <Diag k="visual sections" v={String(pdfDiag.visualSectionsCount ?? '—')} />
+                <Diag k="character animations" v={String(pdfDiag.characterAnimationCount ?? '—')} />
+                <Diag k="draft saved" v={pdfDiag.draftSaved ? 'yes' : 'no'} />
+                <Diag k="publish available" v={pdfDiag.publishAvailable !== false ? 'yes' : 'no'} />
+                <Diag k="last error" v={String(pdfDiag.lastError ?? 'none')} />
+              </div>
+              {Array.isArray(pdfDiag.warnings) && (pdfDiag.warnings as string[]).length > 0 && (
+                <ul className="text-2xs text-amber-300/80 space-y-1 list-disc pl-4">
+                  {(pdfDiag.warnings as string[]).slice(0, 5).map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {pdfLinkMapping.length > 0 && (
+            <div className="rounded-lg border border-surface-border bg-graphite-900/40 p-3 space-y-2">
+              <p className="text-xs font-semibold text-white/80">Link &amp; Button Mapping</p>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {pdfLinkMapping.map((link) => (
+                  <div key={link.id} className="flex flex-wrap items-center gap-2 text-2xs border-b border-white/5 pb-2">
+                    <span className="text-white/70 min-w-[80px]">{link.label}</span>
+                    <span className="text-white/40">p.{link.pageNumber ?? '—'}</span>
+                    <span className="text-sky-300/80">{link.actionType}</span>
+                    <span className="text-white/50 truncate max-w-[180px]">{link.href}</span>
+                    {link.dead ? <span className="text-red-400">needs review</span> : (
+                      <button type="button" className="text-gold-400 hover:underline" onClick={() => window.open(link.href.startsWith('/') ? `${window.location.origin}${link.href}` : link.href, '_blank')}>
+                        test
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -22,7 +22,7 @@ const nextConfig = {
   },
 
   // Keep Supabase SSR server-side only — reduces client bundle size
-  serverExternalPackages: ['@supabase/ssr'],
+  serverExternalPackages: ['@supabase/ssr', '@napi-rs/canvas', 'pdfjs-dist'],
 
   // Bundler-only alias for the heavy React-Three-Fiber scene. This file is
   // excluded from the app TypeScript program (see tsconfig "exclude") so R3F's

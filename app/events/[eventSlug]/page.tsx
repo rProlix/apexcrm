@@ -76,12 +76,17 @@ export default async function EventPublicPage({ params, searchParams }: Props) {
     if ((site.config as Record<string, unknown> | null)?.sourceType === 'canva_pdf') {
       const cfg = site.config as Record<string, unknown>
       const pages = (cfg.pages as Array<Record<string, unknown>> | undefined) ?? []
-      const sections = (pages[0]?.sections as Array<Record<string, unknown>> | undefined) ?? []
+      const homePage = pages.find((p) => p.slug === 'home') ?? pages[0]
+      const sections = (homePage?.sections as Array<Record<string, unknown>> | undefined) ?? []
       return (
         <CanvaConvertedEventView
           title={site.name}
           sections={sections as never}
+          pages={pages as never}
           theme={(cfg.theme as Record<string, unknown>) ?? undefined}
+          linkMapping={(cfg.linkMapping as never) ?? undefined}
+          eventSlug={eventSlug}
+          warnings={(cfg.warnings as string[]) ?? undefined}
           isDraftPreview={site.isDraftPreview}
         />
       )
