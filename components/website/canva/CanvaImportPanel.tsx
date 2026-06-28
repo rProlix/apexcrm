@@ -300,7 +300,12 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
 
       const up = await fetch('/api/website/canva/pdf/upload', { method: 'POST', body: fd })
       const upJson = await up.json()
-      if (!up.ok || !upJson.ok) throw new Error((upJson as { error?: string }).error ?? 'PDF upload failed')
+      if (!up.ok || !upJson.ok) {
+        if (upJson?.hasRequiredSchema === false) {
+          setPdfDiag({ hasRequiredSchema: false, lastError: upJson.error, missingColumns: upJson.missingColumns ?? [], sourceType: 'pdf_upload', pdfFileName: pdfFile.name })
+        }
+        throw new Error((upJson as { error?: string }).error ?? 'PDF upload failed')
+      }
 
       setPdfStep('Converting with AI — recreating your design…')
       const conv = await fetch('/api/website/canva/pdf/convert', {
@@ -319,6 +324,7 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
         pdfFileName: pdfFile.name, pdfStoragePath: upJson.pdfStoragePath, pageCount: convJson.pageCount,
         aiConversionStatus: 'converted', convertedSections: convJson.sectionCount,
         animationMappingCount: convJson.animationMappingCount, povEnabled: !!povEventId, povEventId: povEventId ?? null,
+        hasRequiredSchema: true, draftSaved: true, lastError: null,
         warnings: convJson.warnings ?? [],
       })
       setPdfStep(null)
@@ -509,6 +515,16 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
             </div>
           )}
 
+          {pdfDiag && pdfDiag.hasRequiredSchema === false && (
+            <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-2xs text-red-300 leading-relaxed">
+              Your app code is ahead of your Supabase schema. Run the latest migration
+              (<span className="font-mono">087_fix_canva_pdf_import_schema</span>) and refresh the schema cache.
+              {Array.isArray(pdfDiag.missingColumns) && (pdfDiag.missingColumns as string[]).length > 0 && (
+                <span className="block mt-1 text-white/50">Missing: {(pdfDiag.missingColumns as string[]).join(', ')}</span>
+              )}
+            </div>
+          )}
+
           {pdfDiag && (
             <div className="rounded-lg border border-surface-border bg-graphite-900/60 p-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-2xs text-white/50">
               <Diag k="websiteId" v={String(pdfDiag.websiteId ?? '—')} />
@@ -520,7 +536,11 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
               <Diag k="AI conversion" v={String(pdfDiag.aiConversionStatus ?? '—')} />
               <Diag k="converted sections" v={String(pdfDiag.convertedSections ?? '—')} />
               <Diag k="animation mappings" v={String(pdfDiag.animationMappingCount ?? '—')} />
+              <Diag k="has required schema" v={pdfDiag.hasRequiredSchema === false ? 'no' : 'yes'} />
+              <Diag k="draft saved" v={pdfDiag.draftSaved ? 'yes' : 'no'} />
+              <Diag k="publish button visible" v={eventDraft?.websiteId ? 'yes' : 'no'} />
               <Diag k="POV enabled" v={pdfDiag.povEnabled ? 'yes' : 'no'} />
+              <Diag k="last error" v={String(pdfDiag.lastError ?? 'none')} />
             </div>
           )}
         </div>

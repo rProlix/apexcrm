@@ -15,6 +15,7 @@ import { ensureCanvaEventWebsiteRecord } from '@/lib/website/canva/eventWebsite'
 import { createPovEventRecord } from '@/lib/pov/createEvent'
 import { estimatePdfPageCount, normalizeConversionStyle } from '@/lib/website/canva/pdfConvert'
 import { normalizeAnimationLevel } from '@/lib/website/canva/pdf-animation-recreator'
+import { ensureCanvaImportSchema, isMissingColumnError, SCHEMA_MISSING_MESSAGE } from '@/lib/website/canva/ensure-canva-import-schema'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DB = any
@@ -54,6 +55,18 @@ export async function POST(req: NextRequest) {
   if (!isPdf) return NextResponse.json({ ok: false, error: 'Only PDF files are accepted. Export your Canva design as a PDF.' }, { status: 400 })
   if (f.size === 0) return NextResponse.json({ ok: false, error: 'The PDF file is empty.' }, { status: 400 })
   if (f.size > MAX_PDF_BYTES) return NextResponse.json({ ok: false, error: 'PDF is too large (max 25 MB).' }, { status: 413 })
+
+  // Verify the DB has the PDF import columns before doing any work, so we fail
+  // with a clear, actionable message instead of a raw PostgREST schema error.
+  const schema = await ensureCanvaImportSchema()
+  if (!schema.ok && !schema.checkSkipped) {
+    return NextResponse.json({
+      ok: false,
+      error: SCHEMA_MISSING_MESSAGE,
+      missingColumns: schema.missing,
+      hasRequiredSchema: false,
+    }, { status: 503 })
+  }
 
   const websiteName = ((form.get('websiteName') as string) || '').trim()
   const publicSlug = ((form.get('publicSlug') as string) || '').trim() || null
@@ -127,10 +140,15 @@ export async function POST(req: NextRequest) {
       warnings: [],
       created_by: ctx.id ?? null,
     }).select('id').single()
-    if (impErr) return NextResponse.json({ ok: false, error: `Failed to create Canva import row: ${impErr.message}` }, { status: 500 })
+    if (impErr) {
+      const msg = isMissingColumnError(impErr.message) ? SCHEMA_MISSING_MESSAGE : `Failed to create Canva import row: ${impErr.message}`
+      return NextResponse.json({ ok: false, error: msg, hasRequiredSchema: !isMissingColumnError(impErr.message) }, { status: isMissingColumnError(impErr.message) ? 503 : 500 })
+    }
     importId = imp?.id ?? null
   } catch (e) {
-    return NextResponse.json({ ok: false, error: `Failed to create Canva import row: ${e instanceof Error ? e.message : 'database error'}` }, { status: 500 })
+    const message = e instanceof Error ? e.message : 'database error'
+    const msg = isMissingColumnError(message) ? SCHEMA_MISSING_MESSAGE : `Failed to create Canva import row: ${message}`
+    return NextResponse.json({ ok: false, error: msg, hasRequiredSchema: !isMissingColumnError(message) }, { status: isMissingColumnError(message) ? 503 : 500 })
   }
 
   return NextResponse.json({
@@ -142,6 +160,7 @@ export async function POST(req: NextRequest) {
     pdfPageCount: pageCount,
     povEventId,
     status: 'importing',
+    hasRequiredSchema: true,
     convertEndpoint: '/api/website/canva/pdf/convert',
   })
 }

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { convertCanvaPdfToDraft } from '@/lib/website/canva/pdfConvert'
+import { isMissingColumnError, SCHEMA_MISSING_MESSAGE } from '@/lib/website/canva/ensure-canva-import-schema'
 
 function resolveTenantId(ctx: Awaited<ReturnType<typeof getUserContext>>, override?: string | null): string | null {
   if (!ctx) return null
@@ -35,8 +36,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'websiteId and importId are required.' }, { status: 400 })
   }
 
-  const result = await convertCanvaPdfToDraft({ tenantId, websiteId, importId, createdBy: ctx.id ?? null })
-  if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 400 })
+  let result
+  try {
+    result = await convertCanvaPdfToDraft({ tenantId, websiteId, importId, createdBy: ctx.id ?? null })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'conversion error'
+    if (isMissingColumnError(message)) {
+      return NextResponse.json({ ok: false, error: SCHEMA_MISSING_MESSAGE, hasRequiredSchema: false }, { status: 503 })
+    }
+    return NextResponse.json({ ok: false, error: `AI conversion failed: ${message}` }, { status: 500 })
+  }
+  if (!result.ok) {
+    const status = isMissingColumnError(result.error) ? 503 : 400
+    const error = isMissingColumnError(result.error) ? SCHEMA_MISSING_MESSAGE : result.error
+    return NextResponse.json({ ok: false, error }, { status })
+  }
 
   return NextResponse.json({
     ok: true,
