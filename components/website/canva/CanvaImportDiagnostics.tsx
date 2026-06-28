@@ -28,7 +28,15 @@ interface DiagImport {
   created_at: string
 }
 
-export function CanvaImportDiagnostics({ settings, imports }: { settings: DiagSettings; imports: DiagImport[] }) {
+interface DiagRuns {
+  latestRunId: string | null
+  latestRunStatus: string | null
+  hasPreImportSnapshot: boolean
+  hasBeforePublishedSnapshot: boolean
+  undoAvailable: boolean
+}
+
+export function CanvaImportDiagnostics({ settings, imports, runs }: { settings: DiagSettings; imports: DiagImport[]; runs?: DiagRuns }) {
   const active = imports.find((i) => i.id === settings.canva_import_id)
   const publicUrl = settings.custom_domain
     ? `https://${settings.custom_domain}`
@@ -54,6 +62,11 @@ export function CanvaImportDiagnostics({ settings, imports }: { settings: DiagSe
     ['Gallery CTA', povCta ? 'Enabled' : 'Off'],
     ['Public route', publicUrl ?? 'Not configured'],
     ['Publish required', settings.canva_import_enabled && !settings.is_published ? 'Yes — publish to go live' : 'No'],
+    ['Latest import run', runs?.latestRunId ?? '—'],
+    ['Import run status', runs?.latestRunStatus ?? '—'],
+    ['Has pre-import snapshot', runs?.hasPreImportSnapshot ? 'Yes' : 'No'],
+    ['Has before-published snapshot', runs?.hasBeforePublishedSnapshot ? 'Yes' : 'No'],
+    ['Undo available', runs?.undoAvailable ? 'Yes' : 'No'],
   ]
 
   const staticNotes: string[] = []

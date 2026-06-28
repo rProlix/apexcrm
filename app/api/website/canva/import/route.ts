@@ -4,7 +4,7 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { validateCanvaEmbedInput } from '@/lib/website/canva/canva-embed'
-import { applyCanvaImport } from '@/lib/website/canva/apply'
+import { applyCanvaImportWithRun } from '@/lib/website/canva/runs'
 import {
   CANVA_SOURCE_TYPES, CANVA_IMPORT_MODES, DEFAULT_CANVA_IMPORT_SETTINGS,
   type CanvaImportRow, type CanvaImportSettings, type CanvaSourceType, type CanvaImportMode,
@@ -134,12 +134,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error?.message ?? 'Could not create import' }, { status: 500 })
   }
 
-  const apply = await applyCanvaImport({
+  const { apply, runId } = await applyCanvaImportWithRun({
     tenantId,
     importRow: row as CanvaImportRow,
     settings,
     html,
     allowCustomDomains: validationMode === 'custom_domain',
+    createdBy: ctx.id ?? null,
   })
 
   // Merge warnings onto the row.
@@ -153,10 +154,14 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     importId: row.id,
+    runId,
     mode: importMode,
     status: apply.mode === 'preserve' ? 'embedded' : 'converted',
     animationPreservation: apply.animationPreservation,
     sectionsWritten: apply.sectionsWritten,
+    appliedToDraft: true,
+    publishRequired: true,
+    undoAvailable: !!runId,
     warnings: allWarnings,
   })
 }

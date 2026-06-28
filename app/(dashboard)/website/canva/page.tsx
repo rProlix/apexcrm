@@ -9,6 +9,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveWebsiteTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { CanvaImportPanel } from '@/components/website/canva/CanvaImportPanel'
 import { CanvaImportDiagnostics } from '@/components/website/canva/CanvaImportDiagnostics'
+import { getCanvaRunDiagnostics } from '@/lib/website/canva/runs'
 
 export const metadata = { title: 'Import Canva Event Website' }
 
@@ -27,6 +28,7 @@ export default async function WebsiteCanvaPage() {
     .order('created_at', { ascending: false })
 
   const s = settings as Record<string, unknown> | null
+  const runDiag = await getCanvaRunDiagnostics(tenantId)
 
   return (
     <div className="space-y-8 max-w-3xl">
@@ -56,6 +58,13 @@ export default async function WebsiteCanvaPage() {
           is_published: Boolean(s?.is_published),
           subdomain: (s?.subdomain as string) ?? null,
           custom_domain: (s?.custom_domain as string) ?? null,
+        }}
+        runs={{
+          latestRunId: runDiag.latestRunId,
+          latestRunStatus: runDiag.latestRunStatus,
+          hasPreImportSnapshot: runDiag.hasPreImportSnapshot,
+          hasBeforePublishedSnapshot: runDiag.hasBeforePublishedSnapshot,
+          undoAvailable: runDiag.undoAvailable,
         }}
         imports={(imports ?? []).map((row: Record<string, unknown>) => ({
           id: String(row.id),

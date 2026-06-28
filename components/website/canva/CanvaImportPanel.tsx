@@ -5,7 +5,7 @@
 // design; Converted Mode rebuilds editable NexoraNow sections.
 
 import { useState } from 'react'
-import { Sparkles, Link2, Code2, Upload, Camera, Images, Check, Trash2, Eye, ArrowRight } from 'lucide-react'
+import { Sparkles, Link2, Code2, Upload, Camera, Images, Check, Trash2, Eye, ArrowRight, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { CANVA_APPROXIMATION_NOTICE } from '@/lib/website/canva/types'
@@ -52,7 +52,8 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, onApplied }:
 
   const [busy, setBusy]       = useState(false)
   const [preview, setPreview] = useState<PreviewData | null>(null)
-  const [result, setResult]   = useState<{ warnings: string[]; sections: number; preservation: string } | null>(null)
+  const [result, setResult]   = useState<{ warnings: string[]; sections: number; preservation: string; importId?: string; runId?: string | null } | null>(null)
+  const [rollbackMsg, setRollbackMsg] = useState<string | null>(null)
   const [error, setError]     = useState<string | null>(null)
 
   function buildPayload(): FormData | string {
@@ -91,13 +92,62 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, onApplied }:
 
   const doPreview = () => send('/api/website/canva/preview', (j) => { setPreview(j as unknown as PreviewData); setResult(null) })
   const doImport  = () => send('/api/website/canva/import', (j) => {
+    setRollbackMsg(null)
     setResult({
       warnings: (j.warnings as string[]) ?? [],
       sections: (j.sectionsWritten as number) ?? 0,
       preservation: (j.animationPreservation as string) ?? 'unknown',
+      importId: (j.importId as string) ?? undefined,
+      runId: (j.runId as string | null) ?? null,
     })
     onApplied?.()
   })
+
+  // Resolve the currently-active import id (from this session or site settings).
+  async function activeImportId(): Promise<string | null> {
+    if (result?.importId) return result.importId
+    try {
+      const res = await fetch(`/api/website/settings?tenant_id=${encodeURIComponent(tenantId)}`)
+      const j = await res.json()
+      return j?.settings?.canva_import_id ?? null
+    } catch { return null }
+  }
+
+  async function rollback(path: (importId: string) => string, label: string, needsImport = true) {
+    setBusy(true); setError(null); setRollbackMsg(null)
+    try {
+      let url = path('')
+      if (needsImport) {
+        const importId = await activeImportId()
+        if (!importId) { setError('No active Canva import to roll back.'); return }
+        url = path(importId)
+      }
+      const res = await fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId, websiteId: websiteId ?? tenantId }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error((j as { error?: string }).error ?? 'Request failed')
+      setRollbackMsg(label)
+      onApplied?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+    } finally { setBusy(false) }
+  }
+
+  const doUndo = () => rollback(
+    (id) => `/api/website/canva/imports/${id}/undo`,
+    'Canva import undone — your pre-import draft is back. Publish when ready.',
+  )
+  const doRestorePreImport = () => rollback(
+    (id) => `/api/website/canva/imports/${id}/restore-pre-import`,
+    'Pre-import draft restored. Publish when ready.',
+  )
+  const doRestoreLastPublished = () => rollback(
+    () => `/api/website/${encodeURIComponent(websiteId ?? tenantId)}/restore-last-published`,
+    'Last published version restored into your draft. Publish to go live again.',
+    false,
+  )
 
   async function doRemove() {
     setBusy(true); setError(null)
@@ -220,7 +270,7 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, onApplied }:
 
       {result && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-xs text-emerald-200 space-y-2">
-          <p className="font-medium">Imported and applied to your event website.</p>
+          <p className="font-medium">Applied to your event website draft — your live site is unchanged until you publish.</p>
           <p>{result.sections} section(s) written · animation: {result.preservation}</p>
           {!!result.warnings.length && (
             <ul className="list-disc list-inside text-amber-300/80">{result.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
@@ -228,16 +278,35 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, onApplied }:
         </div>
       )}
 
+      {rollbackMsg && (
+        <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-4 text-xs text-sky-200">{rollbackMsg}</div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" onClick={doPreview} loading={busy}>
-          <Eye className="h-4 w-4" /> Preview Imported Website
+          <Eye className="h-4 w-4" /> Preview Canva Import
         </Button>
         <Button variant="primary" onClick={doImport} loading={busy}>
-          Import &amp; Apply to Event Website <ArrowRight className="h-4 w-4" />
+          Apply to Draft <ArrowRight className="h-4 w-4" />
         </Button>
         <Button variant="ghost" onClick={doRemove} loading={busy}>
           <Trash2 className="h-4 w-4" /> Remove Canva Import
         </Button>
+      </div>
+
+      {/* Safe rollback controls — a Canva import never destroys the live site. */}
+      <div className="rounded-xl border border-surface-border bg-graphite-900/40 p-4 space-y-2">
+        <p className="text-xs font-medium text-white/70 flex items-center gap-2">
+          <RotateCcw className="h-3.5 w-3.5 text-white/40" /> Undo &amp; restore
+        </p>
+        <p className="text-2xs text-white/40 leading-relaxed">
+          Canva imports apply to your draft first. If it didn’t go as planned, undo it or restore a previous version — your published site stays live until you publish.
+        </p>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Button variant="secondary" size="sm" onClick={doUndo} loading={busy}>Undo Canva Import</Button>
+          <Button variant="secondary" size="sm" onClick={doRestorePreImport} loading={busy}>Restore Pre-Import Version</Button>
+          <Button variant="secondary" size="sm" onClick={doRestoreLastPublished} loading={busy}>Restore Last Published Version</Button>
+        </div>
       </div>
     </div>
   )

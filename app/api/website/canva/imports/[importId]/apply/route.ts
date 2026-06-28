@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
-import { applyCanvaImport } from '@/lib/website/canva/apply'
+import { applyCanvaImportWithRun } from '@/lib/website/canva/runs'
 import { DEFAULT_CANVA_IMPORT_SETTINGS, type CanvaImportRow, type CanvaImportSettings } from '@/lib/website/canva/types'
 
 function forbidden() { return NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
@@ -37,18 +37,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ imp
     ...((row.import_summary?.settings ?? {}) as Partial<CanvaImportSettings>),
   }
 
-  const result = await applyCanvaImport({
+  const { apply: result, runId } = await applyCanvaImportWithRun({
     tenantId,
     importRow: row as CanvaImportRow,
     settings,
     html: typeof body.html === 'string' ? body.html : null,
+    allowCustomDomains: (row as { validation_mode?: string }).validation_mode === 'custom_domain',
+    createdBy: ctx.id ?? null,
   })
 
   return NextResponse.json({
     ok: result.ok,
     mode: result.mode,
+    runId,
     sectionsWritten: result.sectionsWritten,
     animationPreservation: result.animationPreservation,
+    appliedToDraft: true,
+    publishRequired: true,
+    undoAvailable: !!runId,
     warnings: result.warnings,
   })
 }
