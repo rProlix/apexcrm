@@ -65,15 +65,16 @@ export async function POST(req: NextRequest) {
     warnings: result.warnings ?? [],
     publishAvailable: result.publishAvailable ?? true,
     renderedPageCount: result.renderedPageCount,
-    extractedGraphicsCount: result.extractedGraphicsCount,
     extractedLinksCount: result.extractedLinksCount,
     detectedButtonsCount: result.detectedButtonsCount,
     mappedLinksCount: result.mappedLinksCount,
     deadLinksCount: result.deadLinksCount,
+    overlaysCount: result.overlaysCount,
+    fallbackButtonsCount: result.fallbackButtonsCount,
     rsvpDetected: result.rsvpDetected,
     rsvpPageCreated: result.rsvpPageCreated,
     visualSectionsCount: result.visualSectionsCount,
-    characterAnimationCount: result.characterAnimationCount,
+    renderedPagesUrlsPresent: result.renderedPagesUrlsPresent,
     linkMapping: result.linkMapping ?? [],
   })
 }

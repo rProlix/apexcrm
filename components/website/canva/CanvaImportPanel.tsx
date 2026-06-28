@@ -324,20 +324,26 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
         websiteId: convJson.websiteId, importId: upJson.importId, sourceType: 'pdf_upload',
         pdfFileName: pdfFile.name, pdfStoragePath: upJson.pdfStoragePath, pageCount: convJson.pageCount,
         aiConversionStatus: 'converted', convertedSections: convJson.sectionCount,
-        animationMappingCount: convJson.animationMappingCount, povEnabled: !!povEventId, povEventId: povEventId ?? null,
+        povEnabled: !!povEventId, povEventId: povEventId ?? null,
         hasRequiredSchema: true, draftSaved: true, lastError: null, publishAvailable: convJson.publishAvailable !== false,
-        renderedPageCount: convJson.renderedPageCount, extractedGraphicsCount: convJson.extractedGraphicsCount,
-        extractedLinksCount: convJson.extractedLinksCount, detectedButtonsCount: convJson.detectedButtonsCount,
-        mappedLinksCount: convJson.mappedLinksCount, deadLinksCount: convJson.deadLinksCount,
-        rsvpDetected: convJson.rsvpDetected, rsvpPageCreated: convJson.rsvpPageCreated,
-        visualSectionsCount: convJson.visualSectionsCount, characterAnimationCount: convJson.characterAnimationCount,
+        renderedPageCount: convJson.renderedPageCount,
+        renderedPagesUrlsPresent: convJson.renderedPagesUrlsPresent !== false,
+        extractedLinksCount: convJson.extractedLinksCount,
+        detectedButtonsCount: convJson.detectedButtonsCount,
+        mappedLinksCount: convJson.mappedLinksCount,
+        deadLinksCount: convJson.deadLinksCount,
+        overlaysCount: convJson.overlaysCount,
+        fallbackButtonsCount: convJson.fallbackButtonsCount,
+        rsvpDetected: convJson.rsvpDetected,
+        rsvpPageCreated: convJson.rsvpPageCreated,
+        visualSectionsCount: convJson.visualSectionsCount,
         warnings: convJson.warnings ?? [],
       })
       if (Array.isArray(convJson.linkMapping)) {
         setPdfLinkMapping(convJson.linkMapping as typeof pdfLinkMapping)
       }
       setPdfStep(null)
-      setSavedMsg(`Canva PDF converted to website draft — ${convJson.sectionCount} section(s) created.`)
+      setSavedMsg(`Canva PDF converted — ${convJson.renderedPageCount ?? convJson.visualSectionsCount} visual page(s) with working actions.`)
       onSaved?.({ websiteId: convJson.websiteId, publicSlug: upJson.publicSlug, status: 'draft' })
       onApplied?.()
     } catch (e) {
@@ -540,17 +546,19 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-2xs text-white/50">
                 <Diag k="websiteId" v={String(pdfDiag.websiteId ?? '—')} />
                 <Diag k="importId" v={String(pdfDiag.importId ?? '—')} />
+                <Diag k="PDF file" v={String(pdfDiag.pdfFileName ?? '—')} />
                 <Diag k="PDF pages" v={String(pdfDiag.pageCount ?? '—')} />
                 <Diag k="rendered pages" v={String(pdfDiag.renderedPageCount ?? '—')} />
-                <Diag k="extracted graphics" v={String(pdfDiag.extractedGraphicsCount ?? '—')} />
-                <Diag k="extracted links" v={String(pdfDiag.extractedLinksCount ?? '—')} />
-                <Diag k="detected buttons" v={String(pdfDiag.detectedButtonsCount ?? '—')} />
+                <Diag k="rendered URLs present" v={pdfDiag.renderedPagesUrlsPresent === false ? 'no' : 'yes'} />
+                <Diag k="visual sections" v={String(pdfDiag.visualSectionsCount ?? '—')} />
+                <Diag k="detected links" v={String(pdfDiag.extractedLinksCount ?? '—')} />
+                <Diag k="overlays" v={String(pdfDiag.overlaysCount ?? '—')} />
+                <Diag k="fallback buttons" v={String(pdfDiag.fallbackButtonsCount ?? '—')} />
                 <Diag k="mapped links" v={String(pdfDiag.mappedLinksCount ?? '—')} />
                 <Diag k="dead links" v={String(pdfDiag.deadLinksCount ?? '0')} />
                 <Diag k="RSVP detected" v={pdfDiag.rsvpDetected ? 'yes' : 'no'} />
                 <Diag k="RSVP page created" v={pdfDiag.rsvpPageCreated ? 'yes' : 'no'} />
-                <Diag k="visual sections" v={String(pdfDiag.visualSectionsCount ?? '—')} />
-                <Diag k="character animations" v={String(pdfDiag.characterAnimationCount ?? '—')} />
+                <Diag k="AI conversion" v={String(pdfDiag.aiConversionStatus ?? '—')} />
                 <Diag k="draft saved" v={pdfDiag.draftSaved ? 'yes' : 'no'} />
                 <Diag k="publish available" v={pdfDiag.publishAvailable !== false ? 'yes' : 'no'} />
                 <Diag k="last error" v={String(pdfDiag.lastError ?? 'none')} />

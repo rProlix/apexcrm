@@ -1,6 +1,6 @@
 // lib/website/canva/pdfConvert.ts
-// SERVER-ONLY. Hybrid Canva PDF conversion: visual fidelity (rendered page images)
-// + native functionality (links, RSVP, POV CTAs) + AI rebuild layer.
+// SERVER-ONLY. Visual-first Canva PDF conversion: rendered page images are the
+// primary website output; AI adds link mapping, RSVP, and animation hints only.
 
 import 'server-only'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -9,19 +9,28 @@ import { getWebsiteAiGeminiModel } from '@/lib/ai/geminiConfig'
 import { safeParseGeminiJson } from '@/lib/ai/parseGeminiJson'
 import {
   buildAnimationMapping, buildSectionAnimation, normalizeAnimationLevel,
-  PDF_ANIMATION_NOTE, type AnimationLevel,
+  type AnimationLevel,
 } from '@/lib/website/canva/pdf-animation-recreator'
-import { extractCanvaPdfVisuals } from '@/lib/website/canva/pdf/pdf-visual-extractor'
 import {
-  buildLinkMapping, deadLinkCount, detectRsvpIntent, type MappedLink,
-} from '@/lib/website/canva/link-mapper'
-import { mapPageBackgroundAnimation, mapVisualLayerAnimation, inferVisualLayerKind } from '@/lib/website/canva/visual-animation-mapper'
+  renderCanvaPdfPages,
+  PDF_RENDER_ZERO_MESSAGE,
+  type RenderedCanvaPdfPage,
+} from '@/lib/website/canva/pdf/render-canva-pdf-pages'
+import { extractCanvaPdfTextAndLinks } from '@/lib/website/canva/pdf/pdf-visual-extractor'
+import {
+  buildPdfLinkMapping,
+  deadPdfLinkCount,
+  detectRsvpIntent,
+  overlaysAndFallbacksForPage,
+  type PdfMappedAction,
+} from '@/lib/website/canva/pdf/canva-pdf-link-mapper'
+import {
+  mapPageVisualAnimation,
+  PDF_VISUAL_ANIMATION_NOTE,
+} from '@/lib/website/canva/pdf/canva-pdf-animation-mapper'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DB = any
-
-const SUPPORTED_SECTION_TYPES = ['hero', 'about', 'image_gallery', 'feature_grid', 'cta', 'rich_text', 'canva_pdf_visual_section'] as const
-type ConvertedSectionType = (typeof SUPPORTED_SECTION_TYPES)[number]
 
 export type ConversionStyle = 'faithful' | 'clean_premium' | 'mobile_first'
 
@@ -36,15 +45,14 @@ export function estimatePdfPageCount(buffer: Buffer): number {
   try {
     const text = buffer.toString('latin1')
     const matches = text.match(/\/Type\s*\/Page[^s]/g)
-    const count = matches ? matches.length : 0
-    return count > 0 ? count : 1
+    return matches && matches.length > 0 ? matches.length : 1
   } catch {
     return 1
   }
 }
 
 export interface ConvertedSection {
-  section_type: ConvertedSectionType
+  section_type: 'canva_pdf_page_visual'
   section_key: string
   content: Record<string, unknown>
   animation: ReturnType<typeof buildSectionAnimation>
@@ -61,138 +69,114 @@ export interface PdfConversionResult {
   eventMetadata?: Record<string, unknown>
   animationMappingCount?: number
   renderedPageCount?: number
-  extractedGraphicsCount?: number
   extractedLinksCount?: number
   detectedButtonsCount?: number
   mappedLinksCount?: number
   deadLinksCount?: number
+  overlaysCount?: number
+  fallbackButtonsCount?: number
   rsvpDetected?: boolean
   rsvpPageCreated?: boolean
   visualSectionsCount?: number
-  characterAnimationCount?: number
+  renderedPagesUrlsPresent?: boolean
   publishAvailable?: boolean
-  linkMapping?: MappedLink[]
+  linkMapping?: PdfMappedAction[]
 }
 
-interface AiOverlay { id?: string; label?: string; actionType?: string; href?: string; pageNumber?: number; x?: number; y?: number; width?: number; height?: number; style?: string }
-interface AiVisualLayer { id?: string; type?: string; url?: string; label?: string; animation?: string; pageNumber?: number }
-interface AiSection { type?: string; title?: string; content?: Record<string, unknown>; animation?: string; [k: string]: unknown }
-interface AiPage { title?: string; slug?: string; sections?: AiSection[] }
 interface AiSchema {
-  pages?: AiPage[]
-  sections?: AiSection[]
-  theme?: Record<string, unknown>
-  animations?: Record<string, unknown>
-  eventMetadata?: Record<string, unknown>
-  povIntegration?: Record<string, unknown>
-  interactiveOverlays?: AiOverlay[]
-  visualLayers?: AiVisualLayer[]
   linkMapping?: Array<{ label?: string; href?: string; actionType?: string; pageNumber?: number }>
-  rsvp?: { enabled?: boolean; pageCreated?: boolean; fields?: string[]; pageTitle?: string }
+  interactiveOverlays?: Array<{ label?: string; href?: string; actionType?: string; pageNumber?: number }>
+  eventMetadata?: Record<string, unknown>
+  theme?: Record<string, unknown>
+  pageAnimations?: Array<{ pageNumber?: number; preset?: string }>
+  rsvp?: { enabled?: boolean; pageCreated?: boolean; pageTitle?: string; fields?: string[] }
   warnings?: string[]
 }
 
-function coerceSectionType(t: unknown): ConvertedSectionType {
-  const v = String(t ?? '').toLowerCase()
-  if (v === 'canva_pdf_visual_section' || v === 'pdf_visual' || v === 'visual') return 'canva_pdf_visual_section'
-  if (v === 'hero') return 'hero'
-  if (v === 'about' || v === 'intro') return 'about'
-  if (v === 'gallery' || v === 'image_gallery' || v === 'photos') return 'image_gallery'
-  if (v === 'feature_grid' || v === 'features' || v === 'details' || v === 'grid') return 'feature_grid'
-  if (v === 'cta' || v === 'rsvp' || v === 'button') return 'cta'
-  return 'rich_text'
-}
-
-function buildPrompt(opts: {
-  conversionStyle: ConversionStyle
-  animationLevel: AnimationLevel
-  povEnabled: boolean
+function buildAiPrompt(opts: {
   eventSlug: string
+  povEnabled: boolean
+  animationLevel: AnimationLevel
   extractedText: string
-  extractedLinksJson: string
   renderedPagesJson: string
+  linksJson: string
 }): string {
   return [
-    'You are converting a Canva PDF export into a fully functioning NexoraNow Invitation/Event website.',
-    'Hybrid strategy: rendered PDF page images preserve visual design; you add native interactive overlays, RSVP, and working buttons.',
+    'You assist a visual-first Canva PDF import. Rendered PDF page images ARE the website design.',
+    'Do NOT replace the design with generic text sections. Your job is metadata only:',
+    '- Map buttons/links (RSVP, Registry, Target, Amazon, Camera, Gallery) to working routes.',
+    '- Detect RSVP/sign-up intent.',
+    '- Suggest animation presets per page (fadeIn, fadeUp, softZoomIn, premiumBlurReveal, characterPopIn).',
+    '- Extract event metadata (date, location, hosts).',
     '',
-    'Extracted PDF text (all pages):',
-    opts.extractedText.slice(0, 12000),
-    '',
-    'Extracted PDF link annotations:',
-    opts.extractedLinksJson.slice(0, 4000),
-    '',
-    'Rendered page image URLs (use as canva_pdf_visual_section backgrounds):',
+    'Rendered pages (source of truth for visuals):',
     opts.renderedPagesJson.slice(0, 4000),
     '',
-    'Requirements:',
-    '- Preserve visual design using rendered page images as canva_pdf_visual_section backgrounds where possible.',
-    '- Extract and recreate clickable buttons. Map RSVP/Sign Up/Register → /events/' + opts.eventSlug + '/rsvp',
-    '- Map Event Camera → /events/' + opts.eventSlug + '/camera, Gallery → /events/' + opts.eventSlug + '/gallery',
-    '- If RSVP intent exists but no RSVP page, set rsvp.enabled=true and rsvp.pageCreated=true.',
-    '- Do NOT leave buttons as decorative dead elements.',
-    '- Recreate animation FEEL with NexoraNow presets; PDF is static — never claim exact Canva animation extraction.',
-    `- Conversion style: ${opts.conversionStyle}. Animation level: ${opts.animationLevel}.`,
-    opts.povEnabled ? '- POV Event Camera ENABLED: include camera + gallery CTAs.' : '- POV disabled: skip camera/gallery CTAs.',
+    'Extracted text:',
+    opts.extractedText.slice(0, 8000),
     '',
-    'Return ONLY valid minified JSON:',
-    '{ "websiteType":"invitational","sourceType":"canva_pdf",',
-    '  "pages":[{"title":"Home","slug":"home","sections":[...]}],',
-    '  "sections":[...],',
-    '  "interactiveOverlays":[{"label","actionType","href","pageNumber","style"}],',
-    '  "visualLayers":[{"type","url","animation","pageNumber"}],',
-    '  "linkMapping":[{"label","href","actionType","pageNumber"}],',
-    '  "rsvp":{"enabled":boolean,"pageCreated":boolean,"pageTitle":string,"fields":[]},',
-    '  "theme":{...},"eventMetadata":{...},',
-    '  "animations":{"globalStyle":"subtle|balanced|premium_cinematic","visualLayerAnimations":[],"sectionAnimations":[]},',
-    '  "warnings":[] }',
+    'Extracted PDF links:',
+    opts.linksJson.slice(0, 3000),
     '',
-    'Section types: hero, about, image_gallery, feature_grid, cta, rich_text, canva_pdf_visual_section.',
-    'canva_pdf_visual_section content: { pageNumber, renderedImageUrl, thumbnailUrl, aspectRatio, overlays[], visualLayers[] }',
-  ].join('\n')
+    'Routes:',
+    `- RSVP → /events/${opts.eventSlug}/rsvp`,
+    `- Event Camera → /events/${opts.eventSlug}/camera`,
+    `- Gallery → /events/${opts.eventSlug}/gallery`,
+    '- Preserve Amazon/Target/registry external URLs exactly.',
+    opts.povEnabled ? '- POV enabled: include camera + gallery actions.' : '',
+    '',
+    'Return ONLY minified JSON:',
+    '{ "linkMapping":[{"label","href","actionType","pageNumber"}],',
+    '  "pageAnimations":[{"pageNumber","preset"}],',
+    '  "rsvp":{"enabled":boolean,"pageCreated":boolean,"pageTitle":string},',
+    '  "eventMetadata":{...},"theme":{...},"warnings":[] }',
+  ].filter(Boolean).join('\n')
 }
 
-function buildVisualSectionsFromExtraction(
-  extraction: Awaited<ReturnType<typeof extractCanvaPdfVisuals>>,
-  linkMapping: MappedLink[],
+function buildPageVisualSections(
+  renderedPages: RenderedCanvaPdfPage[],
+  extractionPages: Awaited<ReturnType<typeof extractCanvaPdfTextAndLinks>>['pages'],
+  linkMapping: PdfMappedAction[],
   animationLevel: AnimationLevel,
-): ConvertedSection[] {
-  return extraction.pages
-    .filter((p) => p.renderedImageUrl)
-    .map((p, i) => {
-      const pageLinks = linkMapping.filter((l) => l.pageNumber === p.pageNumber || !l.pageNumber)
-      const overlays = pageLinks.slice(0, 8).map((l, j) => ({
-        id: l.id || `overlay-${p.pageNumber}-${j}`,
-        label: l.label,
-        actionType: l.actionType,
-        href: l.dead ? undefined : l.href,
-        style: l.dead ? 'outline' as const : 'filled' as const,
-      }))
-      const aspectRatio = p.height && p.width ? p.height / p.width : 1.414
-      const bgAnim = mapPageBackgroundAnimation(animationLevel)
-      return {
-        section_type: 'canva_pdf_visual_section' as const,
-        section_key: `pdf-visual-page-${p.pageNumber}`,
-        content: {
-          type: 'canva_pdf_visual_section',
-          pageNumber: p.pageNumber,
-          renderedImageUrl: p.renderedImageUrl,
-          thumbnailUrl: p.thumbnailUrl,
-          aspectRatio,
-          animationPreset: bgAnim.preset,
-          overlays,
-          linkMapping: pageLinks,
-          visualLayers: (p.extractedImages ?? []).map((img, gi) => ({
-            id: `pg${p.pageNumber}-img-${gi}`,
-            type: inferVisualLayerKind(undefined, img.kind),
-            url: img.publicUrl,
-            animation: mapVisualLayerAnimation(inferVisualLayerKind(undefined, img.kind), animationLevel, gi),
-          })),
-          mobileBehavior: 'scale',
-        },
-        animation: buildSectionAnimation('hero', i, animationLevel),
-      }
+  pageAnimations: Array<{ pageNumber?: number; preset?: string }>,
+): { sections: ConvertedSection[]; overlaysCount: number; fallbackButtonsCount: number } {
+  const sections: ConvertedSection[] = []
+  let overlaysCount = 0
+  let fallbackButtonsCount = 0
+
+  for (const rendered of renderedPages) {
+    if (!rendered.publicUrl) continue
+    const extractPage = extractionPages.find((p) => p.pageNumber === rendered.pageNumber)
+    const pageText = extractPage?.text ?? ''
+    const aiAnim = pageAnimations.find((a) => a.pageNumber === rendered.pageNumber)
+    const visualAnim = mapPageVisualAnimation(rendered.pageNumber, pageText, animationLevel, aiAnim?.preset)
+    const { overlays, fallbackActions } = overlaysAndFallbacksForPage(rendered.pageNumber, linkMapping)
+    overlaysCount += overlays.length
+    fallbackButtonsCount += fallbackActions.length
+
+    sections.push({
+      section_type: 'canva_pdf_page_visual',
+      section_key: `pdf-page-visual-${rendered.pageNumber}`,
+      content: {
+        type: 'canva_pdf_page_visual',
+        sectionType: 'canva_pdf_page_visual',
+        pageNumber: rendered.pageNumber,
+        renderedImageUrl: rendered.publicUrl,
+        thumbnailUrl: rendered.thumbnailUrl,
+        aspectRatio: rendered.aspectRatio,
+        originalWidth: rendered.width,
+        originalHeight: rendered.height,
+        animationPreset: visualAnim.preset,
+        visualAnimation: visualAnim,
+        overlays,
+        fallbackActions,
+        mobileBehavior: 'stack_actions_below',
+      },
+      animation: buildSectionAnimation('hero', rendered.pageNumber - 1, animationLevel),
     })
+  }
+
+  return { sections, overlaysCount, fallbackButtonsCount }
 }
 
 export async function convertCanvaPdfToDraft(params: {
@@ -203,7 +187,7 @@ export async function convertCanvaPdfToDraft(params: {
 }): Promise<PdfConversionResult> {
   const db = getSupabaseServerClient() as DB
   const { tenantId, websiteId, importId } = params
-  const warnings: string[] = [PDF_ANIMATION_NOTE, 'Some graphics may be preserved as page visuals if individual extraction is unavailable.']
+  const warnings: string[] = [PDF_VISUAL_ANIMATION_NOTE]
 
   const { data: imp } = await db.from('website_canva_imports').select('*')
     .eq('id', importId).eq('tenant_id', tenantId).maybeSingle()
@@ -215,10 +199,8 @@ export async function convertCanvaPdfToDraft(params: {
   if (!site) return { ok: false, error: 'Event website record not found.' }
 
   const summary = (imp.import_summary as Record<string, unknown>) ?? {}
-  const conversionStyle = normalizeConversionStyle(summary.conversionStyle)
   const animationLevel = normalizeAnimationLevel(summary.animationRecreationLevel)
   const povEnabled = Boolean(site.pov_enabled)
-  const povEventId = (site.pov_event_id as string) ?? null
   const eventSlug = String(site.public_slug ?? '')
 
   await db.from('website_canva_imports').update({ ai_conversion_status: 'analyzing', status: 'importing' }).eq('id', importId)
@@ -236,143 +218,103 @@ export async function convertCanvaPdfToDraft(params: {
     return { ok: false, error: `Failed to read the uploaded PDF: ${e instanceof Error ? e.message : 'storage error'}` }
   }
 
-  // Visual extraction: render pages + extract text/links
-  let visualExtraction: Awaited<ReturnType<typeof extractCanvaPdfVisuals>>
+  // STEP 1: Render all PDF pages (required — fail if zero)
+  const renderResult = await renderCanvaPdfPages({ pdfBuffer, tenantId, websiteId, importId })
+  warnings.push(...renderResult.warnings)
+  if (!renderResult.ok || renderResult.renderedPageCount === 0) {
+    await db.from('website_canva_imports').update({
+      ai_conversion_status: 'failed',
+      status: 'failed',
+      warnings,
+    }).eq('id', importId)
+    return { ok: false, error: renderResult.error ?? PDF_RENDER_ZERO_MESSAGE, warnings }
+  }
+
+  // STEP 2: Extract text + links
+  let extraction: Awaited<ReturnType<typeof extractCanvaPdfTextAndLinks>>
   try {
-    visualExtraction = await extractCanvaPdfVisuals({ pdfBuffer, tenantId, websiteId, importId })
-    warnings.push(...visualExtraction.warnings)
+    extraction = await extractCanvaPdfTextAndLinks({ pdfBuffer, renderedPages: renderResult.pages })
+    warnings.push(...extraction.warnings)
   } catch (e) {
-    visualExtraction = { pageCount: pageCount ?? 1, pages: [], warnings: [`Visual extraction failed: ${e instanceof Error ? e.message : 'error'}`], renderedPageCount: 0, extractedGraphicsCount: 0, extractedLinksCount: 0 }
-    warnings.push(...visualExtraction.warnings)
+    await db.from('website_canva_imports').update({ ai_conversion_status: 'failed', status: 'failed' }).eq('id', importId)
+    return { ok: false, error: `Failed to extract PDF content: ${e instanceof Error ? e.message : 'error'}` }
   }
 
-  const allText = visualExtraction.pages.map((p) => p.text).join('\n')
-  const allPdfLinks = visualExtraction.pages.flatMap((p) => p.links ?? [])
-  const rsvpDetected = detectRsvpIntent(allText) || povEnabled
+  const allText = extraction.pages.map((p) => p.text).join('\n')
+  const allAnnotations = extraction.pages.flatMap((p) => p.links)
+  const rsvpDetected = detectRsvpIntent(allText)
 
+  // STEP 3: AI for link mapping + metadata only (non-blocking on failure)
+  let schema: AiSchema = {}
   const model = getWebsiteAiGeminiModel()
-  const aiParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
-    {
-      text: buildPrompt({
-        conversionStyle, animationLevel, povEnabled, eventSlug,
+  try {
+    const aiParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [{
+      text: buildAiPrompt({
+        eventSlug,
+        povEnabled,
+        animationLevel,
         extractedText: allText,
-        extractedLinksJson: JSON.stringify(allPdfLinks.slice(0, 40)),
-        renderedPagesJson: JSON.stringify(visualExtraction.pages.map((p) => ({ pageNumber: p.pageNumber, renderedImageUrl: p.renderedImageUrl, thumbnailUrl: p.thumbnailUrl }))),
+        renderedPagesJson: JSON.stringify(renderResult.pages.map((p) => ({ pageNumber: p.pageNumber, publicUrl: p.publicUrl }))),
+        linksJson: JSON.stringify(allAnnotations.slice(0, 40)),
       }),
-    },
-    { inlineData: { mimeType: 'application/pdf', data: pdfBuffer.toString('base64') } },
-  ]
-  for (const p of visualExtraction.pages.slice(0, 6)) {
-    if (p.renderedImageUrl) {
-      try {
-        const imgRes = await fetch(p.renderedImageUrl)
-        if (imgRes.ok) {
-          const buf = Buffer.from(await imgRes.arrayBuffer())
-          aiParts.push({ inlineData: { mimeType: 'image/webp', data: buf.toString('base64') } })
-        }
-      } catch { /* non-fatal */ }
+    }]
+    for (const p of renderResult.pages.slice(0, 4)) {
+      if (p.publicUrl) {
+        try {
+          const imgRes = await fetch(p.publicUrl)
+          if (imgRes.ok) {
+            const buf = Buffer.from(await imgRes.arrayBuffer())
+            const mime = imgRes.headers.get('content-type')?.includes('png') ? 'image/png' : 'image/webp'
+            aiParts.push({ inlineData: { mimeType: mime, data: buf.toString('base64') } })
+          }
+        } catch { /* non-fatal */ }
+      }
     }
+    const ai = await callGeminiMultimodal({ model, feature: 'canva-pdf-convert', temperature: 0.3, timeoutMs: 90_000, parts: aiParts })
+    if (ai.text) {
+      const parsed = safeParseGeminiJson<AiSchema>(ai.text)
+      if (parsed.data) schema = parsed.data
+      else warnings.push('AI metadata parse failed; using PDF link extraction only.')
+    } else {
+      warnings.push('AI metadata unavailable; using PDF link extraction only.')
+    }
+  } catch {
+    warnings.push('AI metadata unavailable; using PDF link extraction only.')
   }
-
-  const ai = await callGeminiMultimodal({ model, feature: 'canva-pdf-convert', temperature: 0.4, timeoutMs: 120_000, parts: aiParts })
-  if (ai.error || !ai.text) {
-    await db.from('website_canva_imports').update({ ai_conversion_status: 'failed', status: 'failed' }).eq('id', importId)
-    return { ok: false, error: `AI conversion failed: ${ai.error ?? 'no content returned'}` }
-  }
-
-  const parsed = safeParseGeminiJson<AiSchema>(ai.text)
-  if (!parsed.data) {
-    await db.from('website_canva_imports').update({ ai_conversion_status: 'failed', status: 'failed' }).eq('id', importId)
-    return { ok: false, error: `AI returned an invalid website schema: ${parsed.error ?? 'unparseable JSON'}` }
-  }
-  const schema = parsed.data
 
   const aiButtons = [
     ...(schema.linkMapping ?? []),
     ...(schema.interactiveOverlays ?? []).map((o) => ({ label: o.label, href: o.href, actionType: o.actionType, pageNumber: o.pageNumber })),
   ]
-  const linkMapping = buildLinkMapping(allPdfLinks, aiButtons, { eventSlug, povEnabled })
-  const deadLinks = deadLinkCount(linkMapping)
+  const linkMapping = buildPdfLinkMapping(allAnnotations, aiButtons, { eventSlug, povEnabled })
+  const deadLinks = deadPdfLinkCount(linkMapping)
   if (deadLinks > 0) warnings.push('Some buttons need destination review.')
+  if (linkMapping.some((l) => !l.hasCoordinates)) {
+    warnings.push('Link coordinates unavailable for some buttons; fallback buttons were used.')
+  }
 
-  const visualSections = buildVisualSectionsFromExtraction(visualExtraction, linkMapping, animationLevel)
+  const { sections: visualSections, overlaysCount, fallbackButtonsCount } = buildPageVisualSections(
+    renderResult.pages,
+    extraction.pages,
+    linkMapping,
+    animationLevel,
+    schema.pageAnimations ?? [],
+  )
 
-  const aiSections: AiSection[] = []
-  if (Array.isArray(schema.sections)) aiSections.push(...schema.sections)
-  if (Array.isArray(schema.pages)) for (const p of schema.pages) if (Array.isArray(p.sections)) aiSections.push(...p.sections)
-
-  const textSections: ConvertedSection[] = aiSections.slice(0, 20).map((s, i) => {
-    const type = coerceSectionType(s.type)
-    if (type === 'canva_pdf_visual_section') return null
-    const content = (s.content && typeof s.content === 'object') ? { ...s.content } : {}
-    if (s.title && !content.headline) content.headline = s.title
-    if (type === 'cta' && content.ctaLabel && !content.ctaHref) {
-      const mapped = linkMapping.find((l) => l.label.toLowerCase() === String(content.ctaLabel).toLowerCase())
-      if (mapped && !mapped.dead) content.ctaHref = mapped.href
-    }
-    return {
-      section_type: type,
-      section_key: `pdf-ai-${i}-${type}`,
-      content,
-      animation: buildSectionAnimation(type, i, animationLevel, content, s.animation),
-    }
-  }).filter(Boolean) as ConvertedSection[]
-
-  const homeSections: ConvertedSection[] = [...visualSections, ...textSections]
-
-  if (povEnabled && eventSlug) {
-    const camHref = `/events/${eventSlug}/camera`
-    const galHref = `/events/${eventSlug}/gallery`
-    if (!linkMapping.some((l) => l.actionType === 'event_camera')) {
-      homeSections.push({
-        section_type: 'cta', section_key: 'pov-camera',
-        content: { headline: 'Capture the day from your point of view', body: 'Use your phone and PIN to add photos, clips, and audio.', ctaLabel: 'Open Event Camera', ctaHref: camHref, align: 'center' },
-        animation: buildSectionAnimation('cta', homeSections.length, animationLevel),
-      })
-    }
-    if (!linkMapping.some((l) => l.actionType === 'gallery')) {
-      homeSections.push({
-        section_type: 'cta', section_key: 'pov-gallery',
-        content: { headline: 'Shared memories', body: 'View the event gallery once it unlocks.', ctaLabel: 'View Gallery', ctaHref: galHref, align: 'center' },
-        animation: buildSectionAnimation('cta', homeSections.length, animationLevel),
-      })
-    }
+  if (visualSections.length === 0) {
+    await db.from('website_canva_imports').update({ ai_conversion_status: 'failed', status: 'failed' }).eq('id', importId)
+    return { ok: false, error: PDF_RENDER_ZERO_MESSAGE, warnings }
   }
 
   const rsvpEnabled = schema.rsvp?.enabled ?? rsvpDetected
   const rsvpPageCreated = rsvpEnabled && (schema.rsvp?.pageCreated ?? true)
-  const pages: Array<{ title: string; slug: string; sections: ConvertedSection[] }> = [
-    { title: 'Home', slug: 'home', sections: homeSections },
-  ]
-  if (rsvpPageCreated) {
-    pages.push({
-      title: 'RSVP',
-      slug: 'rsvp',
-      sections: [{
-        section_type: 'cta',
-        section_key: 'rsvp-cta',
-        content: {
-          headline: schema.rsvp?.pageTitle ?? 'RSVP',
-          body: 'Please confirm your attendance.',
-          ctaLabel: 'Go to RSVP Form',
-          ctaHref: `/events/${eventSlug}/rsvp`,
-          align: 'center',
-        },
-        animation: buildSectionAnimation('cta', 0, animationLevel),
-      }],
-    })
-  }
 
   if (Array.isArray(schema.warnings)) warnings.push(...schema.warnings.filter((w) => typeof w === 'string'))
 
   const animationMapping = buildAnimationMapping(
-    homeSections.map((s) => ({ section_key: s.section_key, section_type: s.section_type, content: s.content })),
+    visualSections.map((s) => ({ section_key: s.section_key, section_type: s.section_type, content: s.content })),
     animationLevel,
   )
-  const characterAnimationCount = visualSections.reduce((n, s) => {
-    const layers = (s.content.visualLayers as Array<{ animation?: { preset?: string } }>) ?? []
-    return n + layers.filter((l) => l.animation?.preset?.includes('character')).length
-  }, 0)
 
   const beforeDraft = (site.draft_config as Record<string, unknown>) ?? {}
   const now = new Date().toISOString()
@@ -382,25 +324,22 @@ export async function convertCanvaPdfToDraft(params: {
     sourceType: 'canva_pdf',
     canvaImportId: importId,
     canvaImportMode: 'converted',
-    conversionStyle,
     animationLevel,
     theme: schema.theme ?? {},
-    animations: schema.animations ?? { globalStyle: animationLevel, note: PDF_ANIMATION_NOTE },
     eventMetadata: schema.eventMetadata ?? {},
     povEnabled,
-    povEventId,
+    povEventId: site.pov_event_id ?? null,
     linkMapping,
-    interactiveOverlays: schema.interactiveOverlays ?? [],
-    visualExtraction: { pageCount: visualExtraction.pageCount, renderedPageCount: visualExtraction.renderedPageCount },
+    visualFirst: true,
+    renderedPages: renderResult.pages,
     rsvp: {
       enabled: rsvpEnabled,
       pageCreated: rsvpPageCreated,
       pageTitle: schema.rsvp?.pageTitle ?? 'RSVP',
-      fields: schema.rsvp?.fields ?? ['name', 'email', 'phone', 'attending', 'guest_count', 'message'],
       route: `/events/${eventSlug}/rsvp`,
     },
     savedAt: now,
-    pages,
+    pages: [{ title: 'Home', slug: 'home', sections: visualSections }],
     warnings,
   }
 
@@ -422,18 +361,19 @@ export async function convertCanvaPdfToDraft(params: {
       ai_conversion_status: 'converted',
       animation_preservation: 'approximate',
       pdf_page_count: pageCount,
-      pdf_analysis: { textLength: allText.length, rsvpDetected },
-      visual_extraction: visualExtraction,
-      rendered_pages: visualExtraction.pages.map((p) => ({ pageNumber: p.pageNumber, renderedImageUrl: p.renderedImageUrl, thumbnailUrl: p.thumbnailUrl, storagePath: p.renderedStoragePath })),
-      extracted_graphics: visualExtraction.pages.flatMap((p) => p.extractedImages ?? []),
+      pdf_analysis: { textLength: allText.length, rsvpDetected, visualFirst: true },
+      visual_extraction: { pageCount: extraction.pageCount, renderedPageCount: renderResult.renderedPageCount },
+      rendered_pages: renderResult.pages,
       link_mapping: linkMapping,
       rsvp_mapping: draftConfig.rsvp,
-      interactive_overlays: schema.interactiveOverlays ?? [],
-      converted_pages: pages,
+      interactive_overlays: visualSections.flatMap((s) => (s.content.overlays as unknown[]) ?? []),
+      converted_pages: draftConfig.pages,
       animation_mapping: animationMapping,
       ai_conversion_summary: {
-        sectionCount: homeSections.length,
         visualSectionsCount: visualSections.length,
+        renderedPageCount: renderResult.renderedPageCount,
+        overlaysCount,
+        fallbackButtonsCount,
         mappedLinksCount: linkMapping.length,
         deadLinksCount: deadLinks,
         rsvpPageCreated,
@@ -441,7 +381,7 @@ export async function convertCanvaPdfToDraft(params: {
       },
       warnings,
     }).eq('id', importId)
-  } catch { /* non-fatal if migration 088 not applied */ }
+  } catch { /* non-fatal if migration not applied */ }
 
   try {
     await db.from('website_canva_import_runs').insert({
@@ -456,21 +396,22 @@ export async function convertCanvaPdfToDraft(params: {
     ok: true,
     draftPreviewUrl: `/events/${eventSlug}?preview=draft`,
     liveUrl: `/events/${eventSlug}`,
-    sectionCount: homeSections.length,
+    sectionCount: visualSections.length,
     pageCount: pageCount ?? undefined,
     warnings,
     eventMetadata: schema.eventMetadata ?? {},
     animationMappingCount: animationMapping.sectionAnimations.length,
-    renderedPageCount: visualExtraction.renderedPageCount,
-    extractedGraphicsCount: visualExtraction.extractedGraphicsCount,
-    extractedLinksCount: visualExtraction.extractedLinksCount,
+    renderedPageCount: renderResult.renderedPageCount,
+    extractedLinksCount: extraction.extractedLinksCount,
     detectedButtonsCount: aiButtons.length,
     mappedLinksCount: linkMapping.length,
     deadLinksCount: deadLinks,
+    overlaysCount,
+    fallbackButtonsCount,
     rsvpDetected,
     rsvpPageCreated,
     visualSectionsCount: visualSections.length,
-    characterAnimationCount,
+    renderedPagesUrlsPresent: renderResult.pages.every((p) => !!p.publicUrl),
     publishAvailable: true,
     linkMapping,
   }

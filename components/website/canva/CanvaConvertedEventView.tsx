@@ -6,11 +6,12 @@
 import type { CSSProperties } from 'react'
 import Link from 'next/link'
 import { AnimatedReveal } from './AnimatedReveal'
+import { CanvaPdfPageVisualSection, type CanvaPdfPageVisualConfig } from './CanvaPdfPageVisualSection'
 import { CanvaPdfVisualSection, type CanvaPdfVisualSectionConfig } from './CanvaPdfVisualSection'
 import type { NexoraAnimationPreset } from '@/lib/website/canva/pdf-animation-recreator'
 import type { MappedLink } from '@/lib/website/canva/link-mapper'
 
-interface SectionAnim { preset: NexoraAnimationPreset; delay?: number; duration?: number; stagger?: number; hover?: boolean }
+interface SectionAnim { preset: string; delay?: number; duration?: number; stagger?: number; hover?: boolean }
 interface Section { section_type: string; section_key?: string; content?: Record<string, unknown>; animation?: SectionAnim }
 
 interface PageDef { title?: string; slug?: string; sections?: Section[] }
@@ -67,11 +68,17 @@ function SectionView({ section, linkMapping, eventSlug }: { section: Section; li
   const c = section.content ?? {}
   const anim = section.animation ?? { preset: 'fadeUp' as NexoraAnimationPreset }
   const reveal = (node: React.ReactNode) => (
-    <AnimatedReveal preset={anim.preset} delay={anim.delay} duration={anim.duration}>{node}</AnimatedReveal>
+    <AnimatedReveal preset={anim.preset as NexoraAnimationPreset} delay={anim.delay} duration={anim.duration}>{node}</AnimatedReveal>
   )
 
+  if (section.section_type === 'canva_pdf_page_visual') {
+    const cfg = c as unknown as CanvaPdfPageVisualConfig
+    if (cfg.renderedImageUrl) return <CanvaPdfPageVisualSection config={{ ...cfg, type: 'canva_pdf_page_visual' }} />
+    return null
+  }
+
   if (section.section_type === 'canva_pdf_visual_section') {
-    const cfg = { ...c, type: 'canva_pdf_visual_section', linkMapping } as CanvaPdfVisualSectionConfig
+    const cfg = { ...c, type: 'canva_pdf_visual_section' } as CanvaPdfVisualSectionConfig
     if (cfg.renderedImageUrl) return <CanvaPdfVisualSection config={cfg} />
     return null
   }
@@ -115,7 +122,7 @@ function SectionView({ section, linkMapping, eventSlug }: { section: Section; li
             {str(c.headline) && reveal(<h2 style={{ fontFamily: 'var(--font-heading)', textAlign: 'center', fontSize: 'clamp(1.5rem,4vw,2.5rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '2rem' }}>{str(c.headline)}</h2>)}
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit,minmax(${cols >= 3 ? 220 : 280}px,1fr))`, gap: '1.25rem' }}>
               {items.map((it, i) => (
-                <AnimatedReveal key={i} preset={anim.preset} delay={(anim.delay ?? 0) + i * (anim.stagger ?? 0.08)} duration={anim.duration}>
+                <AnimatedReveal key={i} preset={anim.preset as NexoraAnimationPreset} delay={(anim.delay ?? 0) + i * (anim.stagger ?? 0.08)} duration={anim.duration}>
                   <div style={{ border: '1px solid rgba(255,255,255,0.12)', borderRadius: 16, padding: '1.5rem', height: '100%' }}>
                     <h3 style={{ color: 'var(--color-text)', fontWeight: 600, fontSize: '1.1rem' }}>{str(it.title)}</h3>
                     <p style={{ color: 'var(--color-text)', opacity: 0.7, marginTop: '0.5rem', lineHeight: 1.6 }}>{str(it.description)}</p>
@@ -135,7 +142,7 @@ function SectionView({ section, linkMapping, eventSlug }: { section: Section; li
             {str(c.headline) && reveal(<h2 style={{ fontFamily: 'var(--font-heading)', textAlign: 'center', fontSize: 'clamp(1.5rem,4vw,2.5rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '2rem' }}>{str(c.headline)}</h2>)}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '0.75rem' }}>
               {images.filter((im) => str(im.url)).map((im, i) => (
-                <AnimatedReveal key={i} preset={anim.preset} delay={(anim.delay ?? 0) + i * (anim.stagger ?? 0.08)} duration={anim.duration}>
+                <AnimatedReveal key={i} preset={anim.preset as NexoraAnimationPreset} delay={(anim.delay ?? 0) + i * (anim.stagger ?? 0.08)} duration={anim.duration}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={str(im.url)} alt={str(im.alt, 'Event image')} style={{ width: '100%', borderRadius: 12, display: 'block' }} />
                 </AnimatedReveal>
@@ -175,23 +182,15 @@ function SectionView({ section, linkMapping, eventSlug }: { section: Section; li
   }
 }
 
-export function CanvaConvertedEventView({ title, sections, pages, theme, linkMapping, eventSlug, isDraftPreview, warnings }: Props) {
+export function CanvaConvertedEventView({ title, sections, pages, theme, eventSlug, isDraftPreview, warnings }: Props) {
   const homeSections = sections ?? pages?.find((p) => p.slug === 'home' || !p.slug)?.sections ?? pages?.[0]?.sections ?? []
-  const topLinks = (linkMapping ?? []).filter((l) => !l.dead).slice(0, 6)
 
   return (
     <main style={{ minHeight: '100vh', background: 'var(--color-bg,#0b0b0b)', ...themeVars(theme) }}>
       {isDraftPreview && (
         <div style={{ background: '#7c3aed', color: '#fff', textAlign: 'center', padding: '0.5rem 1rem', fontSize: '0.8125rem', fontWeight: 600 }}>
-          Draft preview — visuals, links, RSVP, and animations as they will appear when published.
+          Draft preview — Canva PDF visuals with working links and animations.
         </div>
-      )}
-      {topLinks.length > 0 && (
-        <nav style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center', padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.35)' }}>
-          {topLinks.map((l) => (
-            <CtaLink key={l.id} href={l.href} label={l.label} eventSlug={eventSlug} />
-          ))}
-        </nav>
       )}
       {homeSections.length === 0 ? (
         <div style={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text)', opacity: 0.7 }}>
@@ -199,12 +198,12 @@ export function CanvaConvertedEventView({ title, sections, pages, theme, linkMap
         </div>
       ) : (
         homeSections.map((s, i) => (
-          <SectionView key={s.section_key ?? i} section={s} linkMapping={linkMapping} eventSlug={eventSlug} />
+          <SectionView key={s.section_key ?? i} section={s} eventSlug={eventSlug} />
         ))
       )}
-      {Array.isArray(warnings) && warnings.length > 0 && isDraftPreview && (
-        <div style={{ maxWidth: 720, margin: '2rem auto', padding: '0 1.25rem', fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)' }}>
-          {warnings.slice(0, 4).map((w, i) => <p key={i}>• {w}</p>)}
+      {Array.isArray(warnings) && warnings.length > 0 && (
+        <div style={{ maxWidth: 720, margin: '1.5rem auto 2rem', padding: '0 1.25rem', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
+          {warnings.slice(0, 3).map((w, i) => <p key={i}>{w}</p>)}
         </div>
       )}
     </main>
