@@ -287,6 +287,9 @@ function CaptureView({ event, pal }: { event: PublicEvent; pal: ReturnType<typeo
   const videoRef = useRef<HTMLInputElement>(null)
   const audioFileRef = useRef<HTMLInputElement>(null)
 
+  // Video recorder overlay
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false)
+
   // Audio recording
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -301,12 +304,14 @@ function CaptureView({ event, pal }: { event: PublicEvent; pal: ReturnType<typeo
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [])
 
-  async function uploadFile(file: File, mediaType: 'photo' | 'video' | 'audio') {
+  async function uploadFile(file: File, mediaType: 'photo' | 'video' | 'audio', knownDuration?: number | null) {
     setBusy(true); setErr(null); setOk(null)
     try {
-      let duration: number | null = null
-      if (mediaType === 'video' || mediaType === 'audio') {
+      let duration: number | null = knownDuration ?? null
+      if ((mediaType === 'video' || mediaType === 'audio') && duration == null) {
         duration = await getMediaDuration(file, mediaType)
+      }
+      if (mediaType === 'video' || mediaType === 'audio') {
         const max = mediaType === 'video' ? event.video_max_seconds : event.audio_max_seconds
         if (duration != null && duration > max + 2.5) {
           throw new Error(`Please keep it to ${max} seconds or less (yours is ${Math.round(duration)}s).`)
@@ -398,8 +403,15 @@ function CaptureView({ event, pal }: { event: PublicEvent; pal: ReturnType<typeo
             title="Take / upload a photo" />
         )}
         {event.allow_videos && (
-          <BigBtn pal={pal} disabled={busy} onClick={() => videoRef.current?.click()} emoji="🎬"
-            title={`Record a ${event.video_max_seconds}s video clip`} />
+          <BigBtn pal={pal} disabled={busy}
+            onClick={() => (mediaRecorderSupported ? setShowVideoRecorder(true) : videoRef.current?.click())}
+            emoji="🎬" title={`Record a ${event.video_max_seconds}s video clip`} />
+        )}
+        {event.allow_videos && mediaRecorderSupported && (
+          <button onClick={() => videoRef.current?.click()} disabled={busy}
+            style={{ background: 'none', border: 'none', color: pal.sub, fontSize: 12, cursor: 'pointer', padding: 4 }}>
+            …or upload a video file
+          </button>
         )}
         {event.allow_audio && (
           recording ? (
@@ -424,8 +436,225 @@ function CaptureView({ event, pal }: { event: PublicEvent; pal: ReturnType<typeo
       </div>
 
       {busy && <p style={{ textAlign: 'center', color: pal.sub, fontSize: 13, marginTop: 14 }}>Uploading…</p>}
+
+      {showVideoRecorder && (
+        <VideoRecorder
+          pal={pal}
+          maxSeconds={event.video_max_seconds}
+          onCancel={() => setShowVideoRecorder(false)}
+          onCaptured={(file, dur) => {
+            setShowVideoRecorder(false)
+            void uploadFile(file, 'video', dur)
+          }}
+          onUnsupported={() => { setShowVideoRecorder(false); videoRef.current?.click() }}
+        />
+      )}
     </Panel>
   )
+}
+
+// ─── Video recorder (hard-stops at maxSeconds) ────────────────────────────────
+function VideoRecorder({ pal, maxSeconds, onCaptured, onCancel, onUnsupported }: {
+  pal: ReturnType<typeof palette>; maxSeconds: number
+  onCaptured: (file: File, durationSeconds: number) => void
+  onCancel: () => void
+  onUnsupported: () => void
+}) {
+  const [phase, setPhase] = useState<'live' | 'recording' | 'recorded'>('live')
+  const [elapsed, setElapsed] = useState(0)
+  const [err, setErr] = useState<string | null>(null)
+
+  const liveRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const hardStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const startedAtRef = useRef<number>(0)
+  const fileRef = useRef<File | null>(null)
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null)
+  const finalDurRef = useRef<number>(0)
+
+  const pickMime = useCallback((): string => {
+    const candidates = ['video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+    for (const m of candidates) {
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m)) return m
+    }
+    return ''
+  }, [])
+
+  const clearTimers = useCallback(() => {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    if (hardStopRef.current) { clearTimeout(hardStopRef.current); hardStopRef.current = null }
+  }, [])
+
+  const stopStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+  }, [])
+
+  const startCamera = useCallback(async () => {
+    setErr(null)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }, audio: true,
+      })
+      streamRef.current = stream
+      if (liveRef.current) {
+        liveRef.current.srcObject = stream
+        liveRef.current.muted = true
+        await liveRef.current.play().catch(() => {})
+      }
+    } catch {
+      setErr('Camera access was blocked. You can upload a video file instead.')
+    }
+  }, [])
+
+  useEffect(() => {
+    void startCamera()
+    return () => {
+      clearTimers()
+      stopStream()
+      if (recordedUrl) URL.revokeObjectURL(recordedUrl)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function startRecording() {
+    if (!streamRef.current) return
+    setErr(null)
+    const mimeType = pickMime()
+    let rec: MediaRecorder
+    try {
+      rec = new MediaRecorder(streamRef.current, mimeType ? { mimeType } : undefined)
+    } catch {
+      onUnsupported(); return
+    }
+    chunksRef.current = []
+    rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data) }
+    rec.onstop = () => {
+      clearTimers()
+      const type = rec.mimeType || mimeType || 'video/webm'
+      const ext = type.includes('mp4') ? 'mp4' : 'webm'
+      const blob = new Blob(chunksRef.current, { type })
+      const file = new File([blob], `event-clip.${ext}`, { type })
+      fileRef.current = file
+      finalDurRef.current = Math.min(maxSeconds, (Date.now() - startedAtRef.current) / 1000)
+      const url = URL.createObjectURL(blob)
+      setRecordedUrl(url)
+      setPhase('recorded')
+    }
+    recorderRef.current = rec
+    rec.start()
+    startedAtRef.current = Date.now()
+    setElapsed(0)
+    setPhase('recording')
+
+    // Visible ticking timer.
+    intervalRef.current = setInterval(() => {
+      const secs = (Date.now() - startedAtRef.current) / 1000
+      setElapsed(secs)
+      if (secs >= maxSeconds) stopRecording()
+    }, 200)
+    // Hard-stop safety net at exactly maxSeconds.
+    hardStopRef.current = setTimeout(() => stopRecording(), maxSeconds * 1000)
+  }
+
+  function stopRecording() {
+    clearTimers()
+    const rec = recorderRef.current
+    try { if (rec && rec.state !== 'inactive') rec.stop() } catch { /* noop */ }
+  }
+
+  function retake() {
+    if (recordedUrl) { URL.revokeObjectURL(recordedUrl); setRecordedUrl(null) }
+    fileRef.current = null
+    setElapsed(0)
+    setPhase('live')
+    void startCamera()
+  }
+
+  function cancel() {
+    clearTimers(); stopStream()
+    if (recordedUrl) URL.revokeObjectURL(recordedUrl)
+    onCancel()
+  }
+
+  function confirmUpload() {
+    if (fileRef.current) {
+      stopStream()
+      onCaptured(fileRef.current, finalDurRef.current || maxSeconds)
+    }
+  }
+
+  const remaining = Math.max(0, Math.ceil(maxSeconds - elapsed))
+  const fmt = (s: number) => `0:${String(Math.min(maxSeconds, Math.floor(s))).padStart(2, '0')}`
+  const limitReached = elapsed >= maxSeconds
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.92)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 16, gap: 14,
+    }}>
+      {err && <div style={{ maxWidth: 460, width: '100%' }}><ErrBox>{err}</ErrBox></div>}
+
+      <div style={{ position: 'relative', width: '100%', maxWidth: 460, aspectRatio: '3/4', background: '#000', borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)' }}>
+        {phase !== 'recorded' ? (
+          <video ref={liveRef} playsInline muted autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          recordedUrl && <video src={recordedUrl} controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
+
+        {/* Timer overlay */}
+        {phase === 'recording' && (
+          <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(0,0,0,0.6)', borderRadius: 999, padding: '6px 14px' }}>
+            <span style={{ width: 10, height: 10, borderRadius: 999, background: '#ef4444', display: 'inline-block', animation: 'pulse 1s infinite' }} />
+            <span style={{ color: '#fff', fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+              Recording… {fmt(elapsed)} / {fmt(maxSeconds)}
+            </span>
+          </div>
+        )}
+        {limitReached && phase !== 'recorded' && (
+          <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', background: 'rgba(239,68,68,0.9)', color: '#fff', borderRadius: 999, padding: '4px 12px', fontSize: 12, fontWeight: 700 }}>
+            Recording limit reached
+          </div>
+        )}
+      </div>
+
+      <p style={{ color: pal.sub, fontSize: 13, textAlign: 'center', maxWidth: 460 }}>
+        {phase === 'live' && `Tap record. Clips hard-stop at ${maxSeconds} seconds.`}
+        {phase === 'recording' && `${remaining}s left`}
+        {phase === 'recorded' && 'Preview your clip'}
+      </p>
+
+      <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 460 }}>
+        {phase === 'live' && (
+          <>
+            <button onClick={startRecording} disabled={!!err} style={recBtn('#ef4444')}>● Record</button>
+            <button onClick={cancel} style={recBtn('rgba(255,255,255,0.12)')}>Cancel</button>
+          </>
+        )}
+        {phase === 'recording' && (
+          <button onClick={stopRecording} style={recBtn('#ef4444')}>⏹ Stop</button>
+        )}
+        {phase === 'recorded' && (
+          <>
+            <button onClick={confirmUpload} style={recBtn(pal.accent, '#111')}>Upload clip</button>
+            <button onClick={retake} style={recBtn('rgba(255,255,255,0.12)')}>Retake</button>
+            <button onClick={cancel} style={recBtn('rgba(255,255,255,0.12)')}>Cancel</button>
+          </>
+        )}
+      </div>
+      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}`}</style>
+    </div>
+  )
+}
+
+function recBtn(bg: string, color = '#fff'): React.CSSProperties {
+  return {
+    flex: 1, padding: '14px', borderRadius: 14, border: 'none', cursor: 'pointer',
+    background: bg, color, fontSize: 15, fontWeight: 700,
+  }
 }
 
 // ─── Gallery view ──────────────────────────────────────────────────────────────

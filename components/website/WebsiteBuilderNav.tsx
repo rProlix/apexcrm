@@ -24,6 +24,7 @@ const TABS: Tab[] = [
   { href: '/website',            label: 'Overview',    icon: LayoutGrid,  exact: true },
   { href: '/website/create',     label: 'App Type',    icon: LayoutTemplate },
   { href: '/website/pov',        label: 'POV Apps',    icon: Camera, badge: 'NEW' },
+  { href: '/website/canva',      label: 'Canva Import', icon: Sparkles, badge: 'NEW' },
   { href: '/website/pages',      label: 'Pages',       icon: FileText },
   { href: '/website/navigation', label: 'Navigation',  icon: Navigation },
   { href: '/website/theme',      label: 'Theme',       icon: Palette },

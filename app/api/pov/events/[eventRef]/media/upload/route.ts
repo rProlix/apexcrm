@@ -129,7 +129,14 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
       duration_seconds: clientDuration ?? null,
       caption,
       status:           'approved',
-      metadata:         { original_name: file.name },
+      metadata:         {
+        original_name: file.name,
+        // Duration is measured client-side (recorder elapsed / <video> metadata)
+        // and re-validated server-side above. Full server-side probing would need
+        // ffmpeg — tracked in POV diagnostics as a known limitation.
+        duration_source: clientDuration != null ? 'client_reported' : 'unknown',
+        duration_server_enforced: clientDuration != null,
+      },
     })
     .select('*')
     .single()

@@ -24,6 +24,9 @@ export interface PovDiagnostics {
   upload_settings: { allow_photos: boolean; allow_videos: boolean; allow_audio: boolean; video_max_seconds: number; audio_max_seconds: number; require_pin: boolean }
   storage:         { bucket: string; exists: boolean; public: boolean | null; error: string | null }
   public_route:    string
+  /** Video duration is hard-stopped client-side and re-validated server-side from
+   *  the client-reported value. Full server-side probing (ffmpeg) is a follow-up. */
+  video_duration_enforcement: 'client_hard_stop + server_validated'
 }
 
 async function count(table: string, build: (q: any) => any): Promise<number> {
@@ -73,5 +76,6 @@ export async function buildPovDiagnostics(event: PovEventRow, publicBase: string
       error:  bucketRes.error?.message ?? null,
     },
     public_route: `${publicBase}/pov/${event.slug}`,
+    video_duration_enforcement: 'client_hard_stop + server_validated',
   }
 }

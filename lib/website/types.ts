@@ -265,6 +265,17 @@ export interface SiteSettings {
   is_published:  boolean
   created_at:    string
   updated_at:    string
+  // POV Event App / Invitation-event integration (migrations 078–079)
+  website_type?:   'business' | 'creative' | 'invitational' | 'pov_event' | null
+  pov_enabled?:    boolean | null
+  pov_event_id?:   string | null
+  // Canva import integration (migration 080)
+  canva_import_enabled?:         boolean | null
+  canva_import_id?:              string | null
+  canva_import_mode?:            'preserve' | 'converted' | null
+  canva_source_url?:             string | null
+  canva_embed_code?:             string | null
+  canva_animation_preservation?: 'exact' | 'approximate' | 'partial' | 'unknown' | null
 }
 
 export interface SitePage {

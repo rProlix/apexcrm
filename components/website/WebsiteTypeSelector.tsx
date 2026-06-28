@@ -8,9 +8,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Store, Palette, PartyPopper, Camera, ArrowRight, Check } from 'lucide-react'
+import { Store, Palette, PartyPopper, Camera, ArrowRight, Check, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
+import { CanvaImportPanel } from '@/components/website/canva/CanvaImportPanel'
 import {
   WEBSITE_TYPE_OPTIONS, POV_EVENT_TYPES, POV_EVENT_TYPE_LABELS, POV_THEMES,
   type WebsiteType,
@@ -50,6 +51,8 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
 
   // Invitation/Event: optional POV Event Camera
   const [povEnabled, setPovEnabled] = useState(Boolean(currentPovEnabled))
+  // Invitation/Event: optional Canva import step
+  const [showCanva, setShowCanva] = useState(false)
 
   // POV setup form state
   const [pov, setPov] = useState({
@@ -227,6 +230,36 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
             </div>
           </div>
         </button>
+      )}
+
+      {/* Invitation/Event: optional Import from Canva step */}
+      {selected === 'invitational' && (
+        <div className="space-y-4">
+          <button type="button" onClick={() => setShowCanva((v) => !v)}
+            className={cn(
+              'w-full text-left rounded-2xl border p-5 transition-all duration-200',
+              showCanva ? 'border-gold-500/50 bg-gold-500/10' : 'border-surface-border bg-graphite-800/60 hover:border-white/20',
+            )}>
+            <div className="flex items-start gap-4">
+              <div className={cn('h-10 w-10 rounded-xl border flex items-center justify-center shrink-0',
+                showCanva ? 'bg-gold-500/15 border-gold-500/30' : 'bg-white/5 border-white/10')}>
+                <Sparkles className={cn('h-5 w-5', showCanva ? 'text-gold-400' : 'text-white/50')} strokeWidth={1.75} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-white">Import from Canva (optional)</p>
+                  {showCanva && <Check className="h-4 w-4 text-gold-400" />}
+                </div>
+                <p className="text-xs text-white/40 leading-relaxed mt-1">
+                  Bring in a Canva website/design. Preserve mode keeps animations exactly; converted mode rebuilds editable sections. POV Event Camera features stay native.
+                </p>
+              </div>
+            </div>
+          </button>
+          {showCanva && (
+            <CanvaImportPanel tenantId={tenantId} websiteId={tenantId} />
+          )}
+        </div>
       )}
 
       {/* Continue button for non-POV types (and invitation without POV) */}
