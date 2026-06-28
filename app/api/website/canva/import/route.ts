@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
-import { isValidCanvaInput } from '@/lib/website/canva/embed'
+import { validateCanvaEmbedInput } from '@/lib/website/canva/canva-embed'
 import { applyCanvaImport } from '@/lib/website/canva/apply'
 import {
   CANVA_SOURCE_TYPES, CANVA_IMPORT_MODES, DEFAULT_CANVA_IMPORT_SETTINGS,
@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
   const embedCode  = (body.embedCode as string) ?? null
   const websiteId  = (body.websiteId as string) || tenantId
   const povEventId = (body.povEventId as string) ?? null
+  const isCustomCanvaDomain = Boolean(body.isCustomCanvaDomain)
 
   if (!CANVA_SOURCE_TYPES.includes(sourceType)) {
     return NextResponse.json({ error: 'Invalid sourceType' }, { status: 400 })
@@ -79,11 +80,20 @@ export async function POST(req: NextRequest) {
     ...(typeof body.settings === 'object' && body.settings ? body.settings as Partial<CanvaImportSettings> : {}),
   }
 
-  // Preserve mode requires a valid Canva URL/embed.
-  if (importMode === 'preserve' && !isValidCanvaInput(canvaUrl ?? embedCode)) {
-    return NextResponse.json({
-      error: 'Preserve Canva Mode needs a valid Canva published URL or embed code (must point to canva.com).',
-    }, { status: 400 })
+  // Preserve mode requires a valid Canva URL/embed (canva.com, canva.site, or a
+  // custom domain when the user confirmed it).
+  let sourceDomain: string | null = null
+  let validationMode: string | null = null
+  if (importMode === 'preserve') {
+    const validation = validateCanvaEmbedInput(canvaUrl ?? embedCode, { allowCustomDomains: isCustomCanvaDomain })
+    if (!validation.ok) {
+      return NextResponse.json({
+        error: validation.reason
+          ?? 'Preserve Canva Mode needs a valid Canva published URL, Canva embed code, canva.site link, or a custom domain connected to your Canva website.',
+      }, { status: 400 })
+    }
+    sourceDomain = validation.hostname ?? null
+    validationMode = validation.validationMode ?? null
   }
   // Converted mode without HTML still works (best-effort) but warn.
   const earlyWarnings: string[] = []
@@ -103,10 +113,19 @@ export async function POST(req: NextRequest) {
     import_mode: importMode,
     source_url: canvaUrl,
     embed_code: embedCode,
+    source_domain: sourceDomain,
+    is_custom_domain: validationMode === 'custom_domain',
+    validation_mode: validationMode,
     bucket: null,
     storage_path: null,
     status: 'importing',
-    import_summary: { receivedHtmlBytes: html ? html.length : 0, settings },
+    import_summary: {
+      receivedHtmlBytes: html ? html.length : 0,
+      settings,
+      sourceDomain,
+      isCustomCanvaDomain: validationMode === 'custom_domain',
+      canvaValidationMode: validationMode,
+    },
     warnings: earlyWarnings,
     created_by: ctx.id ?? null,
   }).select('*').single()
@@ -120,6 +139,7 @@ export async function POST(req: NextRequest) {
     importRow: row as CanvaImportRow,
     settings,
     html,
+    allowCustomDomains: validationMode === 'custom_domain',
   })
 
   // Merge warnings onto the row.

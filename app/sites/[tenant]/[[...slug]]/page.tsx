@@ -18,6 +18,7 @@ import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig, getDraftSiteConfig } from '@/lib/website/getPublishedSiteConfig'
 import { SafeSectionRenderer } from '@/components/site/SafeSectionRenderer'
 import { TemplateRenderer } from '@/components/site/TemplateRenderer'
+import { CanvaPreserveEmbed } from '@/components/website/canva/CanvaPreserveEmbed'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { normalizeSection, isPublicVisible, bySortOrder } from '@/lib/website/normalizeWebsiteSection'
 import type { BuilderSection, EditorContext } from '@/lib/builder/types'
@@ -170,6 +171,21 @@ export default async function TenantPage({ params }: Props) {
     )
   }
 
+  // Preserve Canva Mode: the validated Canva design is rendered from site
+  // settings (not as a section) so we can sandbox it + show a fallback link.
+  // Only activates on the home page of an Invitation/Event site with a Canva
+  // import in preserve mode — existing sites are completely unaffected.
+  const canvaSettings = config.settings as unknown as Record<string, unknown>
+  const isHomePage = page.page_type === 'home' || page.slug === ''
+  const canvaEmbedSrc =
+    isHomePage &&
+    Boolean(canvaSettings.canva_import_enabled) &&
+    canvaSettings.canva_import_mode === 'preserve' &&
+    typeof canvaSettings.canva_source_url === 'string' &&
+    canvaSettings.canva_source_url
+      ? (canvaSettings.canva_source_url as string)
+      : null
+
   // Normalize and filter sections — the safe pipeline that never crashes
   const sections = (page.sections ?? [])
     .map((raw) => {
@@ -187,6 +203,10 @@ export default async function TenantPage({ params }: Props) {
   )
 
   if (sections.length === 0) {
+    // A Canva preserve-mode homepage can be content-complete with zero sections.
+    if (canvaEmbedSrc) {
+      return <div><CanvaPreserveEmbed src={canvaEmbedSrc} title={page.title ?? siteData.tenant.name} /></div>
+    }
     return (
       <div style={{
         minHeight: '40vh', display: 'flex', alignItems: 'center',
@@ -216,20 +236,24 @@ export default async function TenantPage({ params }: Props) {
   // If an active template is set, route through TemplateRenderer for premium layout
   if (activeTemplateKey) {
     return (
-      <TemplateRenderer
-        activeTemplateKey={activeTemplateKey}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        sections={sections.map((s) => s!.raw as any)}
-        tenantId={tenantId}
-        mode="public"
-        templateConfig={templateConfig}
-      />
+      <>
+        {canvaEmbedSrc && <CanvaPreserveEmbed src={canvaEmbedSrc} title={page.title ?? siteData.tenant.name} />}
+        <TemplateRenderer
+          activeTemplateKey={activeTemplateKey}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          sections={sections.map((s) => s!.raw as any)}
+          tenantId={tenantId}
+          mode="public"
+          templateConfig={templateConfig}
+        />
+      </>
     )
   }
 
   // Default: standard section-by-section rendering
   return (
     <div>
+      {canvaEmbedSrc && <CanvaPreserveEmbed src={canvaEmbedSrc} title={page.title ?? siteData.tenant.name} />}
       {await Promise.all(
         sections.map(async (section, index) => (
           <SafeSectionRenderer

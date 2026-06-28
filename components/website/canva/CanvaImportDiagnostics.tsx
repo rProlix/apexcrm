@@ -21,6 +21,9 @@ interface DiagImport {
   import_mode: string
   status: string
   animation_preservation: string
+  source_domain?: string | null
+  validation_mode?: string | null
+  is_custom_domain?: boolean
   warnings: string[]
   created_at: string
 }
@@ -31,6 +34,7 @@ export function CanvaImportDiagnostics({ settings, imports }: { settings: DiagSe
     ? `https://${settings.custom_domain}`
     : settings.subdomain ? `https://${settings.subdomain}` : null
 
+  const povCta = settings.canva_import_enabled && settings.pov_enabled
   const rows: Array<[string, string]> = [
     ['Website type', settings.website_type ?? '—'],
     ['POV enabled', settings.pov_enabled ? 'Yes' : 'No'],
@@ -39,13 +43,25 @@ export function CanvaImportDiagnostics({ settings, imports }: { settings: DiagSe
     ['Import id', settings.canva_import_id ?? '—'],
     ['Import mode', settings.canva_import_mode ?? '—'],
     ['Source type', active?.source_type ?? '—'],
+    ['Source URL', settings.canva_source_url ?? '—'],
+    ['Source domain', active?.source_domain ?? '—'],
+    ['Validation mode', active?.validation_mode ?? '—'],
+    ['Custom domain', active?.is_custom_domain ? 'Yes' : 'No'],
+    ['Iframe URL', settings.canva_import_mode === 'preserve' ? (settings.canva_source_url ?? '—') : '—'],
     ['Import status', active?.status ?? '—'],
     ['Animation preservation', settings.canva_animation_preservation ?? active?.animation_preservation ?? '—'],
-    ['Event Camera CTA', settings.canva_import_enabled && settings.pov_enabled ? 'Enabled' : 'Off'],
-    ['Gallery CTA', settings.canva_import_enabled && settings.pov_enabled ? 'Enabled' : 'Off'],
+    ['Event Camera CTA', povCta ? 'Enabled' : 'Off'],
+    ['Gallery CTA', povCta ? 'Enabled' : 'Off'],
     ['Public route', publicUrl ?? 'Not configured'],
     ['Publish required', settings.canva_import_enabled && !settings.is_published ? 'Yes — publish to go live' : 'No'],
   ]
+
+  const staticNotes: string[] = []
+  if (active?.is_custom_domain) staticNotes.push('Custom domain accepted. Embedding may fail if the domain blocks iframes.')
+  if (settings.canva_import_enabled) {
+    staticNotes.push('Use canva.site or Canva embed code for best compatibility.')
+    if (settings.pov_enabled) staticNotes.push('POV Event Camera remains native NexoraNow even when Canva is embedded.')
+  }
 
   return (
     <div className="rounded-2xl border border-surface-border bg-graphite-800/40 p-6 space-y-4">
@@ -66,6 +82,12 @@ export function CanvaImportDiagnostics({ settings, imports }: { settings: DiagSe
             {active.warnings.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
         </div>
+      )}
+
+      {!!staticNotes.length && (
+        <ul className="list-disc list-inside text-xs text-white/40 space-y-0.5">
+          {staticNotes.map((n, i) => <li key={i}>{n}</li>)}
+        </ul>
       )}
 
       {imports.length > 1 && (

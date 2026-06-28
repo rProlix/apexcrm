@@ -7,7 +7,7 @@
 
 import 'server-only'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { buildSafeCanvaIframe } from './embed'
+import { buildSafeCanvaIframe, resolveCanvaEmbedSrc } from './canva-embed'
 import { convertCanvaHtml } from './convert'
 import type { CanvaImportRow, CanvaImportSettings } from './types'
 
@@ -29,10 +29,12 @@ export async function applyCanvaImport(params: {
   importRow: CanvaImportRow
   settings: CanvaImportSettings
   html?: string | null
+  allowCustomDomains?: boolean
 }): Promise<ApplyResult> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getSupabaseServerClient() as any
   const { tenantId, importRow, settings } = params
+  const allowCustomDomains = params.allowCustomDomains ?? (importRow as { validation_mode?: string }).validation_mode === 'custom_domain'
   const warnings: string[] = []
 
   // ── Resolve POV event slug for native CTAs ─────────────────────────────────
@@ -88,11 +90,20 @@ export async function applyCanvaImport(params: {
     written++
   }
 
+  // Resolve the safe embed src once — the public renderer reads it from
+  // site_settings and renders it via <CanvaPreserveEmbed/> (no duplicate iframe
+  // section, so custom-domain fallback + sandboxing work consistently).
+  const embedSrc = importRow.import_mode === 'preserve'
+    ? resolveCanvaEmbedSrc(importRow.source_url ?? importRow.embed_code, { allowCustomDomains })
+    : null
+
   if (importRow.import_mode === 'preserve') {
-    const iframe = buildSafeCanvaIframe(importRow.source_url ?? importRow.embed_code)
-    if (iframe) {
-      await addSection('rich_text', 'canva-embed', { html: iframe, _canvaEmbed: true })
-      preservation = 'exact'
+    if (embedSrc) {
+      const mode = (importRow as { validation_mode?: string }).validation_mode
+      preservation = mode === 'custom_domain' ? 'partial' : 'exact'
+      if (mode === 'custom_domain') {
+        warnings.push('Custom domain accepted. Embedding may fail if the domain blocks iframes — a fallback "Open Canva Website" button is shown.')
+      }
     } else {
       warnings.push('Could not build a safe Canva embed from the provided URL/embed code.')
       preservation = 'unknown'
@@ -128,8 +139,10 @@ export async function applyCanvaImport(params: {
       canva_import_enabled: true,
       canva_import_id: importRow.id,
       canva_import_mode: importRow.import_mode,
-      canva_source_url: importRow.source_url,
-      canva_embed_code: importRow.import_mode === 'preserve' ? buildSafeCanvaIframe(importRow.source_url ?? importRow.embed_code) : null,
+      canva_source_url: embedSrc ?? importRow.source_url,
+      canva_embed_code: importRow.import_mode === 'preserve'
+        ? buildSafeCanvaIframe(importRow.source_url ?? importRow.embed_code, { allowCustomDomains })
+        : null,
       canva_animation_preservation: preservation,
     }).eq('tenant_id', tenantId)
   } catch (e) {

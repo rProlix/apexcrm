@@ -40,6 +40,8 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, onApplied }:
   const [embedCode, setEmbedCode]   = useState('')
   const [file, setFile]             = useState<File | null>(null)
 
+  const [isCustomDomain, setIsCustomDomain] = useState(false)
+
   const [opts, setOpts] = useState({
     useAsHomepage: true,
     addEventCameraButton: true,
@@ -57,6 +59,7 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, onApplied }:
     const base: Record<string, unknown> = {
       tenant_id: tenantId, websiteId: websiteId ?? tenantId, povEventId: povEventId ?? null,
       sourceType: sourceMode, importMode, canvaUrl: canvaUrl || null, embedCode: embedCode || null,
+      isCustomCanvaDomain: isCustomDomain,
       settings: opts,
     }
     if (file) {
@@ -151,8 +154,14 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, onApplied }:
       </div>
 
       {sourceMode === 'canva_url' && (
-        <input className={inputCls} value={canvaUrl} onChange={(e) => setCanvaUrl(e.target.value)}
-          placeholder="https://www.canva.com/design/XXXX/view" />
+        <div className="space-y-1.5">
+          <input className={inputCls} value={canvaUrl} onChange={(e) => setCanvaUrl(e.target.value)}
+            placeholder="https://your-event.canva.site or https://www.canva.com/design/XXXX/view" />
+          <p className="text-2xs text-white/30 leading-relaxed">
+            Canva websites may publish on canva.site or on your own custom domain. If you use a custom
+            domain, enable “Custom Canva Domain” below.
+          </p>
+        </div>
       )}
       {sourceMode === 'embed_code' && (
         <textarea className={cn(inputCls, 'h-24 py-2')} value={embedCode} onChange={(e) => setEmbedCode(e.target.value)}
@@ -162,6 +171,20 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, onApplied }:
         <input type="file" accept={sourceMode === 'html_upload' ? '.html,.htm,text/html' : 'image/*,.zip'}
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           className="block w-full text-xs text-white/60 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-white/80" />
+      )}
+
+      {/* Custom Canva domain confirmation */}
+      {(sourceMode === 'canva_url' || sourceMode === 'embed_code') && importMode === 'preserve' && (
+        <label className="flex items-start gap-3 rounded-xl border border-surface-border bg-graphite-900/40 p-3 cursor-pointer">
+          <input type="checkbox" checked={isCustomDomain} onChange={(e) => setIsCustomDomain(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-gold-500" />
+          <span>
+            <span className="block text-xs font-medium text-white">This is a custom domain connected to my Canva website</span>
+            <span className="block text-2xs text-white/40 mt-0.5">
+              Use this when your Canva website is published on your own domain instead of canva.site.
+            </span>
+          </span>
+        </label>
       )}
 
       {/* Toggles */}

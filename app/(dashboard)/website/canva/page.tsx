@@ -63,6 +63,9 @@ export default async function WebsiteCanvaPage() {
           import_mode: String(row.import_mode),
           status: String(row.status),
           animation_preservation: String(row.animation_preservation),
+          source_domain: (row.source_domain as string) ?? null,
+          validation_mode: (row.validation_mode as string) ?? null,
+          is_custom_domain: Boolean(row.is_custom_domain),
           warnings: (row.warnings as string[]) ?? [],
           created_at: String(row.created_at),
         }))}

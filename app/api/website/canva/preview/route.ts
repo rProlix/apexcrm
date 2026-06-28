@@ -3,7 +3,7 @@
 // builder can show the user a summary before they apply it.
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
-import { buildSafeCanvaIframe, isValidCanvaInput } from '@/lib/website/canva/embed'
+import { buildSafeCanvaIframe, validateCanvaEmbedInput } from '@/lib/website/canva/canva-embed'
 import { convertCanvaHtml } from '@/lib/website/canva/convert'
 import { CANVA_APPROXIMATION_NOTICE } from '@/lib/website/canva/types'
 
@@ -34,15 +34,26 @@ export async function POST(req: NextRequest) {
   const importMode = String(body.importMode ?? 'preserve')
   const canvaUrl = (body.canvaUrl as string) ?? null
   const embedCode = (body.embedCode as string) ?? null
+  const isCustomCanvaDomain = Boolean(body.isCustomCanvaDomain)
 
   if (importMode === 'preserve') {
-    const valid = isValidCanvaInput(canvaUrl ?? embedCode)
+    const validation = validateCanvaEmbedInput(canvaUrl ?? embedCode, { allowCustomDomains: isCustomCanvaDomain })
+    const valid = validation.ok
+    const warnings: string[] = []
+    if (!valid) {
+      warnings.push(validation.reason ?? 'Provide a valid Canva published URL, embed code, canva.site link, or custom domain.')
+    } else if (validation.validationMode === 'custom_domain') {
+      warnings.push('Custom domain accepted. Embedding may fail if the domain blocks iframes — a fallback "Open Canva Website" button will be shown.')
+    }
     return NextResponse.json({
       mode: 'preserve',
       valid,
-      embedHtml: valid ? buildSafeCanvaIframe(canvaUrl ?? embedCode) : null,
+      hostname: validation.hostname ?? null,
+      validationMode: validation.validationMode ?? null,
+      isCustomDomain: validation.validationMode === 'custom_domain',
+      embedHtml: valid ? buildSafeCanvaIframe(canvaUrl ?? embedCode, { allowCustomDomains: isCustomCanvaDomain }) : null,
       animationPreservation: valid ? 'exact' : 'unknown',
-      warnings: valid ? [] : ['Provide a valid Canva published URL or embed code (canva.com).'],
+      warnings,
     })
   }
 
