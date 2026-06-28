@@ -5,7 +5,7 @@
 // design; Converted Mode rebuilds editable NexoraNow sections.
 
 import { useState } from 'react'
-import { Sparkles, Link2, Code2, Upload, Camera, Images, Check, Trash2, Eye, ArrowRight, RotateCcw, Rocket } from 'lucide-react'
+import { Sparkles, Link2, Code2, Upload, Camera, Images, Check, Trash2, Eye, ArrowRight, RotateCcw, Rocket, Save, Copy, ExternalLink, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { CANVA_APPROXIMATION_NOTICE } from '@/lib/website/canva/types'
@@ -19,6 +19,23 @@ interface Props {
   websiteId?:  string
   registryWebsiteId?: string | null
   onApplied?:  () => void
+  /**
+   * When true the panel creates/saves a SEPARATE config-backed Invitation/Event
+   * website (source='config') instead of writing to the tenant builder draft.
+   * This is the "New Website/App → Import from Canva" flow.
+   */
+  eventWebsiteMode?: boolean
+  initialWebsiteId?: string | null
+  onSaved?: (info: { websiteId: string; publicSlug: string; status: string }) => void
+}
+
+interface EventDraftState {
+  websiteId: string
+  publicSlug: string
+  status: string
+  draftPreviewUrl: string
+  liveUrl: string
+  importId?: string | null
 }
 
 interface PreviewData {
@@ -34,14 +51,23 @@ interface PreviewData {
   warnings?: string[]
 }
 
-export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebsiteId, onApplied }: Props) {
+export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebsiteId, onApplied, eventWebsiteMode = false, initialWebsiteId = null, onSaved }: Props) {
   const [sourceMode, setSourceMode] = useState<SourceMode>('canva_url')
   const [importMode, setImportMode] = useState<ImportMode>('preserve')
   const [canvaUrl, setCanvaUrl]     = useState('')
   const [embedCode, setEmbedCode]   = useState('')
   const [file, setFile]             = useState<File | null>(null)
+  const [siteName, setSiteName]     = useState('')
 
   const [isCustomDomain, setIsCustomDomain] = useState(false)
+
+  // Event-website (config-backed) lifecycle state.
+  const [eventDraft, setEventDraft] = useState<EventDraftState | null>(
+    initialWebsiteId ? { websiteId: initialWebsiteId, publicSlug: '', status: 'draft', draftPreviewUrl: '', liveUrl: '' } : null,
+  )
+  const [savedMsg, setSavedMsg]   = useState<string | null>(null)
+  const [copied, setCopied]       = useState(false)
+  const [showDiag, setShowDiag]   = useState(false)
 
   const [opts, setOpts] = useState({
     useAsHomepage: true,
@@ -168,6 +194,87 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
     } finally { setBusy(false) }
   }
 
+  // ── Event-website (config-backed) lifecycle ────────────────────────────────
+  async function doSaveEventDraft() {
+    setBusy(true); setError(null); setSavedMsg(null)
+    try {
+      const res = await fetch('/api/websites/canva/save-draft', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          websiteId: eventDraft?.websiteId ?? initialWebsiteId ?? null,
+          name: siteName || null,
+          sourceType: sourceMode,
+          importMode,
+          canvaUrl: canvaUrl || null,
+          embedCode: embedCode || null,
+          isCustomCanvaDomain: isCustomDomain,
+          settings: opts,
+          povEnabled: !!povEventId,
+          povEventId: povEventId ?? null,
+        }),
+      })
+      const j = await res.json()
+      if (!res.ok || !j.ok) throw new Error((j as { error?: string }).error ?? 'Could not save the Canva draft.')
+      const next: EventDraftState = {
+        websiteId: j.websiteId, publicSlug: j.publicSlug, status: j.status,
+        draftPreviewUrl: j.draftPreviewUrl, liveUrl: j.liveUrl, importId: j.importId ?? null,
+      }
+      setEventDraft(next)
+      setSavedMsg('Canva event website draft saved.')
+      if (Array.isArray(j.warnings) && j.warnings.length) {
+        setResult({ warnings: j.warnings as string[], sections: 0, preservation: 'preserve', importId: j.importId, runId: null })
+      }
+      onSaved?.({ websiteId: j.websiteId, publicSlug: j.publicSlug, status: j.status })
+      onApplied?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+    } finally { setBusy(false) }
+  }
+
+  async function doEventPublish() {
+    if (!eventDraft?.websiteId) { setError('Save the Canva draft before publishing.'); return }
+    setBusy(true); setError(null); setSavedMsg(null)
+    try {
+      const res = await fetch(`/api/websites/${eventDraft.websiteId}/publish`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId }),
+      })
+      const j = await res.json()
+      if (!res.ok || !j.ok) throw new Error((j as { error?: string }).error ?? 'Publish failed')
+      setEventDraft((d) => (d ? { ...d, status: 'published', liveUrl: j.liveUrl ?? d.liveUrl } : d))
+      setSavedMsg('Your Canva event website is live.')
+      onApplied?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+    } finally { setBusy(false) }
+  }
+
+  async function doEventRollback(action: 'undo' | 'restore-last-published') {
+    if (!eventDraft?.websiteId) { setError('Save the Canva draft first.'); return }
+    setBusy(true); setError(null); setSavedMsg(null)
+    try {
+      const res = await fetch(`/api/websites/${eventDraft.websiteId}/canva/rollback`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId, action }),
+      })
+      const j = await res.json()
+      if (!res.ok || !j.ok) throw new Error((j as { error?: string }).error ?? 'Request failed')
+      setSavedMsg(action === 'undo'
+        ? 'Canva import undone — your previous draft is back.'
+        : 'Last published version restored into your draft.')
+      onApplied?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+    } finally { setBusy(false) }
+  }
+
+  function copyDraftLink() {
+    if (!eventDraft?.draftPreviewUrl) return
+    const full = `${window.location.origin}${eventDraft.draftPreviewUrl}`
+    navigator.clipboard?.writeText(full).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800) }).catch(() => {})
+  }
+
   async function doRemove() {
     setBusy(true); setError(null)
     try {
@@ -199,6 +306,17 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
       </div>
 
       {error && <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">{error}</div>}
+
+      {eventWebsiteMode && (
+        <div className="space-y-1.5">
+          <label className="block text-xs font-medium text-white/70">Event website name</label>
+          <input className={inputCls} value={siteName} onChange={(e) => setSiteName(e.target.value)}
+            placeholder="e.g. Sarah & James Wedding" />
+          <p className="text-2xs text-white/30 leading-relaxed">
+            This creates a separate Invitation/Event website with its own URL — it never changes your business website.
+          </p>
+        </div>
+      )}
 
       {/* Import mode */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -301,37 +419,127 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
         <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-4 text-xs text-sky-200">{rollbackMsg}</div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <Button variant="secondary" onClick={doPreview} loading={busy}>
-          <Eye className="h-4 w-4" /> Preview Canva Import
-        </Button>
-        <Button variant="primary" onClick={doImport} loading={busy}>
-          Apply to Draft <ArrowRight className="h-4 w-4" />
-        </Button>
-        {registryWebsiteId && (result || rollbackMsg) && (
-          <Button variant="primary" onClick={doPublish} loading={busy}>
-            <Rocket className="h-4 w-4" /> Publish to Site
-          </Button>
-        )}
-        <Button variant="ghost" onClick={doRemove} loading={busy}>
-          <Trash2 className="h-4 w-4" /> Remove Canva Import
-        </Button>
-      </div>
+      {savedMsg && (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-xs text-emerald-200">{savedMsg}</div>
+      )}
 
-      {/* Safe rollback controls — a Canva import never destroys the live site. */}
-      <div className="rounded-xl border border-surface-border bg-graphite-900/40 p-4 space-y-2">
-        <p className="text-xs font-medium text-white/70 flex items-center gap-2">
-          <RotateCcw className="h-3.5 w-3.5 text-white/40" /> Undo &amp; restore
-        </p>
-        <p className="text-2xs text-white/40 leading-relaxed">
-          Canva imports apply to your draft first. If it didn’t go as planned, undo it or restore a previous version — your published site stays live until you publish.
-        </p>
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button variant="secondary" size="sm" onClick={doUndo} loading={busy}>Undo Canva Import</Button>
-          <Button variant="secondary" size="sm" onClick={doRestorePreImport} loading={busy}>Restore Pre-Import Version</Button>
-          <Button variant="secondary" size="sm" onClick={doRestoreLastPublished} loading={busy}>Restore Last Published Version</Button>
-        </div>
-      </div>
+      {eventWebsiteMode ? (
+        <>
+          {/* Primary: Save Draft → creates/uses a real Invitation/Event record. */}
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={doPreview} loading={busy}>
+              <Eye className="h-4 w-4" /> Preview Canva Import
+            </Button>
+            <Button variant="primary" onClick={doSaveEventDraft} loading={busy}>
+              <Save className="h-4 w-4" /> Save Draft
+            </Button>
+          </div>
+
+          {eventDraft?.websiteId && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button variant="secondary" size="sm" onClick={() => window.open(eventDraft.draftPreviewUrl, '_blank')}>
+                <Eye className="h-4 w-4" /> Preview Draft
+              </Button>
+              <Button variant="primary" size="sm" onClick={doEventPublish} loading={busy}>
+                <Rocket className="h-4 w-4" /> Publish to Site
+              </Button>
+              <Button variant="ghost" size="sm" onClick={copyDraftLink}>
+                <Copy className="h-4 w-4" /> {copied ? 'Copied!' : 'Copy Draft Preview Link'}
+              </Button>
+              {eventDraft.status === 'published' && (
+                <Button variant="ghost" size="sm" onClick={() => window.open(eventDraft.liveUrl, '_blank')}>
+                  <ExternalLink className="h-4 w-4" /> Open Live Site
+                </Button>
+              )}
+            </div>
+          )}
+
+          {eventDraft?.websiteId && (
+            <div className="rounded-xl border border-surface-border bg-graphite-900/40 p-4 space-y-2">
+              <p className="text-xs font-medium text-white/70 flex items-center gap-2">
+                <RotateCcw className="h-3.5 w-3.5 text-white/40" /> Undo &amp; restore
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button variant="secondary" size="sm" onClick={() => doEventRollback('undo')} loading={busy}>Undo Canva Import</Button>
+                <Button variant="secondary" size="sm" onClick={() => doEventRollback('restore-last-published')} loading={busy}>Restore Last Published Version</Button>
+              </div>
+            </div>
+          )}
+
+          {/* Canva Publish Diagnostics */}
+          <div className="rounded-xl border border-surface-border bg-graphite-900/40">
+            <button type="button" onClick={() => setShowDiag((s) => !s)}
+              className="w-full flex items-center justify-between px-4 py-3 text-xs font-medium text-white/70">
+              <span>Canva Publish Diagnostics</span>
+              <ChevronDown className={cn('h-4 w-4 transition-transform', showDiag && 'rotate-180')} />
+            </button>
+            {showDiag && (
+              <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-2xs text-white/50">
+                <Diag k="websiteId" v={eventDraft?.websiteId ?? '—'} />
+                <Diag k="websiteType" v="invitational" />
+                <Diag k="publicSlug" v={eventDraft?.publicSlug || '—'} />
+                <Diag k="status" v={eventDraft?.status ?? 'not created'} />
+                <Diag k="hasDraftContent" v={eventDraft ? 'yes' : 'no'} />
+                <Diag k="hasPublishedContent" v={eventDraft?.status === 'published' ? 'yes' : 'no'} />
+                <Diag k="canvaImportId" v={eventDraft?.importId ?? '—'} />
+                <Diag k="canvaImportMode" v={importMode} />
+                <Diag k="sourceUrl" v={canvaUrl || '—'} />
+                <Diag k="draftSaved" v={eventDraft ? 'yes' : 'no'} />
+                <Diag k="publishButtonVisible" v={eventDraft?.websiteId ? 'yes' : 'no'} />
+                <Diag k="liveUrl" v={eventDraft?.status === 'published' ? eventDraft.liveUrl : '—'} />
+                <Diag k="draftPreviewUrl" v={eventDraft?.draftPreviewUrl || '—'} />
+                <Diag k="appearsInMySites" v={eventDraft ? 'yes' : 'no'} />
+                <Diag k="povEnabled" v={povEventId ? 'yes' : 'no'} />
+                <Diag k="povEventId" v={povEventId ?? '—'} />
+                <Diag k="latestError" v={error ?? 'none'} />
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={doPreview} loading={busy}>
+              <Eye className="h-4 w-4" /> Preview Canva Import
+            </Button>
+            <Button variant="primary" onClick={doImport} loading={busy}>
+              Apply to Draft <ArrowRight className="h-4 w-4" />
+            </Button>
+            {registryWebsiteId && (result || rollbackMsg) && (
+              <Button variant="primary" onClick={doPublish} loading={busy}>
+                <Rocket className="h-4 w-4" /> Publish to Site
+              </Button>
+            )}
+            <Button variant="ghost" onClick={doRemove} loading={busy}>
+              <Trash2 className="h-4 w-4" /> Remove Canva Import
+            </Button>
+          </div>
+
+          {/* Safe rollback controls — a Canva import never destroys the live site. */}
+          <div className="rounded-xl border border-surface-border bg-graphite-900/40 p-4 space-y-2">
+            <p className="text-xs font-medium text-white/70 flex items-center gap-2">
+              <RotateCcw className="h-3.5 w-3.5 text-white/40" /> Undo &amp; restore
+            </p>
+            <p className="text-2xs text-white/40 leading-relaxed">
+              Canva imports apply to your draft first. If it didn’t go as planned, undo it or restore a previous version — your published site stays live until you publish.
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button variant="secondary" size="sm" onClick={doUndo} loading={busy}>Undo Canva Import</Button>
+              <Button variant="secondary" size="sm" onClick={doRestorePreImport} loading={busy}>Restore Pre-Import Version</Button>
+              <Button variant="secondary" size="sm" onClick={doRestoreLastPublished} loading={busy}>Restore Last Published Version</Button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function Diag({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-white/5 py-1">
+      <span className="text-white/40">{k}</span>
+      <span className="text-white/70 truncate max-w-[60%] text-right" title={v}>{v}</span>
     </div>
   )
 }

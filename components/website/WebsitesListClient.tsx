@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 interface WebsiteWithUrl {
   id: string
   website_type: 'business' | 'creative' | 'invitational' | 'pov_event'
-  source: 'builder' | 'pov_event'
+  source: 'builder' | 'pov_event' | 'config'
   name: string
   public_slug: string
   subdomain: string | null

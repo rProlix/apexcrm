@@ -20,7 +20,7 @@ type DB = any
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 export type WebsiteType = 'business' | 'creative' | 'invitational' | 'pov_event'
-export type WebsiteSource = 'builder' | 'pov_event'
+export type WebsiteSource = 'builder' | 'pov_event' | 'config'
 export type WebsiteStatus = 'draft' | 'published' | 'archived'
 
 export interface WebsiteRecord {
@@ -43,6 +43,8 @@ export interface WebsiteRecord {
   published_at: string | null
   last_published_version_id: string | null
   settings: Record<string, unknown>
+  draft_config?: Record<string, unknown> | null
+  published_config?: Record<string, unknown> | null
   created_at: string
   updated_at: string
 }
@@ -100,6 +102,7 @@ export function validateSubdomain(sub: string): string | null {
 export function publicUrlFor(w: Pick<WebsiteRecord, 'website_type' | 'source' | 'public_slug' | 'custom_domain' | 'subdomain'>): string {
   if (w.custom_domain) return `https://${w.custom_domain}`
   if (w.subdomain) return `https://${w.subdomain}.${ROOT_DOMAIN}`
+  if (w.source === 'config') return `/events/${w.public_slug}`
   if (w.source === 'pov_event') {
     const base = w.website_type === 'invitational' ? 'events' : 'pov'
     return `/${base}/${w.public_slug}`
@@ -108,6 +111,7 @@ export function publicUrlFor(w: Pick<WebsiteRecord, 'website_type' | 'source' | 
 }
 
 function editUrlFor(w: WebsiteRecord): string {
+  if (w.source === 'config') return `/website/canva?websiteId=${w.id}`
   if (w.source === 'pov_event' && w.pov_event_id) return `/website/pov/${w.pov_event_id}`
   return '/website'
 }
@@ -221,9 +225,15 @@ export async function listWebsites(tenantId: string, opts?: { includeArchived?: 
     db.from('site_settings').select('has_unpublished_changes, is_published').eq('tenant_id', tenantId).maybeSingle(),
   ])
   const builderDirty = Boolean((settings as Record<string, unknown> | null)?.has_unpublished_changes)
-  return ((data ?? []) as WebsiteRecord[]).map((w) =>
-    withUrls(w, { hasUnpublishedChanges: w.source === 'builder' ? builderDirty : false }),
-  )
+  return ((data ?? []) as WebsiteRecord[]).map((w) => {
+    let dirty = false
+    if (w.source === 'builder') dirty = builderDirty
+    else if (w.source === 'config' && w.status === 'published') {
+      const savedAt = (w.draft_config as Record<string, unknown> | null)?.savedAt as string | undefined
+      dirty = !!savedAt && !!w.published_at && new Date(savedAt) > new Date(w.published_at)
+    }
+    return withUrls(w, { hasUnpublishedChanges: dirty })
+  })
 }
 
 export async function getWebsite(tenantId: string, id: string): Promise<WebsiteWithUrl | null> {
@@ -392,6 +402,22 @@ export async function publishWebsiteById(
       last_published_version_id: result.versionId ?? null,
     }).eq('tenant_id', tenantId).eq('id', websiteId)
     return { ok: true, status: 'published', publishedAt: result.publishedAt ?? now, liveUrl: site.public_url }
+  }
+
+  // config-backed (Canva) event website: copy draft_config → published_config.
+  if (site.source === 'config') {
+    const { data: row } = await db.from('websites').select('draft_config').eq('id', websiteId).eq('tenant_id', tenantId).maybeSingle()
+    const draft = (row?.draft_config as Record<string, unknown> | null) ?? null
+    if (!draft || Object.keys(draft).length === 0) {
+      return { ok: false, error: 'No draft content to publish. Save a Canva draft first.' }
+    }
+    await db.from('websites').update({ published_config: draft, status: 'published', published_at: now })
+      .eq('tenant_id', tenantId).eq('id', websiteId)
+    try {
+      revalidatePath(`/events/${site.public_slug}`)
+      revalidatePath('/website/sites')
+    } catch { /* non-fatal */ }
+    return { ok: true, status: 'published', publishedAt: now, liveUrl: site.public_url }
   }
 
   // pov_event-backed website: it goes live when its event is active.

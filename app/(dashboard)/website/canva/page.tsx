@@ -10,14 +10,38 @@ import { resolveWebsiteTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { CanvaImportPanel } from '@/components/website/canva/CanvaImportPanel'
 import { CanvaImportDiagnostics } from '@/components/website/canva/CanvaImportDiagnostics'
 import { getCanvaRunDiagnostics } from '@/lib/website/canva/runs'
-import { getPrimaryBuilderWebsite } from '@/lib/website/registry'
+import { getPrimaryBuilderWebsite, getWebsite } from '@/lib/website/registry'
 
 export const metadata = { title: 'Import Canva Event Website' }
 
-export default async function WebsiteCanvaPage() {
+export default async function WebsiteCanvaPage({ searchParams }: { searchParams: Promise<{ websiteId?: string }> }) {
   const ctx = await requireRole(['owner', 'admin'])
   const tenantId = ctx.tenant_id ?? (await resolveWebsiteTenantId())
   if (!tenantId) redirect('/dashboard?error=no_tenant')
+
+  // Editing a specific config-backed Canva event website (from My Sites & Apps).
+  const { websiteId: targetId } = await searchParams
+  if (targetId) {
+    const target = await getWebsite(tenantId, targetId)
+    if (target && target.source === 'config') {
+      return (
+        <div className="space-y-8 max-w-3xl">
+          <div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">{target.name}</h1>
+            <p className="text-sm text-white/40 mt-1">
+              Edit this Canva event website. It has its own URL ({target.public_url}) and is separate from your business website.
+            </p>
+          </div>
+          <CanvaImportPanel
+            tenantId={tenantId}
+            eventWebsiteMode
+            initialWebsiteId={target.id}
+            povEventId={target.pov_event_id ?? null}
+          />
+        </div>
+      )
+    }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getSupabaseServerClient() as any

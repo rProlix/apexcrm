@@ -259,7 +259,11 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
             </div>
           </button>
           {showCanva && (
-            <CanvaImportPanel tenantId={tenantId} websiteId={tenantId} />
+            <CanvaImportPanel
+              tenantId={tenantId}
+              eventWebsiteMode
+              onSaved={() => { /* draft now lives in My Sites & Apps */ }}
+            />
           )}
         </div>
       )}
