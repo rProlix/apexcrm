@@ -126,3 +126,152 @@ export function validateCanvaPreserveUrl(
     reason: 'This looks like a custom domain. Enable “This is a custom domain connected to my Canva website” to use it.',
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Embed-source resolution (shared by the public renderer + import save flow).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** True only for safe, public, HTTPS URLs (no js:/data:/file:/private hosts). */
+export function isSafeHttpUrl(input: string): boolean {
+  const normalized = normalizeCanvaUrl(input)
+  const lower = normalized.toLowerCase()
+  for (const proto of UNSAFE_PROTOCOLS) if (lower.startsWith(proto)) return false
+  try {
+    const url = new URL(normalized)
+    if (url.protocol !== 'https:') return false
+    if (isUnsafeOrInternalHost(url.hostname)) return false
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Canva's design-view pages (canva.com/design/<id>/view) only frame reliably
+ * with the ?embed flag. This appends it when missing; other Canva/custom URLs
+ * are returned unchanged.
+ */
+export function toCanvaIframeSrc(normalizedUrl: string): string {
+  try {
+    const url = new URL(normalizedUrl)
+    const host = url.hostname.toLowerCase()
+    const isNative = host === 'canva.com' || host.endsWith('.canva.com')
+    if (isNative && /\/design\//.test(url.pathname)) {
+      if (!url.pathname.includes('/view')) {
+        url.pathname = url.pathname.replace(/\/?$/, '/view')
+      }
+      if (!url.searchParams.has('embed')) url.searchParams.set('embed', '')
+      // URLSearchParams renders ?embed= ; Canva accepts the bare flag form.
+      return url.toString().replace(/embed=$/, 'embed').replace(/embed=&/, 'embed&')
+    }
+    return url.toString()
+  } catch {
+    return normalizedUrl
+  }
+}
+
+export type CanvaEmbedSourceType = 'canva_url' | 'canva_site' | 'custom_domain' | 'embed_code'
+
+export interface CanvaEmbedSource {
+  originalInput: string
+  normalizedUrl: string | null
+  iframeSrc: string | null
+  sourceDomain: string | null
+  sourceType: CanvaEmbedSourceType
+  validationMode: CanvaValidationMode
+  canAttemptIframe: boolean
+  requiresExternalOpenFallback: boolean
+  warnings: string[]
+}
+
+/** Extracts the first iframe src (or bare URL) from raw embed code / a URL. */
+function extractSrcFromEmbed(input: string): { src: string | null; wasEmbed: boolean } {
+  const raw = input.trim()
+  const wasEmbed = /<\s*iframe/i.test(raw) || /src\s*=\s*["']/i.test(raw)
+  const srcMatch = raw.match(/src\s*=\s*["']([^"']+)["']/i)
+  if (srcMatch) return { src: srcMatch[1], wasEmbed: true }
+  const urlMatch = raw.match(/https?:\/\/[^\s"'<>]+/i)
+  if (urlMatch) return { src: urlMatch[0], wasEmbed }
+  if (!/[<>]/.test(raw)) return { src: raw, wasEmbed: false }
+  return { src: null, wasEmbed }
+}
+
+/**
+ * Resolves the highest-priority safe Canva embed source for rendering.
+ * Priority: pasted embed code → Canva URL. Never returns raw HTML.
+ */
+export function parseCanvaEmbedSource(input: {
+  canvaUrl?: string | null
+  embedCode?: string | null
+  isCustomCanvaDomain?: boolean
+}): CanvaEmbedSource {
+  const allowCustomDomains = Boolean(input.isCustomCanvaDomain)
+  const embedCode = (input.embedCode ?? '').trim()
+  const canvaUrl = (input.canvaUrl ?? '').trim()
+  const originalInput = embedCode || canvaUrl
+  const warnings: string[] = []
+
+  const empty: CanvaEmbedSource = {
+    originalInput, normalizedUrl: null, iframeSrc: null, sourceDomain: null,
+    sourceType: 'canva_url', validationMode: 'native_canva_domain',
+    canAttemptIframe: false, requiresExternalOpenFallback: true, warnings,
+  }
+  if (!originalInput) {
+    warnings.push('No Canva URL or embed code was provided.')
+    return empty
+  }
+
+  // Prefer the official embed code's src when present.
+  let candidate: string | null = null
+  let cameFromEmbed = false
+  if (embedCode) {
+    const { src, wasEmbed } = extractSrcFromEmbed(embedCode)
+    candidate = src
+    cameFromEmbed = wasEmbed || !!src
+    if (!candidate) warnings.push('Could not find an iframe src in the pasted embed code.')
+  }
+  if (!candidate && canvaUrl) {
+    const { src } = extractSrcFromEmbed(canvaUrl)
+    candidate = src ?? canvaUrl
+  }
+  if (!candidate) return empty
+
+  const validation = validateCanvaPreserveUrl(candidate, { allowCustomDomains })
+  if (!validation.ok || !validation.normalizedUrl) {
+    warnings.push(validation.reason ?? 'The Canva URL could not be validated.')
+    return {
+      ...empty,
+      normalizedUrl: null,
+      sourceDomain: validation.hostname ?? null,
+    }
+  }
+
+  const iframeSrc = toCanvaIframeSrc(validation.normalizedUrl)
+  const sourceType: CanvaEmbedSourceType = cameFromEmbed
+    ? 'embed_code'
+    : validation.isNativeCanvaDomain
+      ? 'canva_url'
+      : validation.isCanvaSiteDomain
+        ? 'canva_site'
+        : 'custom_domain'
+  const validationMode: CanvaValidationMode = cameFromEmbed ? 'embed_code' : (validation.validationMode ?? 'native_canva_domain')
+
+  const isCustom = validation.isCustomDomain === true
+  if (isCustom) {
+    warnings.push('Custom domains can block iframe embedding. If that happens, a polished “Open Canva Website” fallback is shown while Event Camera and Gallery stay available.')
+  }
+
+  return {
+    originalInput,
+    normalizedUrl: validation.normalizedUrl,
+    iframeSrc,
+    sourceDomain: validation.hostname ?? null,
+    sourceType,
+    validationMode,
+    canAttemptIframe: true,
+    // We always *attempt* the iframe; custom domains are the most likely to need
+    // the external fallback, but we never refuse to try first.
+    requiresExternalOpenFallback: false,
+    warnings,
+  }
+}

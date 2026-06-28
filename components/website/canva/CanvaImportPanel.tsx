@@ -9,6 +9,8 @@ import { Sparkles, Link2, Code2, Upload, Camera, Images, Check, Trash2, Eye, Arr
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { CANVA_APPROXIMATION_NOTICE } from '@/lib/website/canva/types'
+import { parseCanvaEmbedSource, type CanvaEmbedSource } from '@/lib/website/canva/canva-url'
+import { CanvaPreserveEmbed, type CanvaEmbedStatus } from '@/components/website/canva/CanvaPreserveEmbed'
 
 type SourceMode = 'canva_url' | 'embed_code' | 'html_upload' | 'asset_upload'
 type ImportMode = 'preserve' | 'converted'
@@ -68,6 +70,10 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
   const [savedMsg, setSavedMsg]   = useState<string | null>(null)
   const [copied, setCopied]       = useState(false)
   const [showDiag, setShowDiag]   = useState(false)
+
+  // Test Embed (live in-panel preview).
+  const [testSource, setTestSource] = useState<CanvaEmbedSource | null>(null)
+  const [embedLoadState, setEmbedLoadState] = useState<CanvaEmbedStatus | null>(null)
 
   const [opts, setOpts] = useState({
     useAsHomepage: true,
@@ -269,6 +275,20 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
     } finally { setBusy(false) }
   }
 
+  function doTestEmbed() {
+    setError(null)
+    const source = parseCanvaEmbedSource({
+      canvaUrl: canvaUrl || null,
+      embedCode: embedCode || null,
+      isCustomCanvaDomain: isCustomDomain,
+    })
+    setEmbedLoadState(null)
+    setTestSource(source)
+    if (!source.iframeSrc) {
+      setError(source.warnings[0] ?? 'Could not resolve a Canva embed from the provided input.')
+    }
+  }
+
   function copyDraftLink() {
     if (!eventDraft?.draftPreviewUrl) return
     const full = `${window.location.origin}${eventDraft.draftPreviewUrl}`
@@ -351,9 +371,18 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
         </div>
       )}
       {sourceMode === 'embed_code' && (
-        <textarea className={cn(inputCls, 'h-24 py-2')} value={embedCode} onChange={(e) => setEmbedCode(e.target.value)}
-          placeholder='<iframe src="https://www.canva.com/design/.../view?embed" ...></iframe>' />
+        <div className="space-y-1.5">
+          <textarea className={cn(inputCls, 'h-24 py-2')} value={embedCode} onChange={(e) => setEmbedCode(e.target.value)}
+            placeholder='<iframe src="https://www.canva.com/design/.../view?embed" ...></iframe>' />
+          <p className="text-2xs text-white/30 leading-relaxed">
+            Recommended for the most reliable embedding. We extract only the iframe src — scripts and unsafe HTML are discarded.
+          </p>
+        </div>
       )}
+
+      <p className="text-2xs text-white/30 leading-relaxed">
+        Canva published websites may use canva.site or your own custom domain. For best embedding, use Canva’s official embed code. Custom domains may block iframe embedding depending on security settings.
+      </p>
       {(sourceMode === 'html_upload' || sourceMode === 'asset_upload') && (
         <input type="file" accept={sourceMode === 'html_upload' ? '.html,.htm,text/html' : 'image/*,.zip'}
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
@@ -401,6 +430,44 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
           )}
           {!!preview.warnings?.length && (
             <ul className="list-disc list-inside text-amber-300/80">{preview.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+          )}
+        </div>
+      )}
+
+      {/* Test Embed — live in-panel preview before saving/publishing. */}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" size="sm" onClick={doTestEmbed}>
+          <Eye className="h-4 w-4" /> Test Embed
+        </Button>
+      </div>
+
+      {testSource && (
+        <div className="rounded-xl border border-surface-border bg-graphite-900/60 p-4 space-y-3 text-xs text-white/60">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+            <Diag k="detected source type" v={testSource.sourceType} />
+            <Diag k="validation mode" v={testSource.validationMode} />
+            <Diag k="source domain" v={testSource.sourceDomain ?? '—'} />
+            <Diag k="can attempt iframe" v={testSource.canAttemptIframe ? 'yes' : 'no'} />
+            <Diag k="iframe src" v={testSource.iframeSrc ?? '—'} />
+            <Diag k="preview load state" v={embedLoadState ?? 'loading'} />
+          </div>
+          {testSource.sourceType === 'custom_domain' && (
+            <p className="text-2xs text-amber-300/80 leading-relaxed">
+              Custom domains can block iframe embedding. If that happens, NexoraNow shows a polished open-site fallback while keeping Event Camera and Gallery available.
+            </p>
+          )}
+          {testSource.iframeSrc && (
+            <div className="rounded-lg overflow-hidden border border-white/10">
+              <CanvaPreserveEmbed
+                sourceUrl={canvaUrl || null}
+                embedCode={embedCode || null}
+                isCustomCanvaDomain={isCustomDomain}
+                title="Canva embed preview"
+                aspectPercent={62}
+                showNativeActions={false}
+                onStatusChange={(s) => setEmbedLoadState(s)}
+              />
+            </div>
           )}
         </div>
       )}
@@ -484,6 +551,14 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
                 <Diag k="canvaImportId" v={eventDraft?.importId ?? '—'} />
                 <Diag k="canvaImportMode" v={importMode} />
                 <Diag k="sourceUrl" v={canvaUrl || '—'} />
+                <Diag k="embedCode provided" v={embedCode ? 'yes' : 'no'} />
+                <Diag k="iframeSrc" v={testSource?.iframeSrc ?? '—'} />
+                <Diag k="sourceDomain" v={testSource?.sourceDomain ?? '—'} />
+                <Diag k="validationMode" v={testSource?.validationMode ?? '—'} />
+                <Diag k="isCustomDomain" v={isCustomDomain ? 'yes' : 'no'} />
+                <Diag k="canAttemptIframe" v={testSource ? (testSource.canAttemptIframe ? 'yes' : 'no') : '—'} />
+                <Diag k="embedLoadState (preview)" v={embedLoadState ?? '—'} />
+                <Diag k="eventCameraUrl" v={povEventId ? 'enabled' : '—'} />
                 <Diag k="draftSaved" v={eventDraft ? 'yes' : 'no'} />
                 <Diag k="publishButtonVisible" v={eventDraft?.websiteId ? 'yes' : 'no'} />
                 <Diag k="liveUrl" v={eventDraft?.status === 'published' ? eventDraft.liveUrl : '—'} />

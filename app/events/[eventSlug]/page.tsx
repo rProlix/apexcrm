@@ -31,13 +31,18 @@ export async function generateMetadata({ params }: Props) {
   return { title: event ? `${event.name} · Event` : 'Event' }
 }
 
-function pickEmbed(config: Record<string, unknown> | null): { embedUrl: string | null; sourceUrl: string | null; povEventId: string | null } {
-  if (!config) return { embedUrl: null, sourceUrl: null, povEventId: null }
+function pickEmbed(config: Record<string, unknown> | null): {
+  embedUrl: string | null; sourceUrl: string | null; embedCode: string | null
+  isCustomDomain: boolean; povEventId: string | null
+} {
+  if (!config) return { embedUrl: null, sourceUrl: null, embedCode: null, isCustomDomain: false, povEventId: null }
   const pages = (config.pages as Array<Record<string, unknown>> | undefined) ?? []
   const firstSection = (pages[0]?.sections as Array<Record<string, unknown>> | undefined)?.[0] ?? {}
   return {
-    embedUrl: (config.embedUrl as string) ?? (firstSection.embedUrl as string) ?? null,
+    embedUrl: (config.iframeSrc as string) ?? (config.embedUrl as string) ?? (firstSection.embedUrl as string) ?? null,
     sourceUrl: (config.canvaSourceUrl as string) ?? (firstSection.sourceUrl as string) ?? null,
+    embedCode: (config.canvaEmbedCode as string) ?? null,
+    isCustomDomain: (config.canvaValidationMode as string) === 'custom_domain' || Boolean(config.isCustomDomain),
     povEventId: (config.povEventId as string) ?? null,
   }
 }
@@ -66,15 +71,20 @@ export default async function EventPublicPage({ params, searchParams }: Props) {
       )
     }
 
-    const { embedUrl, sourceUrl, povEventId } = pickEmbed(site.config)
+    const { embedUrl, sourceUrl, embedCode, isCustomDomain, povEventId } = pickEmbed(site.config)
 
     // Resolve POV CTA routes via the linked pov_event slug, if any.
     let cameraHref: string | null = null
     let galleryHref: string | null = null
+    let loginHref: string | null = null
     if (site.pov_enabled && povEventId) {
       try {
         const { data: ev } = await povDb().from('pov_events').select('slug').eq('id', povEventId).maybeSingle()
-        if (ev?.slug) { cameraHref = `/events/${ev.slug}/camera`; galleryHref = `/events/${ev.slug}/gallery` }
+        if (ev?.slug) {
+          cameraHref = `/events/${ev.slug}/camera`
+          galleryHref = `/events/${ev.slug}/gallery`
+          loginHref = `/events/${ev.slug}`
+        }
       } catch { /* non-fatal */ }
     }
 
@@ -82,9 +92,12 @@ export default async function EventPublicPage({ params, searchParams }: Props) {
       <CanvaEventPublicView
         embedUrl={embedUrl}
         sourceUrl={sourceUrl}
+        embedCode={embedCode}
+        isCustomCanvaDomain={isCustomDomain}
         title={site.name}
         cameraHref={cameraHref}
         galleryHref={galleryHref}
+        loginHref={loginHref}
         isDraftPreview={site.isDraftPreview}
       />
     )

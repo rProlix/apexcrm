@@ -5,7 +5,8 @@
 
 import 'server-only'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { validateCanvaEmbedInput, resolveCanvaEmbedSrc, buildSafeCanvaIframe } from '@/lib/website/canva/canva-embed'
+import { validateCanvaEmbedInput, buildSafeCanvaIframe } from '@/lib/website/canva/canva-embed'
+import { parseCanvaEmbedSource } from '@/lib/website/canva/canva-url'
 import { normalizeSlug, validateSlug, RESERVED_NAMES } from '@/lib/website/registry'
 import type { CanvaImportMode, CanvaImportSettings } from '@/lib/website/canva/types'
 import { DEFAULT_CANVA_IMPORT_SETTINGS } from '@/lib/website/canva/types'
@@ -185,16 +186,22 @@ export async function saveCanvaEventDraft(input: SaveCanvaDraftInput): Promise<S
     return { ok: false, error: `Failed to create Canva import row: ${e instanceof Error ? e.message : 'database error'}` }
   }
 
-  // 5. Resolve the safe embed src + iframe.
-  const embedUrl = input.importMode === 'preserve'
-    ? resolveCanvaEmbedSrc(input.canvaUrl ?? input.embedCode, { allowCustomDomains: allowCustom })
-    : null
+  // 5. Resolve the safe embed src + iframe (embed code wins over a plain URL).
+  const embedSource = parseCanvaEmbedSource({
+    canvaUrl: input.canvaUrl ?? null,
+    embedCode: input.embedCode ?? null,
+    isCustomCanvaDomain: allowCustom,
+  })
+  const embedUrl = input.importMode === 'preserve' ? embedSource.iframeSrc : null
   if (input.importMode === 'preserve' && !embedUrl) {
     warnings.push('Could not build a safe Canva embed from the provided URL/embed code.')
   }
+  warnings.push(...embedSource.warnings)
+  const embedStatus = embedUrl
+    ? (embedSource.sourceType === 'custom_domain' ? 'can_attempt_iframe' : 'can_attempt_iframe')
+    : 'fallback_required'
   const preservation: 'exact' | 'partial' | 'unknown' =
     input.importMode === 'preserve' ? (allowCustom ? 'partial' : (embedUrl ? 'exact' : 'unknown')) : 'partial'
-  if (allowCustom) warnings.push('Custom domain accepted. Embedding may fail if the domain blocks iframes — a fallback "Open Canva Website" button is shown.')
 
   const settings: CanvaImportSettings = { ...DEFAULT_CANVA_IMPORT_SETTINGS, ...(input.settings ?? {}) }
 
@@ -205,14 +212,21 @@ export async function saveCanvaEventDraft(input: SaveCanvaDraftInput): Promise<S
     canvaImportEnabled: true,
     canvaImportId: importId,
     canvaImportMode: input.importMode,
-    canvaSourceUrl: input.canvaUrl ?? null,
+    canvaSourceUrl: embedSource.normalizedUrl ?? input.canvaUrl ?? null,
     canvaEmbedCode: input.importMode === 'preserve'
-      ? buildSafeCanvaIframe(input.canvaUrl ?? input.embedCode, { allowCustomDomains: allowCustom })
+      ? buildSafeCanvaIframe(embedUrl ?? input.canvaUrl ?? input.embedCode, { allowCustomDomains: allowCustom })
       : null,
     canvaAnimationPreservation: preservation,
+    canvaValidationMode: embedSource.validationMode,
+    canvaSourceDomain: embedSource.sourceDomain,
+    canvaSourceType: embedSource.sourceType,
+    isCustomDomain: allowCustom,
+    embedStatus,
+    embedWarnings: embedSource.warnings,
     povEnabled: Boolean(input.povEnabled),
     povEventId: input.povEventId ?? null,
     embedUrl,
+    iframeSrc: embedUrl,
     savedAt: now,
     pages: [
       {
@@ -222,8 +236,9 @@ export async function saveCanvaEventDraft(input: SaveCanvaDraftInput): Promise<S
           {
             type: 'canva_embed',
             canvaImportId: importId,
-            sourceUrl: input.canvaUrl ?? null,
+            sourceUrl: embedSource.normalizedUrl ?? input.canvaUrl ?? null,
             embedUrl,
+            iframeSrc: embedUrl,
             importMode: input.importMode,
             overlayActions: {
               showEventCamera: Boolean(input.povEnabled) && settings.addEventCameraButton,
@@ -246,6 +261,20 @@ export async function saveCanvaEventDraft(input: SaveCanvaDraftInput): Promise<S
     status: newStatus,
   }).eq('tenant_id', tenantId).eq('id', websiteId)
   if (upErr) return { ok: false, error: `Failed to save draft config: ${upErr.message}` }
+
+  // 7b. Store resolved embed info on the import row (new columns; best-effort).
+  if (importId) {
+    try {
+      await db.from('website_canva_imports').update({
+        iframe_src: embedUrl,
+        source_domain: embedSource.sourceDomain,
+        is_custom_domain: allowCustom,
+        validation_mode: embedSource.validationMode,
+        embed_status: embedStatus,
+        embed_warnings: embedSource.warnings,
+      }).eq('id', importId)
+    } catch { /* columns may not exist yet — non-fatal */ }
+  }
 
   // 8. Trace the change so Undo can restore the prior draft.
   try {

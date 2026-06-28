@@ -11,7 +11,9 @@
 import {
   normalizeCanvaUrl,
   validateCanvaPreserveUrl,
+  parseCanvaEmbedSource,
   type CanvaUrlValidationResult,
+  type CanvaEmbedSource,
 } from './canva-url'
 
 /** Pulls the first URL out of a raw URL string or iframe embed code. */
@@ -55,13 +57,30 @@ export function isValidCanvaInput(
   return validateCanvaEmbedInput(input, options).ok
 }
 
-/** Returns the safe, normalized iframe src for an input, or null. */
+/** Returns the safe, framing-ready iframe src for an input, or null. */
 export function resolveCanvaEmbedSrc(
   input: string | null | undefined,
   options?: { allowCustomDomains?: boolean },
 ): string | null {
-  const result = validateCanvaEmbedInput(input, options)
-  return result.ok ? (result.normalizedUrl ?? null) : null
+  const source = parseCanvaEmbedSource({
+    canvaUrl: input ?? null,
+    embedCode: input && /<\s*iframe/i.test(input) ? input : null,
+    isCustomCanvaDomain: options?.allowCustomDomains,
+  })
+  return source.iframeSrc
+}
+
+/**
+ * Full embed-source resolution from a Canva URL and/or pasted embed code,
+ * preferring the embed code's iframe src. Use this in save/publish flows so the
+ * resolved iframe src + diagnostics are persisted with the import.
+ */
+export function resolveCanvaEmbedSource(input: {
+  canvaUrl?: string | null
+  embedCode?: string | null
+  isCustomCanvaDomain?: boolean
+}): CanvaEmbedSource {
+  return parseCanvaEmbedSource(input)
 }
 
 function escapeAttr(s: string): string {
