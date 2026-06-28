@@ -44,6 +44,7 @@ export default async function WebsiteCanvaPage() {
       <CanvaImportPanel
         tenantId={tenantId}
         websiteId={tenantId}
+        registryWebsiteId={website?.id ?? null}
         povEventId={(s?.pov_event_id as string) ?? null}
       />
 
@@ -66,6 +67,10 @@ export default async function WebsiteCanvaPage() {
           website_type: website.website_type,
           public_slug: website.public_slug,
           public_url: website.public_url,
+          status: website.status,
+          published_at: website.published_at,
+          live_url: website.live_url,
+          has_unpublished_changes: website.has_unpublished_changes,
         } : null}
         runs={{
           latestRunId: runDiag.latestRunId,

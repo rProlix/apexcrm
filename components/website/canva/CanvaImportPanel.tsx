@@ -5,7 +5,7 @@
 // design; Converted Mode rebuilds editable NexoraNow sections.
 
 import { useState } from 'react'
-import { Sparkles, Link2, Code2, Upload, Camera, Images, Check, Trash2, Eye, ArrowRight, RotateCcw } from 'lucide-react'
+import { Sparkles, Link2, Code2, Upload, Camera, Images, Check, Trash2, Eye, ArrowRight, RotateCcw, Rocket } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { CANVA_APPROXIMATION_NOTICE } from '@/lib/website/canva/types'
@@ -17,6 +17,7 @@ interface Props {
   tenantId:    string
   povEventId?: string | null
   websiteId?:  string
+  registryWebsiteId?: string | null
   onApplied?:  () => void
 }
 
@@ -33,7 +34,7 @@ interface PreviewData {
   warnings?: string[]
 }
 
-export function CanvaImportPanel({ tenantId, povEventId, websiteId, onApplied }: Props) {
+export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebsiteId, onApplied }: Props) {
   const [sourceMode, setSourceMode] = useState<SourceMode>('canva_url')
   const [importMode, setImportMode] = useState<ImportMode>('preserve')
   const [canvaUrl, setCanvaUrl]     = useState('')
@@ -148,6 +149,24 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, onApplied }:
     'Last published version restored into your draft. Publish to go live again.',
     false,
   )
+
+  async function doPublish() {
+    const id = registryWebsiteId
+    if (!id) { setError('No website record to publish yet. Save the draft first.'); return }
+    setBusy(true); setError(null); setRollbackMsg(null)
+    try {
+      const res = await fetch(`/api/websites/${id}/publish`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId }),
+      })
+      const j = await res.json()
+      if (!res.ok || !j.ok) throw new Error((j as { error?: string }).error ?? 'Publish failed')
+      setRollbackMsg('Published to your live site. Open the live URL from My Sites & Apps.')
+      onApplied?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+    } finally { setBusy(false) }
+  }
 
   async function doRemove() {
     setBusy(true); setError(null)
@@ -289,6 +308,11 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, onApplied }:
         <Button variant="primary" onClick={doImport} loading={busy}>
           Apply to Draft <ArrowRight className="h-4 w-4" />
         </Button>
+        {registryWebsiteId && (result || rollbackMsg) && (
+          <Button variant="primary" onClick={doPublish} loading={busy}>
+            <Rocket className="h-4 w-4" /> Publish to Site
+          </Button>
+        )}
         <Button variant="ghost" onClick={doRemove} loading={busy}>
           <Trash2 className="h-4 w-4" /> Remove Canva Import
         </Button>

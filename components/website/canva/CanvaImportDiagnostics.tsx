@@ -41,6 +41,10 @@ interface DiagWebsite {
   website_type: string
   public_slug: string
   public_url: string
+  status?: string
+  published_at?: string | null
+  live_url?: string | null
+  has_unpublished_changes?: boolean
 }
 
 export function CanvaImportDiagnostics({ settings, imports, runs, website }: { settings: DiagSettings; imports: DiagImport[]; runs?: DiagRuns; website?: DiagWebsite | null }) {
@@ -55,6 +59,12 @@ export function CanvaImportDiagnostics({ settings, imports, runs, website }: { s
     ['Website slug', website?.public_slug ?? '—'],
     ['Website public URL', website?.public_url ?? publicUrl ?? '—'],
     ['Website type', website?.website_type ?? settings.website_type ?? '—'],
+    ['Website status', website?.status ?? '—'],
+    ['Has published', website?.status === 'published' ? 'Yes' : 'No'],
+    ['Published at', website?.published_at ?? '—'],
+    ['Live URL', website?.live_url ?? '—'],
+    ['Unpublished changes', website?.has_unpublished_changes ? 'Yes' : 'No'],
+    ['Publish button visible', website?.website_id ? 'Yes' : 'No'],
     ['POV enabled', settings.pov_enabled ? 'Yes' : 'No'],
     ['Linked POV event', settings.pov_event_id ?? '—'],
     ['Canva import enabled', settings.canva_import_enabled ? 'Yes' : 'No'],

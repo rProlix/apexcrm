@@ -10,7 +10,9 @@
 // and an Invitation/Event Website never overwrite each other.
 
 import 'server-only'
+import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { publishTenantSite } from '@/lib/website/publishSite'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DB = any
@@ -49,6 +51,10 @@ export interface WebsiteWithUrl extends WebsiteRecord {
   public_url: string
   edit_url: string
   preview_url: string
+  live_url: string | null
+  has_unpublished_changes: boolean
+  canva_badge: boolean
+  pov_badge: boolean
 }
 
 // Reserved names that may never be used as a public slug or subdomain.
@@ -110,8 +116,18 @@ function previewUrlFor(w: WebsiteRecord): string {
   return publicUrlFor(w)
 }
 
-export function withUrls(w: WebsiteRecord): WebsiteWithUrl {
-  return { ...w, public_url: publicUrlFor(w), edit_url: editUrlFor(w), preview_url: previewUrlFor(w) }
+export function withUrls(w: WebsiteRecord, ctx?: { hasUnpublishedChanges?: boolean }): WebsiteWithUrl {
+  const publicUrl = publicUrlFor(w)
+  return {
+    ...w,
+    public_url: publicUrl,
+    edit_url: editUrlFor(w),
+    preview_url: previewUrlFor(w),
+    live_url: w.status === 'published' ? publicUrl : null,
+    has_unpublished_changes: ctx?.hasUnpublishedChanges ?? false,
+    canva_badge: Boolean(w.canva_import_enabled),
+    pov_badge: Boolean(w.pov_enabled),
+  }
 }
 
 /**
@@ -196,10 +212,18 @@ export async function ensureWebsiteRegistry(tenantId: string): Promise<void> {
 export async function listWebsites(tenantId: string, opts?: { includeArchived?: boolean }): Promise<WebsiteWithUrl[]> {
   const db = getSupabaseServerClient() as DB
   await ensureWebsiteRegistry(tenantId)
-  let q = db.from('websites').select('*').eq('tenant_id', tenantId)
-  if (!opts?.includeArchived) q = q.neq('status', 'archived')
-  const { data } = await q.order('is_primary_business_site', { ascending: false }).order('created_at', { ascending: true })
-  return ((data ?? []) as WebsiteRecord[]).map(withUrls)
+  const [{ data }, { data: settings }] = await Promise.all([
+    (async () => {
+      let q = db.from('websites').select('*').eq('tenant_id', tenantId)
+      if (!opts?.includeArchived) q = q.neq('status', 'archived')
+      return q.order('is_primary_business_site', { ascending: false }).order('created_at', { ascending: true })
+    })(),
+    db.from('site_settings').select('has_unpublished_changes, is_published').eq('tenant_id', tenantId).maybeSingle(),
+  ])
+  const builderDirty = Boolean((settings as Record<string, unknown> | null)?.has_unpublished_changes)
+  return ((data ?? []) as WebsiteRecord[]).map((w) =>
+    withUrls(w, { hasUnpublishedChanges: w.source === 'builder' ? builderDirty : false }),
+  )
 }
 
 export async function getWebsite(tenantId: string, id: string): Promise<WebsiteWithUrl | null> {
@@ -315,4 +339,73 @@ export async function setWebsiteDomain(
   const { error } = await db.from('websites').update(update).eq('tenant_id', tenantId).eq('id', id)
   if (error) return { ok: false, error: error.message }
   return { ok: true }
+}
+
+/**
+ * Mirrors a tenant builder publish/unpublish onto the primary builder website
+ * registry row so the dashboard reflects published status immediately.
+ */
+export async function syncRegistryAfterPublish(
+  tenantId: string,
+  patch: { published: boolean; publishedAt?: string | null; versionId?: string | null },
+): Promise<void> {
+  const db = getSupabaseServerClient() as DB
+  await ensureWebsiteRegistry(tenantId)
+  const update: Record<string, unknown> = {
+    status: patch.published ? 'published' : 'draft',
+    published_at: patch.published ? (patch.publishedAt ?? new Date().toISOString()) : null,
+  }
+  if (patch.versionId) update.last_published_version_id = patch.versionId
+  await db.from('websites').update(update)
+    .eq('tenant_id', tenantId).eq('source', 'builder').eq('is_primary_business_site', true)
+}
+
+export interface PublishWebsiteResult {
+  ok: boolean
+  error?: string
+  liveUrl?: string | null
+  publishedAt?: string | null
+  status?: WebsiteStatus
+}
+
+/**
+ * Publishes ONE website by id — never the whole business.
+ *   • source='builder'   → publishes the tenant builder site (shared content),
+ *                          then syncs this registry row.
+ *   • source='pov_event' → activates the linked pov_event and marks the row
+ *                          published; revalidates only its event routes.
+ */
+export async function publishWebsiteById(
+  tenantId: string, websiteId: string, userId?: string | null,
+): Promise<PublishWebsiteResult> {
+  const db = getSupabaseServerClient() as DB
+  const site = await getWebsite(tenantId, websiteId)
+  if (!site) return { ok: false, error: 'Website not found.' }
+
+  const now = new Date().toISOString()
+
+  if (site.source === 'builder') {
+    const result = await publishTenantSite({ tenantId, userId })
+    if (!result.ok) return { ok: false, error: result.error ?? 'Publish failed.' }
+    await db.from('websites').update({
+      status: 'published', published_at: result.publishedAt ?? now,
+      last_published_version_id: result.versionId ?? null,
+    }).eq('tenant_id', tenantId).eq('id', websiteId)
+    return { ok: true, status: 'published', publishedAt: result.publishedAt ?? now, liveUrl: site.public_url }
+  }
+
+  // pov_event-backed website: it goes live when its event is active.
+  if (site.pov_event_id) {
+    await db.from('pov_events').update({ is_active: true }).eq('id', site.pov_event_id).eq('tenant_id', tenantId)
+  }
+  await db.from('websites').update({ status: 'published', published_at: now })
+    .eq('tenant_id', tenantId).eq('id', websiteId)
+
+  try {
+    revalidatePath(`/events/${site.public_slug}`)
+    revalidatePath(`/pov/${site.public_slug}`)
+    revalidatePath('/website/sites')
+  } catch { /* non-fatal */ }
+
+  return { ok: true, status: 'published', publishedAt: now, liveUrl: site.public_url }
 }

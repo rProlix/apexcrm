@@ -80,13 +80,15 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
     setSaving(true)
     setError(null)
     try {
-      const res = await fetch('/api/website/settings', {
-        method: 'PATCH',
+      // Create a REAL website record (or configure the existing builder site),
+      // so it appears in My Sites & Apps as a draft with a Publish button.
+      const res = await fetch('/api/websites/create', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant_id: tenantId, website_type: type }),
+        body: JSON.stringify({ tenantId, websiteType: type, name: pov.name || undefined }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Could not save')
+      if (!res.ok) throw new Error(json.error ?? 'Could not create website')
       router.push('/website/sites')
       router.refresh()
     } catch (e) {
@@ -262,10 +264,10 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
         </div>
       )}
 
-      {/* Continue button for non-POV types (and invitation without POV) */}
+      {/* Create button for non-POV types (and invitation without POV) */}
       {selected && selected !== 'pov_event' && !(selected === 'invitational' && povEnabled) && (
         <Button variant="primary" onClick={handleContinue} loading={saving}>
-          Continue with {WEBSITE_TYPE_OPTIONS.find((o) => o.value === selected)?.label}
+          {selected === 'invitational' ? 'Create Event Website' : `Create ${WEBSITE_TYPE_OPTIONS.find((o) => o.value === selected)?.label}`}
           <ArrowRight className="h-4 w-4" />
         </Button>
       )}

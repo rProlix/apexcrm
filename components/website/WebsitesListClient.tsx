@@ -1,12 +1,13 @@
 'use client'
 // components/website/WebsitesListClient.tsx
-// "My Websites & Apps" — cards for every separate website/app the business owns.
+// "My Websites & Apps" — cards for every separate website/app the business owns,
+// with per-site Publish, draft/published status, filters, and live-site actions.
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Store, Palette, PartyPopper, Camera, Plus, ExternalLink, Pencil, Copy,
-  Globe, Archive, CheckCircle2, Clock, type LucideIcon,
+  Globe, Archive, CheckCircle2, Clock, Rocket, Sparkles, type LucideIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
@@ -22,12 +23,30 @@ interface WebsiteWithUrl {
   is_primary_business_site: boolean
   pov_enabled: boolean
   pov_event_id: string | null
+  canva_import_enabled: boolean
   status: 'draft' | 'published' | 'archived'
+  published_at: string | null
   updated_at: string
   public_url: string
   edit_url: string
   preview_url: string
+  live_url: string | null
+  has_unpublished_changes: boolean
+  canva_badge: boolean
+  pov_badge: boolean
 }
+
+type FilterKey = 'all' | 'drafts' | 'published' | 'business' | 'events' | 'pov' | 'canva'
+
+const FILTERS: { key: FilterKey; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'drafts', label: 'Drafts' },
+  { key: 'published', label: 'Published' },
+  { key: 'business', label: 'Business' },
+  { key: 'events', label: 'Event Websites' },
+  { key: 'pov', label: 'POV Apps' },
+  { key: 'canva', label: 'Canva Imports' },
+]
 
 const TYPE_META: Record<WebsiteWithUrl['website_type'], { icon: LucideIcon; label: string }> = {
   business:     { icon: Store,       label: 'Business Website' },
@@ -42,22 +61,55 @@ function absoluteUrl(rel: string): string {
   return rel
 }
 
+function matchesFilter(w: WebsiteWithUrl, f: FilterKey): boolean {
+  switch (f) {
+    case 'all': return true
+    case 'drafts': return w.status !== 'published'
+    case 'published': return w.status === 'published'
+    case 'business': return w.website_type === 'business' || w.website_type === 'creative'
+    case 'events': return w.website_type === 'invitational'
+    case 'pov': return w.website_type === 'pov_event' || w.pov_badge
+    case 'canva': return w.canva_badge
+  }
+}
+
 export function WebsitesListClient({
   tenantId, initialWebsites, rootDomain,
 }: { tenantId: string; initialWebsites: WebsiteWithUrl[]; rootDomain: string }) {
   const router = useRouter()
   const [websites, setWebsites] = useState(initialWebsites)
+  const [filter, setFilter] = useState<FilterKey>('all')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [domainFor, setDomainFor] = useState<WebsiteWithUrl | null>(null)
 
+  const visible = useMemo(() => websites.filter((w) => matchesFilter(w, filter)), [websites, filter])
+
   async function copyUrl(w: WebsiteWithUrl) {
     try {
-      await navigator.clipboard.writeText(absoluteUrl(w.public_url))
+      await navigator.clipboard.writeText(absoluteUrl(w.live_url ?? w.public_url))
       setCopiedId(w.id)
       setTimeout(() => setCopiedId((c) => (c === w.id ? null : c)), 1800)
     } catch { /* clipboard blocked */ }
+  }
+
+  async function publish(w: WebsiteWithUrl) {
+    setBusyId(w.id); setError(null); setMsg(null)
+    try {
+      const res = await fetch(`/api/websites/${w.id}/publish`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId }),
+      })
+      const j = await res.json()
+      if (!res.ok || !j.ok) throw new Error(j.error ?? 'Publish failed')
+      setWebsites((list) => list.map((x) => x.id === w.id
+        ? { ...x, status: 'published', published_at: j.publishedAt ?? new Date().toISOString(), has_unpublished_changes: false, live_url: x.public_url }
+        : x))
+      setMsg(`“${w.name}” is now live.`)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Something went wrong') }
+    finally { setBusyId(null) }
   }
 
   async function archive(w: WebsiteWithUrl) {
@@ -89,22 +141,40 @@ export function WebsitesListClient({
         </Button>
       </div>
 
-      {error && (
-        <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">{error}</div>
-      )}
+      {/* Filters */}
+      <div className="flex flex-wrap gap-1.5">
+        {FILTERS.map((f) => {
+          const count = websites.filter((w) => matchesFilter(w, f.key)).length
+          return (
+            <button key={f.key} type="button" onClick={() => setFilter(f.key)}
+              className={cn(
+                'h-8 px-3 rounded-lg text-xs font-medium border transition-colors',
+                filter === f.key
+                  ? 'border-gold-500/50 bg-gold-500/10 text-gold-300'
+                  : 'border-surface-border bg-graphite-800/60 text-white/50 hover:text-white/80',
+              )}>
+              {f.label} <span className="text-white/30">{count}</span>
+            </button>
+          )
+        })}
+      </div>
 
-      {websites.length === 0 ? (
+      {msg && <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-300">{msg}</div>}
+      {error && <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">{error}</div>}
+
+      {visible.length === 0 ? (
         <div className="rounded-2xl border border-surface-border bg-graphite-800/40 p-10 text-center">
-          <p className="text-sm text-white/50">No websites yet. Create your first one.</p>
+          <p className="text-sm text-white/50">Nothing here yet.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {websites.map((w) => {
+          {visible.map((w) => {
             const meta = TYPE_META[w.website_type]
             const Icon = meta.icon
             const connectedDomain = w.custom_domain
               ? w.custom_domain
               : w.subdomain ? `${w.subdomain}.${rootDomain}` : null
+            const published = w.status === 'published'
             return (
               <div key={w.id} className="rounded-2xl border border-surface-border bg-graphite-800/60 p-5 space-y-4">
                 <div className="flex items-start gap-4">
@@ -117,18 +187,35 @@ export function WebsitesListClient({
                       {w.is_primary_business_site && (
                         <span className="text-2xs px-1.5 py-0.5 rounded bg-white/10 text-white/50">Primary</span>
                       )}
+                      {w.canva_badge && (
+                        <span className="text-2xs px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300 inline-flex items-center gap-1">
+                          <Sparkles className="h-2.5 w-2.5" /> Canva
+                        </span>
+                      )}
+                      {w.pov_badge && (
+                        <span className="text-2xs px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 inline-flex items-center gap-1">
+                          <Camera className="h-2.5 w-2.5" /> POV
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-white/40">{meta.label}{w.pov_enabled && w.website_type === 'invitational' ? ' · Camera on' : ''}</p>
+                    <p className="text-xs text-white/40">{meta.label}</p>
                   </div>
-                  <span className={cn(
-                    'inline-flex items-center gap-1 text-2xs px-2 py-1 rounded-full border shrink-0',
-                    w.status === 'published'
-                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                      : 'border-white/15 bg-white/5 text-white/50',
-                  )}>
-                    {w.status === 'published' ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                    {w.status === 'published' ? 'Published' : 'Draft'}
-                  </span>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className={cn(
+                      'inline-flex items-center gap-1 text-2xs px-2 py-1 rounded-full border',
+                      published
+                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                        : 'border-white/15 bg-white/5 text-white/50',
+                    )}>
+                      {published ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                      {published ? 'Published' : 'Not Published Yet'}
+                    </span>
+                    {published && w.has_unpublished_changes && (
+                      <span className="text-2xs px-2 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300">
+                        Unpublished changes
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-1 text-xs">
@@ -137,11 +224,12 @@ export function WebsitesListClient({
                     <span className="truncate font-mono">{w.public_url}</span>
                   </div>
                   {connectedDomain && (
-                    <div className="flex items-center gap-2 text-white/40 pl-6">
-                      <span className="truncate">{connectedDomain}</span>
-                    </div>
+                    <div className="flex items-center gap-2 text-white/40 pl-6"><span className="truncate">{connectedDomain}</span></div>
                   )}
-                  <p className="text-2xs text-white/30 pl-6">Updated {new Date(w.updated_at).toLocaleDateString()}</p>
+                  <p className="text-2xs text-white/30 pl-6">
+                    Updated {new Date(w.updated_at).toLocaleDateString()}
+                    {w.published_at ? ` · Published ${new Date(w.published_at).toLocaleDateString()}` : ''}
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-1">
@@ -149,8 +237,16 @@ export function WebsitesListClient({
                     <Pencil className="h-3.5 w-3.5" /> Edit
                   </Button>
                   <a href={absoluteUrl(w.preview_url)} target="_blank" rel="noreferrer">
-                    <Button variant="ghost" size="sm"><ExternalLink className="h-3.5 w-3.5" /> Preview</Button>
+                    <Button variant="ghost" size="sm"><ExternalLink className="h-3.5 w-3.5" /> Preview Draft</Button>
                   </a>
+                  <Button variant="primary" size="sm" loading={busyId === w.id} onClick={() => publish(w)}>
+                    <Rocket className="h-3.5 w-3.5" /> {published ? (w.has_unpublished_changes ? 'Publish Changes' : 'Republish') : 'Publish to Site'}
+                  </Button>
+                  {published && (
+                    <a href={absoluteUrl(w.live_url ?? w.public_url)} target="_blank" rel="noreferrer">
+                      <Button variant="ghost" size="sm"><ExternalLink className="h-3.5 w-3.5" /> Open Live Site</Button>
+                    </a>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => copyUrl(w)}>
                     <Copy className="h-3.5 w-3.5" /> {copiedId === w.id ? 'Copied!' : 'Copy URL'}
                   </Button>
@@ -171,9 +267,7 @@ export function WebsitesListClient({
 
       {domainFor && (
         <DomainModal
-          tenantId={tenantId}
-          website={domainFor}
-          rootDomain={rootDomain}
+          tenantId={tenantId} website={domainFor} rootDomain={rootDomain}
           onClose={() => setDomainFor(null)}
           onSaved={() => { setDomainFor(null); router.refresh() }}
         />
