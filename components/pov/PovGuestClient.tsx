@@ -12,6 +12,7 @@ interface PublicEvent {
   event_date: string | null; timezone: string; gallery_reveal_at: string
   is_active: boolean; allow_photos: boolean; allow_videos: boolean; allow_audio: boolean
   video_max_seconds: number; audio_max_seconds: number; require_pin: boolean
+  allow_guest_login: boolean; allow_guest_registration: boolean
   gallery_locked_message: string; gallery_unlocked_message: string
   theme: Record<string, unknown>
   headline: string | null; subheadline: string | null
@@ -68,12 +69,15 @@ export function PovGuestClient({ eventSlug, initialView }: { eventSlug: string; 
     ])
     const ev: PublicEvent | null = evRes?.public ?? null
     setEvent(ev)
-    if (meRes?.authenticated) {
+    const loggedIn = !!(meRes?.loggedIn ?? meRes?.authenticated)
+    if (loggedIn) {
       setGuest(meRes.guest)
       setView(initialView === 'gallery' ? 'gallery' : 'capture')
     } else {
       setGuest(null)
-      setView('auth')
+      // The gallery is publicly viewable (locked state pre-reveal, media after),
+      // so honor a direct /gallery link even when logged out.
+      setView(initialView === 'gallery' ? 'gallery' : 'auth')
     }
     setReady(true)
   }, [eventSlug, initialView])
@@ -106,13 +110,22 @@ export function PovGuestClient({ eventSlug, initialView }: { eventSlug: string; 
         )}
 
         {view === 'auth' && (
-          <AuthView event={event} pal={pal} onAuthed={(g) => { setGuest(g); setView('capture') }} />
+          <AuthView event={event} pal={pal}
+            onAuthed={(g) => { setGuest(g); setView('capture') }}
+            onViewGallery={() => setView('gallery')} />
         )}
         {view === 'capture' && guest && (
           <CaptureView event={event} pal={pal} />
         )}
         {view === 'gallery' && (
           <GalleryView eventSlug={eventSlug} pal={pal} />
+        )}
+
+        {!guest && view === 'gallery' && (
+          <button onClick={() => setView('auth')}
+            style={{ display: 'block', width: '100%', maxWidth: 460, margin: '20px auto 0', background: pal.accent, border: 'none', borderRadius: 12, padding: '12px', color: '#111', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+            Enter the Event Camera
+          </button>
         )}
 
         {guest && (
@@ -156,25 +169,45 @@ function Tabs({ pal, view, setView }: { pal: ReturnType<typeof palette>; view: V
   )
 }
 
-// ─── Auth view ──────────────────────────────────────────────────────────────
-function AuthView({ event, pal, onAuthed }: {
-  event: PublicEvent; pal: ReturnType<typeof palette>; onAuthed: (g: GuestInfo) => void
+// ─── Auth view (separate Register + Login modes) ──────────────────────────────
+function AuthView({ event, pal, onAuthed, onViewGallery }: {
+  event: PublicEvent; pal: ReturnType<typeof palette>
+  onAuthed: (g: GuestInfo) => void; onViewGallery: () => void
 }) {
+  // Default to Login when registration is disabled.
+  const [mode, setMode] = useState<'register' | 'login'>(
+    event.allow_guest_registration ? 'register' : 'login',
+  )
   const [phone, setPhone] = useState('')
   const [pin, setPin] = useState('')
+  const [pin2, setPin2] = useState('')
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   async function submit() {
-    setBusy(true); setErr(null)
+    setErr(null)
+    if (mode === 'register' && event.require_pin && pin2 && pin !== pin2) {
+      setErr('PINs do not match.'); return
+    }
+    setBusy(true)
     try {
-      const res = await fetch(`/api/pov/events/${event.slug}/guest/register-or-login`, {
+      const path = mode === 'register' ? 'register' : 'login'
+      const res = await fetch(`/api/pov/events/${event.slug}/guest/${path}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone_number: phone, pin, display_name: name || undefined }),
+        body: JSON.stringify(
+          mode === 'register'
+            ? { phone_number: phone, pin, display_name: name || undefined }
+            : { phone_number: phone, pin },
+        ),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Could not enter')
+      if (!res.ok) {
+        // Helpfully switch tabs based on server hints.
+        if (json.code === 'exists') setMode('login')
+        if (json.code === 'not_found') setMode('register')
+        throw new Error(json.error ?? 'Could not continue')
+      }
       onAuthed(json.guest)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Something went wrong')
@@ -182,14 +215,27 @@ function AuthView({ event, pal, onAuthed }: {
     }
   }
 
+  const canRegister = event.allow_guest_registration
+  const canLogin = event.allow_guest_login
+
   return (
     <Panel pal={pal}>
       <p style={{ fontSize: 18, fontWeight: 700, marginBottom: 6, color: pal.text }}>
-        {event.headline ?? 'Capture the moment from your point of view.'}
+        {event.headline ?? 'Capture the day from your point of view.'}
       </p>
-      <p style={{ fontSize: 13, color: pal.sub, marginBottom: 18 }}>
-        {event.subheadline ?? 'Use your phone number and PIN to enter the private event camera.'}
+      <p style={{ fontSize: 13, color: pal.sub, marginBottom: 16 }}>
+        {mode === 'register'
+          ? (event.subheadline ?? 'Create your private guest camera account.')
+          : 'Already joined? Log in to keep uploading or view the gallery.'}
       </p>
+
+      {/* Mode tabs */}
+      {(canRegister && canLogin) && (
+        <div style={{ display: 'flex', gap: 6, background: 'rgba(0,0,0,0.3)', padding: 5, borderRadius: 12, marginBottom: 16 }}>
+          <ModeTab pal={pal} active={mode === 'register'} onClick={() => { setMode('register'); setErr(null) }}>Create Guest Account</ModeTab>
+          <ModeTab pal={pal} active={mode === 'login'} onClick={() => { setMode('login'); setErr(null) }}>Log In</ModeTab>
+        </div>
+      )}
 
       {err && <ErrBox>{err}</ErrBox>}
 
@@ -199,13 +245,34 @@ function AuthView({ event, pal, onAuthed }: {
         <Input pal={pal} label="PIN (4–8 digits)" type="password" inputMode="numeric" value={pin}
           onChange={(v) => setPin(v.replace(/\D/g, '').slice(0, 8))} placeholder="••••" />
       )}
-      <Input pal={pal} label="Display name (optional)" value={name} onChange={setName} placeholder="Your name" />
+      {mode === 'register' && event.require_pin && (
+        <Input pal={pal} label="Confirm PIN" type="password" inputMode="numeric" value={pin2}
+          onChange={(v) => setPin2(v.replace(/\D/g, '').slice(0, 8))} placeholder="••••" />
+      )}
+      {mode === 'register' && (
+        <Input pal={pal} label="Display name (optional)" value={name} onChange={setName} placeholder="Your name" />
+      )}
 
-      <PrimaryBtn pal={pal} busy={busy} onClick={submit}>Enter Event Camera</PrimaryBtn>
-      <p style={{ fontSize: 11, color: pal.sub, marginTop: 12, textAlign: 'center' }}>
-        New here? We&apos;ll create your guest pass automatically.
-      </p>
+      <PrimaryBtn pal={pal} busy={busy} onClick={submit}>
+        {mode === 'register' ? 'Enter Event Camera' : 'Continue Uploading'}
+      </PrimaryBtn>
+
+      <button onClick={onViewGallery}
+        style={{ display: 'block', width: '100%', marginTop: 12, background: 'none', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 12, padding: '11px', color: pal.sub, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+        View Gallery
+      </button>
     </Panel>
+  )
+}
+
+function ModeTab({ pal, active, onClick, children }: {
+  pal: ReturnType<typeof palette>; active: boolean; onClick: () => void; children: React.ReactNode
+}) {
+  return (
+    <button onClick={onClick} style={{
+      flex: 1, padding: '9px 0', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+      background: active ? pal.accent : 'transparent', color: active ? '#111' : pal.sub,
+    }}>{children}</button>
   )
 }
 

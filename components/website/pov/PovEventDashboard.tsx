@@ -30,6 +30,8 @@ const TOGGLE_FIELDS = [
   { key: 'allow_videos', label: '15s Videos' },
   { key: 'allow_audio',  label: '30s Audio' },
   { key: 'require_pin',  label: 'Require PIN' },
+  { key: 'allow_guest_registration', label: 'Registration' },
+  { key: 'allow_guest_login',        label: 'Guest Login' },
   { key: 'is_active',    label: 'Active' },
 ] as const
 

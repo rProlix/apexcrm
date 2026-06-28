@@ -8,7 +8,6 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveEvent, isGalleryUnlocked } from '@/lib/pov/events'
-import { getGuestFromSession } from '@/lib/pov/guestSession'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { canManageEvent } from '@/lib/pov/admin'
 import { povDb } from '@/lib/pov/db'
@@ -74,12 +73,7 @@ export async function GET(req: NextRequest, { params }: RouteCtx) {
     })
   }
 
-  // Optional: require an active guest session to view the revealed gallery.
-  const guest = await getGuestFromSession(event.id)
-  if (!guest) {
-    return NextResponse.json({ error: 'Please enter the event first.' }, { status: 401 })
-  }
-
+  // After reveal the gallery is public — anyone with the link can relive it.
   let q = povDb().from('pov_media').select('*')
     .eq('event_id', event.id)
     .eq('status', 'approved')

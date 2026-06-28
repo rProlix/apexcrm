@@ -10,12 +10,16 @@ import type { PovEventRow } from '@/lib/pov/types'
 
 export interface PovDiagnostics {
   website_type:    string | null
+  pov_enabled:     boolean
   event_id:        string
   slug:            string
   reveal_at:       string
   timezone:        string
   gallery_unlocked: boolean
   is_active:       boolean
+  guest_registration_enabled: boolean
+  guest_login_enabled: boolean
+  active_sessions: number
   counts:          { guests: number; media: number; photos: number; videos: number; audio: number; sessions: number }
   upload_settings: { allow_photos: boolean; allow_videos: boolean; allow_audio: boolean; video_max_seconds: number; audio_max_seconds: number; require_pin: boolean }
   storage:         { bucket: string; exists: boolean; public: boolean | null; error: string | null }
@@ -41,16 +45,22 @@ export async function buildPovDiagnostics(event: PovEventRow, publicBase: string
     count('pov_guest_sessions', (q) => q.eq('event_id', event.id)),
   ])
 
-  const websiteType = (websiteTypeRes.data as Record<string, unknown> | null)?.website_type as string | null ?? null
+  const settingsRow = websiteTypeRes.data as Record<string, unknown> | null
+  const websiteType = (settingsRow?.website_type as string | null) ?? null
+  const povEnabled = Boolean(settingsRow?.pov_enabled)
 
   return {
     website_type:     websiteType,
+    pov_enabled:      povEnabled,
     event_id:         event.id,
     slug:             event.slug,
     reveal_at:        event.gallery_reveal_at,
     timezone:         event.timezone,
     gallery_unlocked: isGalleryUnlocked(event),
     is_active:        event.is_active,
+    guest_registration_enabled: event.allow_guest_registration,
+    guest_login_enabled:        event.allow_guest_login,
+    active_sessions:  sessions,
     counts:           { guests, media, photos, videos, audio, sessions },
     upload_settings:  {
       allow_photos: event.allow_photos, allow_videos: event.allow_videos, allow_audio: event.allow_audio,

@@ -37,15 +37,19 @@ function nextDayNineAmLocal(): string {
 }
 
 interface Props {
-  tenantId:     string
-  currentType?: WebsiteType
+  tenantId:          string
+  currentType?:      WebsiteType
+  currentPovEnabled?: boolean
 }
 
-export function WebsiteTypeSelector({ tenantId, currentType }: Props) {
+export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }: Props) {
   const router = useRouter()
   const [selected, setSelected] = useState<WebsiteType | null>(currentType ?? null)
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState<string | null>(null)
+
+  // Invitation/Event: optional POV Event Camera
+  const [povEnabled, setPovEnabled] = useState(Boolean(currentPovEnabled))
 
   // POV setup form state
   const [pov, setPov] = useState({
@@ -59,10 +63,15 @@ export function WebsiteTypeSelector({ tenantId, currentType }: Props) {
     allow_videos: true,
     allow_audio: true,
     require_pin: true,
+    allow_guest_registration: true,
+    allow_guest_login: true,
     gallery_locked_message: 'The gallery is developing. Come back tomorrow.',
     gallery_unlocked_message: 'The memories are ready.',
     theme_key: 'disposable' as string,
   })
+
+  // POV camera shows for a standalone POV app, or an invitation site with it on.
+  const showPovForm = selected === 'pov_event' || (selected === 'invitational' && povEnabled)
 
   async function saveSimpleType(type: WebsiteType) {
     setSaving(true)
@@ -83,7 +92,7 @@ export function WebsiteTypeSelector({ tenantId, currentType }: Props) {
     }
   }
 
-  async function createPovEvent() {
+  async function createPovEvent(websiteType: 'pov_event' | 'invitational') {
     if (!pov.name.trim()) { setError('Please enter an event name.'); return }
     setSaving(true)
     setError(null)
@@ -93,6 +102,7 @@ export function WebsiteTypeSelector({ tenantId, currentType }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tenant_id: tenantId,
+          website_type: websiteType,
           ...pov,
           gallery_reveal_at: new Date(pov.gallery_reveal_at).toISOString(),
           event_start_at: pov.event_start_at ? new Date(pov.event_start_at).toISOString() : null,
@@ -108,9 +118,34 @@ export function WebsiteTypeSelector({ tenantId, currentType }: Props) {
     }
   }
 
+  // Invitation/Event without POV: set type + seed default invitation pages.
+  async function createInvitationSite() {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/website/invitation/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId, event_name: pov.name || undefined, event_date: pov.event_date || undefined }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Could not save')
+      router.push('/website')
+      router.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+      setSaving(false)
+    }
+  }
+
   function handleContinue() {
     if (!selected) return
-    if (selected === 'pov_event') return // handled by the POV form button
+    if (selected === 'pov_event') return                 // POV form button handles it
+    if (selected === 'invitational') {
+      if (povEnabled) return                             // POV form button handles it
+      void createInvitationSite()
+      return
+    }
     void saveSimpleType(selected)
   }
 
@@ -169,16 +204,41 @@ export function WebsiteTypeSelector({ tenantId, currentType }: Props) {
         })}
       </div>
 
-      {/* Continue button for non-POV types */}
-      {selected && selected !== 'pov_event' && (
+      {/* Invitation/Event: optional POV Event Camera toggle */}
+      {selected === 'invitational' && (
+        <button type="button" onClick={() => setPovEnabled((v) => !v)}
+          className={cn(
+            'w-full text-left rounded-2xl border p-5 transition-all duration-200',
+            povEnabled ? 'border-gold-500/50 bg-gold-500/10' : 'border-surface-border bg-graphite-800/60 hover:border-white/20',
+          )}>
+          <div className="flex items-start gap-4">
+            <div className={cn('h-10 w-10 rounded-xl border flex items-center justify-center shrink-0',
+              povEnabled ? 'bg-gold-500/15 border-gold-500/30' : 'bg-white/5 border-white/10')}>
+              <Camera className={cn('h-5 w-5', povEnabled ? 'text-gold-400' : 'text-white/50')} strokeWidth={1.75} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-white">Enable POV Event Camera</p>
+                {povEnabled && <Check className="h-4 w-4 text-gold-400" />}
+              </div>
+              <p className="text-xs text-white/40 leading-relaxed mt-1">
+                Let guests use their phone number and PIN to upload photos, short videos, and audio messages. The gallery unlocks the next day.
+              </p>
+            </div>
+          </div>
+        </button>
+      )}
+
+      {/* Continue button for non-POV types (and invitation without POV) */}
+      {selected && selected !== 'pov_event' && !(selected === 'invitational' && povEnabled) && (
         <Button variant="primary" onClick={handleContinue} loading={saving}>
           Continue with {WEBSITE_TYPE_OPTIONS.find((o) => o.value === selected)?.label}
           <ArrowRight className="h-4 w-4" />
         </Button>
       )}
 
-      {/* POV setup form */}
-      {selected === 'pov_event' && (
+      {/* POV setup form — standalone POV app, or invitation site with camera on */}
+      {showPovForm && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -186,7 +246,8 @@ export function WebsiteTypeSelector({ tenantId, currentType }: Props) {
         >
           <div>
             <h2 className="text-base font-semibold text-white flex items-center gap-2">
-              <Camera className="h-4 w-4 text-gold-400" /> POV Event App setup
+              <Camera className="h-4 w-4 text-gold-400" />
+              {selected === 'invitational' ? 'Event Camera setup' : 'POV Event App setup'}
             </h2>
             <p className="text-xs text-white/40 mt-1">
               Guests join with a phone number + PIN, drop photos / clips / audio, and the gallery
@@ -250,6 +311,8 @@ export function WebsiteTypeSelector({ tenantId, currentType }: Props) {
             <Toggle label="Allow 15s videos" on={pov.allow_videos} onClick={() => set('allow_videos', !pov.allow_videos)} />
             <Toggle label="Allow 30s audio" on={pov.allow_audio} onClick={() => set('allow_audio', !pov.allow_audio)} />
             <Toggle label="Require guest PIN" on={pov.require_pin} onClick={() => set('require_pin', !pov.require_pin)} />
+            <Toggle label="Allow registration" on={pov.allow_guest_registration} onClick={() => set('allow_guest_registration', !pov.allow_guest_registration)} />
+            <Toggle label="Allow login" on={pov.allow_guest_login} onClick={() => set('allow_guest_login', !pov.allow_guest_login)} />
           </div>
 
           <Field label="Gallery locked message">
@@ -261,8 +324,11 @@ export function WebsiteTypeSelector({ tenantId, currentType }: Props) {
               onChange={(e) => set('gallery_unlocked_message', e.target.value)} />
           </Field>
 
-          <Button variant="primary" onClick={createPovEvent} loading={saving}>
-            <Camera className="h-4 w-4" /> Create POV Event App
+          <Button variant="primary"
+            onClick={() => createPovEvent(selected === 'invitational' ? 'invitational' : 'pov_event')}
+            loading={saving}>
+            <Camera className="h-4 w-4" />
+            {selected === 'invitational' ? 'Create Invitation Site with Camera' : 'Create POV Event App'}
           </Button>
         </motion.div>
       )}

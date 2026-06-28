@@ -24,9 +24,16 @@ export default async function WebsiteCreatePage() {
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
-  // website_type may not exist on older type defs — read defensively.
-  const currentType =
-    ((settings as Record<string, unknown> | null)?.website_type as WebsiteType | undefined) ?? undefined
+  // website_type / pov_enabled may not exist on older type defs — read defensively.
+  const s = settings as Record<string, unknown> | null
+  const currentType = (s?.website_type as WebsiteType | undefined) ?? undefined
+  const currentPovEnabled = Boolean(s?.pov_enabled)
 
-  return <WebsiteTypeSelector tenantId={tenantId} currentType={currentType} />
+  return (
+    <WebsiteTypeSelector
+      tenantId={tenantId}
+      currentType={currentType}
+      currentPovEnabled={currentPovEnabled}
+    />
+  )
 }

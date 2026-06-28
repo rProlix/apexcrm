@@ -29,12 +29,16 @@ export default async function PovDiagnosticsPage({ params }: Props) {
 
   const rows: Array<[string, React.ReactNode]> = [
     ['Website type', diag.website_type ?? '—'],
+    ['POV enabled', diag.pov_enabled ? 'Yes' : 'No'],
     ['Linked pov_event id', <code key="id" className="text-xs">{diag.event_id}</code>],
     ['Slug', diag.slug],
     ['Reveal time', new Date(diag.reveal_at).toLocaleString()],
     ['Timezone', diag.timezone],
     ['Gallery', diag.gallery_unlocked ? 'Unlocked' : 'Locked'],
     ['Active', diag.is_active ? 'Yes' : 'No'],
+    ['Guest registration enabled', diag.guest_registration_enabled ? 'Yes' : 'No'],
+    ['Guest login enabled', diag.guest_login_enabled ? 'Yes' : 'No'],
+    ['Active guest sessions', diag.active_sessions],
     ['Guests', diag.counts.guests],
     ['Media (total)', diag.counts.media],
     ['Photos', diag.counts.photos],

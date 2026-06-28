@@ -35,6 +35,8 @@ function toPublic(event: Awaited<ReturnType<typeof resolveEvent>>) {
     video_max_seconds:        event.video_max_seconds,
     audio_max_seconds:        event.audio_max_seconds,
     require_pin:              event.require_pin,
+    allow_guest_login:        event.allow_guest_login,
+    allow_guest_registration: event.allow_guest_registration,
     gallery_locked_message:   event.gallery_locked_message,
     gallery_unlocked_message: event.gallery_unlocked_message,
     theme:                    event.theme ?? {},
@@ -66,6 +68,7 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
 
 const PATCHABLE_BOOL = [
   'is_active', 'allow_photos', 'allow_videos', 'allow_audio', 'require_pin',
+  'allow_guest_login', 'allow_guest_registration',
 ] as const
 const PATCHABLE_TEXT = [
   'name', 'gallery_locked_message', 'gallery_unlocked_message', 'timezone',

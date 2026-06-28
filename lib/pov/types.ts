@@ -28,7 +28,7 @@ export const WEBSITE_TYPE_OPTIONS: WebsiteTypeOption[] = [
     value: 'invitational',
     label: 'Invitation / Event Website',
     description:
-      'For weddings, baby showers, birthdays, graduations, and event pages.',
+      'For weddings, baby showers, birthdays, graduations, parties, and private events. Includes optional event camera features.',
   },
   {
     value: 'pov_event',
@@ -98,6 +98,8 @@ export interface PovEventRow {
   video_max_seconds:        number
   audio_max_seconds:        number
   require_pin:              boolean
+  allow_guest_login:        boolean
+  allow_guest_registration: boolean
   gallery_locked_message:   string
   gallery_unlocked_message: string
   theme:                    Record<string, unknown>

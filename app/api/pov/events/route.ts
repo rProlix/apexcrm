@@ -10,6 +10,7 @@ import { povDb } from '@/lib/pov/db'
 import { generateEventSlug } from '@/lib/pov/crypto'
 import { defaultRevealAt } from '@/lib/pov/events'
 import { generatePovDefaults } from '@/lib/pov/aiDefaults'
+import { ensureInvitationPages } from '@/lib/pov/invitationPages'
 import { POV_EVENT_TYPES, type PovEventType } from '@/lib/pov/types'
 
 function forbidden() {
@@ -102,6 +103,8 @@ export async function POST(req: NextRequest) {
     video_max_seconds:        Number(body.video_max_seconds ?? 15),
     audio_max_seconds:        Number(body.audio_max_seconds ?? 30),
     require_pin:              body.require_pin === undefined ? true : Boolean(body.require_pin),
+    allow_guest_login:        body.allow_guest_login === undefined ? true : Boolean(body.allow_guest_login),
+    allow_guest_registration: body.allow_guest_registration === undefined ? true : Boolean(body.allow_guest_registration),
     gallery_locked_message:   String(body.gallery_locked_message ?? defaults.gallery_locked_message),
     gallery_unlocked_message: String(body.gallery_unlocked_message ?? defaults.gallery_unlocked_message),
     theme:                    { theme_key: themeKey, ...(body.theme as object ?? {}) },
@@ -123,14 +126,33 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Mark the tenant's site as a POV Event App (additive — does not touch pages).
+  // Link the tenant's site to this event. A standalone POV Event App sets
+  // website_type='pov_event'; an Invitation/Event site keeps 'invitational'
+  // and just turns POV on. Either way pov_enabled + pov_event_id are set.
+  const websiteType = body.website_type === 'invitational' ? 'invitational' : 'pov_event'
   try {
     await getSupabaseServerClient()
       .from('site_settings')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .upsert({ tenant_id: tenantId, website_type: 'pov_event' } as any, { onConflict: 'tenant_id' })
+      .upsert({
+        tenant_id:    tenantId,
+        website_type: websiteType,
+        pov_enabled:  true,
+        pov_event_id: event.id,
+      } as any, { onConflict: 'tenant_id' })
   } catch (e) {
-    console.warn('[pov:create] could not set website_type:', e instanceof Error ? e.message : e)
+    console.warn('[pov:create] could not link site_settings:', e instanceof Error ? e.message : e)
+  }
+
+  // For Invitation/Event sites, seed default invitation pages (home/details/
+  // schedule) that link to the event camera. Best-effort, only if no pages yet.
+  if (websiteType === 'invitational') {
+    try {
+      await ensureInvitationPages(tenantId, {
+        eventName: event.name, eventDate: event.event_date,
+        eventSlug: event.slug, povEnabled: true,
+      })
+    } catch { /* non-fatal */ }
   }
 
   return NextResponse.json({ event }, { status: 201 })

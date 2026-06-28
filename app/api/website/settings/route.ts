@@ -50,6 +50,7 @@ export async function PATCH(req: NextRequest) {
     'brand_colors', 'fonts', 'theme',
     'seo_defaults', 'header_config', 'footer_config',
     'custom_domain', 'subdomain', 'website_type',
+    'pov_enabled', 'pov_event_id',
   ]
   const WEBSITE_TYPES = ['business', 'creative', 'invitational', 'pov_event']
   const patch: Record<string, unknown> = {}
