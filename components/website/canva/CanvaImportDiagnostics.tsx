@@ -36,7 +36,14 @@ interface DiagRuns {
   undoAvailable: boolean
 }
 
-export function CanvaImportDiagnostics({ settings, imports, runs }: { settings: DiagSettings; imports: DiagImport[]; runs?: DiagRuns }) {
+interface DiagWebsite {
+  website_id: string
+  website_type: string
+  public_slug: string
+  public_url: string
+}
+
+export function CanvaImportDiagnostics({ settings, imports, runs, website }: { settings: DiagSettings; imports: DiagImport[]; runs?: DiagRuns; website?: DiagWebsite | null }) {
   const active = imports.find((i) => i.id === settings.canva_import_id)
   const publicUrl = settings.custom_domain
     ? `https://${settings.custom_domain}`
@@ -44,7 +51,10 @@ export function CanvaImportDiagnostics({ settings, imports, runs }: { settings: 
 
   const povCta = settings.canva_import_enabled && settings.pov_enabled
   const rows: Array<[string, string]> = [
-    ['Website type', settings.website_type ?? '—'],
+    ['Website id', website?.website_id ?? '—'],
+    ['Website slug', website?.public_slug ?? '—'],
+    ['Website public URL', website?.public_url ?? publicUrl ?? '—'],
+    ['Website type', website?.website_type ?? settings.website_type ?? '—'],
     ['POV enabled', settings.pov_enabled ? 'Yes' : 'No'],
     ['Linked POV event', settings.pov_event_id ?? '—'],
     ['Canva import enabled', settings.canva_import_enabled ? 'Yes' : 'No'],

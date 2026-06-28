@@ -10,6 +10,7 @@ import { resolveWebsiteTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { CanvaImportPanel } from '@/components/website/canva/CanvaImportPanel'
 import { CanvaImportDiagnostics } from '@/components/website/canva/CanvaImportDiagnostics'
 import { getCanvaRunDiagnostics } from '@/lib/website/canva/runs'
+import { getPrimaryBuilderWebsite } from '@/lib/website/registry'
 
 export const metadata = { title: 'Import Canva Event Website' }
 
@@ -29,6 +30,7 @@ export default async function WebsiteCanvaPage() {
 
   const s = settings as Record<string, unknown> | null
   const runDiag = await getCanvaRunDiagnostics(tenantId)
+  const website = await getPrimaryBuilderWebsite(tenantId)
 
   return (
     <div className="space-y-8 max-w-3xl">
@@ -59,6 +61,12 @@ export default async function WebsiteCanvaPage() {
           subdomain: (s?.subdomain as string) ?? null,
           custom_domain: (s?.custom_domain as string) ?? null,
         }}
+        website={website ? {
+          website_id: website.id,
+          website_type: website.website_type,
+          public_slug: website.public_slug,
+          public_url: website.public_url,
+        } : null}
         runs={{
           latestRunId: runDiag.latestRunId,
           latestRunStatus: runDiag.latestRunStatus,

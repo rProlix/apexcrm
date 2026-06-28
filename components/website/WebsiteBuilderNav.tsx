@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutGrid, FileText, Navigation, Palette, Settings,
   Download, Wand2, Sparkles, ImageIcon, Wand, History, Box,
-  Camera, LayoutTemplate,
+  Camera, LayoutTemplate, Globe,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -22,6 +22,7 @@ interface Tab {
 
 const TABS: Tab[] = [
   { href: '/website',            label: 'Overview',    icon: LayoutGrid,  exact: true },
+  { href: '/website/sites',      label: 'My Sites & Apps', icon: Globe, badge: 'NEW' },
   { href: '/website/create',     label: 'App Type',    icon: LayoutTemplate },
   { href: '/website/pov',        label: 'POV Apps',    icon: Camera, badge: 'NEW' },
   { href: '/website/canva',      label: 'Canva Import', icon: Sparkles, badge: 'NEW' },

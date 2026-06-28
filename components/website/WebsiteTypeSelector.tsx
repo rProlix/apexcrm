@@ -87,7 +87,7 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not save')
-      router.push('/website')
+      router.push('/website/sites')
       router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong')
@@ -133,7 +133,7 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not save')
-      router.push('/website')
+      router.push('/website/sites')
       router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong')

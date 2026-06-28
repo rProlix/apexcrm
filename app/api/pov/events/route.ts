@@ -11,6 +11,7 @@ import { generateEventSlug } from '@/lib/pov/crypto'
 import { defaultRevealAt } from '@/lib/pov/events'
 import { generatePovDefaults } from '@/lib/pov/aiDefaults'
 import { ensureInvitationPages } from '@/lib/pov/invitationPages'
+import { ensureWebsiteRegistry } from '@/lib/website/registry'
 import { POV_EVENT_TYPES, type PovEventType } from '@/lib/pov/types'
 
 function forbidden() {
@@ -154,6 +155,12 @@ export async function POST(req: NextRequest) {
       })
     } catch { /* non-fatal */ }
   }
+
+  // Register this event as its OWN separate website/app record (distinct URL,
+  // publish state, settings) so it never overwrites the business website.
+  try {
+    await ensureWebsiteRegistry(tenantId)
+  } catch { /* non-fatal */ }
 
   return NextResponse.json({ event }, { status: 201 })
 }
