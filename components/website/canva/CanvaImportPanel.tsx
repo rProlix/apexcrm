@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { CANVA_APPROXIMATION_NOTICE } from '@/lib/website/canva/types'
 import { parseCanvaEmbedSource, type CanvaEmbedSource } from '@/lib/website/canva/canva-url'
 import { CanvaPreserveEmbed, type CanvaEmbedStatus } from '@/components/website/canva/CanvaPreserveEmbed'
+import { DesignImportDiagnostics } from '@/components/website/import-engine/DesignImportDiagnostics'
 
 type SourceMode = 'canva_url' | 'embed_code' | 'html_upload' | 'asset_upload' | 'pdf_upload'
 type ImportMode = 'preserve' | 'converted'
@@ -337,6 +338,9 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
         rsvpDetected: convJson.rsvpDetected,
         rsvpPageCreated: convJson.rsvpPageCreated,
         visualSectionsCount: convJson.visualSectionsCount,
+        importEngine: convJson.importEngine ?? true,
+        confidence: convJson.confidence ?? null,
+        engineDiagnostics: convJson.diagnostics ?? null,
         warnings: convJson.warnings ?? [],
       })
       if (Array.isArray(convJson.linkMapping)) {
@@ -567,6 +571,12 @@ export function CanvaImportPanel({ tenantId, povEventId, websiteId, registryWebs
                 <ul className="text-2xs text-amber-300/80 space-y-1 list-disc pl-4">
                   {(pdfDiag.warnings as string[]).slice(0, 5).map((w, i) => <li key={i}>{w}</li>)}
                 </ul>
+              )}
+              {Boolean(pdfDiag.engineDiagnostics) && (
+                <DesignImportDiagnostics
+                  diagnostics={pdfDiag.engineDiagnostics as Record<string, unknown>}
+                  className="mt-3"
+                />
               )}
             </div>
           )}

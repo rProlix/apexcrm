@@ -76,5 +76,8 @@ export async function POST(req: NextRequest) {
     visualSectionsCount: result.visualSectionsCount,
     renderedPagesUrlsPresent: result.renderedPagesUrlsPresent,
     linkMapping: result.linkMapping ?? [],
+    diagnostics: result.diagnostics ?? null,
+    confidence: result.confidence ?? null,
+    importEngine: result.importEngine ?? true,
   })
 }

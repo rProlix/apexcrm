@@ -189,7 +189,7 @@ export function CanvaConvertedEventView({ title, sections, pages, theme, eventSl
     <main style={{ minHeight: '100vh', background: 'var(--color-bg,#0b0b0b)', ...themeVars(theme) }}>
       {isDraftPreview && (
         <div style={{ background: '#7c3aed', color: '#fff', textAlign: 'center', padding: '0.5rem 1rem', fontSize: '0.8125rem', fontWeight: 600 }}>
-          Draft preview — Canva PDF visuals with working links and animations.
+          Draft preview — imported design with working links, visuals, and animations.
         </div>
       )}
       {homeSections.length === 0 ? (
