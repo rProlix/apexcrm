@@ -23,6 +23,10 @@ npm run dev
 
 App runs at `http://localhost:3000`.
 
+## Van Damage AI (Phase 2)
+
+The Slack/SQS/S3/Gemini foundation and standalone worker source are documented in [`docs/van-damage-ai-phase2.md`](docs/van-damage-ai-phase2.md). Phase 2 does not deploy anything to EC2.
+
 For subdomain-based tenant routing locally, add entries to `/etc/hosts`:
 
 ```

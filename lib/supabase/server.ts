@@ -20,7 +20,8 @@ function getServiceRoleKey(): string {
  * platform admin tasks, and other privileged server-side work.
  */
 export function getSupabaseServerClient() {
-  const { url }    = getSupabaseEnv()
+  const { url: publicUrl } = getSupabaseEnv()
+  const url = process.env.SUPABASE_URL?.trim() || publicUrl
   const serviceRole = getServiceRoleKey()
   return createClient<Database>(url, serviceRole, {
     auth: {

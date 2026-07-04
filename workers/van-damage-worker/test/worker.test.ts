@@ -1,0 +1,57 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
+import { parseDamageAnalysis } from '../src/damage-parser.js'
+import { buildOriginalKey, safeFileName } from '../src/s3-storage.js'
+import { processMessageBody } from '../src/process-job.js'
+import type { WorkerConfig } from '../src/config.js'
+
+test('damage parser validates the strict Gemini response', () => {
+  const result = parseDamageAnalysis(JSON.stringify({
+    summary: 'One scratch', overallConfidence: 0.8, damageCount: 1, vehicleCondition: 'good',
+    items: [{ imageIndex: 0, damageType: 'scratch', vehicleArea: 'door', severity: 'low', confidence: 0.8,
+      description: 'Small scratch', repairRecommendation: 'Polish', estimatedCostMin: null,
+      estimatedCostMax: null, boundingBox: { x: 0.1, y: 0.1, width: 0.2, height: 0.2 } }],
+    needsHumanReview: false, warnings: [],
+  }))
+  assert.equal(result.error, null)
+  assert.equal(result.data?.damageCount, 1)
+})
+
+test('S3 original keys are deterministic and sanitize filenames', () => {
+  assert.equal(safeFileName('../../bad name?.jpg'), 'bad-name-.jpg')
+  const key = buildOriginalKey({ tenantId: 'tenant', businessId: 'business', inspectionId: 'inspection', slackFileId: 'F1', fileName: 'van photo.jpg' })
+  assert.equal(key, 'tenants/tenant/van-damage/business/inspections/inspection/original/F1-van-photo.jpg')
+})
+
+test('completed duplicate jobs are successful no-ops', async () => {
+  const tenantId = randomUUID()
+  const body = JSON.stringify({
+    version: 'v1', jobType: 'van_damage_slack_inspection', jobId: randomUUID(), tenantId, businessId: tenantId,
+    integrationId: randomUUID(), inspectionId: randomUUID(), slackTeamId: 'T1', slackChannelId: 'C1',
+    slackMessageTs: '1.0001', slackThreadTs: null, slackEventId: 'Ev1', slackFileIds: ['F1'], createdAt: new Date().toISOString(),
+  })
+  const config = {
+    nodeEnv: 'test', awsRegion: 'us-east-2', queueUrl: 'https://example.com/queue', bucket: 'bucket',
+    supabaseUrl: 'https://example.supabase.co', supabaseServiceRoleKey: 'service-role-key-that-is-long',
+    geminiApiKey: 'gemini-key', geminiModel: 'gemini-2.5-flash', encryptionKey: '12345678901234567890123456789012',
+    concurrency: 3, visibilityTimeoutSeconds: 300, maxImageBytes: 20_000_000, maxGeminiRawBytes: 12_000_000, logLevel: 'info',
+  } satisfies WorkerConfig
+  const unused = async () => { throw new Error('should not be called') }
+  const persistence = {
+    claimJob: async () => 'completed' as const,
+    loadIntegrationForJob: unused,
+    markInspectionAnalyzing: unused,
+    upsertImageS3Info: unused,
+    createAiRun: unused,
+    saveAiRawResponse: unused,
+    replaceDamageItemsAndComplete: unused,
+    markJobFailed: unused,
+  }
+  const result = await processMessageBody(body, { config, persistence, storage: { uploadOriginal: unused } })
+  assert.equal(result, 'success')
+})
+
+test('invalid messages remain available for SQS redrive', async () => {
+  assert.equal(await processMessageBody('{bad-json'), 'retry')
+})
