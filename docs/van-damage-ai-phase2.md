@@ -10,7 +10,7 @@ The encryption key must be exactly 32 UTF-8 bytes or a base64 string decoding to
 
 ## Slack setup and OAuth test
 
-1. Apply `20260703000000_van_damage_ai_phase2.sql` to the same Supabase project used by Vercel.
+1. Apply `20260703000000_van_damage_ai_phase2.sql` and `20260704000000_van_damage_worker_supabase_compat.sql` to the same Supabase project used by Vercel. The compatibility migration adds explicit Data API grants and the scoped worker contract RPC.
 2. Configure Slack's OAuth redirect as `https://<app-domain>/api/integrations/slack/oauth/callback`.
 3. Configure the Events API request URL as `https://<app-domain>/api/integrations/slack/events` and subscribe to `message.channels` and `message.groups`.
 4. Enable the `damage_ai` tenant module, open `/dashboard/damage-ai/settings/slack`, connect Slack, and run **Test**.

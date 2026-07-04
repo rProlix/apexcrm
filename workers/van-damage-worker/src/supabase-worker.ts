@@ -4,6 +4,18 @@ import type { VanDamageJobV1, GeminiDamageAnalysis } from '../../../lib/van-dama
 import type { EncryptedSecret } from '../../../lib/server/crypto/encrypt-token.js'
 import type { WorkerConfig } from './config.js'
 
+export const WORKER_SCHEMA_CONTRACT_VERSION = '2026-07-04-v1'
+
+export function buildClaimJobArgs(job: VanDamageJobV1, staleBefore: string) {
+  return {
+    p_job_id: job.jobId,
+    p_tenant_id: job.tenantId,
+    p_business_id: job.businessId,
+    p_inspection_id: job.inspectionId,
+    p_stale_before: staleBefore,
+  }
+}
+
 export type WorkerImageRow = {
   id: string
   slack_file_id: string | null
@@ -30,9 +42,9 @@ export class SupabaseWorker {
     })
   }
 
-  async claimJob(jobId: string, staleBefore: string): Promise<'claimed' | 'completed' | 'busy' | 'missing'> {
+  async claimJob(job: VanDamageJobV1, staleBefore: string): Promise<'claimed' | 'completed' | 'busy' | 'missing'> {
     const { data, error } = await this.db.rpc('claim_van_damage_job', {
-      p_job_id: jobId, p_stale_before: staleBefore,
+      ...buildClaimJobArgs(job, staleBefore),
     })
     if (error) throw new Error(error.message)
     return data as 'claimed' | 'completed' | 'busy' | 'missing'
@@ -86,10 +98,13 @@ export class SupabaseWorker {
     return data.id as string
   }
 
-  async saveAiRawResponse(aiRunId: string, rawText: string, parseError: string | null) {
+  async saveAiRawResponse(job: VanDamageJobV1, aiRunId: string, rawText: string, parseError: string | null) {
     const { error } = await this.db.from('van_damage_ai_runs').update({
       raw_response: { text: rawText }, error_message: parseError,
     }).eq('id', aiRunId)
+      .eq('inspection_id', job.inspectionId)
+      .eq('tenant_id', job.tenantId)
+      .eq('business_id', job.businessId)
     if (error) throw new Error(error.message)
   }
 
@@ -131,8 +146,24 @@ export class SupabaseWorker {
     ])
   }
 
-  async ping() {
-    const { error } = await this.db.from('van_damage_jobs').select('id', { head: true }).limit(1)
-    if (error) throw new Error(error.message)
+  async checkSchemaCompatibility() {
+    const { data: contract, error: contractError } = await this.db.rpc('van_damage_worker_schema_contract')
+    if (contractError) throw new Error(`Worker schema contract unavailable: ${contractError.message}`)
+    if (!contract || contract.version !== WORKER_SCHEMA_CONTRACT_VERSION) {
+      throw new Error(`Unsupported worker schema contract: ${String(contract?.version ?? 'missing')}`)
+    }
+
+    const probes = [
+      this.db.from('van_slack_integrations').select('id, tenant_id, business_id, slack_team_id, encrypted_bot_token, status, deleted_at', { head: true }).limit(1),
+      this.db.from('van_damage_jobs').select('id, tenant_id, business_id, inspection_id, status, attempt_count, updated_at', { head: true }).limit(1),
+      this.db.from('van_damage_inspections').select('id, tenant_id, business_id, title, status, ai_model, error_message', { head: true }).limit(1),
+      this.db.from('van_damage_images').select('id, tenant_id, business_id, inspection_id, slack_file_id, slack_file_url, content_type, status', { head: true }).limit(1),
+      this.db.from('van_damage_ai_runs').select('id, tenant_id, business_id, inspection_id, status, raw_response', { head: true }).limit(1),
+      this.db.from('van_damage_items').select('id, tenant_id, business_id, inspection_id, image_id', { head: true }).limit(1),
+    ]
+    const results = await Promise.all(probes)
+    const failed = results.find((result) => result.error)
+    if (failed?.error) throw new Error(`Worker table contract mismatch: ${failed.error.message}`)
+    return contract as { version: string }
   }
 }

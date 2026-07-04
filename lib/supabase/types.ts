@@ -1867,7 +1867,10 @@ export interface Database {
         }>
       }
       claim_van_damage_job: {
-        Args: { p_job_id: string; p_stale_before: string }
+        Args: {
+          p_job_id: string; p_tenant_id: string; p_business_id: string
+          p_inspection_id: string; p_stale_before: string
+        }
         Returns: string
       }
       complete_van_damage_job: {
@@ -1885,6 +1888,10 @@ export interface Database {
           p_token_last4: string; p_scopes: string[]; p_connected_by: string
         }
         Returns: string
+      }
+      van_damage_worker_schema_contract: {
+        Args: Record<string, never>
+        Returns: Json
       }
     }
     Enums: Record<string, never>

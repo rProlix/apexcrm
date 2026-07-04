@@ -8,6 +8,8 @@ Standalone Node.js worker for the Van Damage AI Slack → S3 → Gemini pipeline
 
 Optional tuning variables are `VAN_DAMAGE_WORKER_CONCURRENCY` (default `3`), `VAN_DAMAGE_VISIBILITY_TIMEOUT_SECONDS` (default `300`), `VAN_DAMAGE_MAX_IMAGE_BYTES` (default `20971520`), `VAN_DAMAGE_MAX_GEMINI_RAW_BYTES` (default `12582912`), and `LOG_LEVEL`.
 
+Apply both Van Damage migrations before starting the worker. `npm run health` verifies the exact Supabase table/RPC contract (`2026-07-04-v1`) in addition to AWS, S3, SQS, encryption, and Gemini configuration.
+
 The EC2 instance should use an IAM role granting receive/delete/change-visibility access to the Van Damage SQS queue, private object access to the configured S3 bucket, and `sts:GetCallerIdentity`. Do not place AWS access keys in this package.
 
 ## Local commands

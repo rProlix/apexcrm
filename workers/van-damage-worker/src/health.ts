@@ -31,7 +31,10 @@ export async function runHealth() {
       await sqs.send(new GetQueueAttributesCommand({ QueueUrl: config.queueUrl, AttributeNames: ['QueueArn'] }))
     }),
     check('s3', async () => { await s3.send(new HeadBucketCommand({ Bucket: config.bucket })) }),
-    check('supabase', async () => { await supabase.ping() }),
+    check('supabase', async () => {
+      const contract = await supabase.checkSchemaCompatibility()
+      return `schema ${contract.version}`
+    }),
     check('gemini', async () => { if (!config.geminiApiKey) throw new Error('GEMINI_API_KEY missing') }),
     check('encryption', async () => { getTokenEncryptionKey(config.encryptionKey) }),
   ])

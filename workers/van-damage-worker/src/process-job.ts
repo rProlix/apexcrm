@@ -32,7 +32,7 @@ export async function processMessageBody(body: string, dependencies?: {
   const storage = dependencies?.storage ?? new S3Storage(config)
 
   const staleBefore = new Date(Date.now() - config.visibilityTimeoutSeconds * 2_000).toISOString()
-  const claim = await persistence.claimJob(job.jobId, staleBefore)
+  const claim = await persistence.claimJob(job, staleBefore)
   if (claim === 'completed') return 'success'
   if (claim === 'busy') return 'retry'
   if (claim === 'missing') {
@@ -85,7 +85,7 @@ export async function processMessageBody(body: string, dependencies?: {
       images: analysisImages,
       context: context.inspection.title,
     })
-    await persistence.saveAiRawResponse(aiRunId, result.rawText, result.parseError)
+    await persistence.saveAiRawResponse(job, aiRunId, result.rawText, result.parseError)
     await persistence.replaceDamageItemsAndComplete({ job, aiRunId, analysis: result.analysis, imageIds })
     logger.info('Van Damage job completed', { jobId: job.jobId, inspectionId: job.inspectionId, needsReview: result.analysis.needsHumanReview })
     return 'success'
@@ -118,6 +118,6 @@ async function completePermanentReview(job: VanDamageJobV1, persistence: Persist
     needsHumanReview: true,
     warnings: [reason],
   }
-  await persistence.saveAiRawResponse(aiRunId, '', reason)
+  await persistence.saveAiRawResponse(job, aiRunId, '', reason)
   await persistence.replaceDamageItemsAndComplete({ job, aiRunId, analysis, imageIds: [] })
 }
