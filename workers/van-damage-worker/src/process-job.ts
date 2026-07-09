@@ -5,13 +5,16 @@ import { logger } from './logger.js'
 import { getSlackFileInfo, downloadSlackImage, PermanentSlackFileError, type SlackFileInfo } from './slack-client.js'
 import { S3Storage } from './s3-storage.js'
 import { analyzeVanDamage, getDamagePromptVersion } from './gemini-damage-analysis.js'
-import { SupabaseWorker } from './supabase-worker.js'
+import { SupabaseWorker, type WorkerVanProfile } from './supabase-worker.js'
+import { extractVanNumber } from './van-number-parser.js'
 
 export type ProcessResult = 'success' | 'retry'
 
 type PersistencePort = Pick<SupabaseWorker,
   'claimJob' | 'loadIntegrationForJob' | 'markInspectionAnalyzing' | 'upsertImageS3Info' |
-  'createAiRun' | 'saveAiRawResponse' | 'replaceDamageItemsAndComplete' | 'markJobFailed'
+  'createAiRun' | 'saveAiRawResponse' | 'replaceDamageItemsAndComplete' | 'markJobFailed' |
+  'getOrCreateVanByNumber' | 'attachInspectionToVan' | 'markInspectionNeedsReview' |
+  'updateVanProfileAfterInspection'
 >
 type StoragePort = Pick<S3Storage, 'uploadOriginal'>
 
@@ -43,6 +46,17 @@ export async function processMessageBody(body: string, dependencies?: {
   try {
     const context = await persistence.loadIntegrationForJob(job)
     const token = decryptSecret(context.integration.encrypted_bot_token)
+    const slackMessageText = job.slackMessageText || stringFromMetadata(context.inspection.metadata.slackMessageText)
+    const vanNumber = extractVanNumber(slackMessageText)
+    let vanProfile: WorkerVanProfile | null = null
+    if (vanNumber) {
+      vanProfile = await persistence.getOrCreateVanByNumber({
+        tenantId: job.tenantId,
+        businessId: job.businessId,
+        vanNumber,
+      })
+      await persistence.attachInspectionToVan(job, vanProfile, vanNumber)
+    }
     const analysisImages: Array<{ id: string; contentType: string; data: Buffer; role?: string | null }> = []
     const imageIds: string[] = []
 
@@ -75,25 +89,44 @@ export async function processMessageBody(body: string, dependencies?: {
     }
 
     if (!analysisImages.length) throw new PermanentSlackFileError('No supported Slack images were available')
+    if (!vanNumber) {
+      const reason = 'Missing van number in Slack message text'
+      await persistence.markInspectionNeedsReview(job, reason)
+      await completePermanentReview(job, persistence, config, reason, imageIds)
+      logger.warn('Van Damage job completed as needs_review', { jobId: job.jobId, reason })
+      return 'success'
+    }
     await persistence.markInspectionAnalyzing(job, config.geminiModel)
     const aiRunId = await persistence.createAiRun(job, config.geminiModel, getDamagePromptVersion(), {
       imageCount: analysisImages.length,
       slackEventId: job.slackEventId,
+      slackMessageText,
+      vanNumber,
     })
     const result = await analyzeVanDamage({
       config,
       images: analysisImages,
-      context: context.inspection.title,
+      context: [context.inspection.title, `Van ${vanNumber}`].filter(Boolean).join(' - '),
     })
     await persistence.saveAiRawResponse(job, aiRunId, result.rawText, result.parseError)
     await persistence.replaceDamageItemsAndComplete({ job, aiRunId, analysis: result.analysis, imageIds })
+    if (vanProfile) {
+      await persistence.updateVanProfileAfterInspection({
+        tenantId: job.tenantId,
+        vanId: vanProfile.id,
+        inspectionId: job.inspectionId,
+        summary: result.analysis.summary,
+        damageCount: result.analysis.damageCount,
+        imageCount: imageIds.length,
+      })
+    }
     logger.info('Van Damage job completed', { jobId: job.jobId, inspectionId: job.inspectionId, needsReview: result.analysis.needsHumanReview })
     return 'success'
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     if (error instanceof PermanentSlackFileError) {
       try {
-        await completePermanentReview(job, persistence, config, message)
+        await completePermanentReview(job, persistence, config, message, [])
         logger.warn('Van Damage job completed as needs_review', { jobId: job.jobId, reason: message })
         return 'success'
       } catch (reviewError) {
@@ -107,7 +140,17 @@ export async function processMessageBody(body: string, dependencies?: {
   }
 }
 
-async function completePermanentReview(job: VanDamageJobV1, persistence: PersistencePort, config: WorkerConfig, reason: string) {
+function stringFromMetadata(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+async function completePermanentReview(
+  job: VanDamageJobV1,
+  persistence: PersistencePort,
+  config: WorkerConfig,
+  reason: string,
+  imageIds: string[],
+) {
   const aiRunId = await persistence.createAiRun(job, config.geminiModel, getDamagePromptVersion(), { permanentValidationError: reason })
   const analysis = {
     summary: 'Automated analysis could not process the supplied images.',
@@ -119,5 +162,5 @@ async function completePermanentReview(job: VanDamageJobV1, persistence: Persist
     warnings: [reason],
   }
   await persistence.saveAiRawResponse(job, aiRunId, '', reason)
-  await persistence.replaceDamageItemsAndComplete({ job, aiRunId, analysis, imageIds: [] })
+  await persistence.replaceDamageItemsAndComplete({ job, aiRunId, analysis, imageIds })
 }

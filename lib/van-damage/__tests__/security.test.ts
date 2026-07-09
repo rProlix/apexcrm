@@ -62,8 +62,9 @@ test('SQS contract enforces tenant/business alias and contains no secret fields'
     version: 'v1', jobType: 'van_damage_slack_inspection', jobId: randomUUID(),
     tenantId, businessId: tenantId, integrationId: randomUUID(), inspectionId: randomUUID(),
     slackTeamId: 'T1', slackChannelId: 'C1', slackMessageTs: '1.0001', slackThreadTs: null,
-    slackEventId: 'Ev1', slackFileIds: ['F1'], createdAt: new Date().toISOString(),
+    slackEventId: 'Ev1', slackMessageText: 'van #64', slackFileIds: ['F1'], createdAt: new Date().toISOString(),
   })
+  assert.equal(payload.slackMessageText, 'van #64')
   assert.equal(/token|secret|credential/i.test(JSON.stringify(payload)), false)
   assert.equal(vanDamageJobSchema.safeParse({ ...payload, businessId: randomUUID() }).success, false)
 })

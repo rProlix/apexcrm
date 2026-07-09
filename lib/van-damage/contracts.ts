@@ -23,6 +23,7 @@ export const vanDamageJobSchema = z.object({
   slackMessageTs: z.string().min(1),
   slackThreadTs: z.string().nullable(),
   slackEventId: z.string().min(1),
+  slackMessageText: z.string().max(4_000).default(''),
   slackFileIds: z.array(z.string().min(1)).min(1),
   createdAt: z.string().datetime(),
 }).superRefine((value, context) => {

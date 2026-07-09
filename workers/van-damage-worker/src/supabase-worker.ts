@@ -34,8 +34,19 @@ export type WorkerJobContext = {
   images: WorkerImageRow[]
 }
 
+export type WorkerVanProfile = {
+  id: string
+  tenant_id: string
+  name: string
+  van_number: string | null
+  status: string
+  metadata: Record<string, unknown>
+}
+
 export class SupabaseWorker {
   private db: SupabaseClient
+  private vehicleColumnCache = new Map<string, boolean>()
+
   constructor(config: WorkerConfig) {
     this.db = createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -70,9 +81,92 @@ export class SupabaseWorker {
     }
   }
 
+  async getOrCreateVanByNumber(input: {
+    tenantId: string
+    businessId: string
+    vanNumber: string
+  }): Promise<WorkerVanProfile> {
+    const { data: existing, error: existingError } = await this.db.from('vehicles')
+      .select('id, tenant_id, name, van_number, status, metadata')
+      .eq('tenant_id', input.tenantId)
+      .eq('van_number', input.vanNumber)
+      .limit(1)
+      .maybeSingle()
+    if (existingError) throw new Error(existingError.message)
+    if (existing) return existing as WorkerVanProfile
+
+    const insert: Record<string, unknown> = {
+      tenant_id: input.tenantId,
+      name: `Van ${input.vanNumber}`,
+      van_number: input.vanNumber,
+      status: 'active',
+      metadata: {
+        source: 'slack_auto_created',
+        businessId: input.businessId,
+        vanNumber: input.vanNumber,
+      },
+    }
+    if (await this.hasVehicleColumn('business_id')) insert.business_id = input.businessId
+
+    const { data: created, error: createError } = await this.db.from('vehicles').insert(insert).select('id, tenant_id, name, van_number, status, metadata').single()
+    if (!createError && created) return created as WorkerVanProfile
+
+    const { data: afterRace, error: afterRaceError } = await this.db.from('vehicles')
+      .select('id, tenant_id, name, van_number, status, metadata')
+      .eq('tenant_id', input.tenantId)
+      .eq('van_number', input.vanNumber)
+      .limit(1)
+      .maybeSingle()
+    if (afterRaceError) throw new Error(afterRaceError.message)
+    if (afterRace) return afterRace as WorkerVanProfile
+    throw new Error(createError?.message ?? 'Unable to create van profile')
+  }
+
+  async attachInspectionToVan(job: VanDamageJobV1, van: WorkerVanProfile, vanNumber: string) {
+    const { data: current, error: currentError } = await this.db.from('van_damage_inspections')
+      .select('metadata')
+      .eq('id', job.inspectionId)
+      .eq('tenant_id', job.tenantId)
+      .eq('business_id', job.businessId)
+      .single()
+    if (currentError) throw new Error(currentError.message)
+    const metadata = {
+      ...((current?.metadata ?? {}) as Record<string, unknown>),
+      vanNumber,
+      vanId: van.id,
+      vanNumberSource: 'slack_message_text',
+    }
+    const { error } = await this.db.from('van_damage_inspections').update({
+      van_id: van.id,
+      metadata,
+    }).eq('id', job.inspectionId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId)
+    if (error) throw new Error(error.message)
+  }
+
   async markInspectionAnalyzing(job: VanDamageJobV1, model: string) {
     const { error } = await this.db.from('van_damage_inspections').update({ status: 'analyzing', ai_model: model })
       .eq('id', job.inspectionId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId)
+    if (error) throw new Error(error.message)
+  }
+
+  async markInspectionNeedsReview(job: VanDamageJobV1, reason: string) {
+    const { data: current, error: currentError } = await this.db.from('van_damage_inspections')
+      .select('metadata')
+      .eq('id', job.inspectionId)
+      .eq('tenant_id', job.tenantId)
+      .eq('business_id', job.businessId)
+      .single()
+    if (currentError) throw new Error(currentError.message)
+    const metadata = {
+      ...((current?.metadata ?? {}) as Record<string, unknown>),
+      reviewReason: reason,
+      missingVanNumber: true,
+    }
+    const { error } = await this.db.from('van_damage_inspections').update({
+      status: 'needs_review',
+      error_message: reason.slice(0, 2_000),
+      metadata,
+    }).eq('id', job.inspectionId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId)
     if (error) throw new Error(error.message)
   }
 
@@ -134,6 +228,65 @@ export class SupabaseWorker {
       p_needs_review: input.analysis.needsHumanReview || Boolean(input.analysis.warnings.length),
     })
     if (error) throw new Error(error.message)
+  }
+
+  async updateVanProfileAfterInspection(input: {
+    tenantId: string
+    vanId: string
+    inspectionId: string
+    summary: string
+    damageCount: number
+    imageCount: number
+  }) {
+    const { data: van, error: vanError } = await this.db.from('vehicles')
+      .select('metadata')
+      .eq('id', input.vanId)
+      .eq('tenant_id', input.tenantId)
+      .single()
+    if (vanError) throw new Error(vanError.message)
+
+    const currentDamageStatus = input.damageCount > 0 ? 'damage_detected' : 'no_damage_detected'
+    const metadata = {
+      ...((van?.metadata ?? {}) as Record<string, unknown>),
+      vanDamage: {
+        latestInspectionId: input.inspectionId,
+        latestInspectionAt: new Date().toISOString(),
+        latestDamageSummary: input.summary,
+        damageCount: input.damageCount,
+        imageCount: input.imageCount,
+        currentDamageStatus,
+      },
+    }
+    const update: Record<string, unknown> = { metadata }
+    const optionalColumns: Record<string, unknown> = {
+      latest_inspection_id: input.inspectionId,
+      latest_inspection_at: metadata.vanDamage.latestInspectionAt,
+      latest_damage_summary: input.summary,
+      damage_summary: input.summary,
+      current_damage_status: currentDamageStatus,
+      damage_status: currentDamageStatus,
+      latest_image_count: input.imageCount,
+      image_count: input.imageCount,
+    }
+
+    for (const [column, value] of Object.entries(optionalColumns)) {
+      if (await this.hasVehicleColumn(column)) update[column] = value
+    }
+
+    const { error } = await this.db.from('vehicles').update(update)
+      .eq('id', input.vanId)
+      .eq('tenant_id', input.tenantId)
+    if (error) throw new Error(error.message)
+  }
+
+  private async hasVehicleColumn(column: string): Promise<boolean> {
+    const cached = this.vehicleColumnCache.get(column)
+    if (cached != null) return cached
+
+    const { error } = await this.db.from('vehicles').select(column, { head: true }).limit(1)
+    const exists = !error
+    this.vehicleColumnCache.set(column, exists)
+    return exists
   }
 
   async markJobFailed(job: VanDamageJobV1, errorMessage: string) {

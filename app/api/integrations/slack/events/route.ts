@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
   if (ingest.existing_sqs_message_id) {
     return NextResponse.json({ ok: true, duplicate: true })
   }
+  const slackMessageText = event.text.slice(0, 4_000)
 
   const job: VanDamageJobV1 = {
     version: 'v1',
@@ -133,11 +134,23 @@ export async function POST(request: NextRequest) {
     slackMessageTs: event.messageTs,
     slackThreadTs: event.threadTs,
     slackEventId: event.eventId,
+    slackMessageText,
     slackFileIds: event.files.map((file) => file.id),
     createdAt: new Date().toISOString(),
   }
 
-  await db.from('van_damage_jobs').update({ payload: job as unknown as Json, last_error: null }).eq('id', job.jobId)
+  const [jobUpdate, inspectionUpdate] = await Promise.all([
+    db.from('van_damage_jobs').update({ payload: job as unknown as Json, last_error: null }).eq('id', job.jobId),
+    db.from('van_damage_inspections').update({
+      metadata: {
+        slackEventId: event.eventId,
+        slackMessageText,
+      } as Json,
+    }).eq('id', job.inspectionId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId),
+  ])
+  if (jobUpdate.error || inspectionUpdate.error) {
+    return NextResponse.json({ error: 'Unable to persist Slack job payload' }, { status: 503 })
+  }
   try {
     const messageId = await sendVanDamageJob(job)
     await Promise.all([

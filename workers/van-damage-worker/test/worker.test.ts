@@ -7,6 +7,7 @@ import { processMessageBody } from '../src/process-job.js'
 import type { WorkerConfig } from '../src/config.js'
 import { buildClaimJobArgs, WORKER_SCHEMA_CONTRACT_VERSION } from '../src/supabase-worker.js'
 import { vanDamageJobSchema } from '../../../lib/van-damage/contracts.js'
+import { extractVanNumber } from '../src/van-number-parser.js'
 
 test('damage parser validates the strict Gemini response', () => {
   const result = parseDamageAnalysis(JSON.stringify({
@@ -26,12 +27,32 @@ test('S3 original keys are deterministic and sanitize filenames', () => {
   assert.equal(key, 'tenants/tenant/van-damage/business/inspections/inspection/original/F1-van-photo.jpg')
 })
 
+test('van number parser resolves explicit, hashtag, and number-only Slack text', () => {
+  const examples: Array<[string, string | null]> = [
+    ['van #64', '64'],
+    ['van 64', '64'],
+    ['Van #64', '64'],
+    ['vehicle #64', '64'],
+    ['truck 64', '64'],
+    ['unit 64', '64'],
+    ['#64', '64'],
+    ['64', '64'],
+    ['van number 064', '064'],
+    ['damage on van #64 rear bumper', '64'],
+    ['uploaded 6 photos', null],
+  ]
+  for (const [text, expected] of examples) {
+    assert.equal(extractVanNumber(text), expected, text)
+  }
+})
+
 test('completed duplicate jobs are successful no-ops', async () => {
   const tenantId = randomUUID()
   const body = JSON.stringify({
     version: 'v1', jobType: 'van_damage_slack_inspection', jobId: randomUUID(), tenantId, businessId: tenantId,
     integrationId: randomUUID(), inspectionId: randomUUID(), slackTeamId: 'T1', slackChannelId: 'C1',
-    slackMessageTs: '1.0001', slackThreadTs: null, slackEventId: 'Ev1', slackFileIds: ['F1'], createdAt: new Date().toISOString(),
+    slackMessageTs: '1.0001', slackThreadTs: null, slackEventId: 'Ev1', slackMessageText: 'van #64',
+    slackFileIds: ['F1'], createdAt: new Date().toISOString(),
   })
   const config = {
     nodeEnv: 'test', awsRegion: 'us-east-2', queueUrl: 'https://example.com/queue', bucket: 'bucket',
@@ -49,6 +70,10 @@ test('completed duplicate jobs are successful no-ops', async () => {
     saveAiRawResponse: unused,
     replaceDamageItemsAndComplete: unused,
     markJobFailed: unused,
+    getOrCreateVanByNumber: unused,
+    attachInspectionToVan: unused,
+    markInspectionNeedsReview: unused,
+    updateVanProfileAfterInspection: unused,
   }
   const result = await processMessageBody(body, { config, persistence, storage: { uploadOriginal: unused } })
   assert.equal(result, 'success')
@@ -59,7 +84,8 @@ test('Supabase job claims include the full tenant/business/inspection scope', ()
   const job = vanDamageJobSchema.parse({
     version: 'v1', jobType: 'van_damage_slack_inspection', jobId: randomUUID(), tenantId, businessId: tenantId,
     integrationId: randomUUID(), inspectionId: randomUUID(), slackTeamId: 'T1', slackChannelId: 'C1',
-    slackMessageTs: '1.0001', slackThreadTs: null, slackEventId: 'Ev1', slackFileIds: ['F1'], createdAt: new Date().toISOString(),
+    slackMessageTs: '1.0001', slackThreadTs: null, slackEventId: 'Ev1', slackMessageText: '64',
+    slackFileIds: ['F1'], createdAt: new Date().toISOString(),
   })
   assert.deepEqual(buildClaimJobArgs(job, '2026-07-04T00:00:00.000Z'), {
     p_job_id: job.jobId,

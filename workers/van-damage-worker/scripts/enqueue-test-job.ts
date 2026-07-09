@@ -25,6 +25,7 @@ const message = vanDamageJobSchema.parse({
   slackMessageTs: `${Math.floor(Date.now() / 1000)}.000001`,
   slackThreadTs: null,
   slackEventId: `Ev_TEST_${Date.now()}`,
+  slackMessageText: process.env.TEST_SLACK_MESSAGE_TEXT ?? 'van #64',
   slackFileIds: [process.env.TEST_SLACK_FILE_ID ?? 'F_TEST'],
   createdAt: new Date().toISOString(),
 })
