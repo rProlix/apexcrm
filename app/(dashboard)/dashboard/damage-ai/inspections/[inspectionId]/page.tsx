@@ -33,6 +33,16 @@ export default async function InspectionPage({
   const images = imagesResult.data ?? []
   const items = itemsResult.data ?? []
   const aiRun = runsResult.data?.[0]
+  const parsedAnalysis = aiRun?.parsed_response && typeof aiRun.parsed_response === 'object' && !Array.isArray(aiRun.parsed_response)
+    ? aiRun.parsed_response as Record<string, unknown>
+    : null
+  const damageRating = typeof parsedAnalysis?.damageRating === 'number' ? parsedAnalysis.damageRating : null
+  const damageRatingLabel = typeof parsedAnalysis?.damageRatingLabel === 'string'
+    ? parsedAnalysis.damageRatingLabel.replaceAll('_', ' ')
+    : null
+  const damageRatingReason = typeof parsedAnalysis?.damageRatingReason === 'string'
+    ? parsedAnalysis.damageRatingReason
+    : null
   const slackUrl = inspection.slack_team_id && inspection.slack_channel_id && inspection.slack_message_ts
     ? `https://app.slack.com/client/${inspection.slack_team_id}/${inspection.slack_channel_id}/${inspection.slack_message_ts.replace('.', '')}` : null
 
@@ -42,6 +52,16 @@ export default async function InspectionPage({
     <section className="grid gap-4 md:grid-cols-3">
       <div className="rounded-xl border border-white/10 bg-graphite-800 p-5 md:col-span-2"><h2 className="text-sm font-semibold text-white">AI summary</h2><p className="mt-3 text-sm leading-6 text-white/60">{inspection.ai_summary || 'Analysis has not completed yet.'}</p></div>
       <div className="rounded-xl border border-white/10 bg-graphite-800 p-5"><h2 className="text-sm font-semibold text-white">Confidence</h2><p className="mt-3 text-3xl font-semibold text-white">{inspection.ai_confidence == null ? '—' : `${Math.round(inspection.ai_confidence * 100)}%`}</p><p className="mt-1 text-xs text-white/35">Model: {inspection.ai_model || '—'}</p></div>
+    </section>
+
+    <section className="rounded-xl border border-white/10 bg-graphite-800 p-5">
+      <h2 className="text-sm font-semibold text-white">Damage rating</h2>
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <p className="text-4xl font-semibold text-white">{damageRating == null ? '—' : `${damageRating}/3`}</p>
+        {damageRatingLabel && <p className="pb-1 text-sm capitalize text-white/55">{damageRatingLabel}</p>}
+      </div>
+      <p className="mt-3 text-sm leading-6 text-white/55">{damageRatingReason || 'No rating has been recorded yet.'}</p>
+      <p className="mt-3 text-xs text-white/35">0 no damage · 1 dirt/debris · 2 light scratches · 3 dents/damage</p>
     </section>
 
     <section><h2 className="mb-3 font-semibold text-white">Images</h2><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{images.length ? images.map((image) => <SignedDamageImage key={image.id} imageId={image.id} businessId={scope.businessId!} alt={`Inspection image ${image.slack_file_id ?? image.id}`} />) : <p className="text-sm text-white/35">No images recorded.</p>}</div></section>

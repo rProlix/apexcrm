@@ -245,6 +245,9 @@ async function completePermanentReview(
   const analysis = {
     summary: 'Automated analysis could not process the supplied images.',
     overallConfidence: 0,
+    damageRating: 0,
+    damageRatingLabel: 'no_damage' as const,
+    damageRatingReason: reason,
     damageCount: 0,
     vehicleCondition: 'unknown' as const,
     items: [],

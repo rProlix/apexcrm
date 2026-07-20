@@ -39,7 +39,7 @@ export const vanDamageJobSchema = z.object({
 export type VanDamageJobV1 = z.infer<typeof vanDamageJobSchema>
 
 export const damageTypeSchema = z.enum([
-  'dent', 'scratch', 'crack', 'broken_light', 'broken_mirror', 'paint_damage',
+  'dirt_debris', 'dent', 'scratch', 'crack', 'broken_light', 'broken_mirror', 'paint_damage',
   'bumper_damage', 'glass_damage', 'tire_wheel_damage', 'interior_damage', 'unknown',
 ])
 
@@ -78,6 +78,9 @@ export const geminiDamageItemSchema = z.object({
 export const geminiDamageAnalysisSchema = z.object({
   summary: z.string(),
   overallConfidence: z.number().min(0).max(1),
+  damageRating: z.number().int().min(0).max(3),
+  damageRatingLabel: z.enum(['no_damage', 'dirt_or_debris', 'light_scratches', 'dents_or_damage']),
+  damageRatingReason: z.string(),
   damageCount: z.number().int().nonnegative(),
   vehicleCondition: z.enum(['excellent', 'good', 'fair', 'poor', 'unknown']).catch('unknown'),
   items: z.array(geminiDamageItemSchema),

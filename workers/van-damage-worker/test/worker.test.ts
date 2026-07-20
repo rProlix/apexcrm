@@ -11,7 +11,9 @@ import { extractVanNumber } from '../src/van-number-parser.js'
 
 test('damage parser validates the strict Gemini response', () => {
   const result = parseDamageAnalysis(JSON.stringify({
-    summary: 'One scratch', overallConfidence: 0.8, damageCount: 1, vehicleCondition: 'good',
+    summary: 'One scratch', overallConfidence: 0.8, damageRating: 2,
+    damageRatingLabel: 'light_scratches', damageRatingReason: 'A light scratch is visible on the door.',
+    damageCount: 1, vehicleCondition: 'good',
     items: [{ imageIndex: 0, damageType: 'scratch', vehicleArea: 'door', severity: 'low', confidence: 0.8,
       description: 'Small scratch', repairRecommendation: 'Polish', estimatedCostMin: null,
       estimatedCostMax: null, boundingBox: { x: 0.1, y: 0.1, width: 0.2, height: 0.2 } }],
@@ -19,6 +21,7 @@ test('damage parser validates the strict Gemini response', () => {
   }))
   assert.equal(result.error, null)
   assert.equal(result.data?.damageCount, 1)
+  assert.equal(result.data?.damageRating, 2)
 })
 
 test('S3 original keys are deterministic and sanitize filenames', () => {

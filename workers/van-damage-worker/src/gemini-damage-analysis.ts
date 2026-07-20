@@ -25,6 +25,9 @@ function reviewResult(warning: string): GeminiAnalysisResult {
     analysis: {
       summary: 'Automated analysis requires human review.',
       overallConfidence: 0,
+      damageRating: 0,
+      damageRatingLabel: 'no_damage',
+      damageRatingReason: warning,
       damageCount: 0,
       vehicleCondition: 'unknown',
       items: [],
@@ -46,17 +49,27 @@ export async function analyzeVanDamage(input: {
     return reviewResult(`Image set exceeds inline Gemini limit (${rawBytes} raw bytes)`)
   }
 
-  const prompt = `You are a cautious commercial vehicle damage inspector.
-Analyze all supplied van images together. Do not claim damage that is not clearly visible.
+  const prompt = `You are a commercial van damage inspector for a rental fleet.
+Analyze all supplied van images together and assign one overall damage rating using this exact scale:
+0 = no visible damage
+1 = dirt, mud, dust, grime, leaves, debris, removable marks, or other non-damage contamination
+2 = light scratches, scuffs, paint transfer, small cosmetic marks, or minor surface damage
+3 = dents, cracks, broken parts, bumper/body damage, broken lights/mirrors/glass, or structural/functional damage
+
+Always choose the highest applicable rating visible in the images. If both dirt and scratches are visible, choose 2. If scratches and dents are visible, choose 3.
+Do not use needsHumanReview merely because the rating is nonzero. Set needsHumanReview only when the image is too blurry/dark/occluded/cropped to assign a 0-3 rating with at least 0.55 confidence.
 Return JSON only, without markdown, with exactly this shape:
 {
   "summary": "string",
   "overallConfidence": 0.0,
+  "damageRating": 0,
+  "damageRatingLabel": "no_damage|dirt_or_debris|light_scratches|dents_or_damage",
+  "damageRatingReason": "string",
   "damageCount": 0,
   "vehicleCondition": "excellent|good|fair|poor|unknown",
   "items": [{
     "imageIndex": 0,
-    "damageType": "dent|scratch|crack|broken_light|broken_mirror|paint_damage|bumper_damage|glass_damage|tire_wheel_damage|interior_damage|unknown",
+    "damageType": "dirt_debris|dent|scratch|crack|broken_light|broken_mirror|paint_damage|bumper_damage|glass_damage|tire_wheel_damage|interior_damage|unknown",
     "vehicleArea": "front_bumper|rear_bumper|driver_side|passenger_side|roof|hood|door|mirror|wheel|interior|unknown",
     "severity": "low|medium|high|critical|unknown",
     "confidence": 0.0,
@@ -69,8 +82,12 @@ Return JSON only, without markdown, with exactly this shape:
   "needsHumanReview": true,
   "warnings": []
 }
+For rating 0, use an empty items array unless there is a specific ambiguous area to mention.
+For rating 1, create item(s) with damageType "dirt_debris" and severity "low" for visible dirt/debris.
+For rating 2, create item(s) for visible scratches/scuffs with severity "low" or "medium".
+For rating 3, create item(s) for dents/broken/damaged parts with severity "high" or "critical".
 Bounding boxes use normalized 0..1 coordinates and must remain inside the image.
-Use null for unknown costs or bounding boxes. Set needsHumanReview when images are unclear, incomplete, conflicting, or confidence is below 0.75.
+Use null for unknown costs or bounding boxes.
 Slack context: ${input.context?.slice(0, 4_000) || '(none)'}`
 
   const parts: Array<Record<string, unknown>> = [{ text: prompt }]

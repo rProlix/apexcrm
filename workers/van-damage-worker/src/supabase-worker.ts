@@ -225,7 +225,7 @@ export class SupabaseWorker {
       p_ai_run_id: input.aiRunId,
       p_analysis: input.analysis as unknown as Json,
       p_items: items as unknown as Json,
-      p_needs_review: input.analysis.needsHumanReview || Boolean(input.analysis.warnings.length),
+      p_needs_review: input.analysis.needsHumanReview,
     })
     if (error) throw new Error(error.message)
   }
