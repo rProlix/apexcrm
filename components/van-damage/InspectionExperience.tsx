@@ -1,14 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Activity, Archive, ArrowLeft, Bot, CalendarDays, CarFront,
-  Check, CheckCircle2, ChevronDown, CircleGauge, Clock3, DownloadCloud, ExternalLink,
-  FileCheck2, Gauge, History, ImageIcon, Info, MapPin, MessageSquare, PackageCheck,
-  PanelTop, Paperclip, RefreshCw, Send, ShieldAlert, Sparkles,
-  ThumbsDown, UserRound, Warehouse, Wrench, X,
+  Check, CheckCircle2, ChevronDown, CircleGauge, Clipboard, Clock3, Copy, DownloadCloud,
+  ExternalLink, FileCheck2, FileJson, Filter, Gauge, History, ImageIcon, Info, Keyboard,
+  Link2, MapPin, MessageSquare, PackageCheck, PanelTop, Paperclip, Printer, RefreshCw,
+  Search, Send, ShieldAlert, Sparkles, Star, ThumbsDown, UserRound, Warehouse, Wrench, X,
 } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { DamageImageGallery } from './DamageImageGallery'
@@ -82,9 +82,26 @@ function formatDuration(start: string | null | undefined, end: string | null | u
 function humanize(value: string | null | undefined) {
   return value ? value.replaceAll('_', ' ') : 'Unknown'
 }
+function isProcessing(status: string) {
+  return ['queued', 'processing', 'pending', 'downloading', 'analyzing'].includes(status)
+}
+function confidenceLabel(value: number | null | undefined) {
+  if (value == null) return 'Confidence unavailable'
+  return value >= .8 ? 'High confidence' : value >= .55 ? 'Medium confidence' : 'Low confidence'
+}
+function uniqueTexts(values: Array<string | null | undefined>) {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))]
+}
 
 export function InspectionExperience(props: InspectionExperienceProps) {
   const { inspection, items, images, aiRun, vehicle, related } = props
+  const router = useRouter()
+  const [query, setQuery] = useState('')
+  const [severityFilter, setSeverityFilter] = useState('all')
+  const [areaFilter, setAreaFilter] = useState('all')
+  const [sortBy, setSortBy] = useState<'severity' | 'confidence' | 'newest'>('severity')
+  const [bookmarked, setBookmarked] = useState(false)
+  const [favorite, setFavorite] = useState(false)
   const parsed = asRecord(aiRun?.parsed_response)
   const rating = typeof parsed.damageRating === 'number' ? parsed.damageRating : null
   const confidence = typeof parsed.overallConfidence === 'number' ? parsed.overallConfidence : inspection.ai_confidence
@@ -102,8 +119,103 @@ export function InspectionExperience(props: InspectionExperienceProps) {
   const recommendation = items[0]?.repair_recommendation || (rating === 0 ? 'No repair action indicated. Continue routine fleet checks.' : 'Complete a human review before returning this vehicle to service.')
   const phase = asRecord(inspection.metadata.phase3c)
   const lifecycle = asText(phase.lifecycle, inspection.review_status)
+  const processing = isProcessing(inspection.status) || Boolean(props.job && isProcessing(props.job.status))
+  const reviewDuration = formatDuration(inspection.created_at, inspection.reviewed_at)
+  const slackToReadyDuration = formatDuration(inspection.created_at, inspection.completed_at || aiRun?.completed_at)
+  const severityOptions = uniqueTexts(items.map((item) => item.severity))
+  const areaOptions = uniqueTexts(items.map((item) => item.vehicle_area))
+  const filteredItems = useMemo(() => {
+    const lowerQuery = query.trim().toLowerCase()
+    return [...items]
+      .filter((item) => severityFilter === 'all' || item.severity === severityFilter)
+      .filter((item) => areaFilter === 'all' || item.vehicle_area === areaFilter)
+      .filter((item) => {
+        if (!lowerQuery) return true
+        return [item.damage_type, item.vehicle_area, item.severity, item.description, item.repair_recommendation]
+          .some((value) => value?.toLowerCase().includes(lowerQuery))
+      })
+      .sort((a, b) => {
+        if (sortBy === 'confidence') return (b.confidence ?? -1) - (a.confidence ?? -1)
+        if (sortBy === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        return severityRank[b.severity ?? 'unknown'] - severityRank[a.severity ?? 'unknown']
+      })
+  }, [areaFilter, items, query, severityFilter, sortBy])
+
+  const copyText = useCallback(async (value: string) => {
+    await navigator.clipboard?.writeText(value).catch(() => undefined)
+  }, [])
+
+  useEffect(() => {
+    setBookmarked(localStorage.getItem(`vanDamageBookmark:${inspection.id}`) === '1')
+    setFavorite(localStorage.getItem(`vanDamageFavorite:${inspection.id}`) === '1')
+    const hash = window.location.hash.replace('#', '')
+    if (hash.startsWith('finding-')) {
+      document.getElementById(hash)?.scrollIntoView({ block: 'center' })
+    }
+  }, [inspection.id])
+
+  useEffect(() => {
+    if (!processing) return
+    const interval = window.setInterval(() => router.refresh(), 10_000)
+    return () => window.clearInterval(interval)
+  }, [processing, router])
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
+      if (event.key === '/') {
+        event.preventDefault()
+        document.getElementById('finding-search')?.focus()
+      }
+      if (event.key.toLowerCase() === 'p') window.print()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  function toggleStored(key: 'bookmark' | 'favorite') {
+    const storageKey = key === 'bookmark' ? `vanDamageBookmark:${inspection.id}` : `vanDamageFavorite:${inspection.id}`
+    const next = localStorage.getItem(storageKey) !== '1'
+    localStorage.setItem(storageKey, next ? '1' : '0')
+    if (key === 'bookmark') setBookmarked(next)
+    else setFavorite(next)
+  }
+
+  function exportJson() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      inspection: {
+        id: inspection.id,
+        status: inspection.status,
+        review_status: inspection.review_status,
+        created_at: inspection.created_at,
+        completed_at: inspection.completed_at,
+        ai_confidence: inspection.ai_confidence,
+        ai_summary: inspection.ai_summary,
+      },
+      vehicle,
+      ai: { provider: aiRun?.provider, model: aiRun?.model || inspection.ai_model, prompt_version: aiRun?.prompt_version, parsed_response: parsed },
+      images,
+      findings: items,
+    }
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `van-damage-${inspection.id}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   return <div className="space-y-6 pb-12">
+    <style jsx global>{`
+      @media print {
+        nav, aside, .no-print { display: none !important; }
+        body { background: #fff !important; color: #111 !important; }
+        main, section, article { break-inside: avoid; }
+        .print\\:bg-white { background: #fff !important; }
+        .print\\:text-black { color: #111 !important; }
+      }
+    `}</style>
     <section className="overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_80%_0%,rgba(201,168,76,.12),transparent_32%),linear-gradient(135deg,#18181b,#101012)] shadow-panel-lg">
       <div className="border-b border-white/8 px-5 py-4 md:px-7">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -116,7 +228,13 @@ export function InspectionExperience(props: InspectionExperienceProps) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={inspection.status} />
+            <StatusBadge status={inspection.review_status} />
             <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${severity.classes}`}>{severity.label} severity</span>
+            <button onClick={() => copyText(inspection.id)} className="focus-ring no-print inline-flex items-center rounded-full border border-white/10 px-3 py-1 text-xs text-white/55 hover:bg-white/5 hover:text-white"><Copy className="mr-1.5 h-3 w-3" />Copy ID</button>
+            <button onClick={() => toggleStored('bookmark')} aria-pressed={bookmarked} className="focus-ring no-print rounded-full border border-white/10 p-1.5 text-white/45 hover:bg-white/5 hover:text-white" title="Bookmark inspection"><Clipboard className={`h-3.5 w-3.5 ${bookmarked ? 'fill-gold-300 text-gold-300' : ''}`} /></button>
+            <button onClick={() => toggleStored('favorite')} aria-pressed={favorite} className="focus-ring no-print rounded-full border border-white/10 p-1.5 text-white/45 hover:bg-white/5 hover:text-white" title="Favorite inspection"><Star className={`h-3.5 w-3.5 ${favorite ? 'fill-gold-300 text-gold-300' : ''}`} /></button>
+            <button onClick={() => window.print()} className="focus-ring no-print rounded-full border border-white/10 p-1.5 text-white/45 hover:bg-white/5 hover:text-white" title="Print report"><Printer className="h-3.5 w-3.5" /></button>
+            {props.canManage && <button onClick={exportJson} className="focus-ring no-print rounded-full border border-white/10 p-1.5 text-white/45 hover:bg-white/5 hover:text-white" title="Export JSON"><FileJson className="h-3.5 w-3.5" /></button>}
             {props.slack.url && <a href={props.slack.url} target="_blank" rel="noreferrer" className="focus-ring inline-flex items-center rounded-full border border-white/10 px-3 py-1 text-xs text-white/55 hover:bg-white/5 hover:text-white">Open in Slack <ExternalLink className="ml-1.5 h-3 w-3" /></a>}
           </div>
         </div>
@@ -138,6 +256,8 @@ export function InspectionExperience(props: InspectionExperienceProps) {
             <MetaRow label="Van number" value={vehicle?.van_number || asText(inspection.metadata.vanNumber)} />
             <MetaRow label="Tenant" value={props.tenantName} />
             <MetaRow label="Lifecycle" value={humanize(lifecycle)} />
+            <MetaRow label="Slack to ready" value={slackToReadyDuration} />
+            <MetaRow label="Review duration" value={reviewDuration} />
           </dl>
         </div>
 
@@ -158,7 +278,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
                 <MiniStat label="Mileage" value={typeof mileage === 'number' || typeof mileage === 'string' ? Number(mileage).toLocaleString() : '—'} />
                 <MiniStat label="Plate" value={vehicle?.plate_number || '—'} />
                 <MiniStat label="Damage" value={`${inspection.damage_count} detected`} />
-                <MiniStat label="Source" value="Slack" />
+                <MiniStat label="Source" value={props.slack.channel || 'Slack'} />
               </div>
             </div>
           </div>
@@ -177,6 +297,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
             <VerdictState label="Out of service" value={outOfService} tone={outOfService === 'Not indicated' ? 'good' : 'bad'} />
           </div>
           <p className="mt-5 line-clamp-3 text-xs leading-5 text-white/50">{recommendation}</p>
+          {processing && <p className="mt-3 inline-flex items-center rounded-full border border-sky-300/20 bg-sky-300/10 px-2.5 py-1 text-[10px] text-sky-200"><RefreshCw className="mr-1.5 h-3 w-3 animate-spin" />Live refresh active</p>}
         </div>
       </div>
     </section>
@@ -208,28 +329,42 @@ export function InspectionExperience(props: InspectionExperienceProps) {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.05fr_.95fr]">
-          <VehicleDiagram items={items} images={images} />
+          <VehicleDiagram items={items} images={images} selectedArea={areaFilter} onSelectArea={setAreaFilter} />
           <SeverityPanel items={items} active={severityKey} />
         </section>
 
         <section className="overflow-hidden rounded-2xl border border-white/10 bg-graphite-800">
-          <div className="flex items-center justify-between border-b border-white/8 px-5 py-4 md:px-6">
+          <div className="flex flex-col gap-4 border-b border-white/8 px-5 py-4 md:px-6 xl:flex-row xl:items-center xl:justify-between">
             <div><h2 className="font-semibold text-white">Damage findings</h2><p className="mt-1 text-xs text-white/35">AI-detected regions and repair guidance</p></div>
-            <span className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-white/45">{items.length}</span>
+            <div className="no-print flex flex-wrap gap-2">
+              <label className="focus-within:focus-ring flex min-w-48 items-center rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-white/55"><Search className="mr-2 h-3.5 w-3.5 text-white/30" /><input id="finding-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search findings" className="w-full bg-transparent outline-none placeholder:text-white/25" /></label>
+              <label className="flex items-center rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-white/55"><Filter className="mr-2 h-3.5 w-3.5 text-white/30" /><select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)} className="bg-transparent capitalize outline-none"><option value="all">All severity</option>{severityOptions.map((option) => <option key={option} value={option}>{humanize(option)}</option>)}</select></label>
+              <label className="flex items-center rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-white/55"><MapPin className="mr-2 h-3.5 w-3.5 text-white/30" /><select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)} className="bg-transparent capitalize outline-none"><option value="all">All areas</option>{areaOptions.map((option) => <option key={option} value={option}>{humanize(option)}</option>)}</select></label>
+              <label className="flex items-center rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-white/55"><ArrowUpDownIcon /><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="bg-transparent outline-none"><option value="severity">Severity</option><option value="confidence">Confidence</option><option value="newest">Newest</option></select></label>
+            </div>
           </div>
-          {items.length ? <div className="divide-y divide-white/8">{items.map((item, index) => <article key={item.id} className="grid gap-4 px-5 py-5 md:grid-cols-[44px_1fr_auto] md:px-6">
+          {items.length ? <div className="divide-y divide-white/8">{filteredItems.map((item, index) => <article id={`finding-${item.id}`} key={item.id} className="grid gap-4 px-5 py-5 md:grid-cols-[44px_1fr_auto] md:px-6">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[.03] text-sm font-semibold text-white/45">{String(index + 1).padStart(2, '0')}</div>
             <div>
               <div className="flex flex-wrap items-center gap-2"><h3 className="font-medium capitalize text-white">{humanize(item.damage_type)}</h3><StatusBadge status={item.severity || 'unknown'} /></div>
               <p className="mt-2 text-sm leading-6 text-white/55">{item.description || 'No description supplied.'}</p>
+              <div className="mt-3 grid gap-2 text-[11px] text-white/40 sm:grid-cols-3">
+                <span>Area: <span className="capitalize text-white/60">{humanize(item.vehicle_area)}</span></span>
+                <span>Review: <span className="text-white/60">AI opinion pending human decision</span></span>
+                <span>Safety: <span className="text-white/60">{['critical', 'high'].includes(item.severity ?? '') ? 'Inspect before use' : 'No safety issue stated'}</span></span>
+              </div>
               {item.repair_recommendation && <p className="mt-3 flex items-start text-xs leading-5 text-amber-100/60"><Wrench className="mr-2 mt-0.5 h-3.5 w-3.5 shrink-0" />{item.repair_recommendation}</p>}
             </div>
             <div className="md:text-right">
               <p className="text-xs capitalize text-white/45">{humanize(item.vehicle_area)}</p>
-              <p className="mt-1 text-xs text-white/30">{item.confidence == null ? 'Confidence unavailable' : `${Math.round(item.confidence * 100)}% confidence`}</p>
-              {item.image_id && <button onClick={() => window.dispatchEvent(new CustomEvent('van-damage:focus-image', { detail: item.image_id }))} className="focus-ring mt-3 rounded-lg text-xs text-gold-300 hover:text-gold-200">View image</button>}
+              <p className="mt-1 text-xs text-white/30">{confidenceLabel(item.confidence)}{item.confidence == null ? '' : ` · ${Math.round(item.confidence * 100)}%`}</p>
+              <div className="mt-3 flex flex-wrap gap-2 md:justify-end">
+                {item.image_id && <button onClick={() => window.dispatchEvent(new CustomEvent('van-damage:focus-image', { detail: item.image_id }))} className="focus-ring rounded-lg text-xs text-gold-300 hover:text-gold-200">View image</button>}
+                <button onClick={() => copyText(`${window.location.href.split('#')[0]}#finding-${item.id}`)} className="focus-ring inline-flex items-center rounded-lg text-xs text-white/35 hover:text-white"><Link2 className="mr-1 h-3 w-3" />Copy link</button>
+              </div>
             </div>
-          </article>)}</div> : <p className="p-8 text-center text-sm text-white/35">No structured damage findings.</p>}
+          </article>)}
+          {!filteredItems.length && <p className="p-8 text-center text-sm text-white/35">No findings match the current filters.</p>}</div> : <p className="p-8 text-center text-sm text-white/35">No structured damage findings.</p>}
         </section>
 
         <RepairEstimate severity={severityKey} recommendation={recommendation} safetyConcern={safetyConcern} />
@@ -251,9 +386,17 @@ export function InspectionExperience(props: InspectionExperienceProps) {
           </div>
           <p className="mt-4 text-xs leading-5 text-white/35">Confidence estimates how consistently the model could identify and classify visible conditions. It does not replace a qualified safety inspection.</p>
         </section>
+        <section className="no-print rounded-2xl border border-white/10 bg-graphite-800 p-5">
+          <div className="flex items-center gap-2"><Keyboard className="h-4 w-4 text-white/45" /><h2 className="text-sm font-semibold text-white">Shortcuts</h2></div>
+          <div className="mt-4 space-y-2 text-xs text-white/40"><p><kbd className="rounded bg-white/10 px-1.5 py-0.5 text-white/60">/</kbd> Search findings</p><p><kbd className="rounded bg-white/10 px-1.5 py-0.5 text-white/60">P</kbd> Print report</p></div>
+        </section>
       </aside>
     </div>
   </div>
+}
+
+function ArrowUpDownIcon() {
+  return <Filter className="mr-2 h-3.5 w-3.5 rotate-90 text-white/30" />
 }
 
 function WorkflowActions(props: InspectionExperienceProps) {
@@ -262,13 +405,24 @@ function WorkflowActions(props: InspectionExperienceProps) {
   const [confirmation, setConfirmation] = useState<{ action: string; title: string; body: string; danger?: boolean } | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   if (!props.canManage) return null
-  const actions = [
+  const phase = asRecord(props.inspection.metadata.phase3c)
+  const archived = phase.lifecycle === 'archived'
+  const actions: Array<{
+    action: 'approve' | 'reject' | 'manual_review' | 'mark_repaired' | 'archive' | 'restore'
+    label: string
+    icon: typeof Check
+    title: string
+    body: string
+    danger?: boolean
+  }> = [
     { action: 'approve', label: 'Approve', icon: Check, title: 'Approve this inspection?', body: 'This records the AI inspection as reviewed and approved.' },
     { action: 'reject', label: 'Reject', icon: ThumbsDown, title: 'Reject this inspection?', body: 'This dismisses the AI result and records the decision in the audit trail.', danger: true },
     { action: 'manual_review', label: 'Needs manual review', icon: UserRound, title: 'Request manual review?', body: 'The inspection will return to the review queue.' },
     { action: 'mark_repaired', label: 'Mark repaired', icon: PackageCheck, title: 'Mark damage repaired?', body: 'This records the repair milestone and closes the review.' },
-    { action: 'archive', label: 'Archive', icon: Archive, title: 'Archive this inspection?', body: 'The inspection remains available in fleet history.', danger: true },
-  ]
+    archived
+      ? { action: 'restore', label: 'Restore', icon: RefreshCw, title: 'Restore this inspection?', body: 'This returns the inspection to the active review history.' }
+      : { action: 'archive', label: 'Archive', icon: Archive, title: 'Archive this inspection?', body: 'The inspection remains available in fleet history.', danger: true },
+  ] as const
   async function runAction() {
     if (!confirmation) return
     setMessage(null)
@@ -334,7 +488,17 @@ function VanIllustration() {
   return <svg viewBox="0 0 140 90" className="h-20 w-24 text-white/25" aria-label="Vehicle placeholder"><path d="M17 51l8-22c2-6 7-9 13-9h52c8 0 14 3 18 10l12 21 9 5v18h-11a12 12 0 01-23 0H48a12 12 0 01-23 0H12V58c0-4 2-6 5-7z" fill="currentColor" opacity=".28" /><path d="M35 27h28v22H27l8-22zm34 0h20c6 0 10 2 13 8l8 14H69V27z" fill="currentColor" opacity=".7" /><circle cx="36" cy="73" r="8" fill="#0d0d0f" stroke="currentColor" strokeWidth="4" /><circle cx="106" cy="73" r="8" fill="#0d0d0f" stroke="currentColor" strokeWidth="4" /></svg>
 }
 
-function VehicleDiagram({ items, images }: { items: DamageItem[]; images: DamageImage[] }) {
+function VehicleDiagram({
+  items,
+  images,
+  selectedArea,
+  onSelectArea,
+}: {
+  items: DamageItem[]
+  images: DamageImage[]
+  selectedArea: string
+  onSelectArea: (area: string) => void
+}) {
   const areas = [
     { key: 'front_bumper', label: 'Front', x: '42%', y: '7%' },
     { key: 'rear_bumper', label: 'Rear', x: '42%', y: '81%' },
@@ -343,15 +507,21 @@ function VehicleDiagram({ items, images }: { items: DamageItem[]; images: Damage
     { key: 'roof', label: 'Roof', x: '43%', y: '42%' },
   ]
   return <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
-    <h2 className="font-semibold text-white">Vehicle damage map</h2><p className="mt-1 text-xs text-white/35">Select a highlighted area to view its source image.</p>
+    <div className="flex items-start justify-between gap-4"><div><h2 className="font-semibold text-white">Vehicle damage map</h2><p className="mt-1 text-xs text-white/35">Select a region to filter findings and jump to supporting photos.</p></div>{selectedArea !== 'all' && <button onClick={() => onSelectArea('all')} className="focus-ring no-print rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/45 hover:bg-white/5 hover:text-white">Clear</button>}</div>
     <div className="relative mx-auto mt-5 aspect-[1.7/1] max-w-md">
-      <svg viewBox="0 0 320 190" className="h-full w-full text-white/12" aria-hidden="true"><path d="M83 22h154l32 38v84l-28 25H79l-28-25V60L83 22z" fill="currentColor" stroke="rgba(255,255,255,.18)" strokeWidth="2" /><path d="M96 50h128l20 25v44l-19 26H95l-19-26V75l20-25z" fill="rgba(0,0,0,.25)" stroke="rgba(255,255,255,.1)" /><path d="M107 59h106l13 22H94l13-22zm-13 70h132l-14 11H108l-14-11z" fill="rgba(255,255,255,.06)" /><rect x="41" y="67" width="24" height="38" rx="8" fill="currentColor" /><rect x="255" y="67" width="24" height="38" rx="8" fill="currentColor" /></svg>
+      <svg viewBox="0 0 320 190" className="h-full w-full text-white/12" aria-labelledby="vehicle-map-title" role="img"><title id="vehicle-map-title">Vehicle map showing selectable damage regions</title><path d="M83 22h154l32 38v84l-28 25H79l-28-25V60L83 22z" fill="currentColor" stroke="rgba(255,255,255,.18)" strokeWidth="2" /><path d="M96 50h128l20 25v44l-19 26H95l-19-26V75l20-25z" fill="rgba(0,0,0,.25)" stroke="rgba(255,255,255,.1)" /><path d="M107 59h106l13 22H94l13-22zm-13 70h132l-14 11H108l-14-11z" fill="rgba(255,255,255,.06)" /><rect x="41" y="67" width="24" height="38" rx="8" fill="currentColor" /><rect x="255" y="67" width="24" height="38" rx="8" fill="currentColor" /></svg>
       {areas.map((area) => {
-        const finding = items.find((item) => item.vehicle_area === area.key)
+        const areaItems = items.filter((item) => item.vehicle_area === area.key)
+        const finding = areaItems[0]
         const imageId = finding?.image_id || images.find((image) => image.image_role?.includes(area.key.split('_')[0]))?.id
-        return <button key={area.key} disabled={!finding} title={finding ? `${humanize(finding.damage_type)} · ${humanize(finding.severity)}` : `${area.label}: no damage mapped`} onClick={() => imageId && window.dispatchEvent(new CustomEvent('van-damage:focus-image', { detail: imageId }))} style={{ left: area.x, top: area.y }} className={`focus-ring absolute rounded-full border px-2.5 py-1 text-[10px] transition ${finding ? 'animate-pulse-gold border-amber-300/40 bg-amber-300/20 text-amber-100 hover:bg-amber-300/30' : 'border-white/10 bg-black/35 text-white/30'}`}>{area.label}</button>
+        const active = selectedArea === area.key
+        return <button key={area.key} aria-pressed={active} title={finding ? `${humanize(finding.damage_type)} · ${humanize(finding.severity)}` : `${area.label}: no damage mapped`} onClick={() => {
+          onSelectArea(active ? 'all' : area.key)
+          if (imageId) window.dispatchEvent(new CustomEvent('van-damage:focus-image', { detail: imageId }))
+        }} style={{ left: area.x, top: area.y }} className={`focus-ring absolute rounded-full border px-2.5 py-1 text-[10px] transition ${finding ? 'border-amber-300/40 bg-amber-300/20 text-amber-100 hover:bg-amber-300/30' : 'border-white/10 bg-black/35 text-white/30'} ${active ? 'ring-2 ring-gold-300/60' : ''}`}>{area.label}{areaItems.length > 0 ? ` ${areaItems.length}` : ''}</button>
       })}
     </div>
+    <div className="mt-4 flex flex-wrap gap-2 text-[10px] text-white/35"><span className="inline-flex items-center"><span className="mr-1.5 h-2 w-2 rounded-full bg-amber-300" />Mapped damage</span><span className="inline-flex items-center"><span className="mr-1.5 h-2 w-2 rounded-full bg-white/20" />No mapped damage</span><span>{items.filter((item) => !item.vehicle_area).length} unmapped</span></div>
   </section>
 }
 
@@ -415,6 +585,7 @@ function ProcessingTimeline({ inspection, job, aiRun }: { inspection: Inspection
 
 function CommentsPanel(props: InspectionExperienceProps) {
   const router = useRouter()
+  const draftKey = `vanDamageNoteDraft:${props.inspection.id}`
   const [body, setBody] = useState('')
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [attachments, setAttachments] = useState<File[]>([])
@@ -440,6 +611,25 @@ function CommentsPanel(props: InspectionExperienceProps) {
   ]
   const roots = comments.filter((comment) => !comment.parentId)
 
+  useEffect(() => {
+    setBody(localStorage.getItem(draftKey) || '')
+  }, [draftKey])
+
+  useEffect(() => {
+    if (body.trim()) localStorage.setItem(draftKey, body)
+    else localStorage.removeItem(draftKey)
+  }, [body, draftKey])
+
+  useEffect(() => {
+    const handler = (event: BeforeUnloadEvent) => {
+      if (!body.trim()) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [body])
+
   async function submit() {
     if (!body.trim()) return
     setBusy(true); setError(null)
@@ -451,6 +641,7 @@ function CommentsPanel(props: InspectionExperienceProps) {
     const result = await response.json() as { error?: string }
     setBusy(false)
     if (!response.ok) return setError(result.error || 'Unable to add note.')
+    localStorage.removeItem(draftKey)
     setBody(''); setReplyTo(null); setAttachments([]); router.refresh()
   }
   return <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
@@ -467,6 +658,7 @@ function CommentsPanel(props: InspectionExperienceProps) {
     <div className="mt-5 rounded-xl border border-white/10 bg-black/10 p-3">
       {replyTo && <div className="mb-2 flex items-center justify-between text-xs text-gold-200/70"><span>Replying to note</span><button onClick={() => setReplyTo(null)} aria-label="Cancel reply"><X className="h-3.5 w-3.5" /></button></div>}
       <textarea value={body} onChange={(event) => setBody(event.target.value)} maxLength={4000} rows={3} placeholder="Add an internal note…" aria-label="Internal note" className="focus-ring w-full resize-none bg-transparent text-sm text-white/75 placeholder:text-white/25" />
+      {body.trim() && <p className="mb-2 text-[10px] text-gold-200/55">Draft autosaved locally</p>}
       {attachments.length > 0 && <div className="mb-2 flex flex-wrap gap-2">{attachments.map((file, index) => <span key={`${file.name}-${index}`} className="inline-flex items-center rounded-lg bg-white/5 px-2 py-1 text-[10px] text-white/50">{file.name}<button onClick={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="ml-1.5 text-white/30 hover:text-white" aria-label={`Remove ${file.name}`}><X className="h-3 w-3" /></button></span>)}</div>}
       <div className="mt-2 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2"><label className="focus-ring inline-flex cursor-pointer items-center rounded-lg border border-white/10 px-2.5 py-1.5 text-[10px] text-white/45 hover:bg-white/5 hover:text-white/70"><Paperclip className="mr-1.5 h-3 w-3" />Attach<input type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf,text/plain" className="sr-only" onChange={(event) => setAttachments(Array.from(event.target.files ?? []).slice(0, 5))} /></label><span className="truncate text-[10px] text-white/25">{body.length}/4000{error ? ` · ${error}` : ''}</span></div>
@@ -540,7 +732,7 @@ function ActivityFeed({ inspection, job, aiRun, images }: { inspection: Inspecti
 function InspectionMetadata(props: InspectionExperienceProps) {
   const [open, setOpen] = useState(false)
   const processingDuration = formatDuration(props.job?.started_at, props.job?.completed_at)
-  const workerVersion = asText(props.job?.payload.workerVersion ?? props.aiRun?.input_summary.workerVersion, '2026-07-04-v1')
+  const workerVersion = asText(props.job?.payload.workerVersion ?? props.aiRun?.input_summary.workerVersion, '—')
   const rows = [
     ['Slack workspace', props.slack.workspace || props.inspection.slack_team_id || '—'],
     ['Slack channel', props.slack.channel || props.inspection.slack_channel_id || '—'],

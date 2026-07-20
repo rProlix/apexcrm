@@ -229,7 +229,7 @@ export function Premium3DHeroUploadPanel({ sectionId }: Props) {
   }, [tenantId, sectionId, patch, refresh])
 
   // ── "Use as hero" actions (from uploaded library) ───────────────────────────
-  const useVideoAsHero = useCallback((asset: Website3DAsset) => {
+  const activateVideoAsHero = useCallback((asset: Website3DAsset) => {
     if (!asset.public_url) return
     patch({
       renderMode: 'video_scrub', useImageSequence: false,
@@ -239,7 +239,7 @@ export function Premium3DHeroUploadPanel({ sectionId }: Props) {
     setNote({ ok: true, msg: 'Set as active hero video. Publish to show it publicly.' })
   }, [patch, patchScrub])
 
-  const useSequenceAsHero = useCallback((asset: Website3DAsset) => {
+  const activateSequenceAsHero = useCallback((asset: Website3DAsset) => {
     const frameUrls = Array.isArray(asset.metadata?.frameUrls)
       ? (asset.metadata!.frameUrls as unknown[]).filter((u): u is string => typeof u === 'string')
       : []
@@ -393,14 +393,14 @@ export function Premium3DHeroUploadPanel({ sectionId }: Props) {
           {groups.videos.map((a) => (
             <MediaRow key={a.id} asset={a} kind="video"
               active={a.id === content.activeVideoAssetId}
-              actionLabel="Use this video as hero" onUse={() => useVideoAsHero(a)} />
+              actionLabel="Use this video as hero" onUse={() => activateVideoAsHero(a)} />
           ))}
           {groups.imageSequences.map((a) => {
             const seqId = (a.sequence_id ?? (a.metadata?.sequenceId as string | undefined)) ?? a.id
             return (
               <MediaRow key={a.id} asset={a} kind="image_sequence"
                 active={seqId === content.activeImageSequenceAssetId}
-                actionLabel="Use this image sequence as hero" onUse={() => useSequenceAsHero(a)} />
+                actionLabel="Use this image sequence as hero" onUse={() => activateSequenceAsHero(a)} />
             )
           })}
         </>

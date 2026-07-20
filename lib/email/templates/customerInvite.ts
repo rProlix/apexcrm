@@ -22,7 +22,7 @@ export interface CustomerInviteData {
 }
 
 /** @deprecated Use CustomerInviteData instead */
-export interface CustomerInviteEmailData extends CustomerInviteData {}
+export type CustomerInviteEmailData = CustomerInviteData
 
 export function buildCustomerInviteEmail(data: CustomerInviteData): TemplateResult {
   const {

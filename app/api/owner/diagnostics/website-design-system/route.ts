@@ -46,7 +46,7 @@ export async function GET() {
 
   let paletteValid     = false
   let typographyValid  = false
-  let contrastIssues: string[]    = []
+  const contrastIssues: string[]  = []
   let normalizedDs: ReturnType<typeof normalizeDesignSystem> | null = null
 
   if (hasDesignSystem && theme) {

@@ -10,7 +10,7 @@ export const runtime = 'nodejs'
 
 const actionSchema = z.object({
   type: z.literal('action'),
-  action: z.enum(['approve', 'reject', 'manual_review', 'mark_repaired', 'archive']),
+  action: z.enum(['approve', 'reject', 'manual_review', 'mark_repaired', 'archive', 'restore']),
 })
 
 const commentSchema = z.object({
@@ -213,6 +213,12 @@ export async function PATCH(
       status: inspection.status,
       lifecycle: 'archived',
     },
+    restore: {
+      label: 'Inspection restored',
+      reviewStatus: inspection.review_status === 'dismissed' ? 'in_review' : inspection.review_status,
+      status: inspection.status === 'needs_review' ? 'needs_review' : 'completed',
+      lifecycle: inspection.review_status === 'reviewed' ? 'approved' : 'manual_review',
+    },
   } as const
   const config = actionConfig[parsed.data.action]
   const nextMetadata = {
@@ -221,6 +227,7 @@ export async function PATCH(
       ...phase3c,
       lifecycle: config.lifecycle,
       archivedAt: parsed.data.action === 'archive' ? now : phase3c.archivedAt,
+      restoredAt: parsed.data.action === 'restore' ? now : phase3c.restoredAt,
       repairedAt: parsed.data.action === 'mark_repaired' ? now : phase3c.repairedAt,
       auditTrail: [...auditTrail, {
         id: crypto.randomUUID(),

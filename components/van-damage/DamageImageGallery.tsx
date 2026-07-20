@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useState } from 'react'
-import { Eye, EyeOff, ImageIcon, Maximize2 } from 'lucide-react'
+import { AlertTriangle, Copy, Eye, EyeOff, ImageIcon, Maximize2 } from 'lucide-react'
 import type { DamageImage, DamageItem, ResolvedDamageImage } from './inspection-types'
 
 const DamageLightbox = dynamic(() => import('./DamageLightbox'), { ssr: false })
@@ -37,6 +37,12 @@ export function DamageImageGallery({
 
   const scrollToImage = useCallback((imageId: string) => {
     document.getElementById(`inspection-image-${imageId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const index = images.findIndex((image) => image.id === imageId)
+    if (index >= 0) setActiveIndex(index)
+  }, [images])
+
+  const copyPermalink = useCallback(async (imageId: string) => {
+    await navigator.clipboard?.writeText(`${window.location.href.split('#')[0]}#image-${imageId}`).catch(() => undefined)
   }, [])
 
   useEffect(() => {
@@ -46,6 +52,11 @@ export function DamageImageGallery({
     }
     window.addEventListener('van-damage:focus-image', handler)
     return () => window.removeEventListener('van-damage:focus-image', handler)
+  }, [scrollToImage])
+
+  useEffect(() => {
+    const hash = window.location.hash.replace('#image-', '')
+    if (hash) scrollToImage(hash)
   }, [scrollToImage])
 
   if (!images.length) return <div className="flex aspect-[16/5] items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] text-sm text-white/35"><ImageIcon className="mr-2 h-5 w-5" />No images recorded</div>
@@ -60,10 +71,24 @@ export function DamageImageGallery({
         {overlays ? <Eye className="mr-2 h-4 w-4 text-amber-300" /> : <EyeOff className="mr-2 h-4 w-4" />}{overlays ? 'Hide overlays' : 'Show overlays'}
       </button>
     </div>
+    <div className="no-print mb-4 flex gap-2 overflow-x-auto pb-1">
+      {resolved.map((image, index) => {
+        const quality = getImageQuality(image)
+        return <button key={image.id} onClick={() => setActiveIndex(index)} className="focus-ring relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/[.03]">
+          {image.url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={image.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+          ) : <ImageIcon className="mx-auto mt-4 h-5 w-5 text-white/25" />}
+          {quality !== 'good' && <span className="absolute right-1 top-1 rounded bg-amber-400/90 p-0.5 text-black"><AlertTriangle className="h-2.5 w-2.5" /></span>}
+        </button>
+      })}
+    </div>
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {resolved.map((image, index) => {
         const imageItems = items.filter((item) => item.image_id === image.id && item.bounding_box)
-        return <button id={`inspection-image-${image.id}`} key={image.id} onClick={() => setActiveIndex(index)} className="focus-ring group overflow-hidden rounded-2xl border border-white/10 bg-graphite-800 text-left transition hover:-translate-y-0.5 hover:border-white/20 hover:shadow-panel-lg">
+        const quality = getImageQuality(image)
+        return <div id={`inspection-image-${image.id}`} key={image.id} className="group overflow-hidden rounded-2xl border border-white/10 bg-graphite-800 text-left transition hover:-translate-y-0.5 hover:border-white/20 hover:shadow-panel-lg">
+          <button id={`image-${image.id}`} onClick={() => setActiveIndex(index)} className="focus-ring block w-full text-left">
           <div className="relative aspect-[4/3] overflow-hidden bg-white/[0.03]">
             {image.url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -75,14 +100,23 @@ export function DamageImageGallery({
             })}
             <span className="absolute right-3 top-3 rounded-lg bg-black/55 p-2 text-white/75 opacity-0 backdrop-blur transition group-hover:opacity-100"><Maximize2 className="h-4 w-4" /></span>
             {imageItems.length > 0 && <span className="absolute bottom-3 left-3 rounded-full border border-amber-300/30 bg-black/60 px-2.5 py-1 text-[10px] font-medium text-amber-200 backdrop-blur">{imageItems.length} finding{imageItems.length === 1 ? '' : 's'}</span>}
+            {quality !== 'good' && <span className="absolute bottom-3 right-3 inline-flex items-center rounded-full border border-amber-300/30 bg-black/60 px-2.5 py-1 text-[10px] text-amber-100 backdrop-blur"><AlertTriangle className="mr-1 h-3 w-3" />{quality}</span>}
           </div>
+          </button>
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-xs capitalize text-white/65">{image.image_role?.replaceAll('_', ' ') || `Photo ${index + 1}`}</span>
-            <span className="text-[10px] text-white/30">{image.width && image.height ? `${image.width}×${image.height}` : image.status}</span>
+            <span className="flex items-center gap-2 text-[10px] text-white/30">{image.width && image.height ? `${image.width}×${image.height}` : image.status}<button onClick={() => copyPermalink(image.id)} className="focus-ring no-print rounded p-1 text-white/35 hover:bg-white/5 hover:text-white" aria-label={`Copy link to image ${index + 1}`}><Copy className="h-3 w-3" /></button></span>
           </div>
-        </button>
+        </div>
       })}
     </div>
     {activeIndex != null && <DamageLightbox images={resolved} items={items} initialIndex={activeIndex} overlays={overlays} businessId={businessId} onClose={() => setActiveIndex(null)} onIndexChange={setActiveIndex} />}
   </>
+}
+
+function getImageQuality(image: DamageImage) {
+  if (image.status === 'failed') return 'failed'
+  if (image.width && image.height && Math.min(image.width, image.height) < 700) return 'low resolution'
+  if (image.file_size_bytes && image.file_size_bytes < 80 * 1024) return 'small file'
+  return 'good'
 }

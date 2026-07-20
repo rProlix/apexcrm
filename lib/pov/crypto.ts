@@ -48,7 +48,7 @@ export function isValidPin(pin: string): boolean {
 export function normalizePhone(raw: string): string {
   const trimmed = (raw ?? '').trim()
   const hasPlus = trimmed.startsWith('+')
-  let digits = trimmed.replace(/[^\d]/g, '')
+  const digits = trimmed.replace(/[^\d]/g, '')
   if (!digits) return ''
   if (hasPlus) return `+${digits}`
   if (digits.length === 10) return `+1${digits}`        // US national → E.164-ish

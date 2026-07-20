@@ -380,18 +380,15 @@ export function EditorSidebar() {
   const [generateCount, setGenCount]          = useState<1 | 3 | 5>(1)
   const [galleryKey, setGalleryKey]           = useState(0)   // increment to force gallery reload
 
-  if (!selectedSectionId) return null
-
   const section = sections.find((s) => s.id === selectedSectionId)
-  if (!section) return null
 
-  const meta            = SECTION_TYPE_MAP.get(section.section_type)
-  const canGenerateImage = IMAGE_CAPABLE_SECTIONS.has(section.section_type)
+  const meta            = section ? SECTION_TYPE_MAP.get(section.section_type) : undefined
+  const canGenerateImage = section ? IMAGE_CAPABLE_SECTIONS.has(section.section_type) : false
 
   // ── Generate handler ───────────────────────────────────────────────────────
 
   const handleGenerateAiImage = useCallback(async (overwrite = false) => {
-    if (!tenantId) return
+    if (!tenantId || !section) return
     setAiImage({ loading: true, publicUrl: null, error: null, applied: false, imageCount: generateCount })
     setDebugInfo(null)
 
@@ -435,7 +432,7 @@ export function EditorSidebar() {
         applied:   false,
       })
     }
-  }, [section.id, tenantId, updateSectionContent, generateCount])
+  }, [section, tenantId, updateSectionContent, generateCount])
 
   const handleRegenerate = useCallback(() => {
     setAiImage({ loading: false, publicUrl: null, error: null, applied: false })
@@ -445,6 +442,9 @@ export function EditorSidebar() {
   const handleImageActivated = useCallback((url: string) => {
     setAiImage(prev => ({ ...prev, publicUrl: url, applied: true }))
   }, [])
+
+  if (!selectedSectionId) return null
+  if (!section) return null
 
   // ─────────────────────────────────────────────────────────────────────────
   return (

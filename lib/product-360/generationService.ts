@@ -185,7 +185,7 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
   // Old blueprints in the DB may be missing nested fields (e.g. subject.vessel),
   // which causes "Cannot read properties of undefined (reading 'vessel')" crashes
   // in the prompt builders.  normalizeSceneBlueprint deep-merges with safe defaults.
-  let blueprint = normalizeSceneBlueprint(pkg.scene_blueprint, subject, genConfig)
+  const blueprint = normalizeSceneBlueprint(pkg.scene_blueprint, subject, genConfig)
 
   const consistencyMode = (pkg.consistency_mode as string) ?? 'strict'
 
