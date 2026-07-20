@@ -1,15 +1,30 @@
 export const dynamic = 'force-dynamic'
 
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, ExternalLink } from 'lucide-react'
 import { getVanDamagePageScope } from '@/lib/server/van-damage/page-scope'
 import { getVanDamageServiceClient } from '@/lib/server/van-damage/supabase'
-import { StatusBadge } from '@/components/van-damage/StatusBadge'
-import { SignedDamageImage } from '@/components/van-damage/SignedDamageImage'
+import { InspectionExperience } from '@/components/van-damage/InspectionExperience'
+import type { BoundingBox } from '@/components/van-damage/inspection-types'
+
+export const metadata = { title: 'Van Damage Inspection — NexoraNow' }
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
+}
+
+function normalizeBoundingBox(value: unknown): BoundingBox | null {
+  const box = asRecord(value)
+  if ([box.x, box.y, box.width, box.height].every((item) => typeof item === 'number')) {
+    return { x: box.x as number, y: box.y as number, width: box.width as number, height: box.height as number }
+  }
+  return null
+}
 
 export default async function InspectionPage({
-  params, searchParams,
+  params,
+  searchParams,
 }: {
   params: Promise<{ inspectionId: string }>
   searchParams: Promise<{ businessId?: string }>
@@ -17,59 +32,108 @@ export default async function InspectionPage({
   const [{ inspectionId }, query] = await Promise.all([params, searchParams])
   const scope = await getVanDamagePageScope(query.businessId)
   if (!scope.businessId || !scope.tenantId) notFound()
+
   const db = getVanDamageServiceClient()
-  const inspectionResult = await db.from('van_damage_inspections').select('*')
-    .eq('id', inspectionId).eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId).maybeSingle()
-  if (!inspectionResult.data) notFound()
-  const inspection = inspectionResult.data
-  const [imagesResult, itemsResult, runsResult, jobResult] = await Promise.all([
-    db.from('van_damage_images').select('*').eq('inspection_id', inspectionId).eq('tenant_id', scope.tenantId).order('created_at'),
-    db.from('van_damage_items').select('*').eq('inspection_id', inspectionId).eq('tenant_id', scope.tenantId).order('severity'),
+  const { data: inspection } = await db.from('van_damage_inspections').select('*')
+    .eq('id', inspectionId)
+    .eq('tenant_id', scope.tenantId)
+    .eq('business_id', scope.businessId)
+    .maybeSingle()
+  if (!inspection) notFound()
+
+  const [
+    imagesResult,
+    itemsResult,
+    runsResult,
+    jobResult,
+    tenantResult,
+    vehicleResult,
+    channelResult,
+    integrationResult,
+    relatedResult,
+  ] = await Promise.all([
+    db.from('van_damage_images').select('*')
+      .eq('inspection_id', inspectionId).eq('tenant_id', scope.tenantId).order('created_at'),
+    db.from('van_damage_items').select('*')
+      .eq('inspection_id', inspectionId).eq('tenant_id', scope.tenantId).order('created_at'),
     ['owner', 'admin'].includes(scope.ctx.role)
-      ? db.from('van_damage_ai_runs').select('*').eq('inspection_id', inspectionId).eq('tenant_id', scope.tenantId).order('created_at', { ascending: false }).limit(1)
+      ? db.from('van_damage_ai_runs').select('*')
+        .eq('inspection_id', inspectionId).eq('tenant_id', scope.tenantId)
+        .order('created_at', { ascending: false }).limit(1)
       : Promise.resolve({ data: [] }),
-    db.from('van_damage_jobs').select('status, started_at, completed_at, attempt_count').eq('inspection_id', inspectionId).eq('tenant_id', scope.tenantId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    db.from('van_damage_jobs').select('*')
+      .eq('inspection_id', inspectionId).eq('tenant_id', scope.tenantId)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    db.from('tenants').select('name').eq('id', scope.tenantId).maybeSingle(),
+    inspection.van_id
+      ? db.from('vehicles').select('id, name, van_number, make, model, year, color, plate_number, vin, status, metadata')
+        .eq('id', inspection.van_id).eq('tenant_id', scope.tenantId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    inspection.slack_channel_id
+      ? db.from('van_slack_channels').select('slack_channel_name')
+        .eq('tenant_id', scope.tenantId).eq('slack_channel_id', inspection.slack_channel_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    inspection.slack_team_id
+      ? db.from('van_slack_integrations').select('slack_team_name')
+        .eq('tenant_id', scope.tenantId).eq('slack_team_id', inspection.slack_team_id)
+        .is('deleted_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      : Promise.resolve({ data: null }),
+    inspection.van_id
+      ? db.from('van_damage_inspections').select('id, status, damage_count, ai_confidence, created_at')
+        .eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId).eq('van_id', inspection.van_id)
+        .neq('id', inspectionId).order('created_at', { ascending: false }).limit(12)
+      : Promise.resolve({ data: [] }),
   ])
-  const images = imagesResult.data ?? []
-  const items = itemsResult.data ?? []
-  const aiRun = runsResult.data?.[0]
-  const parsedAnalysis = aiRun?.parsed_response && typeof aiRun.parsed_response === 'object' && !Array.isArray(aiRun.parsed_response)
-    ? aiRun.parsed_response as Record<string, unknown>
-    : null
-  const damageRating = typeof parsedAnalysis?.damageRating === 'number' ? parsedAnalysis.damageRating : null
-  const damageRatingLabel = typeof parsedAnalysis?.damageRatingLabel === 'string'
-    ? parsedAnalysis.damageRatingLabel.replaceAll('_', ' ')
-    : null
-  const damageRatingReason = typeof parsedAnalysis?.damageRatingReason === 'string'
-    ? parsedAnalysis.damageRatingReason
-    : null
+
   const slackUrl = inspection.slack_team_id && inspection.slack_channel_id && inspection.slack_message_ts
-    ? `https://app.slack.com/client/${inspection.slack_team_id}/${inspection.slack_channel_id}/${inspection.slack_message_ts.replace('.', '')}` : null
+    ? `https://app.slack.com/client/${inspection.slack_team_id}/${inspection.slack_channel_id}/${inspection.slack_message_ts.replace('.', '')}`
+    : null
 
-  return <div className="space-y-7">
-    <header><Link href={`/dashboard/damage-ai?businessId=${encodeURIComponent(scope.businessId)}`} className="inline-flex items-center text-sm text-white/45 hover:text-white"><ArrowLeft className="mr-2 h-4 w-4" />Inspections</Link><div className="mt-4 flex flex-wrap items-center gap-3"><h1 className="text-2xl font-bold text-white">{inspection.title || 'Van damage inspection'}</h1><StatusBadge status={inspection.status} /></div><p className="mt-1 text-sm text-white/35">Created {new Date(inspection.created_at).toLocaleString()} · {inspection.image_count} images · {inspection.damage_count} findings</p>{slackUrl && <a href={slackUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center text-sm text-fuchsia-300 hover:text-fuchsia-200">Open Slack message <ExternalLink className="ml-1.5 h-3.5 w-3.5" /></a>}</header>
+  const images = (imagesResult.data ?? []).map((image) => ({
+    id: image.id,
+    slack_file_id: image.slack_file_id,
+    content_type: image.content_type,
+    file_size_bytes: image.file_size_bytes,
+    width: image.width,
+    height: image.height,
+    image_role: image.image_role,
+    status: image.status,
+    created_at: image.created_at,
+    updated_at: image.updated_at,
+  }))
+  const items = (itemsResult.data ?? []).map((item) => ({
+    id: item.id,
+    image_id: item.image_id,
+    damage_type: item.damage_type,
+    vehicle_area: item.vehicle_area,
+    severity: item.severity,
+    confidence: item.confidence,
+    description: item.description,
+    repair_recommendation: item.repair_recommendation,
+    bounding_box: normalizeBoundingBox(item.bounding_box),
+    created_at: item.created_at,
+  }))
+  const aiRun = runsResult.data?.[0] ? {
+    ...runsResult.data[0],
+    input_summary: asRecord(runsResult.data[0].input_summary),
+    parsed_response: asRecord(runsResult.data[0].parsed_response),
+  } : null
 
-    <section className="grid gap-4 md:grid-cols-3">
-      <div className="rounded-xl border border-white/10 bg-graphite-800 p-5 md:col-span-2"><h2 className="text-sm font-semibold text-white">AI summary</h2><p className="mt-3 text-sm leading-6 text-white/60">{inspection.ai_summary || 'Analysis has not completed yet.'}</p></div>
-      <div className="rounded-xl border border-white/10 bg-graphite-800 p-5"><h2 className="text-sm font-semibold text-white">Confidence</h2><p className="mt-3 text-3xl font-semibold text-white">{inspection.ai_confidence == null ? '—' : `${Math.round(inspection.ai_confidence * 100)}%`}</p><p className="mt-1 text-xs text-white/35">Model: {inspection.ai_model || '—'}</p></div>
-    </section>
-
-    <section className="rounded-xl border border-white/10 bg-graphite-800 p-5">
-      <h2 className="text-sm font-semibold text-white">Damage rating</h2>
-      <div className="mt-3 flex flex-wrap items-end gap-3">
-        <p className="text-4xl font-semibold text-white">{damageRating == null ? '—' : `${damageRating}/3`}</p>
-        {damageRatingLabel && <p className="pb-1 text-sm capitalize text-white/55">{damageRatingLabel}</p>}
-      </div>
-      <p className="mt-3 text-sm leading-6 text-white/55">{damageRatingReason || 'No rating has been recorded yet.'}</p>
-      <p className="mt-3 text-xs text-white/35">0 no damage · 1 dirt/debris · 2 light scratches · 3 dents/damage</p>
-    </section>
-
-    <section><h2 className="mb-3 font-semibold text-white">Images</h2><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{images.length ? images.map((image) => <SignedDamageImage key={image.id} imageId={image.id} businessId={scope.businessId!} alt={`Inspection image ${image.slack_file_id ?? image.id}`} />) : <p className="text-sm text-white/35">No images recorded.</p>}</div></section>
-
-    <section className="rounded-xl border border-white/10 bg-graphite-800"><div className="border-b border-white/8 px-5 py-4"><h2 className="font-semibold text-white">Damage findings</h2></div>{items.length ? <div className="divide-y divide-white/8">{items.map((item) => <div key={item.id} className="grid gap-3 px-5 py-4 md:grid-cols-[1fr_auto]"><div><div className="flex flex-wrap items-center gap-2"><p className="font-medium capitalize text-white">{(item.damage_type || 'unknown').replaceAll('_', ' ')}</p><StatusBadge status={item.severity || 'unknown'} /></div><p className="mt-2 text-sm text-white/55">{item.description || 'No description supplied.'}</p>{item.repair_recommendation && <p className="mt-2 text-xs text-white/40">Recommendation: {item.repair_recommendation}</p>}</div><div className="text-right text-xs text-white/40"><p>{item.vehicle_area?.replaceAll('_', ' ') || 'unknown area'}</p><p className="mt-1">{item.confidence == null ? '—' : `${Math.round(item.confidence * 100)}% confidence`}</p></div></div>)}</div> : <p className="p-6 text-sm text-white/35">No structured damage findings.</p>}</section>
-
-    <section className="rounded-xl border border-white/10 bg-graphite-800 p-5"><h2 className="font-semibold text-white">Status timeline</h2><div className="mt-4 grid gap-3 text-sm text-white/50 sm:grid-cols-3"><div>Queued<br /><span className="text-xs text-white/30">{new Date(inspection.created_at).toLocaleString()}</span></div><div>Processing<br /><span className="text-xs text-white/30">{jobResult.data?.started_at ? new Date(jobResult.data.started_at).toLocaleString() : 'Waiting'}</span></div><div>Finished<br /><span className="text-xs text-white/30">{jobResult.data?.completed_at ? new Date(jobResult.data.completed_at).toLocaleString() : 'Waiting'}</span></div></div></section>
-
-    {aiRun && <details className="rounded-xl border border-white/10 bg-graphite-800 p-5"><summary className="cursor-pointer text-sm font-semibold text-white">Raw AI diagnostics (admin)</summary><pre className="mt-4 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-black/25 p-4 text-xs text-white/50">{JSON.stringify(aiRun, null, 2)}</pre></details>}
-  </div>
+  return <InspectionExperience
+    businessId={scope.businessId}
+    tenantName={tenantResult.data?.name || 'NexoraNow workspace'}
+    canManage={['owner', 'admin'].includes(scope.ctx.role)}
+    inspection={{ ...inspection, metadata: asRecord(inspection.metadata) }}
+    vehicle={vehicleResult.data ? { ...vehicleResult.data, metadata: asRecord(vehicleResult.data.metadata) } : null}
+    images={images}
+    items={items}
+    aiRun={aiRun}
+    job={jobResult.data ? { ...jobResult.data, payload: asRecord(jobResult.data.payload) } : null}
+    related={relatedResult.data ?? []}
+    slack={{
+      workspace: integrationResult.data?.slack_team_name ?? null,
+      channel: channelResult.data?.slack_channel_name ? `#${channelResult.data.slack_channel_name}` : null,
+      url: slackUrl,
+    }}
+  />
 }

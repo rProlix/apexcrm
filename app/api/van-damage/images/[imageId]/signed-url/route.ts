@@ -26,10 +26,16 @@ export async function GET(
   if (!image.s3_bucket || !image.s3_key) return NextResponse.json({ error: 'Image has not been uploaded yet' }, { status: 409 })
 
   const { region } = getVanDamageAwsEnv()
+  const download = request.nextUrl.searchParams.get('download') === '1'
   const url = await getSignedUrl(
     new S3Client({ region, maxAttempts: 2 }),
-    new GetObjectCommand({ Bucket: image.s3_bucket, Key: image.s3_key }),
+    new GetObjectCommand({
+      Bucket: image.s3_bucket,
+      Key: image.s3_key,
+      ...(download ? { ResponseContentDisposition: `attachment; filename="inspection-${image.id}"` } : {}),
+    }),
     { expiresIn: 60 },
   )
+  if (download) return NextResponse.redirect(url)
   return NextResponse.json({ url, expiresIn: 60 })
 }
