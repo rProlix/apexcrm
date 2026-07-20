@@ -3,16 +3,27 @@ import { GetQueueAttributesCommand, SQSClient } from '@aws-sdk/client-sqs'
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
 import { getTokenEncryptionKey } from '../../../lib/server/crypto/encrypt-token.js'
 import { getConfig } from './config.js'
+import { assertGeminiInitialized } from './gemini-damage-analysis.js'
+import { assertSlackClientInitialized } from './slack-client.js'
 import { SupabaseWorker } from './supabase-worker.js'
 
-type Check = { ok: boolean; detail?: string }
+export type HealthStatus = 'Healthy' | 'Warning' | 'Unhealthy'
+type Check = { ok: boolean; required: boolean; detail: string }
 
-async function check(name: string, fn: () => Promise<string | void>): Promise<[string, Check]> {
+async function check(
+  name: string,
+  required: boolean,
+  fn: () => Promise<string | void> | string | void,
+): Promise<[string, Check]> {
   try {
     const detail = await fn()
-    return [name, { ok: true, ...(detail ? { detail } : {}) }]
+    return [name, { ok: true, required, detail: detail || 'Connection verified' }]
   } catch (error) {
-    return [name, { ok: false, detail: error instanceof Error ? error.message : String(error) }]
+    return [name, {
+      ok: false,
+      required,
+      detail: error instanceof Error ? error.message : String(error),
+    }]
   }
 }
 
@@ -23,32 +34,55 @@ export async function runHealth() {
   const s3 = new S3Client({ region: config.awsRegion, maxAttempts: 2 })
   const supabase = new SupabaseWorker(config)
   const entries = await Promise.all([
-    check('awsIdentity', async () => {
+    check('awsIdentity', false, async () => {
       const identity = await sts.send(new GetCallerIdentityCommand({}))
-      return identity.Account ? `account ${identity.Account}` : undefined
+      return identity.Account ? `Authenticated to AWS account ${identity.Account}` : undefined
     }),
-    check('sqs', async () => {
+    check('sqs', true, async () => {
       await sqs.send(new GetQueueAttributesCommand({ QueueUrl: config.queueUrl, AttributeNames: ['QueueArn'] }))
+      return 'Queue attributes retrieved'
     }),
-    check('s3', async () => { await s3.send(new HeadBucketCommand({ Bucket: config.bucket })) }),
-    check('supabase', async () => {
+    check('s3', true, async () => {
+      await s3.send(new HeadBucketCommand({ Bucket: config.bucket }))
+      return 'Bucket is reachable'
+    }),
+    check('supabase', true, async () => {
       const contract = await supabase.checkSchemaCompatibility()
-      return `schema ${contract.version}`
+      return `Connected; schema ${contract.version}`
     }),
-    check('gemini', async () => { if (!config.geminiApiKey) throw new Error('GEMINI_API_KEY missing') }),
-    check('encryption', async () => { getTokenEncryptionKey(config.encryptionKey) }),
+    check('gemini', true, () => assertGeminiInitialized(config)),
+    check('slack', true, () => {
+      assertSlackClientInitialized()
+      getTokenEncryptionKey(config.encryptionKey)
+      return 'Client runtime and token decryption are initialized'
+    }),
   ])
   const checks = Object.fromEntries(entries)
-  const ok = entries.every(([, result]) => result.ok)
-  return { ok, checks }
+  const requiredFailures = entries.filter(([, result]) => result.required && !result.ok)
+  const warnings = entries.filter(([, result]) => !result.required && !result.ok)
+  const status: HealthStatus = requiredFailures.length
+    ? 'Unhealthy'
+    : warnings.length
+      ? 'Warning'
+      : 'Healthy'
+  const failures = requiredFailures.length ? requiredFailures : warnings
+  const reason = failures.length
+    ? failures.map(([name, result]) => `${name}: ${result.detail}`).join('; ')
+    : 'All required services and client initializations passed'
+  return { status, reason, ok: status !== 'Unhealthy', checks }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   runHealth().then((report) => {
     console.log(JSON.stringify(report, null, 2))
-    process.exitCode = report.ok ? 0 : 1
+    process.exitCode = report.status === 'Unhealthy' ? 1 : 0
   }).catch((error) => {
-    console.error(error instanceof Error ? error.message : String(error))
+    console.error(JSON.stringify({
+      status: 'Unhealthy',
+      reason: error instanceof Error ? error.message : String(error),
+      ok: false,
+      checks: {},
+    }, null, 2))
     process.exitCode = 1
   })
 }

@@ -14,6 +14,12 @@ const PROMPT_VERSION = 'van-damage-v1'
 
 export function getDamagePromptVersion() { return PROMPT_VERSION }
 
+export function assertGeminiInitialized(config: WorkerConfig) {
+  if (!config.geminiApiKey) throw new Error('Gemini API key is not configured')
+  if (!config.geminiModel) throw new Error('Gemini model is not configured')
+  return `model ${config.geminiModel}`
+}
+
 function reviewResult(warning: string): GeminiAnalysisResult {
   return {
     analysis: {

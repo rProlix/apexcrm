@@ -20,6 +20,12 @@ type SlackFileResponse = {
   }
 }
 
+export function assertSlackClientInitialized() {
+  if (typeof fetch !== 'function') throw new Error('Global fetch is unavailable')
+  if (typeof AbortSignal.timeout !== 'function') throw new Error('AbortSignal.timeout is unavailable')
+  return 'Slack Web API client ready'
+}
+
 async function fetchWithRateLimit(url: string | URL, init: RequestInit, attempts = 3): Promise<Response> {
   let response: Response | null = null
   for (let attempt = 0; attempt < attempts; attempt += 1) {

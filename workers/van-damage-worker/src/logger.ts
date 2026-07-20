@@ -1,5 +1,10 @@
 const TOKEN_PATTERN = /xox(?:a|b|p|r|s)-[A-Za-z0-9-]+/gi
 const SECRET_KEY_PATTERN = /(authorization|token|secret|api[_-]?key)\s*[=:]\s*[^\s,}]+/gi
+const LEVELS = { debug: 10, info: 20, warn: 30, error: 40 } as const
+
+export type LogLevel = keyof typeof LEVELS
+
+let configuredLevel: LogLevel = 'info'
 
 function redact(value: unknown): unknown {
   if (typeof value === 'string') {
@@ -15,7 +20,12 @@ function redact(value: unknown): unknown {
   return value
 }
 
-function write(level: string, message: string, context?: Record<string, unknown>) {
+export function initializeLogger(level: LogLevel) {
+  configuredLevel = level
+}
+
+function write(level: LogLevel, message: string, context?: Record<string, unknown>) {
+  if (LEVELS[level] < LEVELS[configuredLevel]) return
   const payload = { timestamp: new Date().toISOString(), level, message, ...(context ? redact(context) as object : {}) }
   const line = JSON.stringify(payload)
   if (level === 'error') console.error(line)

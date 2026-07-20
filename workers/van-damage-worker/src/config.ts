@@ -39,7 +39,12 @@ let cached: WorkerConfig | null = null
 
 export function getConfig(): WorkerConfig {
   if (cached) return cached
-  const env = schema.parse(process.env)
+  const env = schema.parse({
+    ...process.env,
+    VAN_DAMAGE_SQS_QUEUE_URL: process.env.SQS_QUEUE_URL ?? process.env.VAN_DAMAGE_SQS_QUEUE_URL,
+    VAN_DAMAGE_S3_BUCKET: process.env.S3_BUCKET ?? process.env.VAN_DAMAGE_S3_BUCKET,
+    GEMINI_API_KEY: process.env.GOOGLE_GEMINI_API_KEY ?? process.env.GEMINI_API_KEY,
+  })
   cached = {
     nodeEnv: env.NODE_ENV,
     awsRegion: env.AWS_REGION,

@@ -1,10 +1,10 @@
 # NexoraNow Van Damage Worker
 
-Standalone Node.js worker for the Van Damage AI Slack → S3 → Gemini pipeline. It is source-only in Phase 2 and is not deployed to EC2 by this change.
+Standalone Node.js worker for the Van Damage AI Slack → S3 → Gemini pipeline. Phase 3B runs this package continuously on EC2 under systemd; Slack events and SQS enqueueing remain on Vercel.
 
 ## Required environment
 
-`NODE_ENV`, `AWS_REGION`, `VAN_DAMAGE_SQS_QUEUE_URL`, `VAN_DAMAGE_S3_BUCKET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL`, and `SLACK_TOKEN_ENCRYPTION_KEY` are required. Never commit their values.
+`NODE_ENV`, `AWS_REGION`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SLACK_TOKEN_ENCRYPTION_KEY` are required. Queue, bucket, and Gemini credentials accept the production names `SQS_QUEUE_URL`, `S3_BUCKET`, and `GOOGLE_GEMINI_API_KEY`; the original `VAN_DAMAGE_SQS_QUEUE_URL`, `VAN_DAMAGE_S3_BUCKET`, and `GEMINI_API_KEY` names remain supported for backward compatibility. Never commit real values.
 
 Optional tuning variables are `VAN_DAMAGE_WORKER_CONCURRENCY` (default `3`), `VAN_DAMAGE_VISIBILITY_TIMEOUT_SECONDS` (default `300`), `VAN_DAMAGE_MAX_IMAGE_BYTES` (default `20971520`), `VAN_DAMAGE_MAX_GEMINI_RAW_BYTES` (default `12582912`), and `LOG_LEVEL`.
 
@@ -27,27 +27,26 @@ npm run dev
 
 The development-only enqueue utility is built as a separate entry point. Run `npx tsx scripts/enqueue-test-job.ts` with real test row IDs. It refuses production use unless `ALLOW_WORKER_TEST_ENQUEUE=true` is explicitly set and never runs automatically.
 
-## Later EC2 deployment
+## EC2 deployment
 
-Phase 3 should build an artifact, copy only `dist`, this manifest/lockfile, and production dependencies to EC2, provide environment variables outside Git, and run `node dist/index.js` under a restricted systemd user. The built health command is `node dist/health.js`. Configure restart limits, CloudWatch/journald collection, SQS visibility timeout and DLQ redrive before enabling Slack events. No EC2 deployment is part of Phase 2.
+From a complete repository checkout on the EC2 host:
 
-Illustrative Phase 3 unit (do not install it during Phase 2):
+```bash
+sudo deploy/ec2/install-worker.sh
+sudoedit /etc/nexoranow/van-damage-worker.env
+sudo deploy/ec2/deploy-worker.sh
+```
 
-```ini
-[Unit]
-Description=NexoraNow Van Damage Worker
-After=network-online.target
+The installer provisions Node LTS, Git, AWS CLI, the `nexoranow` system account, directories, environment file, and systemd unit. The deployment script stops the service, backs up the current release, builds in isolation, installs production dependencies, verifies both built entrypoints, swaps releases, starts and enables the service, and restores the previous release if deployment fails.
 
-[Service]
-Type=simple
-User=nexoranow-worker
-WorkingDirectory=/opt/nexoranow/van-damage-worker
-EnvironmentFile=/etc/nexoranow/van-damage-worker.env
-ExecStart=/usr/bin/node /opt/nexoranow/van-damage-worker/dist/index.js
-Restart=on-failure
-RestartSec=5
-NoNewPrivileges=true
+Run the detailed health report with the service environment loaded:
 
-[Install]
-WantedBy=multi-user.target
+```bash
+sudo -u nexoranow bash -c 'set -a; source /etc/nexoranow/van-damage-worker.env; cd /opt/nexoranow/van-damage-worker; exec /usr/bin/node dist/health.js'
+```
+
+It returns `Healthy`, `Warning`, or `Unhealthy` and verifies Supabase, SQS, S3, Gemini initialization, and Slack client initialization. Worker logs are structured JSON in journald:
+
+```bash
+journalctl -u van-damage-worker.service -f
 ```

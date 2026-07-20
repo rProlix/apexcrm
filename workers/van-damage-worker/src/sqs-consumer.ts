@@ -7,7 +7,20 @@ import {
 } from '@aws-sdk/client-sqs'
 import type { WorkerConfig } from './config.js'
 import { logger } from './logger.js'
-import { processMessageBody, type ProcessResult } from './process-job.js'
+import { processMessageBody, type JobRuntimeMetadata, type ProcessResult } from './process-job.js'
+
+function messageIdentifiers(body: string) {
+  try {
+    const value = JSON.parse(body) as Record<string, unknown>
+    return {
+      ...(typeof value.jobId === 'string' ? { jobId: value.jobId } : {}),
+      ...(typeof value.inspectionId === 'string' ? { inspectionId: value.inspectionId } : {}),
+      ...(typeof value.tenantId === 'string' ? { tenantId: value.tenantId } : {}),
+    }
+  } catch {
+    return {}
+  }
+}
 
 export class VanDamageSqsConsumer {
   private client: SQSClient
@@ -15,7 +28,8 @@ export class VanDamageSqsConsumer {
 
   constructor(
     private config: WorkerConfig,
-    private processor: (body: string) => Promise<ProcessResult> = processMessageBody,
+    private processor: (body: string, metadata?: JobRuntimeMetadata) => Promise<ProcessResult> =
+      (body, metadata) => processMessageBody(body, undefined, metadata),
   ) {
     this.client = new SQSClient({ region: config.awsRegion, maxAttempts: 3 })
   }
@@ -50,6 +64,18 @@ export class VanDamageSqsConsumer {
       logger.warn('SQS message missing body or receipt handle', { messageId: message.MessageId })
       return
     }
+    const receiveCount = Number(message.Attributes?.ApproximateReceiveCount ?? '1')
+    const metadata: JobRuntimeMetadata = {
+      sqsMessageId: message.MessageId,
+      receiveCount: Number.isFinite(receiveCount) ? receiveCount : 1,
+      retryCount: Number.isFinite(receiveCount) ? Math.max(receiveCount - 1, 0) : 0,
+    }
+    logger.info('SQS queue receive', {
+      ...messageIdentifiers(message.Body),
+      messageId: message.MessageId,
+      receiveCount: metadata.receiveCount,
+      retryCount: metadata.retryCount,
+    })
     const intervalMs = Math.max(30, Math.floor(this.config.visibilityTimeoutSeconds / 2)) * 1000
     const heartbeat = setInterval(() => {
       void this.client.send(new ChangeMessageVisibilityCommand({
@@ -64,12 +90,23 @@ export class VanDamageSqsConsumer {
     heartbeat.unref()
 
     try {
-      const result = await this.processor(message.Body)
+      const result = await this.processor(message.Body, metadata)
       if (result === 'success') {
         await this.client.send(new DeleteMessageCommand({
           QueueUrl: this.config.queueUrl,
           ReceiptHandle: message.ReceiptHandle,
         }))
+        logger.info('SQS message deleted', {
+          ...messageIdentifiers(message.Body),
+          messageId: message.MessageId,
+          retryCount: metadata.retryCount,
+        })
+      } else {
+        logger.warn('SQS message retained for retry', {
+          ...messageIdentifiers(message.Body),
+          messageId: message.MessageId,
+          retryCount: metadata.retryCount,
+        })
       }
     } finally {
       clearInterval(heartbeat)
