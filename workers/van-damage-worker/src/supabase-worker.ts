@@ -208,7 +208,7 @@ export class SupabaseWorker {
   }) {
     const items = input.analysis.items.map((item) => ({
       imageId: input.imageIds[item.imageIndex] ?? null,
-      damageType: item.damageType,
+      damageType: item.damageType === 'dirt_debris' ? 'unknown' : item.damageType,
       vehicleArea: item.vehicleArea,
       severity: item.severity,
       confidence: item.confidence,
@@ -217,7 +217,7 @@ export class SupabaseWorker {
       estimatedCostMin: item.estimatedCostMin,
       estimatedCostMax: item.estimatedCostMax,
       boundingBox: item.boundingBox,
-      metadata: { imageIndex: item.imageIndex },
+      metadata: { imageIndex: item.imageIndex, originalDamageType: item.damageType },
     }))
     const { error } = await this.db.rpc('complete_van_damage_job', {
       p_job_id: input.job.jobId,
