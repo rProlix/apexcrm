@@ -6,6 +6,15 @@ function required(name: string, missing: Missing): string {
   return value ?? ''
 }
 
+function requiredAny(names: string[], missing: Missing): string {
+  for (const name of names) {
+    const value = process.env[name]?.trim()
+    if (value) return value
+  }
+  missing.push(names.join(' or '))
+  return ''
+}
+
 function finish<T>(feature: string, missing: Missing, value: T): T {
   if (missing.length) {
     throw new Error(`[Van Damage AI:${feature}] Missing server environment variables: ${missing.join(', ')}`)
@@ -38,14 +47,14 @@ export function getSlackEventsEnv() {
 export function getVanDamageAwsEnv() {
   const missing: Missing = []
   const region = required('AWS_REGION', missing)
-  const queueUrl = required('VAN_DAMAGE_SQS_QUEUE_URL', missing)
-  const bucket = required('VAN_DAMAGE_S3_BUCKET', missing)
+  const queueUrl = requiredAny(['VAN_DAMAGE_SQS_QUEUE_URL', 'SQS_QUEUE_URL'], missing)
+  const bucket = requiredAny(['VAN_DAMAGE_S3_BUCKET', 'S3_BUCKET'], missing)
   return finish('aws', missing, { region, queueUrl, bucket })
 }
 
 export function getVanDamageGeminiEnv() {
   const missing: Missing = []
-  const apiKey = required('GEMINI_API_KEY', missing)
+  const apiKey = requiredAny(['GEMINI_API_KEY', 'GOOGLE_GEMINI_API_KEY'], missing)
   const model = process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash'
   return finish('gemini', missing, { apiKey, model })
 }
@@ -54,13 +63,13 @@ export function getVanDamageConfigPresence() {
   const present = (name: string) => Boolean(process.env[name]?.trim())
   return {
     awsRegion: present('AWS_REGION'),
-    sqsQueue: present('VAN_DAMAGE_SQS_QUEUE_URL'),
-    s3Bucket: present('VAN_DAMAGE_S3_BUCKET'),
+    sqsQueue: present('VAN_DAMAGE_SQS_QUEUE_URL') || present('SQS_QUEUE_URL'),
+    s3Bucket: present('VAN_DAMAGE_S3_BUCKET') || present('S3_BUCKET'),
     slackOAuth: present('SLACK_CLIENT_ID') && present('SLACK_CLIENT_SECRET'),
     slackSigning: present('SLACK_SIGNING_SECRET'),
     tokenEncryption: present('SLACK_TOKEN_ENCRYPTION_KEY'),
     supabase: (present('SUPABASE_URL') || present('NEXT_PUBLIC_SUPABASE_URL')) && present('SUPABASE_SERVICE_ROLE_KEY'),
-    gemini: present('GEMINI_API_KEY'),
+    gemini: present('GEMINI_API_KEY') || present('GOOGLE_GEMINI_API_KEY'),
     geminiModel: process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash',
   }
 }
