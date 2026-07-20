@@ -24,6 +24,28 @@ test('damage parser validates the strict Gemini response', () => {
   assert.equal(result.data?.damageRating, 2)
 })
 
+test('damage parser normalizes Gemini 0-1000 bounding boxes', () => {
+  const result = parseDamageAnalysis(JSON.stringify({
+    summary: 'Dent on bumper', overallConfidence: 0.86, damageRating: 3,
+    damageRatingLabel: 'dents_or_damage', damageRatingReason: 'A dent is visible on the rear bumper.',
+    damageCount: 1, vehicleCondition: 'fair',
+    items: [{ imageIndex: 0, damageType: 'dent', vehicleArea: 'rear_bumper', severity: 'high', confidence: 0.86,
+      description: 'Rear bumper dent', repairRecommendation: 'Inspect and repair bumper', estimatedCostMin: null,
+      estimatedCostMax: null, boundingBox: { x: 830, y: 720, width: 240, height: 180 } }],
+    needsHumanReview: false, warnings: [],
+  }))
+  assert.equal(result.error, null)
+  assert.equal(result.data?.damageRating, 3)
+  const box = result.data?.items[0]?.boundingBox
+  assert.ok(box)
+  assert.equal(box.x, 0.83)
+  assert.equal(box.y, 0.72)
+  assert.ok(box.width <= 0.17 + Number.EPSILON)
+  assert.ok(box.height <= 0.18 + Number.EPSILON)
+  assert.ok(box.x + box.width <= 1)
+  assert.ok(box.y + box.height <= 1)
+})
+
 test('S3 original keys are deterministic and sanitize filenames', () => {
   assert.equal(safeFileName('../../bad name?.jpg'), 'bad-name-.jpg')
   const key = buildOriginalKey({ tenantId: 'tenant', businessId: 'business', inspectionId: 'inspection', slackFileId: 'F1', fileName: 'van photo.jpg' })
