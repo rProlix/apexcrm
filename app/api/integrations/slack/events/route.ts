@@ -204,19 +204,6 @@ export async function POST(request: NextRequest) {
     username: driver.username ?? null,
     avatarUrl: driver.avatarUrl ?? null,
   }
-  if (event.userId) {
-    await (db as never as { from: (table: string) => { upsert: (value: unknown, options: unknown) => Promise<unknown> } }).from('van_slack_user_profiles').upsert({
-      tenant_id: integration.tenant_id,
-      business_id: integration.business_id,
-      slack_team_id: event.teamId,
-      slack_user_id: event.userId,
-      display_name: jobDriver.displayName,
-      real_name: jobDriver.realName,
-      username: jobDriver.username,
-      avatar_url: jobDriver.avatarUrl,
-      last_resolved_at: new Date().toISOString(),
-    }, { onConflict: 'tenant_id,slack_team_id,slack_user_id' })
-  }
 
   const uploadSourceKey = `${integration.tenant_id}:${event.teamId}:${event.channelId}:${event.messageTs}`
   const ingestResult = await ingestSlackEvent({

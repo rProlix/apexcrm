@@ -31,6 +31,10 @@ The Slack message uploader is treated as the driver for that upload session. The
 
 Profile lookup is server-side only, uses the encrypted bot token, and is nonblocking. If lookup fails, processing continues with the Slack user ID. Display fallback order is display name, real name, username, shortened Slack ID, then `Unknown driver`.
 
+Each uploader also has one durable `van_slack_user_profiles` row per tenant and Slack workspace. Database triggers create or refresh that profile in the same transaction that creates the inspection and upload session. Both records store `driver_profile_id`, while their JSON snapshot preserves the uploader name as it appeared at upload time. `van_driver_daily_activity` provides the driver-to-van relationship grouped by UTC calendar day; individual upload sessions remain available for exact timestamps and same-day shift history.
+
+The driver attribution migration backfills pre-Phase-3D Slack inspections, creates their upload sessions, links their existing images, and associates the detected van. This means existing Slack inspection history is not lost when the durable driver model is enabled.
+
 ## Upload-session boundaries
 
 One Slack message equals one upload session, even when the message contains multiple images. The stable source key is:

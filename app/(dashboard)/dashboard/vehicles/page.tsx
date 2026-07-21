@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { Car, Wrench, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react'
+import { Car, Wrench, CheckCircle2, AlertTriangle, ArrowRight, UserRound } from 'lucide-react'
 import { requirePermission } from '@/lib/auth/requirePermission'
 import { guardModuleAccess } from '@/lib/modules/guardModuleAccess'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -59,9 +59,14 @@ export default async function VehiclesPage() {
 
   return (
     <div className="p-6 space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Vehicles</h1>
-        <p className="text-sm text-white/40 mt-1">Manage your vehicle fleet</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Vehicles</h1>
+          <p className="text-sm text-white/40 mt-1">Manage your vehicle fleet</p>
+        </div>
+        <Link href={`/dashboard/vehicles/drivers?businessId=${encodeURIComponent(tenantId)}`} className="focus-ring inline-flex items-center rounded-xl border border-white/10 bg-white/[.03] px-4 py-2.5 text-sm text-white/65 transition hover:border-gold-400/30 hover:text-white">
+          <UserRound className="mr-2 h-4 w-4" />Driver profiles
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
