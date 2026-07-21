@@ -4,6 +4,7 @@ import { verifySlackSignature } from '@/lib/server/slack/signature'
 import {
   normalizeSlackImageEvent,
   sanitizeSlackEvent,
+  type NormalizedSlackImageEvent,
   type SlackEventEnvelope,
 } from '@/lib/server/slack/events'
 import { getSlackUserInfo } from '@/lib/server/slack/api'
@@ -16,6 +17,21 @@ import type { Json } from '@/lib/supabase/types'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+type SlackIngestRow = {
+  event_row_id?: string
+  inspection_row_id?: string
+  job_row_id?: string
+  upload_session_row_id?: string
+  was_created?: boolean
+  existing_sqs_message_id?: string | null
+}
+
+type SlackIngestResult = {
+  rows: SlackIngestRow[] | null
+  error: { message: string } | null
+  usedPhase3dSchema: boolean
+}
 
 async function resolveDriverSnapshot(input: {
   token: string
@@ -64,6 +80,61 @@ async function auditIgnored(payload: SlackEventEnvelope, reason: string) {
     raw_event: sanitizeSlackEvent(payload) as Json,
     status: `ignored_${reason}`.slice(0, 80),
   }, { onConflict: 'slack_event_id', ignoreDuplicates: true })
+}
+
+function slackFilesForRpc(event: NormalizedSlackImageEvent) {
+  return event.files.map((file) => ({
+    id: file.id,
+    name: file.name,
+    mimetype: file.mimetype,
+    size: file.size,
+    width: file.width,
+    height: file.height,
+    url: file.url,
+    fileAccess: file.fileAccess,
+  })) as Json
+}
+
+async function ingestSlackEvent(input: {
+  db: ReturnType<typeof getVanDamageServiceClient>
+  integrationId: string
+  event: NormalizedSlackImageEvent
+  payload: SlackEventEnvelope
+  title: string
+  driver: Record<string, unknown>
+  uploadSourceKey: string
+}): Promise<SlackIngestResult> {
+  const baseArgs = {
+    p_integration_id: input.integrationId,
+    p_slack_event_id: input.event.eventId,
+    p_slack_event_type: input.event.eventType,
+    p_slack_channel_id: input.event.channelId,
+    p_slack_user_id: input.event.userId,
+    p_raw_event: sanitizeSlackEvent(input.payload) as Json,
+    p_slack_message_ts: input.event.messageTs,
+    p_slack_thread_ts: input.event.threadTs,
+    p_title: input.title,
+    p_files: slackFilesForRpc(input.event),
+  }
+  const phase3d = await input.db.rpc('ingest_van_damage_slack_event', {
+    ...baseArgs,
+    p_driver_profile: input.driver as Json,
+    p_upload_source_key: input.uploadSourceKey,
+  })
+  if (!phase3d.error) return { rows: phase3d.data as SlackIngestRow[] | null, error: null, usedPhase3dSchema: true }
+
+  const message = phase3d.error.message ?? ''
+  const migrationLikelyMissing = /p_driver_profile|p_upload_source_key|function .*ingest_van_damage_slack_event|schema cache|Could not find/i.test(message)
+  if (!migrationLikelyMissing) {
+    return { rows: null, error: { message }, usedPhase3dSchema: true }
+  }
+
+  const legacy = await input.db.rpc('ingest_van_damage_slack_event', baseArgs)
+  return {
+    rows: legacy.data as SlackIngestRow[] | null,
+    error: legacy.error ? { message: legacy.error.message } : null,
+    usedPhase3dSchema: false,
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -147,29 +218,18 @@ export async function POST(request: NextRequest) {
     }, { onConflict: 'tenant_id,slack_team_id,slack_user_id' })
   }
 
-  const { data: ingestRows, error: ingestError } = await db.rpc('ingest_van_damage_slack_event', {
-    p_integration_id: integration.id,
-    p_slack_event_id: event.eventId,
-    p_slack_event_type: event.eventType,
-    p_slack_channel_id: event.channelId,
-    p_slack_user_id: event.userId,
-    p_raw_event: sanitizeSlackEvent(payload) as Json,
-    p_slack_message_ts: event.messageTs,
-    p_slack_thread_ts: event.threadTs,
-    p_title: event.text.trim().slice(0, 200) || 'Slack van damage inspection',
-    p_driver_profile: jobDriver as Json,
-    p_upload_source_key: `${integration.tenant_id}:${event.teamId}:${event.channelId}:${event.messageTs}`,
-    p_files: event.files.map((file) => ({
-      id: file.id,
-      name: file.name,
-      mimetype: file.mimetype,
-      size: file.size,
-      width: file.width,
-      height: file.height,
-      url: file.url,
-      fileAccess: file.fileAccess,
-    })) as Json,
+  const uploadSourceKey = `${integration.tenant_id}:${event.teamId}:${event.channelId}:${event.messageTs}`
+  const ingestResult = await ingestSlackEvent({
+    db,
+    integrationId: integration.id,
+    event,
+    payload,
+    title: event.text.trim().slice(0, 200) || 'Slack van damage inspection',
+    driver: jobDriver,
+    uploadSourceKey,
   })
+  const ingestRows = ingestResult.rows
+  const ingestError = ingestResult.error
   const ingest = ingestRows?.[0]
   if (ingestError || !ingest?.job_row_id || !ingest.inspection_row_id) {
     return NextResponse.json({ error: 'Unable to persist Slack event' }, { status: 503 })
@@ -194,8 +254,8 @@ export async function POST(request: NextRequest) {
     slackEventId: event.eventId,
     slackMessageText,
     slackFileIds: event.files.map((file) => file.id),
-    uploadSessionId: (ingest as { upload_session_row_id?: string }).upload_session_row_id,
-    uploadSourceKey: `${integration.tenant_id}:${event.teamId}:${event.channelId}:${event.messageTs}`,
+    uploadSessionId: ingest.upload_session_row_id,
+    uploadSourceKey,
     slackUploadIso: slackTsToIso(event.messageTs),
     slackDriver: jobDriver,
     createdAt: new Date().toISOString(),
@@ -207,9 +267,13 @@ export async function POST(request: NextRequest) {
       metadata: {
         slackEventId: event.eventId,
         slackMessageText,
-        driver: jobDriver,
-        uploadSourceKey: job.uploadSourceKey,
-        slackUploadIso: job.slackUploadIso,
+        ...(ingestResult.usedPhase3dSchema ? {
+          driver: jobDriver,
+          uploadSourceKey: job.uploadSourceKey,
+          slackUploadIso: job.slackUploadIso,
+        } : {
+          phase3dMigrationPending: true,
+        }),
       } as Json,
     }).eq('id', job.inspectionId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId),
   ])
