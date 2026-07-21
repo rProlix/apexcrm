@@ -12,7 +12,14 @@ import {
 } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { DamageImageGallery } from './DamageImageGallery'
+import { FordTransit2019DamageMap } from './FordTransit2019DamageMap'
 import type { DamageImage, DamageItem } from './inspection-types'
+import {
+  getTransitViewForRegion,
+  resolveItemTransitRegion,
+  transitRegionMatches,
+  type TransitView,
+} from '@/lib/van-damage/transit-blueprint'
 
 type RecordValue = Record<string, unknown>
 type RelatedInspection = { id: string; status: string; damage_count: number; ai_confidence: number | null; created_at: string }
@@ -99,6 +106,8 @@ export function InspectionExperience(props: InspectionExperienceProps) {
   const [query, setQuery] = useState('')
   const [severityFilter, setSeverityFilter] = useState('all')
   const [areaFilter, setAreaFilter] = useState('all')
+  const [mapView, setMapView] = useState<TransitView>('passenger')
+  const [mapAnnouncement, setMapAnnouncement] = useState('')
   const [sortBy, setSortBy] = useState<'severity' | 'confidence' | 'newest'>('severity')
   const [bookmarked, setBookmarked] = useState(false)
   const [favorite, setFavorite] = useState(false)
@@ -123,12 +132,15 @@ export function InspectionExperience(props: InspectionExperienceProps) {
   const reviewDuration = formatDuration(inspection.created_at, inspection.reviewed_at)
   const slackToReadyDuration = formatDuration(inspection.created_at, inspection.completed_at || aiRun?.completed_at)
   const severityOptions = uniqueTexts(items.map((item) => item.severity))
-  const areaOptions = uniqueTexts(items.map((item) => item.vehicle_area))
+  const areaOptions = useMemo(
+    () => uniqueTexts(items.map((item) => resolveItemTransitRegion(item))),
+    [items],
+  )
   const filteredItems = useMemo(() => {
     const lowerQuery = query.trim().toLowerCase()
     return [...items]
       .filter((item) => severityFilter === 'all' || item.severity === severityFilter)
-      .filter((item) => areaFilter === 'all' || item.vehicle_area === areaFilter)
+      .filter((item) => areaFilter === 'all' || transitRegionMatches(areaFilter, item))
       .filter((item) => {
         if (!lowerQuery) return true
         return [item.damage_type, item.vehicle_area, item.severity, item.description, item.repair_recommendation]
@@ -145,14 +157,54 @@ export function InspectionExperience(props: InspectionExperienceProps) {
     await navigator.clipboard?.writeText(value).catch(() => undefined)
   }, [])
 
+  const selectMapRegion = useCallback((regionId: string | null, view: TransitView, imageId?: string | null) => {
+    setMapView(view)
+    setAreaFilter(regionId ?? 'all')
+    setMapAnnouncement(regionId ? `${humanize(regionId)} selected in the ${humanize(view)} view.` : 'Vehicle region selection cleared.')
+    if (imageId) window.dispatchEvent(new CustomEvent('van-damage:focus-image', { detail: imageId }))
+    if (window.location.hash.startsWith('#damage-region-') || regionId) {
+      const nextUrl = `${window.location.pathname}${window.location.search}${regionId ? `#damage-region-${regionId}` : ''}`
+      window.history.replaceState(null, '', nextUrl)
+    }
+  }, [])
+
+  const focusFindingOnMap = useCallback((item: DamageItem, scroll = true) => {
+    const regionId = resolveItemTransitRegion(item)
+    if (regionId) {
+      setMapView(getTransitViewForRegion(regionId))
+      setAreaFilter(regionId)
+      setMapAnnouncement(`${humanize(regionId)} selected for ${humanize(item.damage_type)}.`)
+    }
+    if (item.image_id) window.dispatchEvent(new CustomEvent('van-damage:focus-image', { detail: item.image_id }))
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#finding-${item.id}`)
+    if (scroll) document.getElementById('vehicle-damage-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [])
+
   useEffect(() => {
     setBookmarked(localStorage.getItem(`vanDamageBookmark:${inspection.id}`) === '1')
     setFavorite(localStorage.getItem(`vanDamageFavorite:${inspection.id}`) === '1')
     const hash = window.location.hash.replace('#', '')
     if (hash.startsWith('finding-')) {
       document.getElementById(hash)?.scrollIntoView({ block: 'center' })
+      const item = items.find((candidate) => candidate.id === hash.slice('finding-'.length))
+      if (item) focusFindingOnMap(item, false)
     }
-  }, [inspection.id])
+    if (hash.startsWith('damage-region-')) {
+      const regionId = hash.slice('damage-region-'.length)
+      setAreaFilter(regionId)
+      setMapView(getTransitViewForRegion(regionId))
+    }
+  }, [focusFindingOnMap, inspection.id, items])
+
+  useEffect(() => {
+    const selectFinding = (event: Event) => {
+      const findingId = (event as CustomEvent<string>).detail
+      const item = items.find((candidate) => candidate.id === findingId)
+      if (item) focusFindingOnMap(item)
+    }
+    window.addEventListener('van-damage:select-finding', selectFinding)
+    return () => window.removeEventListener('van-damage:select-finding', selectFinding)
+  }, [focusFindingOnMap, items])
 
   useEffect(() => {
     if (!processing) return
@@ -328,10 +380,21 @@ export function InspectionExperience(props: InspectionExperienceProps) {
           <DamageImageGallery images={images} items={items} businessId={props.businessId} />
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.05fr_.95fr]">
-          <VehicleDiagram items={items} images={images} selectedArea={areaFilter} onSelectArea={setAreaFilter} />
+        <section id="vehicle-damage-map" className="grid scroll-mt-24 gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,.55fr)]">
+          <FordTransit2019DamageMap
+            vehicle={vehicle}
+            items={items}
+            images={images}
+            activeView={mapView}
+            selectedRegion={areaFilter === 'all' ? null : areaFilter}
+            inspectionNeedsReview={needsReview}
+            lifecycle={lifecycle}
+            onViewChange={setMapView}
+            onSelectRegion={selectMapRegion}
+          />
           <SeverityPanel items={items} active={severityKey} />
         </section>
+        <p className="sr-only" aria-live="polite">{mapAnnouncement}</p>
 
         <section className="overflow-hidden rounded-2xl border border-white/10 bg-graphite-800">
           <div className="flex flex-col gap-4 border-b border-white/8 px-5 py-4 md:px-6 xl:flex-row xl:items-center xl:justify-between">
@@ -339,7 +402,11 @@ export function InspectionExperience(props: InspectionExperienceProps) {
             <div className="no-print flex flex-wrap gap-2">
               <label className="focus-within:focus-ring flex min-w-48 items-center rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-white/55"><Search className="mr-2 h-3.5 w-3.5 text-white/30" /><input id="finding-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search findings" className="w-full bg-transparent outline-none placeholder:text-white/25" /></label>
               <label className="flex items-center rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-white/55"><Filter className="mr-2 h-3.5 w-3.5 text-white/30" /><select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)} className="bg-transparent capitalize outline-none"><option value="all">All severity</option>{severityOptions.map((option) => <option key={option} value={option}>{humanize(option)}</option>)}</select></label>
-              <label className="flex items-center rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-white/55"><MapPin className="mr-2 h-3.5 w-3.5 text-white/30" /><select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)} className="bg-transparent capitalize outline-none"><option value="all">All areas</option>{areaOptions.map((option) => <option key={option} value={option}>{humanize(option)}</option>)}</select></label>
+              <label className="flex items-center rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-white/55"><MapPin className="mr-2 h-3.5 w-3.5 text-white/30" /><select value={areaFilter} onChange={(event) => {
+                const regionId = event.target.value
+                setAreaFilter(regionId)
+                if (regionId !== 'all') setMapView(getTransitViewForRegion(regionId))
+              }} className="bg-transparent capitalize outline-none"><option value="all">All areas</option>{areaOptions.map((option) => <option key={option} value={option}>{humanize(option)}</option>)}</select></label>
               <label className="flex items-center rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-white/55"><ArrowUpDownIcon /><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="bg-transparent outline-none"><option value="severity">Severity</option><option value="confidence">Confidence</option><option value="newest">Newest</option></select></label>
             </div>
           </div>
@@ -359,6 +426,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
               <p className="text-xs capitalize text-white/45">{humanize(item.vehicle_area)}</p>
               <p className="mt-1 text-xs text-white/30">{confidenceLabel(item.confidence)}{item.confidence == null ? '' : ` · ${Math.round(item.confidence * 100)}%`}</p>
               <div className="mt-3 flex flex-wrap gap-2 md:justify-end">
+                {resolveItemTransitRegion(item) && <button onClick={() => focusFindingOnMap(item)} className="focus-ring rounded-lg text-xs text-sky-300 hover:text-sky-200">Show on map</button>}
                 {item.image_id && <button onClick={() => window.dispatchEvent(new CustomEvent('van-damage:focus-image', { detail: item.image_id }))} className="focus-ring rounded-lg text-xs text-gold-300 hover:text-gold-200">View image</button>}
                 <button onClick={() => copyText(`${window.location.href.split('#')[0]}#finding-${item.id}`)} className="focus-ring inline-flex items-center rounded-lg text-xs text-white/35 hover:text-white"><Link2 className="mr-1 h-3 w-3" />Copy link</button>
               </div>
@@ -486,43 +554,6 @@ function repairPriority(severity: keyof typeof severityPresentation) {
 }
 function VanIllustration() {
   return <svg viewBox="0 0 140 90" className="h-20 w-24 text-white/25" aria-label="Vehicle placeholder"><path d="M17 51l8-22c2-6 7-9 13-9h52c8 0 14 3 18 10l12 21 9 5v18h-11a12 12 0 01-23 0H48a12 12 0 01-23 0H12V58c0-4 2-6 5-7z" fill="currentColor" opacity=".28" /><path d="M35 27h28v22H27l8-22zm34 0h20c6 0 10 2 13 8l8 14H69V27z" fill="currentColor" opacity=".7" /><circle cx="36" cy="73" r="8" fill="#0d0d0f" stroke="currentColor" strokeWidth="4" /><circle cx="106" cy="73" r="8" fill="#0d0d0f" stroke="currentColor" strokeWidth="4" /></svg>
-}
-
-function VehicleDiagram({
-  items,
-  images,
-  selectedArea,
-  onSelectArea,
-}: {
-  items: DamageItem[]
-  images: DamageImage[]
-  selectedArea: string
-  onSelectArea: (area: string) => void
-}) {
-  const areas = [
-    { key: 'front_bumper', label: 'Front', x: '42%', y: '7%' },
-    { key: 'rear_bumper', label: 'Rear', x: '42%', y: '81%' },
-    { key: 'driver_side', label: 'Driver', x: '6%', y: '43%' },
-    { key: 'passenger_side', label: 'Passenger', x: '72%', y: '43%' },
-    { key: 'roof', label: 'Roof', x: '43%', y: '42%' },
-  ]
-  return <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
-    <div className="flex items-start justify-between gap-4"><div><h2 className="font-semibold text-white">Vehicle damage map</h2><p className="mt-1 text-xs text-white/35">Select a region to filter findings and jump to supporting photos.</p></div>{selectedArea !== 'all' && <button onClick={() => onSelectArea('all')} className="focus-ring no-print rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/45 hover:bg-white/5 hover:text-white">Clear</button>}</div>
-    <div className="relative mx-auto mt-5 aspect-[1.7/1] max-w-md">
-      <svg viewBox="0 0 320 190" className="h-full w-full text-white/12" aria-labelledby="vehicle-map-title" role="img"><title id="vehicle-map-title">Vehicle map showing selectable damage regions</title><path d="M83 22h154l32 38v84l-28 25H79l-28-25V60L83 22z" fill="currentColor" stroke="rgba(255,255,255,.18)" strokeWidth="2" /><path d="M96 50h128l20 25v44l-19 26H95l-19-26V75l20-25z" fill="rgba(0,0,0,.25)" stroke="rgba(255,255,255,.1)" /><path d="M107 59h106l13 22H94l13-22zm-13 70h132l-14 11H108l-14-11z" fill="rgba(255,255,255,.06)" /><rect x="41" y="67" width="24" height="38" rx="8" fill="currentColor" /><rect x="255" y="67" width="24" height="38" rx="8" fill="currentColor" /></svg>
-      {areas.map((area) => {
-        const areaItems = items.filter((item) => item.vehicle_area === area.key)
-        const finding = areaItems[0]
-        const imageId = finding?.image_id || images.find((image) => image.image_role?.includes(area.key.split('_')[0]))?.id
-        const active = selectedArea === area.key
-        return <button key={area.key} aria-pressed={active} title={finding ? `${humanize(finding.damage_type)} · ${humanize(finding.severity)}` : `${area.label}: no damage mapped`} onClick={() => {
-          onSelectArea(active ? 'all' : area.key)
-          if (imageId) window.dispatchEvent(new CustomEvent('van-damage:focus-image', { detail: imageId }))
-        }} style={{ left: area.x, top: area.y }} className={`focus-ring absolute rounded-full border px-2.5 py-1 text-[10px] transition ${finding ? 'border-amber-300/40 bg-amber-300/20 text-amber-100 hover:bg-amber-300/30' : 'border-white/10 bg-black/35 text-white/30'} ${active ? 'ring-2 ring-gold-300/60' : ''}`}>{area.label}{areaItems.length > 0 ? ` ${areaItems.length}` : ''}</button>
-      })}
-    </div>
-    <div className="mt-4 flex flex-wrap gap-2 text-[10px] text-white/35"><span className="inline-flex items-center"><span className="mr-1.5 h-2 w-2 rounded-full bg-amber-300" />Mapped damage</span><span className="inline-flex items-center"><span className="mr-1.5 h-2 w-2 rounded-full bg-white/20" />No mapped damage</span><span>{items.filter((item) => !item.vehicle_area).length} unmapped</span></div>
-  </section>
 }
 
 function SeverityPanel({ items, active }: { items: DamageItem[]; active: keyof typeof severityPresentation }) {

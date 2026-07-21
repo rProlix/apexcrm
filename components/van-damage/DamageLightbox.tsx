@@ -110,14 +110,20 @@ export default function DamageLightbox({
             ) : <div className="flex h-72 w-96 items-center justify-center rounded-2xl bg-white/5 text-sm text-white/35">Image unavailable</div>}
             {overlays && imageItems.map((item) => {
               const box = item.bounding_box!
-              return <div key={item.id} className="group absolute border-2 border-amber-300 bg-amber-300/15 shadow-[0_0_0_1px_rgba(0,0,0,.5)]" style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.width * 100}%`, height: `${box.height * 100}%` }}>
+              return <button
+                key={item.id}
+                aria-label={`Select ${item.damage_type?.replaceAll('_', ' ') || 'damage'} annotation in ${item.vehicle_area?.replaceAll('_', ' ') || 'unknown region'}`}
+                onClick={() => window.dispatchEvent(new CustomEvent('van-damage:select-finding', { detail: item.id }))}
+                className="focus-ring group absolute border-2 border-amber-300 bg-amber-300/15 text-left shadow-[0_0_0_1px_rgba(0,0,0,.5)]"
+                style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.width * 100}%`, height: `${box.height * 100}%` }}
+              >
                 <div className="absolute bottom-full left-0 mb-1 hidden min-w-44 rounded-lg border border-white/10 bg-graphite-900/95 p-2 text-left text-[10px] shadow-xl group-hover:block">
                   <p className="font-semibold capitalize text-white">{item.damage_type?.replaceAll('_', ' ')}</p>
                   <p className="mt-1 capitalize text-white/55">{item.severity} · {Math.round((item.confidence ?? 0) * 100)}% confidence</p>
                   <p className="mt-1 text-white/35">Box {box.x.toFixed(2)}, {box.y.toFixed(2)}, {box.width.toFixed(2)}, {box.height.toFixed(2)}</p>
                   <p className="mt-1 text-amber-200/80">{item.repair_recommendation}</p>
                 </div>
-              </div>
+              </button>
             })}
           </div>
         </div>

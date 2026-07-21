@@ -88,21 +88,34 @@ export function DamageImageGallery({
         const imageItems = items.filter((item) => item.image_id === image.id && item.bounding_box)
         const quality = getImageQuality(image)
         return <div id={`inspection-image-${image.id}`} key={image.id} className="group overflow-hidden rounded-2xl border border-white/10 bg-graphite-800 text-left transition hover:-translate-y-0.5 hover:border-white/20 hover:shadow-panel-lg">
-          <button id={`image-${image.id}`} onClick={() => setActiveIndex(index)} className="focus-ring block w-full text-left">
           <div className="relative aspect-[4/3] overflow-hidden bg-white/[0.03]">
-            {image.url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={image.url} alt={`Inspection image ${index + 1}`} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
-            ) : <div className="flex h-full items-center justify-center text-white/25"><ImageIcon className="h-8 w-8" /></div>}
+            <button
+              id={`image-${image.id}`}
+              aria-label={`Open inspection image ${index + 1}`}
+              onClick={() => setActiveIndex(index)}
+              className="focus-ring absolute inset-0 block h-full w-full text-left"
+            >
+              {image.url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={image.url} alt={`Inspection image ${index + 1}`} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+              ) : <span className="flex h-full items-center justify-center text-white/25"><ImageIcon className="h-8 w-8" /></span>}
+              <span className="absolute right-3 top-3 rounded-lg bg-black/55 p-2 text-white/75 opacity-0 backdrop-blur transition group-hover:opacity-100"><Maximize2 className="h-4 w-4" /></span>
+              {imageItems.length > 0 && <span className="absolute bottom-3 left-3 rounded-full border border-amber-300/30 bg-black/60 px-2.5 py-1 text-[10px] font-medium text-amber-200 backdrop-blur">{imageItems.length} finding{imageItems.length === 1 ? '' : 's'}</span>}
+              {quality !== 'good' && <span className="absolute bottom-3 right-3 inline-flex items-center rounded-full border border-amber-300/30 bg-black/60 px-2.5 py-1 text-[10px] text-amber-100 backdrop-blur"><AlertTriangle className="mr-1 h-3 w-3" />{quality}</span>}
+            </button>
             {overlays && imageItems.map((item) => {
               const box = item.bounding_box!
-              return <span key={item.id} className="absolute border-2 border-amber-300 bg-amber-300/15 shadow-[0_0_12px_rgba(232,195,74,.3)]" style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.width * 100}%`, height: `${box.height * 100}%` }} />
+              return <button
+                key={item.id}
+                aria-label={`Select ${item.damage_type?.replaceAll('_', ' ') || 'damage'} annotation in ${item.vehicle_area?.replaceAll('_', ' ') || 'unknown region'}`}
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('van-damage:select-finding', { detail: item.id }))
+                }}
+                className="focus-ring absolute z-10 border-2 border-amber-300 bg-amber-300/15 shadow-[0_0_12px_rgba(232,195,74,.3)]"
+                style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.width * 100}%`, height: `${box.height * 100}%` }}
+              />
             })}
-            <span className="absolute right-3 top-3 rounded-lg bg-black/55 p-2 text-white/75 opacity-0 backdrop-blur transition group-hover:opacity-100"><Maximize2 className="h-4 w-4" /></span>
-            {imageItems.length > 0 && <span className="absolute bottom-3 left-3 rounded-full border border-amber-300/30 bg-black/60 px-2.5 py-1 text-[10px] font-medium text-amber-200 backdrop-blur">{imageItems.length} finding{imageItems.length === 1 ? '' : 's'}</span>}
-            {quality !== 'good' && <span className="absolute bottom-3 right-3 inline-flex items-center rounded-full border border-amber-300/30 bg-black/60 px-2.5 py-1 text-[10px] text-amber-100 backdrop-blur"><AlertTriangle className="mr-1 h-3 w-3" />{quality}</span>}
           </div>
-          </button>
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-xs capitalize text-white/65">{image.image_role?.replaceAll('_', ' ') || `Photo ${index + 1}`}</span>
             <span className="flex items-center gap-2 text-[10px] text-white/30">{image.width && image.height ? `${image.width}×${image.height}` : image.status}<button onClick={() => copyPermalink(image.id)} className="focus-ring no-print rounded p-1 text-white/35 hover:bg-white/5 hover:text-white" aria-label={`Copy link to image ${index + 1}`}><Copy className="h-3 w-3" /></button></span>
