@@ -25,6 +25,8 @@ export type WorkerImageRow = {
   width: number | null
   height: number | null
   image_role: string | null
+  upload_order?: number | null
+  original_file_index?: number | null
   metadata: Record<string, unknown>
 }
 
@@ -68,8 +70,11 @@ export class SupabaseWorker {
         .eq('slack_team_id', job.slackTeamId).eq('status', 'connected').is('deleted_at', null).single(),
       this.db.from('van_damage_inspections').select('id, title, metadata')
         .eq('id', job.inspectionId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId).single(),
-      this.db.from('van_damage_images').select('id, slack_file_id, slack_file_url, content_type, file_size_bytes, width, height, image_role, metadata')
-        .eq('inspection_id', job.inspectionId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId),
+      this.db.from('van_damage_images').select('id, slack_file_id, slack_file_url, content_type, file_size_bytes, width, height, image_role, upload_order, original_file_index, metadata')
+        .eq('inspection_id', job.inspectionId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId)
+        .order('upload_order', { ascending: true, nullsFirst: false })
+        .order('original_file_index', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true }),
     ])
     if (integrationResult.error) throw new Error(integrationResult.error.message)
     if (inspectionResult.error) throw new Error(inspectionResult.error.message)

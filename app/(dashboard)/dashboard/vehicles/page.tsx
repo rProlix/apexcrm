@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
-import { Car, Wrench, CheckCircle2, AlertTriangle } from 'lucide-react'
+import Link from 'next/link'
+import { Car, Wrench, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react'
 import { requirePermission } from '@/lib/auth/requirePermission'
 import { guardModuleAccess } from '@/lib/modules/guardModuleAccess'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -42,6 +43,12 @@ export default async function VehiclesPage() {
   await guardModuleAccess(tenantId, 'vehicles', ctx.role)
 
   const counts = await getVehicleCounts(tenantId)
+  const db = getSupabaseServerClient()
+  const { data: vehicles } = await db.from('vehicles')
+    .select('id, name, van_number, make, model, year, plate_number, status, metadata, updated_at')
+    .eq('tenant_id', tenantId)
+    .order('updated_at', { ascending: false })
+    .limit(48)
 
   const stats = [
     { label: 'Total',           value: counts.total,           icon: Car,           color: 'text-indigo-400',  bg: 'bg-indigo-400/10'  },
@@ -69,14 +76,34 @@ export default async function VehiclesPage() {
         ))}
       </div>
 
-      <div className="rounded-xl bg-graphite-800 border border-graphite-600 p-8 text-center">
+      {vehicles?.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {vehicles.map((vehicle) => {
+          const meta = vehicle.metadata && typeof vehicle.metadata === 'object' && !Array.isArray(vehicle.metadata)
+            ? vehicle.metadata as Record<string, unknown>
+            : {}
+          const vanDamage = meta.vanDamage && typeof meta.vanDamage === 'object' && !Array.isArray(meta.vanDamage)
+            ? meta.vanDamage as Record<string, unknown>
+            : {}
+          const activeCaseCount = typeof vanDamage.activeCaseCount === 'number' ? vanDamage.activeCaseCount : 0
+          return <Link key={vehicle.id} href={`/dashboard/vehicles/${vehicle.id}?businessId=${encodeURIComponent(tenantId)}`} className="focus-ring group rounded-xl bg-graphite-800 border border-graphite-600 p-5 transition hover:border-gold-400/30 hover:bg-graphite-700">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[.16em] text-white/30">{vehicle.van_number ? `Van ${vehicle.van_number}` : 'Vehicle'}</p>
+                <h2 className="mt-2 font-semibold text-white">{vehicle.name}</h2>
+                <p className="mt-1 text-xs text-white/40">{[vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(' ') || vehicle.plate_number || 'Details unavailable'}</p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-white/30 transition group-hover:translate-x-1 group-hover:text-gold-300" />
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-white/5 px-2.5 py-1 capitalize text-white/45">{vehicle.status}</span>
+              <span className={`rounded-full px-2.5 py-1 ${activeCaseCount > 0 ? 'bg-red-400/10 text-red-200' : 'bg-emerald-400/10 text-emerald-200'}`}>{activeCaseCount} active damage</span>
+            </div>
+          </Link>
+        })}
+      </div> : <div className="rounded-xl bg-graphite-800 border border-graphite-600 p-8 text-center">
         <Car className="h-10 w-10 text-indigo-400/60 mx-auto mb-3" />
-        <p className="text-white/60 text-sm">
-          {counts.total === 0
-            ? 'No vehicles yet. They will appear here once added.'
-            : `${counts.total} vehicle${counts.total === 1 ? '' : 's'} — full fleet management UI coming soon.`}
-        </p>
-      </div>
+        <p className="text-white/60 text-sm">No vehicles yet. They will appear here once added.</p>
+      </div>}
     </div>
   )
 }

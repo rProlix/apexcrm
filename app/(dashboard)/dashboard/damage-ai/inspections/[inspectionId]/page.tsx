@@ -102,6 +102,20 @@ export default async function InspectionPage({
     updated_at: image.updated_at,
   }))
   const items = (itemsResult.data ?? []).map((item) => ({
+    ...(() => {
+      const extended = item as typeof item & {
+        damage_case_id?: string | null
+        observation_type?: string | null
+        normalized_damage_type?: string | null
+        canonical_region?: string | null
+      }
+      return {
+        damage_case_id: extended.damage_case_id ?? null,
+        observation_type: extended.observation_type ?? null,
+        normalized_damage_type: extended.normalized_damage_type ?? null,
+        canonical_region: extended.canonical_region ?? null,
+      }
+    })(),
     id: item.id,
     image_id: item.image_id,
     damage_type: item.damage_type,

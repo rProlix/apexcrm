@@ -346,11 +346,11 @@ export function InspectionExperience(props: InspectionExperienceProps) {
           {items.length ? <div className="divide-y divide-white/8">{filteredItems.map((item, index) => <article id={`finding-${item.id}`} key={item.id} className="grid gap-4 px-5 py-5 md:grid-cols-[44px_1fr_auto] md:px-6">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[.03] text-sm font-semibold text-white/45">{String(index + 1).padStart(2, '0')}</div>
             <div>
-              <div className="flex flex-wrap items-center gap-2"><h3 className="font-medium capitalize text-white">{humanize(item.damage_type)}</h3><StatusBadge status={item.severity || 'unknown'} /></div>
+              <div className="flex flex-wrap items-center gap-2"><h3 className="font-medium capitalize text-white">{humanize(item.damage_type)}</h3><StatusBadge status={item.severity || 'unknown'} />{item.observation_type && <span className="rounded-full border border-white/10 bg-white/[.04] px-2 py-0.5 text-[10px] capitalize text-white/45">{humanize(item.observation_type)}</span>}</div>
               <p className="mt-2 text-sm leading-6 text-white/55">{item.description || 'No description supplied.'}</p>
               <div className="mt-3 grid gap-2 text-[11px] text-white/40 sm:grid-cols-3">
                 <span>Area: <span className="capitalize text-white/60">{humanize(item.vehicle_area)}</span></span>
-                <span>Review: <span className="text-white/60">AI opinion pending human decision</span></span>
+                <span>Review: <span className="text-white/60">{item.damage_case_id ? 'Linked to damage case' : 'AI opinion pending human decision'}</span></span>
                 <span>Safety: <span className="text-white/60">{['critical', 'high'].includes(item.severity ?? '') ? 'Inspect before use' : 'No safety issue stated'}</span></span>
               </div>
               {item.repair_recommendation && <p className="mt-3 flex items-start text-xs leading-5 text-amber-100/60"><Wrench className="mr-2 mt-0.5 h-3.5 w-3.5 shrink-0" />{item.repair_recommendation}</p>}

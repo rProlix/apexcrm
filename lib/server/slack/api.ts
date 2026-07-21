@@ -46,3 +46,24 @@ export async function listSlackChannels(token: string): Promise<SlackChannel[]> 
   } while (cursor)
   return channels.sort((a, b) => a.name.localeCompare(b.name))
 }
+
+export type SlackUserProfile = {
+  id: string
+  team_id?: string
+  name?: string
+  real_name?: string
+  profile?: {
+    display_name?: string
+    real_name?: string
+    image_72?: string
+  }
+}
+
+export async function getSlackUserInfo(token: string, userId: string): Promise<SlackUserProfile | null> {
+  const response = await callSlackApi<SlackResponse & { user?: SlackUserProfile }>(
+    'users.info',
+    token,
+    { user: userId },
+  )
+  return response.user ?? null
+}

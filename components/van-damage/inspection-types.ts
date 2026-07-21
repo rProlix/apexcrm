@@ -23,6 +23,10 @@ export type DamageItem = {
   description: string | null
   repair_recommendation: string | null
   bounding_box: BoundingBox | null
+  damage_case_id?: string | null
+  observation_type?: string | null
+  normalized_damage_type?: string | null
+  canonical_region?: string | null
   created_at: string
 }
 

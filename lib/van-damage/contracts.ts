@@ -25,6 +25,17 @@ export const vanDamageJobSchema = z.object({
   slackEventId: z.string().min(1),
   slackMessageText: z.string().max(4_000).default(''),
   slackFileIds: z.array(z.string().min(1)).min(1),
+  uploadSessionId: z.string().uuid().optional(),
+  uploadSourceKey: z.string().min(1).max(300).optional(),
+  slackUploadIso: z.string().datetime().nullable().optional(),
+  slackDriver: z.object({
+    slackWorkspaceId: z.string().nullable(),
+    slackUserId: z.string().nullable(),
+    displayName: z.string().nullable().optional(),
+    realName: z.string().nullable().optional(),
+    username: z.string().nullable().optional(),
+    avatarUrl: z.string().url().nullable().optional(),
+  }).optional(),
   createdAt: z.string().datetime(),
 }).superRefine((value, context) => {
   if (value.businessId !== value.tenantId) {
