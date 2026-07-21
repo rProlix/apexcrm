@@ -377,6 +377,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.van_damage_reconcile_cases_for_inspection(p_inspection_id uuid)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+#variable_conflict use_variable
 DECLARE
   inspection_row public.van_damage_inspections%ROWTYPE;
   item_row public.van_damage_items%ROWTYPE;
