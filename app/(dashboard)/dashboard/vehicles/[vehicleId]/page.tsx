@@ -9,6 +9,7 @@ import {
   type VanProfileImage,
   type VanProfileSession,
 } from '@/components/van-damage/VanProfileWorkspace'
+import { resolveInspectionTimeZone } from '@/lib/van-damage/inspection-period'
 
 export const metadata = { title: 'Vehicle Profile — NexoraNow' }
 
@@ -69,6 +70,7 @@ export default async function VehicleProfilePage({
     casesResult,
     observationsResult,
     channelsResult,
+    tenantResult,
   ] = await Promise.all([
     newTables.from('van_damage_upload_sessions')
       .select('*').eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId).eq('van_id', vehicleId).order('upload_started_at', { ascending: false }).limit(50),
@@ -82,6 +84,7 @@ export default async function VehicleProfilePage({
       .select('*').eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId).eq('van_id', vehicleId).order('observed_at', { ascending: false }).limit(500),
     db.from('van_slack_channels').select('slack_channel_id, slack_channel_name')
       .eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId),
+    db.from('tenants').select('branding').eq('id', scope.tenantId).maybeSingle(),
   ])
 
   const inspections = new Map((inspectionsResult.data ?? []).map((inspection) => [inspection.id, inspection]))
@@ -115,6 +118,7 @@ export default async function VehicleProfilePage({
   return <div className="p-4 md:p-6">
     <VanProfileWorkspace
       businessId={scope.businessId}
+      timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
       canManage={['owner', 'admin'].includes(scope.ctx.role)}
       vehicle={{ ...vehicle, metadata: asRecord(vehicle.metadata) }}
       profileImage={profileImage}

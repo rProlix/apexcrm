@@ -10,6 +10,7 @@ import {
   type FleetAttentionRow,
   type FleetVehicleRow,
 } from '@/components/van-damage/FleetNeedsAttentionBoard'
+import { resolveInspectionTimeZone } from '@/lib/van-damage/inspection-period'
 
 export const metadata = { title: 'Fleet — NexoraNow' }
 
@@ -25,7 +26,7 @@ export default async function VehiclesPage() {
   await guardModuleAccess(tenantId, 'vehicles', ctx.role)
 
   const db = getSupabaseServerClient()
-  const [vehiclesResult, attentionResult] = await Promise.all([
+  const [vehiclesResult, attentionResult, tenantResult] = await Promise.all([
     db
       .from('vehicles')
       .select('id, name, van_number, make, model, year, plate_number, status, metadata, updated_at')
@@ -33,6 +34,7 @@ export default async function VehiclesPage() {
       .order('updated_at', { ascending: false })
       .limit(250),
     db.rpc('get_fleet_needs_attention', { p_tenant_id: tenantId, p_business_id: tenantId }),
+    db.from('tenants').select('branding').eq('id', tenantId).maybeSingle(),
   ])
 
   const vehicles = (vehiclesResult.data ?? []).map((vehicle) => ({
@@ -67,6 +69,7 @@ export default async function VehiclesPage() {
       </header>
       <FleetNeedsAttentionBoard
         tenantId={tenantId}
+        timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
         canManage={['owner', 'admin'].includes(ctx.role)}
         vehicles={vehicles}
         attention={attention}

@@ -6,6 +6,8 @@ import { notFound } from 'next/navigation'
 import { getVanDamagePageScope } from '@/lib/server/van-damage/page-scope'
 import { getVanDamageServiceClient } from '@/lib/server/van-damage/supabase'
 import { formatDriverName, type SlackDriverSnapshot } from '@/lib/van-damage/history'
+import { InspectionPeriodBadge } from '@/components/van-damage/InspectionPeriodBadge'
+import { formatInspectionTimestamp, resolveInspectionTimeZone } from '@/lib/van-damage/inspection-period'
 
 export const metadata = { title: 'Driver Profiles — NexoraNow' }
 
@@ -53,9 +55,9 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'D'
 }
 
-function formatDate(value: string | null) {
+function formatDate(value: string | null, timeZone: string) {
   if (!value) return 'No uploads yet'
-  return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(new Date(value)) + ' UTC'
+  return formatInspectionTimestamp(value, { timeZone, includeTimeZoneName: true })
 }
 
 export default async function DriverProfilesPage({
@@ -69,7 +71,7 @@ export default async function DriverProfilesPage({
 
   const db = getVanDamageServiceClient()
   const newTables = db as unknown as NewTableClient
-  const [profilesResult, sessionsResult, vehiclesResult] = await Promise.all([
+  const [profilesResult, sessionsResult, vehiclesResult, tenantResult] = await Promise.all([
     newTables.from('van_slack_user_profiles').select('*')
       .eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId)
       .order('updated_at', { ascending: false }).limit(250),
@@ -79,11 +81,13 @@ export default async function DriverProfilesPage({
       .order('upload_started_at', { ascending: false }).limit(1000),
     db.from('vehicles').select('id, name, van_number')
       .eq('tenant_id', scope.tenantId).limit(500),
+    db.from('tenants').select('branding').eq('id', scope.tenantId).maybeSingle(),
   ])
 
   const profiles = (profilesResult.data ?? []) as DriverProfile[]
   const sessions = (sessionsResult.data ?? []) as DriverSession[]
   const vehicles = new Map((vehiclesResult.data ?? []).map((van) => [van.id, van]))
+  const timeZone = resolveInspectionTimeZone({ tenant: tenantResult.data })
 
   return <div className="space-y-6 p-4 md:p-6">
     <div>
@@ -110,7 +114,7 @@ export default async function DriverProfilesPage({
             <div className="rounded-xl bg-white/[.03] p-3"><p className="font-semibold text-white">{driverSessions.length}</p><p className="mt-1 text-[10px] text-white/35">Uploads</p></div>
             <div className="rounded-xl bg-white/[.03] p-3"><p className="font-semibold text-white">{imageCount}</p><p className="mt-1 text-[10px] text-white/35">Images</p></div>
           </div>
-          <p className="mt-4 flex items-center text-xs text-white/40"><CalendarDays className="mr-2 h-3.5 w-3.5" />Last upload: {formatDate(driverSessions[0]?.upload_started_at ?? null)}</p>
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-white/40"><CalendarDays className="h-3.5 w-3.5" /><span>Last upload: {formatDate(driverSessions[0]?.upload_started_at ?? null, timeZone)}</span>{driverSessions[0] && <InspectionPeriodBadge timestamp={driverSessions[0].upload_started_at} timeZone={timeZone} />}</div>
           {vanIds.length > 0 && <p className="mt-2 flex items-center truncate text-xs text-white/40"><Car className="mr-2 h-3.5 w-3.5 shrink-0" />{vanIds.slice(0, 3).map((id) => vehicles.get(id)?.van_number ? `Van ${vehicles.get(id)?.van_number}` : vehicles.get(id)?.name ?? 'Van').join(', ')}</p>}
         </Link>
       })}

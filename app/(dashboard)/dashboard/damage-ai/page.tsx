@@ -7,25 +7,38 @@ import { getVanDamageServiceClient } from '@/lib/server/van-damage/supabase'
 import { getVanDamageConfigPresence } from '@/lib/server/env'
 import { loadActiveSlackIntegration, publicIntegration } from '@/lib/server/slack/integration'
 import { StatusBadge } from '@/components/van-damage/StatusBadge'
+import { InspectionPeriodBadge } from '@/components/van-damage/InspectionPeriodBadge'
+import {
+  formatInspectionTimestamp,
+  getInspectionPeriod,
+  resolveInspectionTimeZone,
+  type InspectionPeriod,
+} from '@/lib/van-damage/inspection-period'
 
 export const metadata = { title: 'Van Damage AI — ApexCRM' }
 
-export default async function DamageAIPage({ searchParams }: { searchParams: Promise<{ businessId?: string }> }) {
+export default async function DamageAIPage({ searchParams }: { searchParams: Promise<{ businessId?: string; period?: string }> }) {
   const query = await searchParams
   const scope = await getVanDamagePageScope(query.businessId)
   if (!scope.businessId || !scope.tenantId) return <MissingBusiness />
+  const periodFilter: InspectionPeriod | 'all' =
+    query.period === 'SOD' || query.period === 'EOD' ? query.period : 'all'
 
   const db = getVanDamageServiceClient()
-  const [inspectionResult, integration, channelResult] = await Promise.all([
+  const [inspectionResult, integration, channelResult, tenantResult] = await Promise.all([
     db.from('van_damage_inspections')
       .select('id, title, status, image_count, damage_count, ai_summary, ai_confidence, slack_team_id, slack_channel_id, slack_message_ts, created_at')
       .eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId)
-      .order('created_at', { ascending: false }).limit(25),
+      .order('created_at', { ascending: false }).limit(100),
     loadActiveSlackIntegration(scope.tenantId, scope.businessId),
     db.from('van_slack_channels').select('id', { count: 'exact', head: true })
       .eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId).eq('is_enabled', true),
+    db.from('tenants').select('branding').eq('id', scope.tenantId).maybeSingle(),
   ])
-  const inspections = inspectionResult.data ?? []
+  const timeZone = resolveInspectionTimeZone({ tenant: tenantResult.data })
+  const inspections = (inspectionResult.data ?? []).filter((inspection) =>
+    periodFilter === 'all' || getInspectionPeriod(inspection.created_at, timeZone).period === periodFilter
+  ).slice(0, 25)
   const connected = publicIntegration(integration)
   const completed = inspections.filter((item) => item.status === 'completed').length
   const review = inspections.filter((item) => item.status === 'needs_review').length
@@ -62,10 +75,23 @@ export default async function DamageAIPage({ searchParams }: { searchParams: Pro
     </div>
 
     <section className="overflow-hidden rounded-xl border border-white/10 bg-graphite-800">
-      <div className="border-b border-white/8 px-5 py-4"><h2 className="font-semibold text-white">Recent inspections</h2></div>
+      <div className="flex flex-col gap-3 border-b border-white/8 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div><h2 className="font-semibold text-white">Recent inspections</h2><p className="mt-1 text-xs text-white/35">Times shown in {timeZone}</p></div>
+        <div className="flex flex-wrap gap-2" aria-label="Filter inspections by period">
+          {[
+            ['all', 'All'],
+            ['SOD', 'SOD only'],
+            ['EOD', 'EOD only'],
+          ].map(([value, label]) => {
+            const active = periodFilter === value
+            const href = value === 'all' ? suffix : `${suffix}&period=${value}`
+            return <Link key={value} href={href} className={`focus-ring rounded-full border px-3 py-1.5 text-xs ${active ? 'border-gold-400/35 bg-gold-400/15 text-gold-100' : 'border-white/10 text-white/50 hover:bg-white/5 hover:text-white/75'}`}>{label}</Link>
+          })}
+        </div>
+      </div>
       {inspections.length === 0 ? <div className="p-10 text-center text-sm text-white/35">No inspections yet. Connect Slack, select a channel, and post van images there.</div> : <div className="divide-y divide-white/8">
         {inspections.map((inspection) => <div key={inspection.id} className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate font-medium text-white">{inspection.title || 'Van damage inspection'}</p><StatusBadge status={inspection.status} /></div><p className="mt-1 text-xs text-white/35">{new Date(inspection.created_at).toLocaleString()} · {inspection.image_count} images · {inspection.damage_count} damage items</p>{inspection.ai_summary && <p className="mt-2 line-clamp-2 text-sm text-white/55">{inspection.ai_summary}</p>}</div>
+          <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate font-medium text-white">{inspection.title || 'Van damage inspection'}</p><InspectionPeriodBadge timestamp={inspection.created_at} timeZone={timeZone} /><StatusBadge status={inspection.status} /></div><p className="mt-1 text-xs text-white/35">{formatInspectionTimestamp(inspection.created_at, { timeZone })} · {inspection.image_count} images · {inspection.damage_count} damage items</p>{inspection.ai_summary && <p className="mt-2 line-clamp-2 text-sm text-white/55">{inspection.ai_summary}</p>}</div>
           <div className="flex shrink-0 gap-2"><Link href={`/dashboard/damage-ai/inspections/${inspection.id}${suffix}`} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70 hover:bg-white/5">View inspection</Link>{inspection.status === 'needs_review' && <Link href={`/dashboard/damage-ai/inspections/${inspection.id}${suffix}&review=1`} className="rounded-lg bg-amber-400/15 px-3 py-2 text-xs text-amber-200">Review damage</Link>}</div>
         </div>)}
       </div>}

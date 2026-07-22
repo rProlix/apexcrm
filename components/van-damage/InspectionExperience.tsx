@@ -11,9 +11,11 @@ import {
   Search, Send, ShieldAlert, Sparkles, Star, ThumbsDown, UserRound, Warehouse, Wrench, X,
 } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
+import { InspectionPeriodBadge } from './InspectionPeriodBadge'
 import { DamageImageGallery } from './DamageImageGallery'
 import { FordTransit2019DamageMap } from './FordTransit2019DamageMap'
 import type { DamageImage, DamageItem } from './inspection-types'
+import { formatInspectionTimestamp, getInspectionPeriod } from '@/lib/van-damage/inspection-period'
 import {
   getTransitViewForRegion,
   resolveItemTransitRegion,
@@ -48,6 +50,7 @@ type Job = {
 export type InspectionExperienceProps = {
   businessId: string
   tenantName: string
+  timeZone: string
   canManage: boolean
   inspection: Inspection
   vehicle: Vehicle
@@ -76,9 +79,8 @@ function asRecordArray(value: unknown): RecordValue[] {
 function asText(value: unknown, fallback = '—') {
   return typeof value === 'string' && value.trim() ? value : fallback
 }
-function formatDate(value: string | null | undefined) {
-  if (!value) return 'Pending'
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+function formatDateInZone(value: string | null | undefined, timeZone: string) {
+  return formatInspectionTimestamp(value, { timeZone })
 }
 function formatDuration(start: string | null | undefined, end: string | null | undefined) {
   if (!start || !end) return '—'
@@ -131,6 +133,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
   const processing = isProcessing(inspection.status) || Boolean(props.job && isProcessing(props.job.status))
   const reviewDuration = formatDuration(inspection.created_at, inspection.reviewed_at)
   const slackToReadyDuration = formatDuration(inspection.created_at, inspection.completed_at || aiRun?.completed_at)
+  const inspectionPeriod = getInspectionPeriod(inspection.created_at, props.timeZone)
   const severityOptions = uniqueTexts(items.map((item) => item.severity))
   const areaOptions = useMemo(
     () => uniqueTexts(items.map((item) => resolveItemTransitRegion(item))),
@@ -280,6 +283,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={inspection.status} />
+            <InspectionPeriodBadge timestamp={inspection.created_at} timeZone={props.timeZone} showLabel />
             <StatusBadge status={inspection.review_status} />
             <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${severity.classes}`}>{severity.label} severity</span>
             <button onClick={() => copyText(inspection.id)} className="focus-ring no-print inline-flex items-center rounded-full border border-white/10 px-3 py-1 text-xs text-white/55 hover:bg-white/5 hover:text-white"><Copy className="mr-1.5 h-3 w-3" />Copy ID</button>
@@ -304,7 +308,8 @@ export function InspectionExperience(props: InspectionExperienceProps) {
           </div>
           <dl className="mt-6 space-y-3 text-xs">
             <MetaRow label="Inspection ID" value={inspection.id.slice(0, 8).toUpperCase()} mono />
-            <MetaRow label="Captured" value={formatDate(inspection.created_at)} />
+            <MetaRow label="Period" value={inspectionPeriod.label} />
+            <MetaRow label="Captured" value={formatDateInZone(inspection.created_at, props.timeZone)} />
             <MetaRow label="Van number" value={vehicle?.van_number || asText(inspection.metadata.vanNumber)} />
             <MetaRow label="Tenant" value={props.tenantName} />
             <MetaRow label="Lifecycle" value={humanize(lifecycle)} />
@@ -436,15 +441,15 @@ export function InspectionExperience(props: InspectionExperienceProps) {
         </section>
 
         <RepairEstimate severity={severityKey} recommendation={recommendation} safetyConcern={safetyConcern} />
-        <ProcessingTimeline inspection={inspection} job={props.job} aiRun={aiRun} />
+        <ProcessingTimeline inspection={inspection} job={props.job} aiRun={aiRun} timeZone={props.timeZone} />
         <CommentsPanel {...props} />
         <VehicleHealth vehicle={vehicle} related={related} currentDamage={inspection.damage_count} />
-        <RelatedInspections businessId={props.businessId} related={related} />
+        <RelatedInspections businessId={props.businessId} related={related} timeZone={props.timeZone} />
         <InspectionMetadata {...props} />
       </main>
 
       <aside className="space-y-6 xl:sticky xl:top-20 xl:self-start">
-        <ActivityFeed inspection={inspection} job={props.job} aiRun={aiRun} images={images} />
+        <ActivityFeed inspection={inspection} job={props.job} aiRun={aiRun} images={images} timeZone={props.timeZone} />
         <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5">
           <div className="flex items-center gap-2"><Info className="h-4 w-4 text-sky-300" /><h2 className="text-sm font-semibold text-white">Confidence guide</h2></div>
           <div className="mt-4 space-y-3">
@@ -592,7 +597,7 @@ function RepairEstimate({ severity, recommendation, safetyConcern }: { severity:
   </section>
 }
 
-function ProcessingTimeline({ inspection, job, aiRun }: { inspection: Inspection; job: Job; aiRun: AiRun }) {
+function ProcessingTimeline({ inspection, job, aiRun, timeZone }: { inspection: Inspection; job: Job; aiRun: AiRun; timeZone: string }) {
   const steps = [
     { label: 'Slack message received', time: inspection.created_at, icon: MessageSquare },
     { label: 'Inspection created', time: inspection.created_at, icon: FileCheck2 },
@@ -608,7 +613,7 @@ function ProcessingTimeline({ inspection, job, aiRun }: { inspection: Inspection
       {steps.map(({ label, time, icon: Icon }, index) => <li key={label} className="relative flex gap-3 pb-5 last:pb-0 md:block md:pb-0 md:text-center">
         {index < steps.length - 1 && <span className={`absolute left-[15px] top-8 h-[calc(100%-1rem)] w-px md:left-1/2 md:top-[15px] md:h-px md:w-full ${time ? 'bg-gradient-to-b from-gold-400/70 to-gold-400/15 md:bg-gradient-to-r' : 'bg-white/8'}`} />}
         <span className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border md:mx-auto ${time ? 'border-gold-400/30 bg-gold-400/15 text-gold-200' : 'border-white/10 bg-graphite-700 text-white/25'}`}><Icon className="h-3.5 w-3.5" /></span>
-        <div className="pt-0.5 md:mt-3"><p className="text-[11px] font-medium leading-4 text-white/65">{label}</p><p className="mt-1 text-[9px] leading-4 text-white/30">{time ? formatDate(time) : 'Waiting'}</p>{index === 3 && <p className="text-[9px] text-violet-300/60">{formatDuration(aiRun?.created_at, aiRun?.completed_at)}</p>}</div>
+        <div className="pt-0.5 md:mt-3"><p className="text-[11px] font-medium leading-4 text-white/65">{label}</p><div className="mt-1 flex flex-wrap items-center gap-1.5 md:justify-center"><p className="text-[9px] leading-4 text-white/30">{time ? formatDateInZone(time, timeZone) : 'Waiting'}</p>{index <= 1 && <InspectionPeriodBadge timestamp={inspection.created_at} timeZone={timeZone} />}</div>{index === 3 && <p className="text-[9px] text-violet-300/60">{formatDuration(aiRun?.created_at, aiRun?.completed_at)}</p>}</div>
       </li>)}
     </ol>
   </section>
@@ -679,11 +684,11 @@ function CommentsPanel(props: InspectionExperienceProps) {
     <div className="flex items-center justify-between"><div><h2 className="font-semibold text-white">Inspection notes</h2><p className="mt-1 text-xs text-white/35">Internal, AI, and system conversation</p></div><MessageSquare className="h-4 w-4 text-fuchsia-300" /></div>
     <div className="mt-5 space-y-4">
       {roots.map((comment) => <div key={comment.id} className="rounded-xl border border-white/8 bg-white/[.02] p-4">
-        <CommentHeader comment={comment} />
+        <CommentHeader comment={comment} timeZone={props.timeZone} />
         <p className="mt-3 text-sm leading-6 text-white/60">{comment.body}</p>
         <CommentAttachments attachments={comment.attachments} inspectionId={props.inspection.id} businessId={props.businessId} />
         {comment.kind === 'internal' && <button onClick={() => setReplyTo(comment.id)} className="focus-ring mt-3 text-xs text-gold-300/70 hover:text-gold-200">Reply</button>}
-        {comments.filter((reply) => reply.parentId === comment.id).map((reply) => <div key={reply.id} className="ml-4 mt-4 border-l border-white/10 pl-4"><CommentHeader comment={reply} /><p className="mt-2 text-sm text-white/55">{reply.body}</p><CommentAttachments attachments={reply.attachments} inspectionId={props.inspection.id} businessId={props.businessId} /></div>)}
+        {comments.filter((reply) => reply.parentId === comment.id).map((reply) => <div key={reply.id} className="ml-4 mt-4 border-l border-white/10 pl-4"><CommentHeader comment={reply} timeZone={props.timeZone} /><p className="mt-2 text-sm text-white/55">{reply.body}</p><CommentAttachments attachments={reply.attachments} inspectionId={props.inspection.id} businessId={props.businessId} /></div>)}
       </div>)}
     </div>
     <div className="mt-5 rounded-xl border border-white/10 bg-black/10 p-3">
@@ -698,9 +703,9 @@ function CommentsPanel(props: InspectionExperienceProps) {
     </div>
   </section>
 }
-function CommentHeader({ comment }: { comment: { kind: string; authorName: string; createdAt: string } }) {
+function CommentHeader({ comment, timeZone }: { comment: { kind: string; authorName: string; createdAt: string }; timeZone: string }) {
   const Icon = comment.kind === 'ai' ? Bot : comment.kind === 'system' ? Activity : UserRound
-  return <div className="flex items-center justify-between gap-4"><span className="flex items-center text-xs font-medium text-white/65"><span className="mr-2 rounded-lg bg-white/5 p-1.5"><Icon className="h-3 w-3" /></span>{comment.authorName}<span className="ml-2 rounded-full bg-white/5 px-2 py-0.5 text-[9px] uppercase text-white/30">{comment.kind}</span></span><time className="text-[10px] text-white/25">{formatDate(comment.createdAt)}</time></div>
+  return <div className="flex items-center justify-between gap-4"><span className="flex items-center text-xs font-medium text-white/65"><span className="mr-2 rounded-lg bg-white/5 p-1.5"><Icon className="h-3 w-3" /></span>{comment.authorName}<span className="ml-2 rounded-full bg-white/5 px-2 py-0.5 text-[9px] uppercase text-white/30">{comment.kind}</span></span><time className="text-[10px] text-white/25">{formatDateInZone(comment.createdAt, timeZone)}</time></div>
 }
 function CommentAttachments({ attachments, inspectionId, businessId }: { attachments: RecordValue[]; inspectionId: string; businessId: string }) {
   if (!attachments.length) return null
@@ -729,14 +734,14 @@ function MiniHealth({ label, value }: { label: string; value: string }) {
   return <div className="rounded-xl border border-white/8 bg-white/[.02] p-3"><p className="text-lg font-semibold capitalize text-white">{value}</p><p className="mt-1 text-[10px] text-white/30">{label}</p></div>
 }
 
-function RelatedInspections({ businessId, related }: { businessId: string; related: RelatedInspection[] }) {
+function RelatedInspections({ businessId, related, timeZone }: { businessId: string; related: RelatedInspection[]; timeZone: string }) {
   return <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
     <div className="flex items-center justify-between"><div><h2 className="font-semibold text-white">Related inspections</h2><p className="mt-1 text-xs text-white/35">Previous inspections for this vehicle</p></div><History className="h-4 w-4 text-white/35" /></div>
-    {related.length ? <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{related.map((item) => <Link key={item.id} href={`/dashboard/damage-ai/inspections/${item.id}?businessId=${encodeURIComponent(businessId)}`} className="focus-ring rounded-xl border border-white/8 bg-white/[.02] p-4 transition hover:border-white/15 hover:bg-white/[.04]"><div className="flex items-center justify-between"><CalendarDays className="h-4 w-4 text-white/35" /><StatusBadge status={item.status} /></div><p className="mt-4 text-sm font-medium text-white/70">{formatDate(item.created_at)}</p><p className="mt-1 text-xs text-white/35">{item.damage_count} damage finding{item.damage_count === 1 ? '' : 's'} · {item.ai_confidence == null ? '—' : `${Math.round(item.ai_confidence * 100)}% confidence`}</p></Link>)}</div> : <p className="mt-5 rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-white/30">No previous inspections for this vehicle.</p>}
+    {related.length ? <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{related.map((item) => <Link key={item.id} href={`/dashboard/damage-ai/inspections/${item.id}?businessId=${encodeURIComponent(businessId)}`} className="focus-ring rounded-xl border border-white/8 bg-white/[.02] p-4 transition hover:border-white/15 hover:bg-white/[.04]"><div className="flex items-center justify-between gap-2"><CalendarDays className="h-4 w-4 text-white/35" /><div className="flex flex-wrap justify-end gap-1.5"><InspectionPeriodBadge timestamp={item.created_at} timeZone={timeZone} /><StatusBadge status={item.status} /></div></div><p className="mt-4 text-sm font-medium text-white/70">{formatDateInZone(item.created_at, timeZone)}</p><p className="mt-1 text-xs text-white/35">{item.damage_count} damage finding{item.damage_count === 1 ? '' : 's'} · {item.ai_confidence == null ? '—' : `${Math.round(item.ai_confidence * 100)}% confidence`}</p></Link>)}</div> : <p className="mt-5 rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-white/30">No previous inspections for this vehicle.</p>}
   </section>
 }
 
-function ActivityFeed({ inspection, job, aiRun, images }: { inspection: Inspection; job: Job; aiRun: AiRun; images: DamageImage[] }) {
+function ActivityFeed({ inspection, job, aiRun, images, timeZone }: { inspection: Inspection; job: Job; aiRun: AiRun; images: DamageImage[]; timeZone: string }) {
   const phase = asRecord(inspection.metadata.phase3c)
   const custom = asRecordArray(phase.auditTrail).map((event) => ({ label: asText(event.label, 'Inspection updated'), time: asText(event.createdAt, inspection.updated_at), icon: RefreshCw }))
   const events = [
@@ -754,7 +759,7 @@ function ActivityFeed({ inspection, job, aiRun, images }: { inspection: Inspecti
       {events.slice(0, 30).map(({ label, time, icon: Icon }, index) => <div key={`${label}-${time}-${index}`} className="relative flex gap-3 pb-5 last:pb-0">
         {index < events.length - 1 && <span className="absolute left-[13px] top-7 h-[calc(100%-8px)] w-px bg-gradient-to-b from-white/15 to-white/[.03]" />}
         <span className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-graphite-700 text-white/45"><Icon className="h-3 w-3" /></span>
-        <div><p className="text-xs leading-5 text-white/60">{label}</p><time className="text-[10px] text-white/25">{formatDate(time)}</time></div>
+        <div><p className="text-xs leading-5 text-white/60">{label}</p><div className="flex flex-wrap items-center gap-1.5"><time className="text-[10px] text-white/25">{formatDateInZone(time, timeZone)}</time>{label === 'Inspection created' && <InspectionPeriodBadge timestamp={inspection.created_at} timeZone={timeZone} />}</div></div>
       </div>)}
     </div>
   </section>
@@ -769,6 +774,8 @@ function InspectionMetadata(props: InspectionExperienceProps) {
     ['Slack channel', props.slack.channel || props.inspection.slack_channel_id || '—'],
     ['Slack user', props.inspection.slack_user_id || '—'],
     ['Message timestamp', props.inspection.slack_message_ts || '—'],
+    ['Inspection period', getInspectionPeriod(props.inspection.created_at, props.timeZone).label],
+    ['Inspection timezone', props.timeZone],
     ['Processing time', processingDuration],
     ['Gemini model', props.aiRun?.model || props.inspection.ai_model || '—'],
     ['Worker version', workerVersion],

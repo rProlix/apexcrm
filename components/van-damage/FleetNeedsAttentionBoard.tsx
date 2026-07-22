@@ -18,8 +18,10 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/browser'
 import { formatDriverName } from '@/lib/van-damage/history'
+import { formatInspectionTimestamp } from '@/lib/van-damage/inspection-period'
 import { SignedDamageImage } from './SignedDamageImage'
 import { StatusBadge } from './StatusBadge'
+import { InspectionPeriodBadge } from './InspectionPeriodBadge'
 
 type JsonRecord = Record<string, unknown>
 
@@ -78,12 +80,14 @@ type AttentionSort = 'priority' | 'oldest' | 'recent'
 
 export function FleetNeedsAttentionBoard({
   tenantId,
+  timeZone,
   canManage,
   vehicles,
   attention,
   attentionError,
 }: {
   tenantId: string
+  timeZone: string
   canManage: boolean
   vehicles: FleetVehicleRow[]
   attention: FleetAttentionRow[]
@@ -284,6 +288,7 @@ export function FleetNeedsAttentionBoard({
               key={`${item.tenant_id}:${item.van_id}`}
               item={item}
               businessId={tenantId}
+              timeZone={timeZone}
               canManage={canManage}
               pending={pending}
               runAction={runAction}
@@ -321,12 +326,14 @@ export function FleetNeedsAttentionBoard({
 function SevereVanCard({
   item,
   businessId,
+  timeZone,
   canManage,
   pending,
   runAction,
 }: {
   item: FleetAttentionRow
   businessId: string
+  timeZone: string
   canManage: boolean
   pending: boolean
   runAction: (
@@ -404,20 +411,23 @@ function SevereVanCard({
             <Detail
               icon={CalendarClock}
               label="First detected"
-              value={formatDate(item.first_triggered_at)}
+              value={formatDate(item.first_triggered_at, timeZone)}
             />
-            <Detail icon={Eye} label="Last observed" value={formatDate(item.last_observed_at)} />
+            <Detail icon={Eye} label="Last observed" value={formatDate(item.last_observed_at, timeZone)} />
             <Detail icon={UserRound} label="Latest uploader" value={driver} />
             <Detail
               icon={ImageIcon}
               label="Latest upload"
-              value={`${formatDate(item.latest_upload_at)} · ${item.latest_image_count} image${item.latest_image_count === 1 ? '' : 's'}`}
+              value={`${formatDate(item.latest_upload_at, timeZone)} · ${item.latest_image_count} image${item.latest_image_count === 1 ? '' : 's'}`}
             />
           </dl>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <InspectionPeriodBadge timestamp={item.latest_upload_at || item.last_observed_at} timeZone={timeZone} showLabel />
+          </div>
           {item.acknowledged_at ? (
             <p className="mt-4 text-xs text-emerald-200/65">
               Acknowledged by {item.acknowledged_by_name || 'a team member'} ·{' '}
-              {formatDate(item.acknowledged_at)}
+              {formatDate(item.acknowledged_at, timeZone)}
             </p>
           ) : (
             <p className="mt-4 text-xs text-amber-200/65">Unacknowledged severe-damage alert</p>
@@ -598,13 +608,6 @@ function humanize(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase())
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return 'Unknown'
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value))
+function formatDate(value: string | null | undefined, timeZone: string) {
+  return formatInspectionTimestamp(value, { timeZone, fallback: 'Unknown' })
 }

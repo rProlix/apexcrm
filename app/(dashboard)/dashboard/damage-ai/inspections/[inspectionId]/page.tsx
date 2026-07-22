@@ -5,6 +5,7 @@ import { getVanDamagePageScope } from '@/lib/server/van-damage/page-scope'
 import { getVanDamageServiceClient } from '@/lib/server/van-damage/supabase'
 import { InspectionExperience } from '@/components/van-damage/InspectionExperience'
 import type { BoundingBox } from '@/components/van-damage/inspection-types'
+import { resolveInspectionTimeZone } from '@/lib/van-damage/inspection-period'
 
 export const metadata = { title: 'Van Damage Inspection — NexoraNow' }
 
@@ -64,7 +65,7 @@ export default async function InspectionPage({
     db.from('van_damage_jobs').select('*')
       .eq('inspection_id', inspectionId).eq('tenant_id', scope.tenantId)
       .order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    db.from('tenants').select('name').eq('id', scope.tenantId).maybeSingle(),
+    db.from('tenants').select('name, branding').eq('id', scope.tenantId).maybeSingle(),
     inspection.van_id
       ? db.from('vehicles').select('id, name, van_number, make, model, year, color, plate_number, vin, status, metadata')
         .eq('id', inspection.van_id).eq('tenant_id', scope.tenantId).maybeSingle()
@@ -136,6 +137,7 @@ export default async function InspectionPage({
   return <InspectionExperience
     businessId={scope.businessId}
     tenantName={tenantResult.data?.name || 'NexoraNow workspace'}
+    timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
     canManage={['owner', 'admin'].includes(scope.ctx.role)}
     inspection={{ ...inspection, metadata: asRecord(inspection.metadata) }}
     vehicle={vehicleResult.data ? { ...vehicleResult.data, metadata: asRecord(vehicleResult.data.metadata) } : null}

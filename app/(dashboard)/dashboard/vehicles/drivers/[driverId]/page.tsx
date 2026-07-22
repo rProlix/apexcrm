@@ -6,6 +6,13 @@ import { notFound } from 'next/navigation'
 import { getVanDamagePageScope } from '@/lib/server/van-damage/page-scope'
 import { getVanDamageServiceClient } from '@/lib/server/van-damage/supabase'
 import { formatDriverName, type SlackDriverSnapshot } from '@/lib/van-damage/history'
+import { InspectionPeriodBadge } from '@/components/van-damage/InspectionPeriodBadge'
+import {
+  formatInspectionDateOnly,
+  formatInspectionTimestamp,
+  getInspectionLocalDateKey,
+  resolveInspectionTimeZone,
+} from '@/lib/van-damage/inspection-period'
 
 export const metadata = { title: 'Driver Profile — NexoraNow' }
 
@@ -44,12 +51,12 @@ function driverSnapshot(profile: DriverProfile): SlackDriverSnapshot {
   return { slackWorkspaceId: profile.slack_team_id, slackUserId: profile.slack_user_id, displayName: profile.display_name, realName: profile.real_name, username: profile.username, avatarUrl: profile.avatar_url }
 }
 
-function formatDay(value: string) {
-  return new Intl.DateTimeFormat('en-US', { dateStyle: 'full', timeZone: 'UTC' }).format(new Date(value))
+function formatDay(value: string, timeZone: string) {
+  return formatInspectionDateOnly(value, { timeZone })
 }
 
-function formatTime(value: string) {
-  return new Intl.DateTimeFormat('en-US', { timeStyle: 'short', timeZone: 'UTC' }).format(new Date(value)) + ' UTC'
+function formatTime(value: string, timeZone: string) {
+  return formatInspectionTimestamp(value, { timeZone, includeTimeZoneName: true })
 }
 
 export default async function DriverProfilePage({
@@ -65,12 +72,13 @@ export default async function DriverProfilePage({
 
   const db = getVanDamageServiceClient()
   const newTables = db as unknown as NewTableClient
-  const [profileResult, sessionsResult, vehiclesResult, channelsResult] = await Promise.all([
+  const [profileResult, sessionsResult, vehiclesResult, channelsResult, tenantResult] = await Promise.all([
     newTables.from('van_slack_user_profiles').select('*').eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId).eq('id', driverId).limit(1),
     newTables.from('van_damage_upload_sessions').select('id, van_id, inspection_id, slack_channel_id, upload_started_at, image_count, status, damage_result, review_status')
       .eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId).eq('driver_profile_id', driverId).order('upload_started_at', { ascending: false }).limit(500),
     db.from('vehicles').select('id, name, van_number, make, model, year').eq('tenant_id', scope.tenantId).limit(500),
     db.from('van_slack_channels').select('slack_channel_id, slack_channel_name').eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId),
+    db.from('tenants').select('branding').eq('id', scope.tenantId).maybeSingle(),
   ])
 
   const profile = profileResult.data?.[0] as DriverProfile | undefined
@@ -78,12 +86,13 @@ export default async function DriverProfilePage({
   const sessions = (sessionsResult.data ?? []) as DriverSession[]
   const vehicles = new Map((vehiclesResult.data ?? []).map((van) => [van.id, van]))
   const channels = new Map((channelsResult.data ?? []).map((channel) => [channel.slack_channel_id, channel.slack_channel_name]))
+  const timeZone = resolveInspectionTimeZone({ tenant: tenantResult.data })
   const name = formatDriverName(driverSnapshot(profile))
   const vanIds = [...new Set(sessions.map((session) => session.van_id).filter((id): id is string => Boolean(id)))]
   const sessionsByDay = new Map<string, DriverSession[]>()
   for (const session of sessions) {
-    const key = session.upload_started_at.slice(0, 10)
-    sessionsByDay.set(key, [...(sessionsByDay.get(key) ?? []), session])
+    const key = getInspectionLocalDateKey(session.upload_started_at, timeZone)
+    if (key) sessionsByDay.set(key, [...(sessionsByDay.get(key) ?? []), session])
   }
 
   return <div className="space-y-6 p-4 md:p-6">
@@ -101,15 +110,15 @@ export default async function DriverProfilePage({
       {vanIds.length ? <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{vanIds.map((vanId) => {
         const van = vehicles.get(vanId)
         const vanSessions = sessions.filter((session) => session.van_id === vanId)
-        return <Link key={vanId} href={`/dashboard/vehicles/${vanId}?businessId=${encodeURIComponent(scope.businessId)}`} className="focus-ring rounded-xl border border-white/8 bg-white/[.02] p-4 transition hover:border-gold-400/25 hover:bg-white/[.04]"><div className="flex items-start justify-between"><Car className="h-4 w-4 text-gold-300/60" /><ExternalLink className="h-3.5 w-3.5 text-white/25" /></div><h3 className="mt-3 font-medium text-white">{van?.van_number ? `Van ${van.van_number}` : van?.name ?? 'Van'}</h3><p className="mt-1 text-xs text-white/35">{vanSessions.length} upload{vanSessions.length === 1 ? '' : 's'} · Last {formatDay(vanSessions[0].upload_started_at)}</p></Link>
+        return <Link key={vanId} href={`/dashboard/vehicles/${vanId}?businessId=${encodeURIComponent(scope.businessId)}`} className="focus-ring rounded-xl border border-white/8 bg-white/[.02] p-4 transition hover:border-gold-400/25 hover:bg-white/[.04]"><div className="flex items-start justify-between"><Car className="h-4 w-4 text-gold-300/60" /><ExternalLink className="h-3.5 w-3.5 text-white/25" /></div><h3 className="mt-3 font-medium text-white">{van?.van_number ? `Van ${van.van_number}` : van?.name ?? 'Van'}</h3><p className="mt-1 text-xs text-white/35">{vanSessions.length} upload{vanSessions.length === 1 ? '' : 's'} · Last {formatDay(vanSessions[0].upload_started_at, timeZone)}</p><div className="mt-2"><InspectionPeriodBadge timestamp={vanSessions[0].upload_started_at} timeZone={timeZone} /></div></Link>
       })}</div> : <p className="mt-4 rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-white/35">No analyzed van has been linked to this driver yet.</p>}
     </section>
 
     <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5">
       <div><h2 className="font-semibold text-white">Upload history by day</h2><p className="mt-1 text-xs text-white/35">Each Slack message remains a separate submission.</p></div>
-      <div className="mt-5 space-y-6">{[...sessionsByDay.entries()].map(([day, daySessions]) => <div key={day}><h3 className="flex items-center text-sm font-medium text-white/65"><CalendarDays className="mr-2 h-4 w-4 text-white/35" />{formatDay(`${day}T00:00:00Z`)}</h3><div className="mt-3 space-y-2">{daySessions.map((session) => {
+      <div className="mt-5 space-y-6">{[...sessionsByDay.entries()].map(([day, daySessions]) => <div key={day}><h3 className="flex items-center text-sm font-medium text-white/65"><CalendarDays className="mr-2 h-4 w-4 text-white/35" />{formatDay(`${day}T00:00:00Z`, timeZone)}</h3><div className="mt-3 space-y-2">{daySessions.map((session) => {
         const van = session.van_id ? vehicles.get(session.van_id) : null
-        return <Link key={session.id} href={`/dashboard/damage-ai/inspections/${session.inspection_id}?businessId=${encodeURIComponent(scope.businessId)}`} className="focus-ring flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[.02] p-4 transition hover:border-white/15 hover:bg-white/[.04]"><div><p className="text-sm font-medium text-white/70">{van?.van_number ? `Van ${van.van_number}` : van?.name ?? 'Van pending match'}</p><p className="mt-1 text-xs text-white/35">{formatTime(session.upload_started_at)} · #{channels.get(session.slack_channel_id) ?? session.slack_channel_id}</p></div><div className="flex flex-wrap gap-2 text-[10px]"><span className="rounded-full bg-white/5 px-2.5 py-1 text-white/45"><Images className="mr-1 inline h-3 w-3" />{session.image_count}</span><span className="rounded-full bg-white/5 px-2.5 py-1 capitalize text-white/45">{session.status.replaceAll('_', ' ')}</span><span className="rounded-full bg-white/5 px-2.5 py-1 capitalize text-white/45">{(session.damage_result ?? session.review_status).replaceAll('_', ' ')}</span></div></Link>
+        return <Link key={session.id} href={`/dashboard/damage-ai/inspections/${session.inspection_id}?businessId=${encodeURIComponent(scope.businessId)}`} className="focus-ring flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[.02] p-4 transition hover:border-white/15 hover:bg-white/[.04]"><div><p className="text-sm font-medium text-white/70">{van?.van_number ? `Van ${van.van_number}` : van?.name ?? 'Van pending match'}</p><p className="mt-1 text-xs text-white/35">{formatTime(session.upload_started_at, timeZone)} · #{channels.get(session.slack_channel_id) ?? session.slack_channel_id}</p></div><div className="flex flex-wrap gap-2 text-[10px]"><InspectionPeriodBadge timestamp={session.upload_started_at} timeZone={timeZone} /><span className="rounded-full bg-white/5 px-2.5 py-1 text-white/45"><Images className="mr-1 inline h-3 w-3" />{session.image_count}</span><span className="rounded-full bg-white/5 px-2.5 py-1 capitalize text-white/45">{session.status.replaceAll('_', ' ')}</span><span className="rounded-full bg-white/5 px-2.5 py-1 capitalize text-white/45">{(session.damage_result ?? session.review_status).replaceAll('_', ' ')}</span></div></Link>
       })}</div></div>)}</div>
     </section>
   </div>

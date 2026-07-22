@@ -17,7 +17,15 @@ import {
 } from 'lucide-react'
 import { SignedDamageImage } from './SignedDamageImage'
 import { StatusBadge } from './StatusBadge'
+import { InspectionPeriodBadge } from './InspectionPeriodBadge'
 import { formatDriverName } from '@/lib/van-damage/history'
+import {
+  formatInspectionDateOnly,
+  formatInspectionTimestamp,
+  getInspectionLocalDateKey,
+  getInspectionPeriod,
+  type InspectionPeriod,
+} from '@/lib/van-damage/inspection-period'
 
 type JsonRecord = Record<string, unknown>
 
@@ -116,6 +124,7 @@ export type VanProfileCase = {
 
 export function VanProfileWorkspace({
   businessId,
+  timeZone,
   canManage,
   vehicle,
   profileImage,
@@ -125,6 +134,7 @@ export function VanProfileWorkspace({
   cases,
 }: {
   businessId: string
+  timeZone: string
   canManage: boolean
   vehicle: VanProfileVehicle
   profileImage: VanProfileImage
@@ -135,6 +145,7 @@ export function VanProfileWorkspace({
 }) {
   const [driverFilter, setDriverFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('all')
+  const [periodFilter, setPeriodFilter] = useState<InspectionPeriod | 'all'>('all')
   const activeCases = cases.filter((item) =>
     [
       'active',
@@ -158,18 +169,19 @@ export function VanProfileWorkspace({
     [sessions]
   )
   const dateOptions = useMemo(
-    () => [...new Set(sessions.map((session) => session.upload_started_at.slice(0, 10)))],
-    [sessions]
+    () => [...new Set(sessions.map((session) => getInspectionLocalDateKey(session.upload_started_at, timeZone)).filter((date): date is string => Boolean(date)))],
+    [sessions, timeZone]
   )
   const filteredSessions = sessions.filter((session) => {
     const driver = formatDriverName(session.driver_snapshot)
     return (
       (driverFilter === 'all' || driver === driverFilter) &&
-      (dateFilter === 'all' || session.upload_started_at.startsWith(dateFilter))
+      (dateFilter === 'all' || getInspectionLocalDateKey(session.upload_started_at, timeZone) === dateFilter) &&
+      (periodFilter === 'all' || getInspectionPeriod(session.upload_started_at, timeZone).period === periodFilter)
     )
   })
   const daily = dateOptions.map((date) => {
-    const daySessions = sessions.filter((session) => session.upload_started_at.startsWith(date))
+    const daySessions = sessions.filter((session) => getInspectionLocalDateKey(session.upload_started_at, timeZone) === date)
     return {
       date,
       drivers: [
@@ -192,7 +204,7 @@ export function VanProfileWorkspace({
     ? formatDriverName(latestSession.driver_snapshot)
     : 'Unknown driver'
   const latestUpload = latestSession
-    ? formatDate(latestSession.upload_started_at)
+    ? formatDate(latestSession.upload_started_at, timeZone)
     : 'No upload sessions'
 
   async function copy(value: string | null | undefined) {
@@ -272,6 +284,9 @@ export function VanProfileWorkspace({
                 >
                   {latestUpload}
                 </time>
+                <div className="mt-2">
+                  <InspectionPeriodBadge timestamp={latestSession?.upload_started_at} timeZone={timeZone} showLabel />
+                </div>
                 <p className="mt-2 text-xs text-white/35">
                   Uploader information identifies who submitted inspection images. It does not
                   determine responsibility for damage.
@@ -290,7 +305,7 @@ export function VanProfileWorkspace({
         </div>
       </section>
 
-      {latestSession && <LatestInspectionCard businessId={businessId} session={latestSession} />}
+      {latestSession && <LatestInspectionCard businessId={businessId} session={latestSession} timeZone={timeZone} />}
 
       <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="space-y-6">
@@ -327,6 +342,15 @@ export function VanProfileWorkspace({
                     </option>
                   ))}
                 </select>
+                <select
+                  value={periodFilter}
+                  onChange={(event) => setPeriodFilter(event.target.value as InspectionPeriod | 'all')}
+                  className="focus-ring rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-white/65"
+                >
+                  <option value="all">All periods</option>
+                  <option value="SOD">SOD only</option>
+                  <option value="EOD">EOD only</option>
+                </select>
               </div>
             </div>
             <div className="mt-5 space-y-3">
@@ -336,6 +360,7 @@ export function VanProfileWorkspace({
                   businessId={businessId}
                   vehicleId={vehicle.id}
                   session={session}
+                  timeZone={timeZone}
                   profileImageId={profileImage.imageId}
                   canManage={canManage}
                 />
@@ -358,6 +383,7 @@ export function VanProfileWorkspace({
                 <DamageCaseCard
                   key={damageCase.id}
                   businessId={businessId}
+                  timeZone={timeZone}
                   damageCase={damageCase}
                   canManage={canManage}
                 />
@@ -377,7 +403,7 @@ export function VanProfileWorkspace({
             <div className="mt-4 space-y-3">
               {daily.map((day) => (
                 <div key={day.date} className="rounded-xl border border-white/8 bg-white/[.02] p-3">
-                  <p className="text-sm font-medium text-white">{formatDateOnly(day.date)}</p>
+                  <p className="text-sm font-medium text-white">{formatDateOnly(day.date, timeZone)}</p>
                   <p className="mt-1 text-xs text-white/35">{day.drivers.join(', ')}</p>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-white/45">
                     <span>{day.sessions} sessions</span>
@@ -405,9 +431,11 @@ export function VanProfileWorkspace({
 function LatestInspectionCard({
   businessId,
   session,
+  timeZone,
 }: {
   businessId: string
   session: VanProfileSession
+  timeZone: string
 }) {
   const counts = countObservations(session.observations)
   return (
@@ -436,12 +464,13 @@ function LatestInspectionCard({
             title={session.upload_started_at}
             className="mt-1 block text-xs text-white/40"
           >
-            {formatDate(session.upload_started_at)}
+            {formatDate(session.upload_started_at, timeZone)}
           </time>
           <p className="mt-4 line-clamp-3 text-sm leading-6 text-white/55">
             {session.inspection?.ai_summary || 'Analysis summary pending.'}
           </p>
           <div className="mt-4 flex flex-wrap gap-2 text-xs">
+            <InspectionPeriodBadge timestamp={session.upload_started_at} timeZone={timeZone} />
             <Badge label={`${session.image_count} image${session.image_count === 1 ? '' : 's'}`} />
             <Badge label={`${counts.newDamage} new damage`} />
             <Badge label={`${counts.existing} existing observed`} />
@@ -467,12 +496,14 @@ function UploadSessionCard({
   businessId,
   vehicleId,
   session,
+  timeZone,
   profileImageId,
   canManage,
 }: {
   businessId: string
   vehicleId: string
   session: VanProfileSession
+  timeZone: string
   profileImageId: string | null
   canManage: boolean
 }) {
@@ -518,10 +549,11 @@ function UploadSessionCard({
             title={session.upload_started_at}
             className="mt-2 block text-xs text-white/35"
           >
-            {formatDate(session.upload_started_at)}
+            {formatDate(session.upload_started_at, timeZone)}
             {session.channelName ? ` · #${session.channelName}` : ''}
           </time>
           <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <InspectionPeriodBadge timestamp={session.upload_started_at} timeZone={timeZone} />
             <Badge label={`${session.image_count} images`} />
             <Badge label={`${counts.newDamage} new`} />
             <Badge label={`${counts.existing} existing observed`} />
@@ -590,10 +622,12 @@ function UploadSessionCard({
 
 function DamageCaseCard({
   businessId,
+  timeZone,
   damageCase,
   canManage,
 }: {
   businessId: string
+  timeZone: string
   damageCase: VanProfileCase
   canManage: boolean
 }) {
@@ -635,13 +669,13 @@ function DamageCaseCard({
           </p>
           {damageCase.severity_reviewed_at && (
             <p className="mt-1 text-xs text-gold-200/50">
-              Human-reviewed {formatDate(damageCase.severity_reviewed_at)}
+              Human-reviewed {formatDate(damageCase.severity_reviewed_at, timeZone)}
               {damageCase.severity_review_reason ? ` · ${damageCase.severity_review_reason}` : ''}
             </p>
           )}
           <p className="mt-2 text-xs text-white/35">
-            First detected {formatDate(damageCase.first_detected_at)} · Last observed{' '}
-            {formatDate(damageCase.last_observed_at)}
+            First detected {formatDate(damageCase.first_detected_at, timeZone)} · Last observed{' '}
+            {formatDate(damageCase.last_observed_at, timeZone)}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Badge label={`${damageCase.observation_count} observations`} />
@@ -674,8 +708,11 @@ function DamageCaseCard({
                 </p>
                 <p className="mt-1 text-xs text-white/35">
                   {formatDriverName(observation.driver_snapshot)} ·{' '}
-                  {formatDate(observation.observed_at)}
+                  {formatDate(observation.observed_at, timeZone)}
                 </p>
+                <div className="mt-2">
+                  <InspectionPeriodBadge timestamp={observation.observed_at} timeZone={timeZone} />
+                </div>
               </div>
               <Link
                 href={`/dashboard/damage-ai/inspections/${observation.inspection_id}?businessId=${encodeURIComponent(businessId)}`}
@@ -877,21 +914,15 @@ function initials(value: string) {
       .join('') || <UserRound className="h-4 w-4" />
   )
 }
-function formatDate(value: string | null | undefined) {
-  if (!value) return 'Pending'
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  }).format(new Date(value))
+function formatDate(value: string | null | undefined, timeZone: string) {
+  return formatInspectionTimestamp(value, {
+    timeZone,
+    includeTimeZoneName: true,
+    fallback: 'Pending',
+  })
 }
-function formatDateOnly(value: string) {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
-    new Date(`${value}T00:00:00Z`)
-  )
+function formatDateOnly(value: string, timeZone: string) {
+  return formatInspectionDateOnly(`${value}T00:00:00Z`, { timeZone })
 }
 function countObservations(observations: Array<{ observation_type: string }>) {
   return {
