@@ -1,9 +1,11 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Copy, Eye, EyeOff, ImageIcon, Maximize2 } from 'lucide-react'
+import { getSignedDamageImageUrl } from '@/lib/van-damage/image-url-cache'
 import type { DamageImage, DamageItem, ResolvedDamageImage } from './inspection-types'
+import { SignedDamageImage } from './SignedDamageImage'
 
 const DamageLightbox = dynamic(() => import('./DamageLightbox'), { ssr: false })
 
@@ -19,27 +21,39 @@ export function DamageImageGallery({
   const [resolved, setResolved] = useState<ResolvedDamageImage[]>(images.map((image) => ({ ...image, url: null })))
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const [overlays, setOverlays] = useState(true)
+  const [visibleCount, setVisibleCount] = useState(18)
 
   useEffect(() => {
-    const controller = new AbortController()
-    Promise.all(images.map(async (image) => {
-      try {
-        const response = await fetch(`/api/van-damage/images/${image.id}/signed-url?businessId=${encodeURIComponent(businessId)}`, { signal: controller.signal })
-        if (!response.ok) return { ...image, url: null }
-        const result = await response.json() as { url: string }
-        return { ...image, url: result.url }
-      } catch {
-        return { ...image, url: null }
-      }
-    })).then(setResolved)
-    return () => controller.abort()
-  }, [businessId, images])
+    setResolved((current) => images.map((image) => ({
+      ...image,
+      url: current.find((entry) => entry.id === image.id)?.url ?? null,
+    })))
+    setVisibleCount(18)
+  }, [images])
+
+  const rememberUrl = useCallback((imageId: string, url: string) => {
+    setResolved((current) => current.map((image) => image.id === imageId ? { ...image, url } : image))
+  }, [])
+
+  const openImage = useCallback(async (index: number) => {
+    const image = images[index]
+    if (!image) return
+    try {
+      const result = await getSignedDamageImageUrl({ imageId: image.id, businessId })
+      rememberUrl(image.id, result.url)
+    } catch {
+      // The lightbox provides a graceful unavailable state.
+    }
+    setActiveIndex(index)
+  }, [businessId, images, rememberUrl])
+
+  const visibleImages = useMemo(() => resolved.slice(0, visibleCount), [resolved, visibleCount])
 
   const scrollToImage = useCallback((imageId: string) => {
     document.getElementById(`inspection-image-${imageId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     const index = images.findIndex((image) => image.id === imageId)
-    if (index >= 0) setActiveIndex(index)
-  }, [images])
+    if (index >= 0) void openImage(index)
+  }, [images, openImage])
 
   const copyPermalink = useCallback(async (imageId: string) => {
     await navigator.clipboard?.writeText(`${window.location.href.split('#')[0]}#image-${imageId}`).catch(() => undefined)
@@ -74,17 +88,14 @@ export function DamageImageGallery({
     <div className="no-print mb-4 flex gap-2 overflow-x-auto pb-1">
       {resolved.map((image, index) => {
         const quality = getImageQuality(image)
-        return <button key={image.id} onClick={() => setActiveIndex(index)} className="focus-ring relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/[.03]">
-          {image.url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={image.url} alt="" loading="lazy" className="h-full w-full object-cover" />
-          ) : <ImageIcon className="mx-auto mt-4 h-5 w-5 text-white/25" />}
+        return <button key={image.id} onClick={() => void openImage(index)} className="focus-ring relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/[.03]">
+          <SignedDamageImage imageId={image.id} businessId={businessId} alt="" sizes="80px" eager={index < 4} fillContainer onUrl={(url) => rememberUrl(image.id, url)} />
           {quality !== 'good' && <span className="absolute right-1 top-1 rounded bg-amber-400/90 p-0.5 text-black"><AlertTriangle className="h-2.5 w-2.5" /></span>}
         </button>
       })}
     </div>
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {resolved.map((image, index) => {
+      {visibleImages.map((image, index) => {
         const imageItems = items.filter((item) => item.image_id === image.id && item.bounding_box)
         const quality = getImageQuality(image)
         return <div id={`inspection-image-${image.id}`} key={image.id} className="group overflow-hidden rounded-2xl border border-white/10 bg-graphite-800 text-left transition hover:-translate-y-0.5 hover:border-white/20 hover:shadow-panel-lg">
@@ -92,13 +103,10 @@ export function DamageImageGallery({
             <button
               id={`image-${image.id}`}
               aria-label={`Open inspection image ${index + 1}`}
-              onClick={() => setActiveIndex(index)}
+              onClick={() => void openImage(index)}
               className="focus-ring absolute inset-0 block h-full w-full text-left"
             >
-              {image.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={image.url} alt={`Inspection image ${index + 1}`} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
-              ) : <span className="flex h-full items-center justify-center text-white/25"><ImageIcon className="h-8 w-8" /></span>}
+              <SignedDamageImage imageId={image.id} businessId={businessId} alt={`Inspection image ${index + 1}`} sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" eager={index < 3} fillContainer onUrl={(url) => rememberUrl(image.id, url)} />
               <span className="absolute right-3 top-3 rounded-lg bg-black/55 p-2 text-white/75 opacity-0 backdrop-blur transition group-hover:opacity-100"><Maximize2 className="h-4 w-4" /></span>
               {imageItems.length > 0 && <span className="absolute bottom-3 left-3 rounded-full border border-amber-300/30 bg-black/60 px-2.5 py-1 text-[10px] font-medium text-amber-200 backdrop-blur">{imageItems.length} finding{imageItems.length === 1 ? '' : 's'}</span>}
               {quality !== 'good' && <span className="absolute bottom-3 right-3 inline-flex items-center rounded-full border border-amber-300/30 bg-black/60 px-2.5 py-1 text-[10px] text-amber-100 backdrop-blur"><AlertTriangle className="mr-1 h-3 w-3" />{quality}</span>}
@@ -123,7 +131,8 @@ export function DamageImageGallery({
         </div>
       })}
     </div>
-    {activeIndex != null && <DamageLightbox images={resolved} items={items} initialIndex={activeIndex} overlays={overlays} businessId={businessId} onClose={() => setActiveIndex(null)} onIndexChange={setActiveIndex} />}
+    {visibleCount < resolved.length && <div className="mt-5 flex justify-center"><button type="button" onClick={() => setVisibleCount((count) => Math.min(resolved.length, count + 18))} className="focus-ring rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60 hover:bg-white/5">Show 18 more images</button></div>}
+    {activeIndex != null && <DamageLightbox images={resolved} items={items} initialIndex={activeIndex} overlays={overlays} businessId={businessId} onClose={() => setActiveIndex(null)} onIndexChange={setActiveIndex} onRefreshImage={rememberUrl} />}
   </>
 }
 

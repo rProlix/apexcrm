@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Download, Maximize, Minus, Plus, RotateCcw, X } from 'lucide-react'
+import { getSignedDamageImageUrl } from '@/lib/van-damage/image-url-cache'
 import type { DamageItem, ResolvedDamageImage } from './inspection-types'
 
 export default function DamageLightbox({
@@ -12,6 +13,7 @@ export default function DamageLightbox({
   onClose,
   onIndexChange,
   businessId,
+  onRefreshImage,
 }: {
   images: ResolvedDamageImage[]
   items: DamageItem[]
@@ -20,6 +22,7 @@ export default function DamageLightbox({
   onClose: () => void
   onIndexChange: (index: number) => void
   businessId: string
+  onRefreshImage: (imageId: string, url: string) => void
 }) {
   const [index, setIndex] = useState(initialIndex)
   const [zoom, setZoom] = useState(1)
@@ -106,7 +109,11 @@ export default function DamageLightbox({
           <div className="relative max-h-full max-w-full transition-transform duration-150" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }}>
             {image.url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={image.url} alt={`Inspection image ${index + 1}`} className="max-h-[calc(100dvh-9rem)] max-w-full select-none object-contain" draggable={false} />
+              <img src={image.url} alt={`Inspection image ${index + 1}`} className="max-h-[calc(100dvh-9rem)] max-w-full select-none object-contain" draggable={false} onError={() => {
+                void getSignedDamageImageUrl({ imageId: image.id, businessId, forceRefresh: true })
+                  .then((result) => onRefreshImage(image.id, result.url))
+                  .catch(() => undefined)
+              }} />
             ) : <div className="flex h-72 w-96 items-center justify-center rounded-2xl bg-white/5 text-sm text-white/35">Image unavailable</div>}
             {overlays && imageItems.map((item) => {
               const box = item.bounding_box!
