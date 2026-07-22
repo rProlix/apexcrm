@@ -80,11 +80,13 @@ test('Transit configuration defaults and supported metadata variants resolve det
       },
     }),
     {
-      wheelbase: 'extended',
+      wheelbaseInches: 148,
+      bodyLength: 'extended',
       roofHeight: 'high',
       rearWheels: 'dual',
       slidingDoor: 'both',
       cargoConfiguration: 'passenger',
+      rearDoorWindows: true,
     }
   )
   assert.deepEqual(
@@ -98,12 +100,38 @@ test('Transit configuration defaults and supported metadata variants resolve det
       },
     }),
     {
-      wheelbase: 'regular',
+      wheelbaseInches: 148,
+      bodyLength: 'regular',
       roofHeight: 'low',
       rearWheels: 'single',
       slidingDoor: 'driver',
       cargoConfiguration: 'cargo',
+      rearDoorWindows: false,
     }
+  )
+  assert.deepEqual(
+    resolveTransitConfiguration({
+      metadata: {
+        wheelbase: 130,
+        bodyLength: 'regular',
+        roofHeight: 'medium',
+        rearDoorWindows: false,
+      },
+    }),
+    {
+      wheelbaseInches: 130,
+      bodyLength: 'regular',
+      roofHeight: 'medium',
+      rearWheels: 'single',
+      slidingDoor: 'passenger',
+      cargoConfiguration: 'cargo',
+      rearDoorWindows: false,
+    }
+  )
+  assert.equal(
+    resolveTransitConfiguration({ metadata: { wheelbase: 130, bodyLength: 'extended' } })
+      .bodyLength,
+    'regular'
   )
 })
 

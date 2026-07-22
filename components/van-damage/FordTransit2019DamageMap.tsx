@@ -5,14 +5,12 @@ import { AlertTriangle, Maximize2, X } from 'lucide-react'
 import type { DamageImage, DamageItem } from './inspection-types'
 import {
   GENERIC_BLUEPRINT_ID,
-  DRIVER_SLIDING_DOOR_REGION,
-  PASSENGER_CARGO_PANEL_REGION,
   TRANSIT_VIEW_LABELS,
   TRANSIT_VIEW_ORDER,
-  TRANSIT_VIEW_REGIONS,
   buildTransitRegionAriaLabel,
   classifyTransitRegionState,
   getTransitRegionDefinition,
+  getTransitViewRegions,
   resolveTransitConfiguration,
   resolveVehicleBlueprint,
   transitConfigurationLabel,
@@ -21,6 +19,7 @@ import {
   type TransitView,
   type VehicleBlueprintInput,
 } from '@/lib/van-damage/transit-blueprint'
+import { createTransitGeometry } from '@/lib/van-damage/transit-geometry'
 
 type RegionSummary = {
   items: DamageItem[]
@@ -203,25 +202,8 @@ function TransitMapContent({
   const rawId = useId()
   const idPrefix = `transit-${instance}-${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`
   const regions = useMemo(
-    () =>
-      TRANSIT_VIEW_REGIONS[activeView].map((region) => {
-        if (
-          activeView === 'driver' &&
-          region.id === 'driver_cargo_panel' &&
-          ['driver', 'both'].includes(configuration.slidingDoor)
-        ) {
-          return DRIVER_SLIDING_DOOR_REGION
-        }
-        if (
-          activeView === 'passenger' &&
-          region.id === 'passenger_sliding_door' &&
-          !['passenger', 'both'].includes(configuration.slidingDoor)
-        ) {
-          return PASSENGER_CARGO_PANEL_REGION
-        }
-        return region
-      }),
-    [activeView, configuration.slidingDoor]
+    () => getTransitViewRegions(configuration)[activeView],
+    [activeView, configuration]
   )
   const summaries = useMemo(() => {
     const result = new Map<string, RegionSummary>()
@@ -335,27 +317,11 @@ function TransitSvg({
 }) {
   const [focused, setFocused] = useState<string | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
-  const scaleX =
-    activeView === 'front' || activeView === 'rear'
-      ? 1
-      : configuration.wheelbase === 'regular'
-        ? 0.92
-        : configuration.wheelbase === 'extended'
-          ? 1.045
-          : 1
-  const scaleY =
-    activeView === 'top'
-      ? 1
-      : configuration.roofHeight === 'low'
-        ? 0.91
-        : configuration.roofHeight === 'high'
-          ? 1.055
-          : 1
-  const transform = `translate(${400 - 400 * scaleX} ${310 - 310 * scaleY}) scale(${scaleX} ${scaleY})`
+  const geometry = useMemo(() => createTransitGeometry(configuration), [configuration])
 
   return (
     <svg
-      viewBox="0 0 800 360"
+      viewBox="0 0 800 400"
       preserveAspectRatio="xMidYMid meet"
       className={`${large ? 'max-h-[70dvh]' : 'max-h-[430px]'} h-auto w-full`}
       role="group"
@@ -390,11 +356,12 @@ function TransitSvg({
         </linearGradient>
       </defs>
       <BlueprintGround />
-      <g transform={transform}>
+      <g>
         <TransitBlueprintOutline
           view={activeView}
           glassId={`${idPrefix}-glass`}
           configuration={configuration}
+          geometry={geometry}
         />
         {regions.map((region) => {
           const summary = summaries.get(region.id) ?? summarizeRegion([], false, '')
@@ -479,9 +446,9 @@ function TransitSvg({
         {configuration.rearWheels === 'dual' &&
           (activeView === 'driver' || activeView === 'passenger') && (
             <circle
-              cx="604"
-              cy="273"
-              r="29"
+              cx={geometry.side.rearAxle + 5}
+              cy={geometry.side.groundY - geometry.side.wheelRadius}
+              r={geometry.side.wheelRadius - 4}
               fill="none"
               stroke="rgba(255,255,255,.22)"
               strokeWidth="5"
@@ -491,7 +458,7 @@ function TransitSvg({
       </g>
       <text
         x="400"
-        y="342"
+        y="389"
         textAnchor="middle"
         fill="rgba(255,255,255,.27)"
         fontSize="11"
@@ -503,109 +470,169 @@ function TransitSvg({
   )
 }
 
-function TransitBlueprintOutline({
+export function TransitBlueprintOutline({
   view,
   glassId,
   configuration,
+  geometry,
 }: {
   view: TransitView
   glassId: string
   configuration: ReturnType<typeof resolveTransitConfiguration>
+  geometry: ReturnType<typeof createTransitGeometry>
 }) {
   const outline = 'rgba(255,255,255,.27)'
   const subtle = 'rgba(255,255,255,.13)'
   if (view === 'driver' || view === 'passenger') {
+    const s = geometry.side
+    const wheelY = s.groundY - s.wheelRadius
     const slidingVisible =
       (view === 'passenger' && ['passenger', 'both'].includes(configuration.slidingDoor)) ||
       (view === 'driver' && ['driver', 'both'].includes(configuration.slidingDoor))
     return (
       <g aria-hidden="true" fill="none" strokeLinecap="round" strokeLinejoin="round">
         <path
-          d="M58 288 V244 L66 192 L73 168 L196 151 L199 49 Q206 37 230 34 H520 L560 52 L676 58 L721 92 L733 130 V247 L750 247 V287 H642 A38 38 0 0 0 566 287 H208 A38 38 0 0 0 132 287 H58 Z"
+          d={`M${s.frontEdge} ${s.bodyBottomY} V${s.hoodFront.y + 20} L${s.hoodFront.x} ${s.hoodFront.y} L${s.hoodRear.x} ${s.hoodRear.y} L${s.windshieldTop.x} ${s.windshieldTop.y} Q${s.windshieldTop.x + 8} ${s.roofY} ${s.windshieldTop.x + 28} ${s.roofY} H${s.rearEdge - 38} Q${s.rearEdge - 8} ${s.roofY + 8} ${s.rearEdge} ${s.roofY + 42} V${s.bodyBottomY} H${s.rearAxle + s.wheelRadius} A${s.wheelRadius} ${s.wheelRadius} 0 0 0 ${s.rearAxle - s.wheelRadius} ${s.bodyBottomY} H${s.frontAxle + s.wheelRadius} A${s.wheelRadius} ${s.wheelRadius} 0 0 0 ${s.frontAxle - s.wheelRadius} ${s.bodyBottomY} H${s.frontEdge} Z`}
           fill="rgba(255,255,255,.025)"
           stroke={outline}
           strokeWidth="2.2"
         />
         <path
-          d="M201 73 L282 70 L274 173 L220 185 L196 151 Z"
+          d={`M${s.windshieldTop.x} ${s.windshieldTop.y} L${s.windshieldTop.x + 75} ${s.roofY + 11} L${s.windshieldBase.x} ${s.windshieldBase.y} L${s.windshieldBase.x - 20} ${s.windshieldBase.y - 25} Z`}
           fill={`url(#${glassId})`}
           stroke={subtle}
         />
         <path
-          d="M282 70 H676 M391 70 V267 M563 70 V267 M704 111 V267 M242 292 H702"
+          d={`M${s.windshieldTop.x + 75} ${s.roofY + 10} H${s.rearEdge - 22} M${s.cabRearX} ${s.roofY + 10} V${s.bodyBottomY} M${s.cargoDoorRearX} ${s.roofY + 10} V${s.bodyBottomY} M${s.rearDoorSeamX} ${s.roofY + 18} V${s.bodyBottomY}`}
           stroke={subtle}
         />
         {slidingVisible && (
           <>
-            <path d="M394 76 H574 V267 H394 Z" stroke="rgba(255,255,255,.22)" />
-            <path d="M421 91 H559" stroke="rgba(255,255,255,.2)" strokeWidth="3" />
+            <path
+              d={`M${s.cabRearX + 4} ${s.roofY + 15} H${s.cargoDoorRearX} V${s.bodyBottomY - 24} H${s.cabRearX + 4} Z`}
+              stroke="rgba(255,255,255,.22)"
+            />
+            <path
+              d={`M${s.cabRearX + 31} ${s.roofY + 31} H${s.cargoDoorRearX - 14}`}
+              stroke="rgba(255,255,255,.2)"
+              strokeWidth="3"
+            />
           </>
         )}
-        {view === 'driver' && <path d="M394 84 H676" stroke="rgba(255,255,255,.08)" />}
-        <circle cx="170" cy="273" r="31" fill="#0d0d0f" stroke={outline} strokeWidth="6" />
-        <circle cx="604" cy="273" r="31" fill="#0d0d0f" stroke={outline} strokeWidth="6" />
-        <circle cx="170" cy="273" r="11" stroke={subtle} />
-        <circle cx="604" cy="273" r="11" stroke={subtle} />
+        {view === 'driver' && (
+          <path
+            d={`M${s.cabRearX} ${s.roofY + 25} H${s.rearDoorSeamX}`}
+            stroke="rgba(255,255,255,.08)"
+          />
+        )}
+        {configuration.cargoConfiguration === 'passenger' && (
+          <path
+            d={`M${s.cabRearX + 12} ${s.roofY + 24} H${s.cargoDoorRearX - 8} V${s.beltlineY - 8} H${s.cabRearX + 12} Z M${s.cargoDoorRearX + 9} ${s.roofY + 24} H${s.rearDoorSeamX - 8} V${s.beltlineY - 8} H${s.cargoDoorRearX + 9} Z`}
+            fill={`url(#${glassId})`}
+            stroke={subtle}
+          />
+        )}
+        <circle
+          cx={s.frontAxle}
+          cy={wheelY}
+          r={s.wheelRadius}
+          fill="#0d0d0f"
+          stroke={outline}
+          strokeWidth="6"
+        />
+        <circle
+          cx={s.rearAxle}
+          cy={wheelY}
+          r={s.wheelRadius}
+          fill="#0d0d0f"
+          stroke={outline}
+          strokeWidth="6"
+        />
+        <circle cx={s.frontAxle} cy={wheelY} r={s.wheelRadius * 0.36} stroke={subtle} />
+        <circle cx={s.rearAxle} cy={wheelY} r={s.wheelRadius * 0.36} stroke={subtle} />
       </g>
     )
   }
   if (view === 'front') {
+    const e = geometry.end
     return (
       <g aria-hidden="true" fill="none" strokeLinecap="round" strokeLinejoin="round">
         <path
-          d="M205 294 L210 169 L232 72 L251 42 Q263 22 300 18 H500 Q537 22 549 42 L568 72 L590 169 L595 294 Z"
+          d={`M${e.bodyLeft} ${e.bodyBottomY} L${e.bodyLeft + 5} ${e.beltlineY} L${e.bodyLeft + 25} ${e.roofY + 31} Q${e.bodyLeft + 38} ${e.roofY} ${e.bodyLeft + 72} ${e.roofY} H${e.bodyRight - 72} Q${e.bodyRight - 38} ${e.roofY} ${e.bodyRight - 25} ${e.roofY + 31} L${e.bodyRight - 5} ${e.beltlineY} L${e.bodyRight} ${e.bodyBottomY} Z`}
           fill="rgba(255,255,255,.025)"
           stroke={outline}
           strokeWidth="2.2"
         />
-        <path d="M259 79 H541 L520 169 H280 Z" fill={`url(#${glassId})`} stroke={subtle} />
-        <path d="M400 80 V169 M281 174 H519 M250 217 H550 M302 231 H498" stroke={subtle} />
         <path
-          d="M330 190 H470 L459 224 H341 Z M302 231 H498 L479 278 H321 Z"
+          d={`M${e.bodyLeft + 25} ${e.roofY + 31} H${e.bodyRight - 25} L${e.bodyRight - 46} ${e.beltlineY - 8} H${e.bodyLeft + 46} Z`}
+          fill={`url(#${glassId})`}
+          stroke={subtle}
+        />
+        <path
+          d={`M400 ${e.roofY + 31} V${e.beltlineY - 8} M${e.bodyLeft + 29} ${e.beltlineY + 35} H${e.bodyRight - 29}`}
+          stroke={subtle}
+        />
+        <path
+          d={`M338 ${e.beltlineY + 30} H462 L453 ${e.beltlineY + 64} H347 Z M315 ${e.beltlineY + 75} H485 L466 ${e.bodyBottomY - 10} H334 Z`}
           stroke="rgba(255,255,255,.22)"
         />
       </g>
     )
   }
   if (view === 'rear') {
+    const e = geometry.end
     return (
       <g aria-hidden="true" fill="none" strokeLinecap="round" strokeLinejoin="round">
         <path
-          d="M205 313 L218 94 L232 72 L239 49 Q250 24 286 20 H514 Q550 24 561 49 L568 72 L582 94 L595 313 Z"
+          d={`M${e.bodyLeft} ${e.bodyBottomY} L${e.bodyLeft + 12} ${e.roofY + 32} Q${e.bodyLeft + 25} ${e.roofY} ${e.bodyLeft + 68} ${e.roofY} H${e.bodyRight - 68} Q${e.bodyRight - 25} ${e.roofY} ${e.bodyRight - 12} ${e.roofY + 32} L${e.bodyRight} ${e.bodyBottomY} Z`}
           fill="rgba(255,255,255,.025)"
           stroke={outline}
           strokeWidth="2.2"
         />
-        <path d="M244 77 H556 V283 H244 Z M400 77 V283 M244 222 H556" stroke={subtle} />
-        {configuration.cargoConfiguration === 'passenger' && (
+        <path
+          d={`M${e.bodyLeft + 22} ${e.roofY + 29} H${e.bodyRight - 22} V${e.bodyBottomY - 35} H${e.bodyLeft + 22} Z M400 ${e.roofY + 29} V${e.bodyBottomY - 35} M${e.bodyLeft + 22} ${e.bodyBottomY - 105} H${e.bodyRight - 22}`}
+          stroke={subtle}
+        />
+        {configuration.rearDoorWindows && (
           <>
             <path
-              d="M262 92 H386 V202 H262 Z M414 92 H538 V202 H414 Z"
+              d={`M${e.bodyLeft + 40} ${e.roofY + 46} H388 V${e.beltlineY + 31} H${e.bodyLeft + 40} Z M412 ${e.roofY + 46} H${e.bodyRight - 40} V${e.beltlineY + 31} H412 Z`}
               fill={`url(#${glassId})`}
               stroke={subtle}
             />
           </>
         )}
         <path
-          d="M218 94 L244 90 V230 L218 224 Z M582 94 L556 90 V230 L582 224 Z"
+          d={`M${e.bodyLeft - 3} ${e.beltlineY - 45} H${e.bodyLeft + 20} V${e.bodyBottomY - 62} H${e.bodyLeft - 3} Z M${e.bodyRight - 20} ${e.beltlineY - 45} H${e.bodyRight + 3} V${e.bodyBottomY - 62} H${e.bodyRight - 20} Z`}
           stroke="rgba(248,113,113,.35)"
         />
-        <path d="M202 276 H598 V313 H202 Z" stroke={subtle} />
+        <path
+          d={`M${e.bodyLeft - 7} ${e.bodyBottomY} H${e.bodyRight + 7} V${e.bumperBottomY} H${e.bodyLeft - 7} Z`}
+          stroke={subtle}
+        />
       </g>
     )
   }
+  const t = geometry.top
   return (
     <g aria-hidden="true" fill="none" strokeLinecap="round" strokeLinejoin="round">
       <path
-        d="M52 125 Q42 180 52 235 L90 235 L218 224 L272 264 L700 262 L744 242 V118 L700 98 L272 96 L218 136 L90 125 Z"
+        d={`M${t.frontEdge} ${t.bodyTop + 42} Q${t.frontEdge - 12} ${t.centerY} ${t.frontEdge} ${t.bodyBottom - 42} L${t.windshieldX - 12} ${t.bodyBottom - 14} L${t.windshieldX + 34} ${t.bodyBottom} H${t.rearEdge - 22} Q${t.rearEdge} ${t.bodyBottom - 9} ${t.rearEdge} ${t.bodyBottom - 30} V${t.bodyTop + 30} Q${t.rearEdge} ${t.bodyTop + 9} ${t.rearEdge - 22} ${t.bodyTop} H${t.windshieldX + 34} L${t.windshieldX - 12} ${t.bodyTop + 14} Z`}
         fill="rgba(255,255,255,.025)"
         stroke={outline}
         strokeWidth="2.2"
       />
-      <path d="M218 136 L268 113 V247 L218 224 Z" fill={`url(#${glassId})`} stroke={subtle} />
-      <path d="M272 96 V264 M410 86 V274 M566 86 V274 M700 98 V262" stroke={subtle} />
       <path
-        d="M198 106 Q209 83 232 88 L244 116 M198 254 Q209 277 232 272 L244 244"
+        d={`M${t.windshieldX - 12} ${t.bodyTop + 14} L${t.windshieldX + 34} ${t.bodyTop} V${t.bodyBottom} L${t.windshieldX - 12} ${t.bodyBottom - 14} Z`}
+        fill={`url(#${glassId})`}
+        stroke={subtle}
+      />
+      <path
+        d={`M${t.windshieldX + 34} ${t.bodyTop} V${t.bodyBottom} M${t.cabRearX} ${t.bodyTop} V${t.bodyBottom} M${t.cargoRearX - 80} ${t.bodyTop} V${t.bodyBottom} M${t.cargoRearX} ${t.bodyTop} V${t.bodyBottom}`}
+        stroke={subtle}
+      />
+      <path
+        d={`M${t.windshieldX - 33} ${t.bodyTop + 5} Q${t.windshieldX - 20} ${t.mirrorTop - 7} ${t.windshieldX - 2} ${t.mirrorTop} M${t.windshieldX - 33} ${t.bodyBottom - 5} Q${t.windshieldX - 20} ${t.mirrorBottom + 7} ${t.windshieldX - 2} ${t.mirrorBottom}`}
         stroke={outline}
       />
     </g>
@@ -615,8 +642,8 @@ function TransitBlueprintOutline({
 function BlueprintGround() {
   return (
     <g aria-hidden="true">
-      <path d="M40 321 H760" stroke="rgba(255,255,255,.07)" strokeDasharray="4 8" />
-      <path d="M400 18 V322" stroke="rgba(255,255,255,.035)" strokeDasharray="3 10" />
+      <path d="M40 348 H760" stroke="rgba(255,255,255,.07)" strokeDasharray="4 8" />
+      <path d="M400 18 V360" stroke="rgba(255,255,255,.035)" strokeDasharray="3 10" />
     </g>
   )
 }
