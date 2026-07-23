@@ -73,6 +73,24 @@ export type FleetAttentionRow = {
   latest_image_count: number
   repair_status: string
   recurrent: boolean
+  first_reporter: JsonRecord
+  first_inspection_id: string | null
+  first_upload_session_id: string | null
+  first_evidence_image_id: string | null
+  first_source_timestamp: string | null
+  first_source_timestamp_kind: string | null
+  latest_uploader: JsonRecord
+}
+
+export type FleetMaintenanceSummary = {
+  vanId: string
+  activeCount: number
+  urgentCount: number
+  highCount: number
+  quickFixCount: number
+  appointmentCount: number
+  needsAttention: boolean
+  topItems: Array<{ id: string; title: string; priority: string; status: string }>
 }
 
 type AttentionFilter = 'all' | 'unacknowledged' | 'needs_review' | 'repair_scheduled' | 'in_repair'
@@ -84,6 +102,7 @@ export function FleetNeedsAttentionBoard({
   canManage,
   vehicles,
   attention,
+  maintenance,
   attentionError,
 }: {
   tenantId: string
@@ -91,6 +110,7 @@ export function FleetNeedsAttentionBoard({
   canManage: boolean
   vehicles: FleetVehicleRow[]
   attention: FleetAttentionRow[]
+  maintenance: FleetMaintenanceSummary[]
   attentionError: string | null
 }) {
   const router = useRouter()
@@ -134,6 +154,11 @@ export function FleetNeedsAttentionBoard({
     }
     return [...unique.values()]
   }, [attention])
+  const maintenanceByVan = useMemo(
+    () => new Map(maintenance.map((item) => [item.vanId, item])),
+    [maintenance]
+  )
+  const maintenanceAttention = maintenance.filter((item) => item.needsAttention)
 
   const displayedAttention = useMemo(() => {
     const filtered = uniqueAttention.filter((item) => {
@@ -154,7 +179,13 @@ export function FleetNeedsAttentionBoard({
     })
   }, [filter, sort, uniqueAttention])
 
-  const attentionVanIds = new Set(uniqueAttention.map((item) => item.van_id))
+  const attentionVanIds = new Set([
+    ...uniqueAttention.map((item) => item.van_id),
+    ...maintenanceAttention.map((item) => item.vanId),
+  ])
+  const maintenanceOnlyAttention = maintenanceAttention.filter(
+    (item) => !uniqueAttention.some((damage) => damage.van_id === item.vanId)
+  )
   const activeVehicles = vehicles.filter(
     (vehicle) => vehicle.status === 'active' && !attentionVanIds.has(vehicle.id)
   )
@@ -215,7 +246,7 @@ export function FleetNeedsAttentionBoard({
         />
         <FleetMetric
           label="Needs Attention"
-          value={uniqueAttention.length}
+          value={attentionVanIds.size}
           icon={AlertTriangle}
           tone="text-red-200 bg-red-400/10"
         />
@@ -232,10 +263,10 @@ export function FleetNeedsAttentionBoard({
             </p>
             <h2 id="needs-attention-heading" className="mt-1 text-xl font-semibold text-white">
               Needs Attention{' '}
-              <span className="text-white/35">({uniqueAttention.length} unique vans)</span>
+              <span className="text-white/35">({attentionVanIds.size} unique vans)</span>
             </h2>
             <p className="mt-1 text-xs text-white/40">
-              Active Level 3 or higher damage. Operational availability remains a separate status.
+              Active Level 3 damage and qualifying urgent, out-of-service, or overdue maintenance.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -272,13 +303,13 @@ export function FleetNeedsAttentionBoard({
             {actionError || attentionError}
           </div>
         )}
-        {!attentionError && !displayedAttention.length && (
+        {!attentionError && !displayedAttention.length && !maintenanceOnlyAttention.length && (
           <div className="mt-5 rounded-xl border border-dashed border-white/10 p-10 text-center">
             <ShieldAlert className="mx-auto h-9 w-9 text-emerald-300/50" />
             <p className="mt-3 text-sm text-white/55">
               {uniqueAttention.length
                 ? 'No vans match this attention filter.'
-                : 'No vans currently have active Level 3 damage.'}
+                : 'No vans currently have severe damage or qualifying maintenance attention.'}
             </p>
           </div>
         )}
@@ -292,13 +323,25 @@ export function FleetNeedsAttentionBoard({
               canManage={canManage}
               pending={pending}
               runAction={runAction}
+              maintenance={maintenanceByVan.get(item.van_id)}
             />
           ))}
+          {maintenanceOnlyAttention.map((summary) => {
+            const vehicle = vehicles.find((candidate) => candidate.id === summary.vanId)
+            return vehicle ? (
+              <MaintenanceAttentionCard
+                key={summary.vanId}
+                vehicle={vehicle}
+                summary={summary}
+                businessId={tenantId}
+              />
+            ) : null
+          })}
         </div>
         {uniqueAttention.length > 0 && (
           <p className="mt-4 text-xs text-white/30">
-            Uploader information identifies who submitted the images and does not determine
-            responsibility for the damage.
+            Reporter information identifies who submitted the inspection images and does not
+            determine who caused the damage.
           </p>
         )}
       </section>
@@ -310,6 +353,7 @@ export function FleetNeedsAttentionBoard({
           vehicles={activeVehicles}
           businessId={tenantId}
           empty="No available vans."
+          maintenanceByVan={maintenanceByVan}
         />
         <FleetColumn
           title="In service / other"
@@ -317,6 +361,7 @@ export function FleetNeedsAttentionBoard({
           vehicles={inServiceVehicles}
           businessId={tenantId}
           empty="No vans currently in another operational state."
+          maintenanceByVan={maintenanceByVan}
         />
       </section>
     </div>
@@ -330,6 +375,7 @@ function SevereVanCard({
   canManage,
   pending,
   runAction,
+  maintenance,
 }: {
   item: FleetAttentionRow
   businessId: string
@@ -340,9 +386,12 @@ function SevereVanCard({
     item: FleetAttentionRow,
     action: 'acknowledge' | 'repair_scheduled' | 'in_repair' | 'repaired'
   ) => Promise<void>
+  maintenance?: FleetMaintenanceSummary
 }) {
   const imageId = item.profile_image_id || item.latest_evidence_image_id
   const driver = formatDriverName(item.latest_driver)
+  const firstReporter = formatDriverName(item.first_reporter)
+  const latestUploader = formatDriverName(item.latest_uploader)
   const severeLabel =
     severityLevel(item.highest_severity) >= 4 ? 'Critical damage' : 'Level 3 severe damage'
   return (
@@ -400,6 +449,12 @@ function SevereVanCard({
             {item.repair_status !== 'active' && (
               <AttentionBadge label={humanize(item.repair_status)} />
             )}
+            {maintenance?.activeCount ? (
+              <AttentionBadge label={`${maintenance.activeCount} active maintenance`} />
+            ) : null}
+            {maintenance?.urgentCount ? (
+              <AttentionBadge label={`${maintenance.urgentCount} urgent maintenance`} urgent />
+            ) : null}
           </div>
           <dl className="mt-4 grid gap-2 text-xs text-white/40 sm:grid-cols-2">
             <Detail
@@ -411,9 +466,14 @@ function SevereVanCard({
             <Detail
               icon={CalendarClock}
               label="First detected"
-              value={formatDate(item.first_triggered_at, timeZone)}
+              value={formatDate(item.first_source_timestamp || item.first_triggered_at, timeZone)}
             />
-            <Detail icon={Eye} label="Last observed" value={formatDate(item.last_observed_at, timeZone)} />
+            <Detail icon={UserRound} label="First reporter" value={firstReporter} />
+            <Detail
+              icon={Eye}
+              label="Last observed"
+              value={formatDate(item.last_observed_at, timeZone)}
+            />
             <Detail icon={UserRound} label="Latest uploader" value={driver} />
             <Detail
               icon={ImageIcon}
@@ -421,8 +481,35 @@ function SevereVanCard({
               value={`${formatDate(item.latest_upload_at, timeZone)} · ${item.latest_image_count} image${item.latest_image_count === 1 ? '' : 's'}`}
             />
           </dl>
+          <div className="mt-3 rounded-xl border border-red-300/10 bg-red-300/[.035] p-3 text-xs text-white/40">
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              {item.first_inspection_id ? (
+                <Link
+                  href={`/dashboard/damage-ai/inspections/${item.first_inspection_id}?businessId=${encodeURIComponent(businessId)}`}
+                  className="text-red-100/70 underline underline-offset-2"
+                >
+                  Original inspection
+                </Link>
+              ) : (
+                <span>Original inspection unavailable</span>
+              )}
+              {item.first_upload_session_id ? (
+                <span>Session {item.first_upload_session_id.slice(0, 8)}</span>
+              ) : null}
+              {item.first_evidence_image_id ? (
+                <span>Evidence {item.first_evidence_image_id.slice(0, 8)}</span>
+              ) : null}
+            </div>
+            {latestUploader !== firstReporter ? (
+              <p className="mt-1">Latest uploader: {latestUploader}</p>
+            ) : null}
+          </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <InspectionPeriodBadge timestamp={item.latest_upload_at || item.last_observed_at} timeZone={timeZone} showLabel />
+            <InspectionPeriodBadge
+              timestamp={item.latest_upload_at || item.last_observed_at}
+              timeZone={timeZone}
+              showLabel
+            />
           </div>
           {item.acknowledged_at ? (
             <p className="mt-4 text-xs text-emerald-200/65">
@@ -455,6 +542,14 @@ function SevereVanCard({
             Damage history
           </Link>
         )}
+        {maintenance?.activeCount ? (
+          <Link
+            href={`/dashboard/vehicles/maintenance?businessId=${encodeURIComponent(businessId)}&vanId=${item.van_id}`}
+            className="focus-ring rounded-lg border border-amber-300/15 px-3 py-2 text-xs text-amber-100/70 hover:bg-amber-300/5"
+          >
+            Maintenance ({maintenance.activeCount})
+          </Link>
+        ) : null}
         {canManage && !item.acknowledged_at && (
           <button
             disabled={pending}
@@ -492,12 +587,14 @@ function FleetColumn({
   vehicles,
   businessId,
   empty,
+  maintenanceByVan,
 }: {
   title: string
   description: string
   vehicles: FleetVehicleRow[]
   businessId: string
   empty: string
+  maintenanceByVan: Map<string, FleetMaintenanceSummary>
 }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5">
@@ -529,6 +626,12 @@ function FleetColumn({
                       vehicle.plate_number ||
                       'Details unavailable'}
                   </p>
+                  {(maintenanceByVan.get(vehicle.id)?.activeCount ?? 0) > 0 ? (
+                    <p className="mt-2 text-[11px] text-amber-100/60">
+                      {maintenanceByVan.get(vehicle.id)?.activeCount} active maintenance ·{' '}
+                      {maintenanceByVan.get(vehicle.id)?.quickFixCount} quick fixes
+                    </p>
+                  ) : null}
                 </div>
                 <ArrowRight className="h-4 w-4 text-white/25 transition group-hover:translate-x-1 group-hover:text-gold-300" />
               </div>
@@ -541,6 +644,68 @@ function FleetColumn({
         </p>
       )}
     </section>
+  )
+}
+
+function MaintenanceAttentionCard({
+  vehicle,
+  summary,
+  businessId,
+}: {
+  vehicle: FleetVehicleRow
+  summary: FleetMaintenanceSummary
+  businessId: string
+}) {
+  return (
+    <article className="rounded-2xl border border-amber-400/20 bg-graphite-900 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[.16em] text-amber-200/65">
+            Maintenance attention
+          </p>
+          <h3 className="mt-1 text-lg font-semibold text-white">
+            {vehicle.van_number ? `Van ${vehicle.van_number}` : vehicle.name}
+          </h3>
+          <p className="mt-1 text-xs text-white/35">
+            {summary.activeCount} active item{summary.activeCount === 1 ? '' : 's'}
+          </p>
+        </div>
+        <Wrench className="h-5 w-5 text-amber-200" />
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2 text-[10px]">
+        {summary.urgentCount ? (
+          <AttentionBadge label={`${summary.urgentCount} urgent`} urgent />
+        ) : null}
+        {summary.highCount ? <AttentionBadge label={`${summary.highCount} high priority`} /> : null}
+        {summary.quickFixCount ? (
+          <AttentionBadge label={`${summary.quickFixCount} quick fix`} />
+        ) : null}
+        {summary.appointmentCount ? (
+          <AttentionBadge label={`${summary.appointmentCount} appointment`} />
+        ) : null}
+      </div>
+      <ul className="mt-4 space-y-2">
+        {summary.topItems.map((item) => (
+          <li key={item.id} className="truncate text-sm text-white/55">
+            {item.title}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-5 flex gap-2">
+        <Link
+          href={`/dashboard/vehicles/${vehicle.id}?businessId=${encodeURIComponent(businessId)}`}
+          className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/60"
+        >
+          Van profile
+        </Link>
+        <Link
+          href={`/dashboard/vehicles/maintenance?businessId=${encodeURIComponent(businessId)}&vanId=${vehicle.id}`}
+          className="rounded-lg bg-amber-300 px-3 py-2 text-xs font-medium text-graphite-950"
+        >
+          Open maintenance
+        </Link>
+      </div>
+    </article>
   )
 }
 

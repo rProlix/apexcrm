@@ -107,6 +107,13 @@ export type VanProfileCase = {
   recurrence_of_case_id: string | null
   latest_evidence_image_id: string | null
   duplicate_alert_suppression_count: number
+  first_observation_id?: string | null
+  first_upload_session_id?: string | null
+  first_evidence_image_id?: string | null
+  first_reporter_snapshot?: JsonRecord
+  first_source_timestamp?: string | null
+  first_source_timestamp_kind?: string | null
+  latest_uploader_snapshot?: JsonRecord
   observations: Array<{
     id: string
     inspection_id: string
@@ -122,6 +129,17 @@ export type VanProfileCase = {
   }>
 }
 
+export type VanProfileMaintenance = {
+  id: string
+  maintenance_number: number
+  title: string
+  status: string
+  effective_priority: string
+  resolution_effort: string
+  latest_activity_at: string
+  due_at: string | null
+}
+
 export function VanProfileWorkspace({
   businessId,
   timeZone,
@@ -132,6 +150,7 @@ export function VanProfileWorkspace({
   latestSession,
   sessions,
   cases,
+  maintenance,
 }: {
   businessId: string
   timeZone: string
@@ -142,6 +161,7 @@ export function VanProfileWorkspace({
   latestSession: VanProfileSession | null
   sessions: VanProfileSession[]
   cases: VanProfileCase[]
+  maintenance: VanProfileMaintenance[]
 }) {
   const [driverFilter, setDriverFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('all')
@@ -169,19 +189,29 @@ export function VanProfileWorkspace({
     [sessions]
   )
   const dateOptions = useMemo(
-    () => [...new Set(sessions.map((session) => getInspectionLocalDateKey(session.upload_started_at, timeZone)).filter((date): date is string => Boolean(date)))],
+    () => [
+      ...new Set(
+        sessions
+          .map((session) => getInspectionLocalDateKey(session.upload_started_at, timeZone))
+          .filter((date): date is string => Boolean(date))
+      ),
+    ],
     [sessions, timeZone]
   )
   const filteredSessions = sessions.filter((session) => {
     const driver = formatDriverName(session.driver_snapshot)
     return (
       (driverFilter === 'all' || driver === driverFilter) &&
-      (dateFilter === 'all' || getInspectionLocalDateKey(session.upload_started_at, timeZone) === dateFilter) &&
-      (periodFilter === 'all' || getInspectionPeriod(session.upload_started_at, timeZone).period === periodFilter)
+      (dateFilter === 'all' ||
+        getInspectionLocalDateKey(session.upload_started_at, timeZone) === dateFilter) &&
+      (periodFilter === 'all' ||
+        getInspectionPeriod(session.upload_started_at, timeZone).period === periodFilter)
     )
   })
   const daily = dateOptions.map((date) => {
-    const daySessions = sessions.filter((session) => getInspectionLocalDateKey(session.upload_started_at, timeZone) === date)
+    const daySessions = sessions.filter(
+      (session) => getInspectionLocalDateKey(session.upload_started_at, timeZone) === date
+    )
     return {
       date,
       drivers: [
@@ -285,7 +315,11 @@ export function VanProfileWorkspace({
                   {latestUpload}
                 </time>
                 <div className="mt-2">
-                  <InspectionPeriodBadge timestamp={latestSession?.upload_started_at} timeZone={timeZone} showLabel />
+                  <InspectionPeriodBadge
+                    timestamp={latestSession?.upload_started_at}
+                    timeZone={timeZone}
+                    showLabel
+                  />
                 </div>
                 <p className="mt-2 text-xs text-white/35">
                   Uploader information identifies who submitted inspection images. It does not
@@ -305,7 +339,9 @@ export function VanProfileWorkspace({
         </div>
       </section>
 
-      {latestSession && <LatestInspectionCard businessId={businessId} session={latestSession} timeZone={timeZone} />}
+      {latestSession && (
+        <LatestInspectionCard businessId={businessId} session={latestSession} timeZone={timeZone} />
+      )}
 
       <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="space-y-6">
@@ -344,7 +380,9 @@ export function VanProfileWorkspace({
                 </select>
                 <select
                   value={periodFilter}
-                  onChange={(event) => setPeriodFilter(event.target.value as InspectionPeriod | 'all')}
+                  onChange={(event) =>
+                    setPeriodFilter(event.target.value as InspectionPeriod | 'all')
+                  }
                   className="focus-ring rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-white/65"
                 >
                   <option value="all">All periods</option>
@@ -371,6 +409,60 @@ export function VanProfileWorkspace({
                 </p>
               )}
             </div>
+          </section>
+
+          <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="font-semibold text-white">Maintenance</h2>
+                <p className="mt-1 text-xs text-white/35">
+                  Active work and completed service records for this van.
+                </p>
+              </div>
+              <Link
+                href={`/dashboard/vehicles/maintenance?businessId=${encodeURIComponent(businessId)}&vanId=${vehicle.id}`}
+                className="rounded-lg border border-amber-300/15 px-3 py-2 text-xs text-amber-100/70 hover:bg-amber-300/5"
+              >
+                Open workspace
+              </Link>
+            </div>
+            {maintenance.length ? (
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {maintenance.slice(0, 8).map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/dashboard/vehicles/maintenance?businessId=${encodeURIComponent(businessId)}&itemId=${item.id}`}
+                    className="rounded-xl border border-white/8 bg-white/[.02] p-4 transition hover:border-amber-300/20"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] uppercase tracking-wide text-white/30">
+                        M-{item.maintenance_number} · {humanize(item.status)}
+                      </span>
+                      <span
+                        className={
+                          item.effective_priority === 'urgent'
+                            ? 'text-xs text-red-200'
+                            : item.effective_priority === 'high'
+                              ? 'text-xs text-amber-200'
+                              : 'text-xs text-white/35'
+                        }
+                      >
+                        {humanize(item.effective_priority)}
+                      </span>
+                    </div>
+                    <p className="mt-2 font-medium text-white/75">{item.title}</p>
+                    <p className="mt-2 text-xs text-white/35">
+                      {humanize(item.resolution_effort)} · Updated{' '}
+                      {formatDate(item.latest_activity_at, timeZone)}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-white/30">
+                No maintenance history for this van.
+              </p>
+            )}
           </section>
 
           <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
@@ -403,7 +495,9 @@ export function VanProfileWorkspace({
             <div className="mt-4 space-y-3">
               {daily.map((day) => (
                 <div key={day.date} className="rounded-xl border border-white/8 bg-white/[.02] p-3">
-                  <p className="text-sm font-medium text-white">{formatDateOnly(day.date, timeZone)}</p>
+                  <p className="text-sm font-medium text-white">
+                    {formatDateOnly(day.date, timeZone)}
+                  </p>
                   <p className="mt-1 text-xs text-white/35">{day.drivers.join(', ')}</p>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-white/45">
                     <span>{day.sessions} sessions</span>
@@ -632,6 +726,14 @@ function DamageCaseCard({
   canManage: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const effectiveSeverity =
+    damageCase.effective_severity ||
+    damageCase.current_severity ||
+    damageCase.max_observed_severity ||
+    'unknown'
+  const severe = ['severe', 'critical', 'level_3', '3'].includes(effectiveSeverity.toLowerCase())
+  const firstReporter = formatDriverName(damageCase.first_reporter_snapshot)
+  const latestUploader = formatDriverName(damageCase.latest_uploader_snapshot)
   return (
     <article
       id={`damage-case-${damageCase.id}`}
@@ -674,9 +776,51 @@ function DamageCaseCard({
             </p>
           )}
           <p className="mt-2 text-xs text-white/35">
-            First detected {formatDate(damageCase.first_detected_at, timeZone)} · Last observed{' '}
-            {formatDate(damageCase.last_observed_at, timeZone)}
+            First detected{' '}
+            {formatDate(
+              damageCase.first_source_timestamp || damageCase.first_detected_at,
+              timeZone
+            )}{' '}
+            · Last observed {formatDate(damageCase.last_observed_at, timeZone)}
           </p>
+          {severe && (
+            <div className="mt-3 rounded-xl border border-red-300/10 bg-red-300/[.035] p-3 text-xs text-white/45">
+              <p className="text-white/70">First reported by {firstReporter}</p>
+              <p className="mt-1">
+                Original evidence timestamp:{' '}
+                {formatDate(
+                  damageCase.first_source_timestamp || damageCase.first_detected_at,
+                  timeZone
+                )}
+                {damageCase.first_source_timestamp_kind
+                  ? ` · ${humanize(damageCase.first_source_timestamp_kind)}`
+                  : ''}
+              </p>
+              {latestUploader !== firstReporter ? (
+                <p className="mt-1">Latest uploader: {latestUploader}</p>
+              ) : null}
+              <div className="mt-2 flex flex-wrap gap-2">
+                {damageCase.first_detected_inspection_id ? (
+                  <Link
+                    href={`/dashboard/damage-ai/inspections/${damageCase.first_detected_inspection_id}?businessId=${encodeURIComponent(businessId)}`}
+                    className="text-red-100/70 underline underline-offset-2"
+                  >
+                    Original inspection
+                  </Link>
+                ) : null}
+                {damageCase.first_upload_session_id ? (
+                  <span>Session {damageCase.first_upload_session_id.slice(0, 8)}</span>
+                ) : null}
+                {damageCase.first_evidence_image_id ? (
+                  <span>Evidence {damageCase.first_evidence_image_id.slice(0, 8)}</span>
+                ) : null}
+              </div>
+              <p className="mt-2 text-white/30">
+                Reporter information identifies who submitted the inspection images and does not
+                determine who caused the damage.
+              </p>
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <Badge label={`${damageCase.observation_count} observations`} />
             <Badge
@@ -923,6 +1067,9 @@ function formatDate(value: string | null | undefined, timeZone: string) {
 }
 function formatDateOnly(value: string, timeZone: string) {
   return formatInspectionDateOnly(`${value}T00:00:00Z`, { timeZone })
+}
+function humanize(value: string) {
+  return value.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase())
 }
 function countObservations(observations: Array<{ observation_type: string }>) {
   return {

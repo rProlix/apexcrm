@@ -1627,6 +1627,7 @@ export interface Database {
           slack_channel_id: string
           slack_channel_name: string | null
           channel_type: string | null
+          purpose: 'damage_inspection' | 'maintenance'
           is_enabled: boolean
           created_at: string
           updated_at: string
@@ -1639,9 +1640,236 @@ export interface Database {
           slack_channel_id: string
           slack_channel_name?: string | null
           channel_type?: string | null
+          purpose?: 'damage_inspection' | 'maintenance'
           is_enabled?: boolean
           created_at?: string
           updated_at?: string
+        }
+        Update: Record<string, Json | undefined>
+        Relationships: []
+      }
+      fleet_maintenance_items: {
+        Row: {
+          id: string
+          maintenance_number: number
+          tenant_id: string
+          business_id: string
+          van_id: string | null
+          title: string
+          description: string
+          category: string
+          severity: string
+          operational_impact: string
+          time_sensitivity: string
+          resolution_effort: string
+          scheduling_dependency: string
+          effective_priority: string
+          priority_reason: string
+          triage_confidence: number | null
+          needs_review: boolean
+          status: string
+          source: string
+          integration_id: string | null
+          slack_team_id: string | null
+          slack_channel_id: string | null
+          slack_message_ts: string | null
+          slack_thread_ts: string | null
+          slack_reporter_id: string | null
+          reporter_snapshot: Json
+          slack_source_available: boolean
+          reported_at: string
+          due_at: string | null
+          scheduled_at: string | null
+          started_at: string | null
+          completed_at: string | null
+          cancelled_at: string | null
+          assigned_user_id: string | null
+          mileage: number | null
+          vendor: string | null
+          estimated_cost: number | null
+          actual_cost: number | null
+          currency: string
+          latest_note: string | null
+          latest_activity_at: string
+          related_inspection_id: string | null
+          related_damage_case_id: string | null
+          created_by: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          business_id: string
+          van_id?: string | null
+          title: string
+          description?: string
+          category?: string
+          severity?: string
+          operational_impact?: string
+          time_sensitivity?: string
+          resolution_effort?: string
+          scheduling_dependency?: string
+          effective_priority?: string
+          priority_reason?: string
+          triage_confidence?: number | null
+          needs_review?: boolean
+          status?: string
+          source?: string
+          integration_id?: string | null
+          slack_team_id?: string | null
+          slack_channel_id?: string | null
+          slack_message_ts?: string | null
+          slack_thread_ts?: string | null
+          slack_reporter_id?: string | null
+          reporter_snapshot?: Json
+          slack_source_available?: boolean
+          reported_at?: string
+          due_at?: string | null
+          scheduled_at?: string | null
+          started_at?: string | null
+          completed_at?: string | null
+          cancelled_at?: string | null
+          assigned_user_id?: string | null
+          mileage?: number | null
+          vendor?: string | null
+          estimated_cost?: number | null
+          actual_cost?: number | null
+          currency?: string
+          latest_note?: string | null
+          latest_activity_at?: string
+          related_inspection_id?: string | null
+          related_damage_case_id?: string | null
+          created_by?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Record<string, Json | undefined>
+        Relationships: []
+      }
+      fleet_maintenance_history: {
+        Row: {
+          id: string
+          tenant_id: string
+          business_id: string
+          van_id: string | null
+          maintenance_item_id: string
+          event_type: string
+          note: string | null
+          previous_value: Json | null
+          new_value: Json | null
+          actor_type: string
+          actor_user_id: string | null
+          slack_reporter_id: string | null
+          reporter_snapshot: Json
+          slack_channel_id: string | null
+          slack_message_ts: string | null
+          slack_event_id: string | null
+          occurred_at: string
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          business_id: string
+          van_id?: string | null
+          maintenance_item_id: string
+          event_type: string
+          note?: string | null
+          previous_value?: Json | null
+          new_value?: Json | null
+          actor_type?: string
+          actor_user_id?: string | null
+          slack_reporter_id?: string | null
+          reporter_snapshot?: Json
+          slack_channel_id?: string | null
+          slack_message_ts?: string | null
+          slack_event_id?: string | null
+          occurred_at?: string
+          metadata?: Json
+          created_at?: string
+        }
+        Update: Record<string, Json | undefined>
+        Relationships: []
+      }
+      fleet_maintenance_attachments: {
+        Row: {
+          id: string
+          tenant_id: string
+          business_id: string
+          van_id: string | null
+          maintenance_item_id: string
+          history_event_id: string | null
+          source: string
+          slack_file_id: string | null
+          filename: string
+          content_type: string | null
+          file_size_bytes: number | null
+          s3_bucket: string | null
+          s3_key: string | null
+          s3_etag: string | null
+          status: string
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          business_id: string
+          van_id?: string | null
+          maintenance_item_id: string
+          history_event_id?: string | null
+          source?: string
+          slack_file_id?: string | null
+          filename: string
+          content_type?: string | null
+          file_size_bytes?: number | null
+          s3_bucket?: string | null
+          s3_key?: string | null
+          s3_etag?: string | null
+          status?: string
+          metadata?: Json
+        }
+        Update: Record<string, Json | undefined>
+        Relationships: []
+      }
+      fleet_maintenance_slack_events: {
+        Row: {
+          id: string
+          tenant_id: string
+          business_id: string
+          integration_id: string | null
+          maintenance_item_id: string | null
+          slack_event_id: string
+          slack_team_id: string
+          slack_channel_id: string
+          slack_message_ts: string | null
+          slack_thread_ts: string | null
+          event_kind: string
+          status: string
+          raw_event: Json
+          error_message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          business_id: string
+          integration_id?: string | null
+          maintenance_item_id?: string | null
+          slack_event_id: string
+          slack_team_id: string
+          slack_channel_id: string
+          slack_message_ts?: string | null
+          slack_thread_ts?: string | null
+          event_kind: string
+          status?: string
+          raw_event?: Json
+          error_message?: string | null
         }
         Update: Record<string, Json | undefined>
         Relationships: []
@@ -2127,6 +2355,55 @@ export interface Database {
           was_created: boolean
           existing_sqs_message_id: string | null
         }>
+      }
+      ingest_fleet_maintenance_slack_message: {
+        Args: {
+          p_integration_id: string
+          p_slack_event_id: string
+          p_slack_team_id: string
+          p_slack_channel_id: string
+          p_slack_user_id: string | null
+          p_slack_message_ts: string
+          p_slack_thread_ts: string | null
+          p_text: string
+          p_title: string
+          p_reporter_snapshot: Json
+          p_reported_at: string
+          p_van_id: string | null
+          p_triage: Json
+          p_files: Json
+          p_raw_event: Json
+        }
+        Returns: Array<{
+          maintenance_item_id: string | null
+          history_event_id: string | null
+          was_created: boolean
+          event_kind: string
+        }>
+      }
+      record_fleet_maintenance_slack_mutation: {
+        Args: {
+          p_integration_id: string
+          p_slack_event_id: string
+          p_slack_team_id: string
+          p_slack_channel_id: string
+          p_slack_message_ts: string
+          p_slack_thread_ts: string | null
+          p_event_kind: string
+          p_text: string
+          p_previous_text: string | null
+          p_reporter_snapshot: Json
+          p_occurred_at: string
+          p_raw_event: Json
+        }
+        Returns: Array<{
+          maintenance_item_id: string | null
+          was_applied: boolean
+        }>
+      }
+      refresh_van_damage_case_attribution: {
+        Args: { p_case_id: string }
+        Returns: void
       }
       claim_van_damage_job: {
         Args: {

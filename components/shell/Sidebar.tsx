@@ -25,6 +25,7 @@ import {
   Clock,
   List,
   LayoutGrid,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -33,62 +34,67 @@ import { LiveBadge } from '@/components/ui/LiveBadge'
 import type { NavModule } from '@/modules/shared/moduleTypes'
 
 const MODULE_ICONS: Record<string, LucideIcon> = {
-  payments:      CreditCard,
-  appointments:  CalendarDays,
-  rewards:       Star,
-  vehicles:      Car,
-  damage_ai:     ScanLine,
-  leads:         UserPlus,
-  messages:      MessageSquare,
-  contacts:      BookUser,
-  website:       Globe,
-  store:         ShoppingBag,
-  customers:     UserCheck,
-  product_360:   Rotate3D,
+  payments: CreditCard,
+  appointments: CalendarDays,
+  rewards: Star,
+  vehicles: Car,
+  damage_ai: ScanLine,
+  leads: UserPlus,
+  messages: MessageSquare,
+  contacts: BookUser,
+  website: Globe,
+  store: ShoppingBag,
+  customers: UserCheck,
+  product_360: Rotate3D,
 }
 
 interface SidebarProps {
-  tenantName:       string
-  modules:          NavModule[]
-  userRole?:        string
+  tenantName: string
+  modules: NavModule[]
+  userRole?: string
   isPlatformAdmin?: boolean
   /** Controlled open state (mobile drawer) */
-  isOpen?:          boolean
+  isOpen?: boolean
   /** Called when user closes the drawer (mobile) */
-  onClose?:         () => void
+  onClose?: () => void
 }
 
 interface NavItem {
-  label:    string
-  href:     string
-  icon:     React.ElementType
-  exact?:   boolean
+  label: string
+  href: string
+  icon: React.ElementType
+  exact?: boolean
   /** Minimum roles that can see this item. Omit to show to everyone. */
-  roles?:   string[]
+  roles?: string[]
 }
 
 const coreNav: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, exact: true },
   // Settings and Modules visible to admin + owner; staff sees only Dashboard
-  { label: 'Settings',  href: '/settings',  icon: Settings, roles: ['owner', 'admin'] },
-  { label: 'Modules',   href: '/modules',   icon: Layers,   roles: ['owner', 'admin'] },
+  { label: 'Settings', href: '/settings', icon: Settings, roles: ['owner', 'admin'] },
+  { label: 'Modules', href: '/modules', icon: Layers, roles: ['owner', 'admin'] },
 ]
 
-const adminOnlyNav: NavItem[] = [
-  { label: 'Staff',   href: '/staff', icon: Users },
-]
+const adminOnlyNav: NavItem[] = [{ label: 'Staff', href: '/staff', icon: Users }]
 
 const platformNav: NavItem[] = [
-  { label: 'Businesses',    href: '/owner/tenants',  icon: Users  },
-  { label: 'Admin',         href: '/admin',          icon: Shield },
-  { label: 'Module Access', href: '/owner/modules',  icon: Layers },
-  { label: 'Plans',         href: '/owner/plans',    icon: CreditCard },
+  { label: 'Businesses', href: '/owner/tenants', icon: Users },
+  { label: 'Admin', href: '/admin', icon: Shield },
+  { label: 'Module Access', href: '/owner/modules', icon: Layers },
+  { label: 'Plans', href: '/owner/plans', icon: CreditCard },
 ]
 
-export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin, isOpen = false, onClose }: SidebarProps) {
-  const pathname  = usePathname()
-  const isOwner   = isPlatformAdmin || userRole === 'owner'
-  const isAdmin   = isOwner || userRole === 'admin'
+export function Sidebar({
+  tenantName,
+  modules,
+  userRole,
+  isPlatformAdmin,
+  isOpen = false,
+  onClose,
+}: SidebarProps) {
+  const pathname = usePathname()
+  const isOwner = isPlatformAdmin || userRole === 'owner'
+  const isAdmin = isOwner || userRole === 'admin'
 
   function isActive(href: string, exact = false) {
     return exact ? pathname === href : pathname.startsWith(href)
@@ -135,7 +141,13 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin, isOpen
           className="md:hidden flex items-center justify-center h-7 w-7 rounded-lg text-white/30 hover:text-white hover:bg-graphite-700 transition-colors shrink-0"
           aria-label="Close sidebar"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -174,11 +186,26 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin, isOpen
                 {mod.key === 'appointments' && isActive('/appointments') && (
                   <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gold-500/20 pl-3">
                     {[
-                      { label: 'Overview',     href: '/appointments',              icon: LayoutGrid,  exact: true  },
-                      { label: 'Calendar',     href: '/appointments/calendar',     icon: CalendarDays, exact: false },
-                      { label: 'List',         href: '/appointments/list',         icon: List,         exact: false },
-                      { label: 'Availability', href: '/appointments/availability', icon: Clock,        exact: false },
-                      { label: 'Settings',     href: '/appointments/settings',     icon: Settings,     exact: false },
+                      { label: 'Overview', href: '/appointments', icon: LayoutGrid, exact: true },
+                      {
+                        label: 'Calendar',
+                        href: '/appointments/calendar',
+                        icon: CalendarDays,
+                        exact: false,
+                      },
+                      { label: 'List', href: '/appointments/list', icon: List, exact: false },
+                      {
+                        label: 'Availability',
+                        href: '/appointments/availability',
+                        icon: Clock,
+                        exact: false,
+                      },
+                      {
+                        label: 'Settings',
+                        href: '/appointments/settings',
+                        icon: Settings,
+                        exact: false,
+                      },
                     ].map(({ label, href, icon: Icon, exact }) => {
                       const subActive = exact ? pathname === href : pathname.startsWith(href)
                       return (
@@ -198,6 +225,43 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin, isOpen
                           {label === 'Availability' && !subActive && (
                             <span className="ml-auto h-1 w-1 rounded-full bg-gold-400/60" />
                           )}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+                {mod.key === 'vehicles' && isActive(mod.href) && (
+                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gold-500/20 pl-3">
+                    {[
+                      { label: 'Fleet overview', href: mod.href, icon: LayoutGrid, exact: true },
+                      {
+                        label: 'Maintenance',
+                        href: `${mod.href}/maintenance`,
+                        icon: Wrench,
+                        exact: false,
+                      },
+                      {
+                        label: 'Driver profiles',
+                        href: `${mod.href}/drivers`,
+                        icon: UserCheck,
+                        exact: false,
+                      },
+                    ].map(({ label, href, icon: Icon, exact }) => {
+                      const subActive = exact ? pathname === href : pathname.startsWith(href)
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={handleLinkClick}
+                          className={cn(
+                            'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+                            subActive
+                              ? 'bg-gold-500/10 text-gold-400'
+                              : 'text-white/35 hover:bg-graphite-700/50 hover:text-white/70'
+                          )}
+                        >
+                          <Icon className="h-3 w-3 shrink-0" strokeWidth={1.75} />
+                          {label}
                         </Link>
                       )
                     })}
@@ -254,9 +318,11 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin, isOpen
             <span
               className={cn(
                 'text-2xs font-semibold uppercase tracking-widest px-2 py-0.5 rounded',
-                isOwner   ? 'bg-gold-500/15 text-gold-400'      :
-                isAdmin   ? 'bg-blue-500/15 text-blue-400'      :
-                            'bg-white/8 text-white/30'
+                isOwner
+                  ? 'bg-gold-500/15 text-gold-400'
+                  : isAdmin
+                    ? 'bg-blue-500/15 text-blue-400'
+                    : 'bg-white/8 text-white/30'
               )}
             >
               {userRole}
@@ -282,8 +348,8 @@ export function Sidebar({ tenantName, modules, userRole, isPlatformAdmin, isOpen
 }
 
 interface SidebarItemProps extends NavItem {
-  active:       boolean
-  onNavigate?:  () => void
+  active: boolean
+  onNavigate?: () => void
 }
 
 function SidebarItem({ label, href, icon: Icon, active, onNavigate }: SidebarItemProps) {
@@ -305,9 +371,7 @@ function SidebarItem({ label, href, icon: Icon, active, onNavigate }: SidebarIte
           strokeWidth={1.75}
         />
         {label}
-        {active && (
-          <span className="ml-auto h-1.5 w-1.5 rounded-full bg-gold-400" />
-        )}
+        {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-gold-400" />}
       </Link>
     </motion.div>
   )
