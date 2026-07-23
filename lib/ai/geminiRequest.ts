@@ -141,8 +141,8 @@ export async function callGeminiText<T = string>(
       data:       null,
       tokenUsage: {},
       error:      isAbort
-        ? `Gemini timed out after ${timeoutMs / 1000}s [feature: ${feature}, model: ${opts.model}]`
-        : `Gemini request failed: ${err instanceof Error ? err.message : String(err)} [feature: ${feature}]`,
+        ? `AI analysis timed out after ${timeoutMs / 1000}s. Try again.`
+        : 'AI analysis is temporarily unavailable. Try again.',
     }
   } finally {
     clearTimeout(timer)
@@ -157,7 +157,7 @@ export async function callGeminiText<T = string>(
       text:       errText,
       data:       null,
       tokenUsage: {},
-      error:      `Gemini API HTTP ${response.status} [feature: ${feature}, model: ${opts.model}]: ${snippet}`,
+      error:      `AI analysis request failed (${response.status}). Try again.`,
     }
   }
 
@@ -169,7 +169,7 @@ export async function callGeminiText<T = string>(
       text:       '',
       data:       null,
       tokenUsage: {},
-      error:      `Gemini returned unreadable response [feature: ${feature}]`,
+      error:      'AI analysis returned an unreadable response. Try again.',
     }
   }
 
@@ -177,7 +177,7 @@ export async function callGeminiText<T = string>(
   if (json.error) {
     const msg = `Gemini API error ${json.error.code} (${json.error.status ?? ''}): ${json.error.message} [feature: ${feature}]`
     console.error(`[geminiRequest] API-level error:`, msg)
-    return { text: '', data: null, tokenUsage: {}, error: msg }
+    return { text: '', data: null, tokenUsage: {}, error: 'AI analysis is temporarily unavailable. Try again.' }
   }
 
   const tokenUsage = json.usageMetadata ?? {}
@@ -188,7 +188,7 @@ export async function callGeminiText<T = string>(
       text:       '',
       data:       null,
       tokenUsage,
-      error:      `Gemini returned no text content [feature: ${feature}, model: ${opts.model}]`,
+      error:      'AI analysis returned no content. Try again.',
     }
   }
 
@@ -258,8 +258,8 @@ export async function callGeminiMultimodal(opts: {
     const isAbort = err instanceof Error && err.name === 'AbortError'
     return { text: '', data: null, tokenUsage: {},
       error: isAbort
-        ? `Gemini multimodal timed out after ${timeoutMs / 1000}s [${feature}]`
-        : `Gemini multimodal request failed: ${err instanceof Error ? err.message : String(err)}` }
+        ? `AI analysis timed out after ${timeoutMs / 1000}s. Try again.`
+        : 'AI analysis is temporarily unavailable. Try again.' }
   } finally {
     clearTimeout(timer)
   }
@@ -268,18 +268,18 @@ export async function callGeminiMultimodal(opts: {
     let errText = ''
     try { errText = await response.text() } catch { /* ignore */ }
     return { text: errText, data: null, tokenUsage: {},
-      error: `Gemini multimodal HTTP ${response.status} [${feature}]: ${errText.slice(0, 300)}` }
+      error: `AI analysis request failed (${response.status}). Try again.` }
   }
 
   let json: GeminiApiResponse
   try { json = await response.json() as GeminiApiResponse } catch {
     return { text: '', data: null, tokenUsage: {},
-      error: `Gemini multimodal returned unreadable response [${feature}]` }
+      error: 'AI analysis returned an unreadable response. Try again.' }
   }
 
   if (json.error) {
     return { text: '', data: null, tokenUsage: {},
-      error: `Gemini multimodal API error ${json.error.code}: ${json.error.message} [${feature}]` }
+      error: 'AI analysis is temporarily unavailable. Try again.' }
   }
 
   const text = extractTextFromCandidates(json.candidates)

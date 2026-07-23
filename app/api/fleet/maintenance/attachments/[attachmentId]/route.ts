@@ -4,8 +4,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveVanDamageAccess } from '@/lib/server/van-damage/access'
 import { getVanDamageServiceClient } from '@/lib/server/van-damage/supabase'
 import { getVanDamageAwsEnv } from '@/lib/server/env'
+import { getCachedPrivateMediaSignedUrl } from '@/lib/server/private-media/signed-url-cache'
 
-const cache = new Map<string, { url: string; expires: number }>()
+const SIGNED_URL_TTL_SECONDS = 15 * 60
 
 export async function GET(
   request: NextRequest,
@@ -24,17 +25,27 @@ export async function GET(
   if (!data || data.status !== 'uploaded' || !data.s3_bucket || !data.s3_key) {
     return NextResponse.json({ error: 'Attachment not available' }, { status: 404 })
   }
-  const current = cache.get(attachmentId)
-  if (current && current.expires > Date.now()) return NextResponse.redirect(current.url)
   const { region } = getVanDamageAwsEnv()
-  const url = await getSignedUrl(
-    new S3Client({ region, maxAttempts: 2 }),
-    new GetObjectCommand({
-      Bucket: data.s3_bucket,
-      Key: data.s3_key,
-    }),
-    { expiresIn: 900 }
-  )
-  cache.set(attachmentId, { url, expires: Date.now() + 12 * 60_000 })
-  return NextResponse.redirect(url)
+  const now = Date.now()
+  const signed = await getCachedPrivateMediaSignedUrl({
+    cacheKey: `${access.tenantId}:${access.businessId}:maintenance:${attachmentId}`,
+    ttlSeconds: SIGNED_URL_TTL_SECONDS,
+    create: () => getSignedUrl(
+      new S3Client({ region, maxAttempts: 2 }),
+      new GetObjectCommand({ Bucket: data.s3_bucket!, Key: data.s3_key! }),
+      { expiresIn: SIGNED_URL_TTL_SECONDS }
+    ),
+  })
+  const headers = {
+    'Cache-Control': `private, max-age=${SIGNED_URL_TTL_SECONDS - 30}, must-revalidate`,
+    Vary: 'Cookie',
+  }
+  if (request.nextUrl.searchParams.get('format') !== 'json') {
+    return NextResponse.redirect(signed.url, { headers })
+  }
+  return NextResponse.json({
+    url: signed.url,
+    expiresIn: Math.max(1, Math.floor((signed.expiresAt - now) / 1000)),
+    expiresAt: new Date(signed.expiresAt).toISOString(),
+  }, { headers })
 }

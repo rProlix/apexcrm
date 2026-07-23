@@ -100,11 +100,10 @@ export function safeParseGeminiJson<T = unknown>(input: string): SafeParseResult
   try {
     const data = JSON.parse(repaired) as T
     return { data, error: null, raw }
-  } catch (err) {
-    const preview = extracted.slice(0, 120).replace(/\n/g, '↵')
+  } catch {
     return {
       data:  null,
-      error: `Gemini returned invalid JSON: ${err instanceof Error ? err.message : String(err)}. Preview: ${preview}`,
+      error: 'AI analysis returned an invalid response.',
       raw,
     }
   }

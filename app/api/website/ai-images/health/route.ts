@@ -28,9 +28,9 @@ export async function GET(req: NextRequest) {
   // ── 1. GEMINI_API_KEY ─────────────────────────────────────────────────────
   const hasApiKey = !!process.env.GEMINI_API_KEY
   checks.push({
-    name:   'GEMINI_API_KEY',
+    name:   'AI image service',
     ok:     hasApiKey,
-    detail: hasApiKey ? 'Present (value hidden)' : 'MISSING — set GEMINI_API_KEY in environment variables',
+    detail: hasApiKey ? 'Configured (credential hidden)' : 'MISSING — configure the server-side AI image service',
   })
 
   // ── 2. SUPABASE_SERVICE_ROLE_KEY ──────────────────────────────────────────

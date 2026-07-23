@@ -1,5 +1,5 @@
 // app/(dashboard)/website/ai-images/page.tsx
-// AI Website Image Builder page — plan & generate images using Imagen 4 Ultra.
+// AI Website Image Builder page — plan and generate images with the configured provider.
 
 import { redirect } from 'next/navigation'
 import { getUserContext } from '@/lib/auth/getUserContext'
@@ -58,7 +58,7 @@ export default async function AiImagesPage() {
           </div>
         </div>
         <p className="text-sm text-white/50 mt-3 max-w-xl">
-          Gemini analyzes your website structure and creates a visual plan. Imagen 4 Ultra then generates
+          AI analyzes your website structure, creates a visual plan, and then generates
           premium, commercially-ready images for each section — hero banners, service cards, gallery covers,
           and more — automatically placed into your website draft.
         </p>

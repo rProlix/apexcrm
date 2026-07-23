@@ -421,9 +421,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
       },
       vehicle,
       ai: {
-        provider: aiRun?.provider,
-        model: aiRun?.model || inspection.ai_model,
-        prompt_version: aiRun?.prompt_version,
+        analysis_status: aiRun?.status || inspection.status,
         parsed_response: parsed,
       },
       images,
@@ -689,11 +687,17 @@ export function InspectionExperience(props: InspectionExperienceProps) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium uppercase tracking-[.16em] text-gold-300/70">
-                  Gemini damage summary
+                  AI damage summary
                 </p>
                 <p className="mt-3 text-base leading-7 text-white/75">
                   {inspection.ai_summary ||
                     asText(parsed.summary, 'Analysis has not completed yet.')}
+                </p>
+                <p className="mt-3 text-xs leading-5 text-white/35">
+                  AI-generated findings should be reviewed by an authorized person before repair or responsibility decisions are made.
+                </p>
+                <p className="mt-1 text-xs leading-5 text-white/35">
+                  Reporter information identifies who submitted the inspection images and does not determine who caused the damage.
                 </p>
               </div>
             </div>
@@ -1533,7 +1537,7 @@ function CommentsPanel(props: InspectionExperienceProps) {
       id: `system-${props.inspection.id}`,
       body: 'Inspection created from Slack image intake.',
       kind: 'system',
-      authorName: 'NexoraNow',
+      authorName: 'System',
       createdAt: props.inspection.created_at,
       parentId: null,
       attachments: [] as RecordValue[],
@@ -1544,7 +1548,7 @@ function CommentsPanel(props: InspectionExperienceProps) {
             id: `ai-${props.inspection.id}`,
             body: props.inspection.ai_summary,
             kind: 'ai',
-            authorName: 'Gemini AI',
+            authorName: 'AI Analysis',
             createdAt:
               props.aiRun?.completed_at ||
               props.inspection.completed_at ||
@@ -2017,7 +2021,7 @@ function InspectionMetadata(props: InspectionExperienceProps) {
     ['Inspection period', getInspectionPeriod(props.inspection.created_at, props.timeZone).label],
     ['Inspection timezone', props.timeZone],
     ['Processing time', processingDuration],
-    ['Gemini model', props.aiRun?.model || props.inspection.ai_model || '—'],
+    ['Analysis status', props.aiRun?.status || props.inspection.status || '—'],
     ['Worker version', workerVersion],
     ['Inspection source', humanize(props.inspection.source)],
     [

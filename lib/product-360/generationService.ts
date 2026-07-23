@@ -679,16 +679,17 @@ export async function generatePackage(packageId: string): Promise<GeneratePackag
     }
 
     // ── General failure ───────────────────────────────────────────────────────
-    let errorMessage = err instanceof Error ? err.message : 'Unknown generation error'
+    const technicalError = err instanceof Error ? err.message : 'Unknown generation error'
+    let errorMessage = 'AI image generation failed. Try again or contact an administrator.'
 
-    if (errorMessage.includes('text output') || errorMessage.includes('text only')) {
-      errorMessage = 'The selected AI model only supports text output. Image generation requires an Imagen model (imagen-4.0-ultra-generate-001).'
-    } else if (errorMessage.includes('GEMINI_API_KEY') || errorMessage.includes('GOOGLE_API_KEY') || errorMessage.includes('Missing')) {
-      errorMessage = 'Missing Gemini/Google API key. Add GEMINI_API_KEY to your Vercel environment variables.'
-    } else if (errorMessage.includes('upload') || errorMessage.includes('Storage')) {
-      errorMessage = 'Image generated but failed to upload to Supabase Storage. ' + errorMessage
-    } else if (errorMessage.includes('403') || errorMessage.includes('access denied')) {
-      errorMessage = 'Imagen API access denied. Ensure GEMINI_API_KEY has the Imagen API enabled in Google Cloud Console.'
+    if (technicalError.includes('text output') || technicalError.includes('text only')) {
+      errorMessage = 'The configured AI service does not support image generation. Contact an administrator.'
+    } else if (technicalError.includes('GEMINI_API_KEY') || technicalError.includes('GOOGLE_API_KEY') || technicalError.includes('Missing')) {
+      errorMessage = 'AI image generation is not configured. Contact an administrator.'
+    } else if (technicalError.includes('upload') || technicalError.includes('Storage')) {
+      errorMessage = 'The generated image could not be saved. Try again.'
+    } else if (technicalError.includes('403') || technicalError.includes('access denied')) {
+      errorMessage = 'AI image generation access was denied. Contact an administrator.'
     }
 
     console.error(`[p360:generate] pkg=${packageId} failed after ${framesGenerated} frames:`, err)

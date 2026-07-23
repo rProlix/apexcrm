@@ -255,7 +255,7 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
             AI Website Images
           </h2>
           <p className="mt-1 text-sm text-white/45">
-            Imagen 4 Ultra analyzes your website content and generates premium images for each section.
+            AI analyzes your website content and generates premium images for each section.
           </p>
         </div>
         <button
@@ -292,7 +292,7 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
                   : 'Database table missing'
               )}
               {blockingError.code === 'MISSING_BUCKET'  && 'Storage bucket missing'}
-              {blockingError.code === 'MISSING_API_KEY' && 'Imagen API key missing'}
+              {blockingError.code === 'MISSING_API_KEY' && 'AI image service configuration missing'}
               {!blockingError.code                      && 'Configuration error'}
             </span>
           </div>
@@ -329,7 +329,7 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
             <div className="text-[11px] text-white/40 space-y-1 font-mono bg-black/30 rounded-xl p-3">
               <p className="text-white/60 font-sans font-semibold not-italic mb-1">Fix steps:</p>
               <p>1. Go to Vercel Dashboard → Project → Settings → Environment Variables</p>
-              <p>2. Add: <span className="text-violet-300">GEMINI_API_KEY=your-google-ai-key</span></p>
+              <p>2. Add the server-side AI provider credential documented for this deployment.</p>
               <p>3. Redeploy</p>
             </div>
           )}
@@ -363,8 +363,8 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
           <span className="text-sm font-semibold text-violet-300">How AI Images Work</span>
         </div>
         <ul className="space-y-1 text-xs text-white/50 pl-6 list-disc">
-          <li>Gemini analyzes your website structure and decides which images are needed and why.</li>
-          <li>Imagen 4 Ultra generates each image with a rich, commercial photography prompt.</li>
+          <li>AI analysis reviews your website structure and decides which images are needed and why.</li>
+          <li>AI image generation creates each image from a commercial photography prompt.</li>
           <li>Images are saved to your Supabase Storage and linked to the correct sections.</li>
           <li>Existing product images are never overwritten.</li>
           <li>You can preview, regenerate, edit prompts, approve, apply, or reject each image.</li>
@@ -472,7 +472,7 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
           <ImageIcon className="h-10 w-10 text-white/10 mx-auto" />
           <p className="text-sm text-white/30">No image plans yet.</p>
           <p className="text-xs text-white/20 max-w-xs mx-auto">
-            Click "Analyze Site & Plan Images" to let Gemini decide what images your site needs.
+            Click "Analyze Site & Plan Images" to create an AI-assisted image plan.
           </p>
         </div>
       )}

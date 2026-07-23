@@ -40,7 +40,7 @@ The existing Supabase browser client subscribes once to tenant-filtered changes 
 
 All queries and mutations require an authenticated tenant/business scope. Management mutations require owner or admin access and execute service-role-only RPCs after application authorization. The aggregate RPC also checks the authenticated database role and membership. New alert rows use tenant-scoped RLS; `business_id` must equal `tenant_id`.
 
-Apply `20260721180000_fleet_severe_damage_attention.sql` before deploying the application. The migration is additive, backfills one alert per qualifying van, preserves historical data, and does not change S3, Slack, SQS, Gemini, or vehicle operational status. Rollback may leave the additive alert history unused; dropping it is not required for application rollback. Existing resolved alerts should not be manually merged without trusted business review.
+Apply `20260721180000_fleet_severe_damage_attention.sql` before deploying the application. The migration is additive, backfills one alert per qualifying van, preserves historical data, and does not change private media, Slack, queues, AI analysis, or vehicle operational status. Rollback may leave the additive alert history unused; dropping it is not required for application rollback. Existing resolved alerts should not be manually merged without trusted business review.
 
 ## Current limitations
 

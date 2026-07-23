@@ -69,7 +69,6 @@ export function getVanDamageConfigPresence() {
     slackSigning: present('SLACK_SIGNING_SECRET'),
     tokenEncryption: present('SLACK_TOKEN_ENCRYPTION_KEY'),
     supabase: (present('SUPABASE_URL') || present('NEXT_PUBLIC_SUPABASE_URL')) && present('SUPABASE_SERVICE_ROLE_KEY'),
-    gemini: present('GEMINI_API_KEY') || present('GOOGLE_GEMINI_API_KEY'),
-    geminiModel: process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash',
+    aiAnalysis: present('GEMINI_API_KEY') || present('GOOGLE_GEMINI_API_KEY'),
   }
 }

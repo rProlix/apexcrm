@@ -1285,15 +1285,15 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     )
 
     // Classify the error for better UX
-    let friendlyMessage = errMsg
+    let friendlyMessage = 'AI image generation failed. Try again or contact an administrator.'
     if (errMsg.includes('text output') || errMsg.includes('text only')) {
-      friendlyMessage = 'The AI model only supports text, not image generation. Check IMAGEN_MODEL env var.'
+      friendlyMessage = 'The configured AI service does not support image generation. Contact an administrator.'
     } else if (errMsg.includes('GEMINI_API_KEY') || errMsg.includes('Missing')) {
-      friendlyMessage = 'Missing API key. Add GEMINI_API_KEY to your environment variables.'
+      friendlyMessage = 'AI image generation is not configured. Contact an administrator.'
     } else if (errMsg.includes('bucket') || errMsg.includes('Storage')) {
       friendlyMessage = `Storage upload failed. ${errMsg}`
     } else if (errMsg.includes('403') || errMsg.includes('access denied') || errMsg.includes('PERMISSION_DENIED')) {
-      friendlyMessage = 'Imagen API access denied. Ensure your API key has the Imagen API enabled in Google Cloud Console.'
+      friendlyMessage = 'AI image generation access was denied. Contact an administrator.'
     }
 
     // Extract diagnostic from the error if it's a provider failure with rawResponse

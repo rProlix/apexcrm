@@ -20,26 +20,33 @@ export function useSignedDamageImageUrl({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const onUrlRef = useRef(onUrl)
+  const requestRef = useRef(0)
   onUrlRef.current = onUrl
 
   const load = useCallback(async (forceRefresh = false) => {
     if (!enabled) return
+    const requestId = ++requestRef.current
     setLoading(true)
     setError(null)
     try {
       if (forceRefresh) invalidateSignedDamageImageUrl(imageId, businessId)
       const result = await getSignedDamageImageUrl({ imageId, businessId, forceRefresh })
+      if (requestRef.current !== requestId) return
       setUrl(result.url)
       onUrlRef.current?.(result.url)
     } catch (caught) {
+      if (requestRef.current !== requestId) return
       setError(caught instanceof Error ? caught.message : 'Image unavailable')
     } finally {
-      setLoading(false)
+      if (requestRef.current === requestId) setLoading(false)
     }
   }, [businessId, enabled, imageId])
 
   useEffect(() => {
     if (enabled) void load()
+    return () => {
+      requestRef.current += 1
+    }
   }, [enabled, load])
 
   return { url, error, loading, retry: () => load(true) }

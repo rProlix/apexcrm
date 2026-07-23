@@ -191,7 +191,7 @@ export async function generateWebsiteImage(
     clearTimeout(timer)
     const errMsg = err instanceof Error && err.name === 'AbortError'
       ? `Image generation timed out after ${TIMEOUT_MS / 1000}s. Try again.`
-      : `Imagen request failed: ${err instanceof Error ? err.message : String(err)}`
+      : 'AI image generation is temporarily unavailable. Try again.'
     logError('3_imagen_request_failed', err, { jobId, planId: opts.plan.id })
     await failJob(supabase, jobId, opts.plan.id, errMsg, null)
     return { jobId, publicUrl: '', storagePath: '', altText: '', error: errMsg }
@@ -211,7 +211,7 @@ export async function generateWebsiteImage(
     try { errText = await response.text() } catch { /* ignore */ }
     const errMsg = isQuotaError(errText)
       ? QUOTA_EXCEEDED_MESSAGE
-      : `Imagen API error ${response.status}: ${errText.slice(0, 500)}`
+      : `AI image generation failed (${response.status}). Try again.`
     logError('4_imagen_response_error', new Error(errMsg), { jobId, planId: opts.plan.id, status: response.status })
     await failJob(supabase, jobId, opts.plan.id, errMsg, errText.slice(0, 1000))
     return { jobId, publicUrl: '', storagePath: '', altText: '', error: errMsg }
@@ -223,8 +223,8 @@ export async function generateWebsiteImage(
     json = await response.json() as Record<string, unknown>
   } catch (err) {
     logError('4_imagen_parse_failed', err, { jobId })
-    await failJob(supabase, jobId, opts.plan.id, 'Imagen returned unreadable data.', null)
-    return { jobId, publicUrl: '', storagePath: '', altText: '', error: 'Imagen returned unreadable data.' }
+    await failJob(supabase, jobId, opts.plan.id, 'AI image generation returned unreadable data.', null)
+    return { jobId, publicUrl: '', storagePath: '', altText: '', error: 'AI image generation returned unreadable data.' }
   }
 
   // ── Extract image data ────────────────────────────────────────────────────
@@ -241,7 +241,9 @@ export async function generateWebsiteImage(
   })
 
   if (extractError || !b64) {
-    const errMsg = extractError ?? 'Imagen returned no image data.'
+    const errMsg = extractError
+      ? 'AI image generation returned invalid image data.'
+      : 'AI image generation returned no image data.'
     logError('5_no_image_data', new Error(errMsg), { jobId, planId: opts.plan.id, responseKeys: Object.keys(json) })
     await failJob(supabase, jobId, opts.plan.id, errMsg, null)
     return { jobId, publicUrl: '', storagePath: '', altText: '', error: errMsg }

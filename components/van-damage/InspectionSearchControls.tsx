@@ -12,12 +12,17 @@ const sortOptions: Array<{ value: InspectionSort; label: string }> = [
   { value: 'oldest_damage', label: 'Oldest Damage First' },
   { value: 'latest_upload', label: 'Latest Upload' },
   { value: 'oldest_upload', label: 'Oldest Upload' },
+  { value: 'newest_first_detected', label: 'Newest First Detected' },
+  { value: 'oldest_first_detected', label: 'Oldest First Detected' },
+  { value: 'latest_observation', label: 'Most Recently Observed' },
+  { value: 'oldest_observation', label: 'Least Recently Observed' },
   { value: 'newest_inspection', label: 'Newest Inspection' },
   { value: 'oldest_inspection', label: 'Oldest Inspection' },
   { value: 'highest_severity', label: 'Highest Severity' },
   { value: 'lowest_severity', label: 'Lowest Severity' },
   { value: 'most_images', label: 'Most Images' },
   { value: 'fewest_images', label: 'Fewest Images' },
+  { value: 'most_observations', label: 'Most Observations' },
   { value: 'most_active_damage', label: 'Most Active Damage' },
   { value: 'recently_updated', label: 'Recently Updated' },
   { value: 'recently_reviewed', label: 'Recently Reviewed' },
@@ -39,6 +44,8 @@ export function InspectionSearchControls({
   damageTypes,
   regions,
   repairStatuses,
+  firstReporters,
+  latestUploaders,
 }: {
   filters: InspectionSearchFilters
   drivers: Option[]
@@ -48,6 +55,8 @@ export function InspectionSearchControls({
   damageTypes: string[]
   regions: string[]
   repairStatuses: string[]
+  firstReporters: Option[]
+  latestUploaders: Option[]
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -76,17 +85,19 @@ export function InspectionSearchControls({
     searchTimer.current = setTimeout(() => update({ q: value.trim() || null }), 320)
   }
 
-  const activeCount = [filters.driver, filters.van, filters.status, filters.severity, filters.damageType, filters.region, filters.period, filters.damageState, filters.review, filters.images, filters.repairStatus]
-    .filter((value) => value !== 'all').length + Number(filters.today)
+  const activeCount = [filters.driver, filters.van, filters.status, filters.severity, filters.damageType, filters.region, filters.period, filters.damageState, filters.review, filters.images, filters.repairStatus, filters.firstReporter, filters.latestUploader]
+    .filter((value) => value !== 'all').length + Number(filters.today) + Number(filters.level3)
 
   const quick = [
     { label: 'Latest Damage', active: filters.sort === 'newest_damage', changes: { sort: 'newest_damage' } },
     { label: 'Latest Upload', active: filters.sort === 'latest_upload', changes: { sort: 'latest_upload' } },
+    { label: 'Level 3', active: filters.level3, changes: { level3: filters.level3 ? null : '1' } },
     { label: "Today's Inspections", active: filters.today, changes: { today: filters.today ? null : '1' } },
     { label: 'Needs Review', active: filters.review === 'needs_review', changes: { review: filters.review === 'needs_review' ? null : 'needs_review' } },
     { label: 'Severe Damage', active: filters.severity === 'severe', changes: { severity: filters.severity === 'severe' ? null : 'severe' } },
     { label: 'Active Damage', active: filters.sort === 'most_active_damage', changes: { sort: 'most_active_damage' } },
     { label: 'Recently Updated', active: filters.sort === 'recently_updated', changes: { sort: 'recently_updated' } },
+    { label: 'Recurring Damage', active: filters.damageState === 'recurring_damage', changes: { damageState: filters.damageState === 'recurring_damage' ? null : 'recurring_damage' } },
   ] as const
 
   const filterFields = <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -101,6 +112,8 @@ export function InspectionSearchControls({
     <Select label="Review" value={filters.review} options={[{ value: 'needs_review', label: 'Needs Review' }, { value: 'ai_reviewed', label: 'AI Reviewed' }, { value: 'human_reviewed', label: 'Human Reviewed' }]} onChange={(value) => update({ review: value })} />
     <Select label="Images" value={filters.images} options={[{ value: 'has_images', label: 'Has Images' }, { value: 'no_images', label: 'No Images' }]} onChange={(value) => update({ images: value })} />
     <Select label="Repair status" value={filters.repairStatus} options={textOptions(repairStatuses)} onChange={(value) => update({ repairStatus: value })} />
+    <Select label="First reporter" value={filters.firstReporter} options={firstReporters} onChange={(value) => update({ firstReporter: value })} />
+    <Select label="Latest uploader" value={filters.latestUploader} options={latestUploaders} onChange={(value) => update({ latestUploader: value })} />
     <label className="block text-xs text-white/45"><span className="mb-1.5 block">Sort results</span><select value={filters.sort} onChange={(event) => update({ sort: event.target.value })} className="focus-ring min-h-11 w-full rounded-xl border border-white/10 bg-graphite-900 px-3 text-sm text-white/70">{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
   </div>
 

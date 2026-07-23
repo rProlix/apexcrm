@@ -26,6 +26,21 @@ test('channel purpose routing is exclusive and maintenance messages do not requi
   assert.equal(extractVanNumber('64 has a coolant leak'), '64')
 })
 
+test('Slack settings preserve unhealthy mappings and verify access before routing', () => {
+  const settingsRoute = readFileSync('app/api/integrations/slack/channels/route.ts', 'utf8')
+  const eventRoute = readFileSync('app/api/integrations/slack/events/route.ts', 'utf8')
+  const settingsUi = readFileSync('components/van-damage/SlackSettingsClient.tsx', 'utf8')
+  assert.match(settingsRoute, /maintenanceEnabled/)
+  assert.match(settingsRoute, /isAccessible: false/)
+  assert.match(settingsRoute, /slack_channel_configuration_tested/)
+  assert.match(settingsRoute, /cannot be used for both inspections and maintenance/)
+  assert.match(eventRoute, /getSlackChannelInfo/)
+  assert.match(eventRoute, /channel_access_unverified/)
+  assert.match(settingsUi, /Search available Slack channels/)
+  assert.match(settingsUi, /Enable ingestion/)
+  assert.match(settingsUi, /Test routing/)
+})
+
 test('thread replies, edits, and deletions preserve the source message identity', () => {
   const reply = normalizeSlackMessageEvent({
     type: 'event_callback',
@@ -136,6 +151,8 @@ test('migration enforces tenant scope, idempotency, concurrency locks, and Slack
     'utf8'
   )
   assert.match(attachments, /ServerSideEncryption: 'AES256'/)
-  assert.match(download, /expiresIn: 900/)
+  assert.match(download, /getCachedPrivateMediaSignedUrl/)
+  assert.match(download, /SIGNED_URL_TTL_SECONDS = 15 \* 60/)
+  assert.match(download, /'Cache-Control': `private,/)
   assert.doesNotMatch(migration, /url_private|signed_url/)
 })

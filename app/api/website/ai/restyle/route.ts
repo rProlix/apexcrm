@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
   // ── Gemini key check ─────────────────────────────────────────────────────────
   if (!process.env.GEMINI_API_KEY)
-    return NextResponse.json({ error: 'GEMINI_API_KEY is not configured.' }, { status: 503 })
+    return NextResponse.json({ error: 'AI analysis is not configured. Contact an administrator.' }, { status: 503 })
 
   const db = getSupabaseServerClient()
 

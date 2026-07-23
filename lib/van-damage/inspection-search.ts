@@ -2,8 +2,10 @@ import { getInspectionLocalDateKey, getInspectionPeriod, type InspectionPeriod }
 
 export const inspectionSortOptions = [
   'newest_damage', 'oldest_damage', 'latest_upload', 'oldest_upload',
+  'newest_first_detected', 'oldest_first_detected',
+  'latest_observation', 'oldest_observation',
   'newest_inspection', 'oldest_inspection', 'highest_severity', 'lowest_severity',
-  'most_images', 'fewest_images', 'most_active_damage', 'recently_updated',
+  'most_images', 'fewest_images', 'most_observations', 'most_active_damage', 'recently_updated',
   'recently_reviewed', 'needs_review', 'repair_scheduled', 'in_repair', 'repaired',
   'driver_name', 'van_number', 'inspection_number',
 ] as const
@@ -28,6 +30,8 @@ export type InspectionSearchRow = {
   uploadAt: string
   latestDamageAt: string | null
   firstDamageAt: string | null
+  latestObservationAt: string | null
+  observationCount: number
   driverName: string
   driverId: string | null
   vanName: string
@@ -40,6 +44,12 @@ export type InspectionSearchRow = {
   observationTypes: string[]
   repairStatuses: string[]
   notes: string[]
+  damageCaseIds: string[]
+  firstReporterIds: string[]
+  firstReporterNames: string[]
+  latestUploaderIds: string[]
+  latestUploaderNames: string[]
+  hasLevel3: boolean
   activeDamageCount: number
   latestImageId: string | null
 }
@@ -58,6 +68,9 @@ export type InspectionSearchFilters = {
   review: InspectionReviewFilter
   images: InspectionImageFilter
   repairStatus: string
+  firstReporter: string
+  latestUploader: string
+  level3: boolean
   today: boolean
 }
 
@@ -75,6 +88,9 @@ export const defaultInspectionSearchFilters: InspectionSearchFilters = {
   review: 'all',
   images: 'all',
   repairStatus: 'all',
+  firstReporter: 'all',
+  latestUploader: 'all',
+  level3: false,
   today: false,
 }
 
@@ -106,7 +122,8 @@ export function filterAndSortInspections(
     if (query) {
       const haystack = [
         row.vanNumber, row.vanName, row.inspectionNumber, row.id, row.title ?? '', row.driverName,
-        row.aiSummary ?? '', ...row.damageTypes, ...row.regions, ...row.notes,
+        row.aiSummary ?? '', ...row.damageTypes, ...row.regions, ...row.notes, ...row.damageCaseIds,
+        ...row.firstReporterNames, ...row.latestUploaderNames,
       ].join(' ').replaceAll('_', ' ').toLocaleLowerCase()
       if (!haystack.includes(query)) return false
     }
@@ -124,6 +141,9 @@ export function filterAndSortInspections(
     if (filters.review === 'ai_reviewed' && !row.aiSummary && row.status !== 'completed') return false
     if (filters.review === 'human_reviewed' && row.reviewStatus !== 'reviewed') return false
     if (filters.repairStatus !== 'all' && !row.repairStatuses.includes(filters.repairStatus)) return false
+    if (filters.firstReporter !== 'all' && !row.firstReporterIds.includes(filters.firstReporter)) return false
+    if (filters.latestUploader !== 'all' && !row.latestUploaderIds.includes(filters.latestUploader)) return false
+    if (filters.level3 && !row.hasLevel3) return false
     if (filters.damageState === 'new_damage' && !row.observationTypes.includes('new_damage')) return false
     if (filters.damageState === 'existing_damage' && !row.observationTypes.includes('existing_damage_observed')) return false
     if (filters.damageState === 'recurring_damage' && !row.observationTypes.includes('recurrent_damage')) return false
@@ -148,11 +168,16 @@ function compareInspections(a: InspectionSearchRow, b: InspectionSearchRow, sort
     case 'oldest_damage': return oldestDamage(a.firstDamageAt, b.firstDamageAt) || oldest(a.createdAt, b.createdAt)
     case 'latest_upload': return newest(a.uploadAt, b.uploadAt)
     case 'oldest_upload': return oldest(a.uploadAt, b.uploadAt)
+    case 'newest_first_detected': return newest(a.firstDamageAt, b.firstDamageAt) || newest(a.createdAt, b.createdAt)
+    case 'oldest_first_detected': return oldestDamage(a.firstDamageAt, b.firstDamageAt) || oldest(a.createdAt, b.createdAt)
+    case 'latest_observation': return newest(a.latestObservationAt, b.latestObservationAt) || newest(a.createdAt, b.createdAt)
+    case 'oldest_observation': return oldestDamage(a.latestObservationAt, b.latestObservationAt) || oldest(a.createdAt, b.createdAt)
     case 'oldest_inspection': return oldest(a.createdAt, b.createdAt)
     case 'highest_severity': return maxSeverity(b) - maxSeverity(a) || newest(a.createdAt, b.createdAt)
     case 'lowest_severity': return maxSeverity(a) - maxSeverity(b) || newest(a.createdAt, b.createdAt)
     case 'most_images': return b.imageCount - a.imageCount || newest(a.createdAt, b.createdAt)
     case 'fewest_images': return a.imageCount - b.imageCount || newest(a.createdAt, b.createdAt)
+    case 'most_observations': return b.observationCount - a.observationCount || newest(a.latestObservationAt, b.latestObservationAt)
     case 'most_active_damage': return b.activeDamageCount - a.activeDamageCount || b.damageCount - a.damageCount
     case 'recently_updated': return newest(a.updatedAt, b.updatedAt)
     case 'recently_reviewed': return newest(a.reviewedAt, b.reviewedAt)

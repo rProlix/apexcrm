@@ -642,7 +642,7 @@ export function EditorSidebar() {
                   color:        '#a78bfa',
                 }}>
                   <span style={{ display: 'inline-block' }}>⏳</span>
-                  Generating {generateCount > 1 ? `${generateCount} images` : 'image'} with Imagen 4…
+                  Generating {generateCount > 1 ? `${generateCount} images` : 'image'} with AI…
                 </div>
               ) : (
                 <div style={row()}>

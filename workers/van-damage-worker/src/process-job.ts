@@ -156,24 +156,24 @@ export async function processMessageBody(body: string, dependencies?: {
       vanNumber,
     })
     logger.info('Supabase update completed', { ...jobContext, operation: 'createAiRun', aiRunId })
-    const geminiStartedAt = Date.now()
-    logger.info('Gemini analysis started', { ...jobContext, imageCount: analysisImages.length })
+    const analysisStartedAt = Date.now()
+    logger.info('AI analysis started', { ...jobContext, imageCount: analysisImages.length })
     const result = await analyzeVanDamage({
       config,
       images: analysisImages,
       context: [context.inspection.title, `Van ${vanNumber}`].filter(Boolean).join(' - '),
     }).then((analysis) => {
-      logger.info('Gemini analysis finished', {
+      logger.info('AI analysis completed', {
         ...jobContext,
-        durationMs: Date.now() - geminiStartedAt,
+        durationMs: Date.now() - analysisStartedAt,
         success: true,
         needsReview: analysis.analysis.needsHumanReview,
       })
       return analysis
     }).catch((error) => {
-      logger.error('Gemini analysis finished', {
+      logger.error('AI analysis failed', {
         ...jobContext,
-        durationMs: Date.now() - geminiStartedAt,
+        durationMs: Date.now() - analysisStartedAt,
         success: false,
         error: error instanceof Error ? error.message : String(error),
       })

@@ -6,7 +6,7 @@ Phase 3H reuses the existing encrypted Slack workspace installation. In Van Dama
 
 The existing Events API endpoint verifies the Slack signature before parsing. It then resolves the connected workspace and selected channel purpose:
 
-- `damage_inspection`: requires supported images and continues through the existing inspection, SQS, worker, and Gemini flow.
+- `damage_inspection`: requires supported images and continues through the existing inspection, queue, worker, and AI analysis flow.
 - `maintenance`: accepts text and supported attachments, creates or updates maintenance history, and never creates an inspection or SQS job.
 - unselected or unsupported: acknowledged and ignored.
 

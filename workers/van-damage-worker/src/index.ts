@@ -27,7 +27,7 @@ async function main() {
 
   logger.info('Worker dependencies initialized', {
     region: config.awsRegion,
-    geminiModel: config.geminiModel,
+    analysisProviderConfigured: Boolean(config.geminiModel),
     nodeEnv: config.nodeEnv,
   })
 

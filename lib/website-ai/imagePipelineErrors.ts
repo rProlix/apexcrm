@@ -72,14 +72,13 @@ export const MISSING_BUCKET_MESSAGE =
   'Run migration 054_website_image_plans_complete.sql or create the bucket manually ' +
   'in Supabase Dashboard → Storage → New bucket → name: "website-assets", public: true.'
 
-/** Human-readable message when the Imagen API key is missing. */
+/** Provider-neutral message when the AI image service is not configured. */
 export const MISSING_API_KEY_MESSAGE =
-  'Imagen image generation is not configured. ' +
-  'Add GEMINI_API_KEY to your Vercel environment variables and redeploy.'
+  'AI image generation is not configured. Ask an administrator to configure the server-side AI image service.'
 
-/** Human-readable message for quota/rate-limit errors from the Imagen API. */
+/** Provider-neutral message for quota/rate-limit errors. */
 export const QUOTA_EXCEEDED_MESSAGE =
-  'Image provider quota exceeded. Try again after billing or quota is updated in Google Cloud Console.'
+  'AI image generation is temporarily at capacity. Try again later or contact an administrator.'
 
 /** Detect quota / rate limit from Imagen API error text. */
 export function isQuotaError(errText: string): boolean {

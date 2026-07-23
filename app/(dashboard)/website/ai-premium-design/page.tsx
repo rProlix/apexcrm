@@ -42,7 +42,7 @@ export default async function AiPremiumDesignPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-white/90">AI Premium Design</h1>
-            <p className="text-sm text-white/40 mt-0.5">Powered by Gemini · Framer Motion</p>
+            <p className="text-sm text-white/40 mt-0.5">AI-assisted design · Framer Motion</p>
           </div>
         </div>
         <p className="text-sm text-white/50 leading-relaxed max-w-xl">
@@ -54,7 +54,7 @@ export default async function AiPremiumDesignPage() {
       {/* Feature callouts */}
       <div className="grid grid-cols-3 gap-3 mb-8">
         {[
-          { icon: '⚡', label: 'AI-generated plan', desc: 'Gemini analyzes your business' },
+          { icon: '⚡', label: 'AI-generated plan', desc: 'AI analyzes your business' },
           { icon: '✦', label: 'Premium presets', desc: '16 animation + 12 style presets' },
           { icon: '♿', label: 'Always accessible', desc: 'Reduced motion respected' },
         ].map(f => (

@@ -8,7 +8,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { MaintenanceWorkspace } from '@/components/maintenance/MaintenanceWorkspace'
 import type { MaintenanceItem } from '@/lib/maintenance/types'
 
-export const metadata = { title: 'Fleet Maintenance — NexoraNow' }
+export const metadata = { title: 'Fleet Maintenance' }
 
 function record(value: unknown) {
   return value && typeof value === 'object' && !Array.isArray(value)

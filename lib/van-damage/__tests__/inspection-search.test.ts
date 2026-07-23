@@ -12,22 +12,26 @@ const base: InspectionSearchRow = {
   imageCount: 2, damageCount: 1, aiSummary: 'Light scratch near door', aiConfidence: .9,
   createdAt: '2026-07-20T15:00:00.000Z', updatedAt: '2026-07-20T15:05:00.000Z', reviewedAt: null,
   uploadAt: '2026-07-20T15:00:00.000Z', latestDamageAt: '2026-07-20T15:04:00.000Z', firstDamageAt: '2026-07-20T15:04:00.000Z',
+  latestObservationAt: '2026-07-20T15:04:00.000Z', observationCount: 1,
   driverName: 'Jordan Stone', driverId: 'driver-1', vanName: 'Transit 12', vanNumber: '12', vanId: 'van-12', inspectionNumber: 'INS-001',
-  damageTypes: ['scratch'], regions: ['driver_side'], severities: ['low'], observationTypes: ['new_damage'], repairStatuses: ['active'], notes: ['check door'], activeDamageCount: 1, latestImageId: 'image-1',
+  damageTypes: ['scratch'], regions: ['driver_side'], severities: ['low'], observationTypes: ['new_damage'], repairStatuses: ['active'], notes: ['check door'],
+  damageCaseIds: ['case-1'], firstReporterIds: ['driver-1'], firstReporterNames: ['Jordan Stone'], latestUploaderIds: ['driver-1'], latestUploaderNames: ['Jordan Stone'], hasLevel3: false,
+  activeDamageCount: 1, latestImageId: 'image-1',
 }
 
 const severe: InspectionSearchRow = {
   ...base, id: 'inspection-2', title: 'Evening return', driverName: 'Morgan Lee', driverId: 'driver-2', vanName: 'Transit 77', vanNumber: '77', vanId: 'van-77', inspectionNumber: 'INS-002',
   imageCount: 5, damageCount: 3, aiSummary: 'Dent on rear bumper', damageTypes: ['dent'], regions: ['rear_bumper'], severities: ['high'], observationTypes: ['existing_damage_observed', 'possible_duplicate'],
   notes: ['repair estimate requested'],
-  createdAt: '2026-07-21T04:00:00.000Z', updatedAt: '2026-07-21T04:10:00.000Z', uploadAt: '2026-07-21T04:00:00.000Z', latestDamageAt: '2026-07-21T04:09:00.000Z', firstDamageAt: '2026-07-18T04:00:00.000Z', activeDamageCount: 3,
+  createdAt: '2026-07-21T04:00:00.000Z', updatedAt: '2026-07-21T04:10:00.000Z', uploadAt: '2026-07-21T04:00:00.000Z', latestDamageAt: '2026-07-21T04:09:00.000Z', firstDamageAt: '2026-07-18T04:00:00.000Z',
+  latestObservationAt: '2026-07-21T04:09:00.000Z', observationCount: 4, damageCaseIds: ['case-2'], firstReporterIds: ['driver-2'], firstReporterNames: ['Morgan Lee'], latestUploaderIds: ['driver-2'], latestUploaderNames: ['Morgan Lee'], hasLevel3: true, activeDamageCount: 3,
 }
 
 const rows = [base, severe]
 const zone = 'America/Los_Angeles'
 
 test('global search finds driver, van, damage, region, notes and inspection identity', () => {
-  for (const query of ['Jordan', 'Transit 12', 'scratch', 'driver side', 'check door', 'INS-001', 'inspection-1']) {
+  for (const query of ['Jordan', 'Transit 12', 'scratch', 'driver side', 'check door', 'INS-001', 'inspection-1', 'case-1']) {
     const result = filterAndSortInspections(rows, { ...defaultInspectionSearchFilters, q: query }, zone)
     assert.deepEqual(result.map((row) => row.id), ['inspection-1'], query)
   }
@@ -38,6 +42,18 @@ test('latest upload, latest damage, severity and inspection sorts use repository
   assert.equal(filterAndSortInspections(rows, { ...defaultInspectionSearchFilters, sort: 'newest_damage' }, zone)[0]?.id, 'inspection-2')
   assert.equal(filterAndSortInspections(rows, { ...defaultInspectionSearchFilters, sort: 'highest_severity' }, zone)[0]?.id, 'inspection-2')
   assert.equal(filterAndSortInspections(rows, { ...defaultInspectionSearchFilters, sort: 'oldest_inspection' }, zone)[0]?.id, 'inspection-1')
+  assert.equal(filterAndSortInspections(rows, { ...defaultInspectionSearchFilters, sort: 'latest_observation' }, zone)[0]?.id, 'inspection-2')
+  assert.equal(filterAndSortInspections(rows, { ...defaultInspectionSearchFilters, sort: 'most_observations' }, zone)[0]?.id, 'inspection-2')
+})
+
+test('Level 3, first reporter, and latest uploader filters compose', () => {
+  const result = filterAndSortInspections(rows, {
+    ...defaultInspectionSearchFilters,
+    level3: true,
+    firstReporter: 'driver-2',
+    latestUploader: 'driver-2',
+  }, zone)
+  assert.deepEqual(result.map((row) => row.id), ['inspection-2'])
 })
 
 test('combined filters compose driver, van, damage, period, review and image state', () => {

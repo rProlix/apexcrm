@@ -15,9 +15,9 @@ const PROMPT_VERSION = 'van-damage-v1'
 export function getDamagePromptVersion() { return PROMPT_VERSION }
 
 export function assertGeminiInitialized(config: WorkerConfig) {
-  if (!config.geminiApiKey) throw new Error('Gemini API key is not configured')
-  if (!config.geminiModel) throw new Error('Gemini model is not configured')
-  return `model ${config.geminiModel}`
+  if (!config.geminiApiKey) throw new Error('AI analysis credential is not configured')
+  if (!config.geminiModel) throw new Error('AI analysis model is not configured')
+  return 'AI analysis provider initialized'
 }
 
 function reviewResult(warning: string): GeminiAnalysisResult {
@@ -46,7 +46,7 @@ export async function analyzeVanDamage(input: {
 }): Promise<GeminiAnalysisResult> {
   const rawBytes = input.images.reduce((sum, image) => sum + image.data.length, 0)
   if (rawBytes > input.config.maxGeminiRawBytes) {
-    return reviewResult(`Image set exceeds inline Gemini limit (${rawBytes} raw bytes)`)
+    return reviewResult(`Image set exceeds the automated analysis limit (${rawBytes} raw bytes)`)
   }
 
   const prompt = `You are a commercial van damage inspector for a rental fleet.
@@ -113,16 +113,16 @@ Slack context: ${input.context?.slice(0, 4_000) || '(none)'}`
     },
   )
   if (!response.ok) {
-    const detail = (await response.text().catch(() => '')).slice(0, 300)
-    throw new Error(`Gemini HTTP ${response.status}: ${detail}`)
+    await response.text().catch(() => '')
+    throw new Error(`AI analysis request failed (${response.status})`)
   }
   const body = await response.json() as {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
     error?: { message?: string }
   }
-  if (body.error) throw new Error(`Gemini API error: ${body.error.message ?? 'unknown error'}`)
+  if (body.error) throw new Error('AI analysis request failed')
   const rawText = body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ?? ''
   const parsed = parseDamageAnalysis(rawText)
-  if (!parsed.data) return { ...reviewResult(parsed.error ?? 'Gemini returned invalid JSON'), rawText }
+  if (!parsed.data) return { ...reviewResult(parsed.error ?? 'AI analysis returned an invalid response'), rawText }
   return { analysis: parsed.data, rawText, parseError: null }
 }

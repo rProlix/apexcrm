@@ -21,7 +21,7 @@ export function AiAutofillEmptyState() {
         Paste the raw details.
       </h3>
       <p className="text-sm text-white/40 max-w-xs mb-6">
-        Gemini will organize the marble block — reviews, services, hours, menus, and more.
+        AI analysis will organize the content — reviews, services, hours, menus, and more.
       </p>
       <div className="text-left w-full max-w-sm space-y-2">
         <p className="text-2xs font-semibold text-white/30 uppercase tracking-widest mb-2">

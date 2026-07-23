@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { PrivateMediaImage } from '@/components/private-media/PrivateMediaImage'
 import {
   AlertTriangle,
   CalendarClock,
@@ -23,7 +24,10 @@ import { createClient } from '@/lib/supabase/browser'
 
 type Vehicle = { id: string; name: string; van_number: string | null; status: string }
 type User = { id: string; full_name: string | null; email: string }
-type Sort = 'priority' | 'newest' | 'oldest' | 'activity' | 'van'
+type Sort =
+  | 'priority' | 'safety' | 'impact' | 'quick_fix' | 'overdue' | 'due'
+  | 'appointment' | 'newest' | 'oldest' | 'activity' | 'van' | 'reporter'
+  | 'scheduled' | 'completed' | 'estimated_cost' | 'actual_cost'
 const closed = new Set(['completed', 'cancelled'])
 
 function label(value: string) {
@@ -78,7 +82,15 @@ export function MaintenanceWorkspace({
   const [priority, setPriority] = useState(searchParams.get('priority') ?? 'all')
   const [category, setCategory] = useState(searchParams.get('category') ?? 'all')
   const [vanId, setVanId] = useState(searchParams.get('vanId') ?? 'all')
+  const [severity, setSeverity] = useState(searchParams.get('severity') ?? 'all')
+  const [impact, setImpact] = useState(searchParams.get('impact') ?? 'all')
+  const [effort, setEffort] = useState(searchParams.get('effort') ?? 'all')
+  const [dependency, setDependency] = useState(searchParams.get('dependency') ?? 'all')
+  const [reporter, setReporter] = useState(searchParams.get('reporter') ?? 'all')
+  const [assigned, setAssigned] = useState(searchParams.get('assigned') ?? 'all')
+  const [attention, setAttention] = useState(searchParams.get('attention') ?? 'all')
   const [sort, setSort] = useState<Sort>((searchParams.get('sort') as Sort) ?? 'priority')
+  const [page, setPage] = useState(Math.max(1, Number(searchParams.get('page')) || 1))
   const [selected, setSelected] = useState<MaintenanceItem | null>(null)
   const [history, setHistory] = useState<MaintenanceHistoryEvent[]>([])
   const [attachments, setAttachments] = useState<
@@ -90,7 +102,10 @@ export function MaintenanceWorkspace({
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString())
-    const values = { q: query, status, priority, category, vanId, sort }
+    const values = {
+      q: query, status, priority, category, vanId, severity, impact, effort,
+      dependency, reporter, assigned, attention, sort, page: String(page),
+    }
     for (const [key, value] of Object.entries(values)) {
       const defaultValue = key === 'status' ? 'active' : key === 'sort' ? 'priority' : 'all'
       if (!value || value === defaultValue) params.delete(key)
@@ -99,7 +114,7 @@ export function MaintenanceWorkspace({
     const next = params.toString()
     const current = searchParams.toString()
     if (next !== current) router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false })
-  }, [category, pathname, priority, query, router, searchParams, sort, status, vanId])
+  }, [assigned, attention, category, dependency, effort, impact, page, pathname, priority, query, reporter, router, searchParams, severity, sort, status, vanId])
 
   useEffect(() => {
     if (openedInitialItem.current) return
@@ -151,6 +166,13 @@ export function MaintenanceWorkspace({
     () => [...new Set(initialItems.map((item) => item.category))].sort(),
     [initialItems]
   )
+  const reporters = useMemo(
+    () => [...new Map(initialItems.filter((item) => item.slack_reporter_id).map((item) => [
+      item.slack_reporter_id!,
+      reporterName(item),
+    ])).entries()].sort((a, b) => a[1].localeCompare(b[1])),
+    [initialItems]
+  )
   const metrics = useMemo(
     () => ({
       urgent: initialItems.filter(
@@ -176,6 +198,19 @@ export function MaintenanceWorkspace({
         if (priority !== 'all' && item.effective_priority !== priority) return false
         if (category !== 'all' && item.category !== category) return false
         if (vanId !== 'all' && item.van_id !== vanId) return false
+        if (severity !== 'all' && item.severity !== severity) return false
+        if (impact !== 'all' && item.operational_impact !== impact) return false
+        if (effort !== 'all' && item.resolution_effort !== effort) return false
+        if (dependency !== 'all' && item.scheduling_dependency !== dependency) return false
+        if (reporter !== 'all' && item.slack_reporter_id !== reporter) return false
+        if (assigned !== 'all' && item.assigned_user_id !== assigned) return false
+        if (attention === 'overdue' && (!item.due_at || Date.parse(item.due_at) >= now || closed.has(item.status))) return false
+        if (attention === 'due_soon' && (!item.due_at || Date.parse(item.due_at) < now || Date.parse(item.due_at) > now + 7 * 86_400_000 || closed.has(item.status))) return false
+        if (attention === 'needs_review' && !item.needs_review) return false
+        if (attention === 'attachments' && !item.attachment_count) return false
+        if (attention === 'related_damage' && !item.related_damage_case_id) return false
+        if (attention === 'slack' && item.source !== 'slack') return false
+        if (attention === 'manual' && item.source === 'slack') return false
         if (
           term &&
           ![
@@ -185,6 +220,11 @@ export function MaintenanceWorkspace({
             item.van?.name,
             item.van?.van_number,
             reporterName(item),
+            item.assigned_name,
+            item.vendor,
+            item.category,
+            item.related_inspection_id,
+            item.related_damage_case_id,
             String(item.maintenance_number),
           ].some((value) => value?.toLowerCase().includes(term))
         )
@@ -221,11 +261,26 @@ export function MaintenanceWorkspace({
         if (sort === 'newest') return b.reported_at.localeCompare(a.reported_at)
         if (sort === 'oldest') return a.reported_at.localeCompare(b.reported_at)
         if (sort === 'activity') return b.latest_activity_at.localeCompare(a.latest_activity_at)
+        if (sort === 'safety') return ['critical', 'high', 'moderate', 'low', 'unknown'].indexOf(a.severity) - ['critical', 'high', 'moderate', 'low', 'unknown'].indexOf(b.severity)
+        if (sort === 'impact') return ['out_of_service', 'restricted_use', 'operational_with_caution', 'operational', 'unknown'].indexOf(a.operational_impact) - ['out_of_service', 'restricted_use', 'operational_with_caution', 'operational', 'unknown'].indexOf(b.operational_impact)
+        if (sort === 'quick_fix') return ['quick_fix', 'on_site_service', 'parts_required', 'appointment_required', 'repair_shop_required', 'diagnostic_required', 'unknown'].indexOf(a.resolution_effort) - ['quick_fix', 'on_site_service', 'parts_required', 'appointment_required', 'repair_shop_required', 'diagnostic_required', 'unknown'].indexOf(b.resolution_effort)
+        if (sort === 'overdue') return (a.due_at ? Date.parse(a.due_at) : Number.MAX_SAFE_INTEGER) - (b.due_at ? Date.parse(b.due_at) : Number.MAX_SAFE_INTEGER)
+        if (sort === 'due') return (a.due_at ? Date.parse(a.due_at) : Number.MAX_SAFE_INTEGER) - (b.due_at ? Date.parse(b.due_at) : Number.MAX_SAFE_INTEGER)
+        if (sort === 'appointment') return (a.scheduled_at ? Date.parse(a.scheduled_at) : Number.MAX_SAFE_INTEGER) - (b.scheduled_at ? Date.parse(b.scheduled_at) : Number.MAX_SAFE_INTEGER)
+        if (sort === 'reporter') return reporterName(a).localeCompare(reporterName(b))
+        if (sort === 'scheduled') return (a.scheduled_at ?? '9999').localeCompare(b.scheduled_at ?? '9999')
+        if (sort === 'completed') return (b.completed_at ?? '').localeCompare(a.completed_at ?? '')
+        if (sort === 'estimated_cost') return (b.estimated_cost ?? -1) - (a.estimated_cost ?? -1)
+        if (sort === 'actual_cost') return (b.actual_cost ?? -1) - (a.actual_cost ?? -1)
         return (a.van?.van_number ?? 'ZZZ').localeCompare(b.van?.van_number ?? 'ZZZ', undefined, {
           numeric: true,
         })
       })
-  }, [category, initialItems, priority, query, sort, status, vanId])
+  }, [assigned, attention, category, dependency, effort, impact, initialItems, priority, query, reporter, severity, sort, status, vanId])
+  const pageSize = 50
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize))
+  const currentPage = Math.min(page, pageCount)
+  const visibleItems = items.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   const metricCards: Array<{
     name: string
     value: number
@@ -349,9 +404,12 @@ export function MaintenanceWorkspace({
           </div>
         ))}
       </div>
+      <p className="rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 text-xs leading-5 text-white/40">
+        Priority suggestions are based on the reported information and should be reviewed when vehicle safety or operability is uncertain.
+      </p>
 
       <section className="rounded-2xl border border-white/10 bg-graphite-800 p-4">
-        <div className="flex flex-col gap-3 lg:flex-row">
+        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap">
           <label className="relative flex-1">
             <Search className="absolute left-3 top-3 h-4 w-4 text-white/30" />
             <input
@@ -403,14 +461,69 @@ export function MaintenanceWorkspace({
               ],
             ],
             [
+              severity,
+              setSeverity,
+              [['all', 'All severity'], ...['critical', 'high', 'moderate', 'low', 'unknown'].map((value) => [value, label(value)])],
+            ],
+            [
+              impact,
+              setImpact,
+              [['all', 'All operational impact'], ...['out_of_service', 'restricted_use', 'operational_with_caution', 'operational', 'unknown'].map((value) => [value, label(value)])],
+            ],
+            [
+              effort,
+              setEffort,
+              [['all', 'All repair effort'], ...['quick_fix', 'on_site_service', 'parts_required', 'appointment_required', 'repair_shop_required', 'diagnostic_required', 'unknown'].map((value) => [value, label(value)])],
+            ],
+            [
+              dependency,
+              setDependency,
+              [['all', 'All scheduling needs'], ...['no_appointment', 'internal_staff', 'mobile_service', 'shop_appointment', 'vendor_availability', 'parts_availability', 'unknown'].map((value) => [value, label(value)])],
+            ],
+            [
+              reporter,
+              setReporter,
+              [['all', 'All reporters'], ...reporters],
+            ],
+            [
+              assigned,
+              setAssigned,
+              [['all', 'All assignees'], ...users.map((user) => [user.id, user.full_name || user.email])],
+            ],
+            [
+              attention,
+              setAttention,
+              [
+                ['all', 'All record types'],
+                ['overdue', 'Overdue'],
+                ['due_soon', 'Due soon'],
+                ['needs_review', 'Needs review'],
+                ['attachments', 'Has attachments'],
+                ['related_damage', 'Related to damage'],
+                ['slack', 'Slack sourced'],
+                ['manual', 'Manually created'],
+              ],
+            ],
+            [
               sort,
               (value: string) => setSort(value as Sort),
               [
-                ['priority', 'Priority sort'],
-                ['activity', 'Recent activity'],
-                ['newest', 'Newest'],
-                ['oldest', 'Oldest'],
+                ['priority', 'Highest priority'],
+                ['safety', 'Most safety-critical'],
+                ['impact', 'Most operational impact'],
+                ['quick_fix', 'Quickest fix'],
+                ['overdue', 'Most overdue'],
+                ['due', 'Due soonest'],
+                ['appointment', 'Appointment soonest'],
+                ['newest', 'Latest report'],
+                ['oldest', 'Oldest unresolved'],
+                ['activity', 'Latest activity'],
                 ['van', 'Van number'],
+                ['reporter', 'Reporter'],
+                ['scheduled', 'Scheduled date'],
+                ['completed', 'Completed date'],
+                ['estimated_cost', 'Highest estimated cost'],
+                ['actual_cost', 'Highest actual cost'],
               ],
             ],
           ].map(([value, setter, options], index) => (
@@ -443,7 +556,7 @@ export function MaintenanceWorkspace({
             No maintenance items match these filters.
           </div>
         ) : null}
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <button
             key={item.id}
             onClick={() => openItem(item)}
@@ -490,6 +603,13 @@ export function MaintenanceWorkspace({
             </div>
           </button>
         ))}
+        {items.length > pageSize && (
+          <nav aria-label="Maintenance result pages" className="flex items-center justify-between border-t border-white/8 px-4 py-3">
+            <button type="button" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/60 disabled:opacity-25">Previous</button>
+            <span className="text-xs text-white/35">Page {currentPage} of {pageCount} · {items.length} records</span>
+            <button type="button" disabled={currentPage === pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/60 disabled:opacity-25">Next</button>
+          </nav>
+        )}
       </div>
 
       {selected ? (
@@ -642,18 +762,20 @@ export function MaintenanceWorkspace({
               </div>
               <div className="mt-3 space-y-2">
                 {attachments.length ? (
-                  attachments.map((file) => (
-                    <a
-                      key={file.id}
-                      target="_blank"
-                      rel="noreferrer"
-                      href={`/api/fleet/maintenance/attachments/${file.id}?businessId=${encodeURIComponent(businessId)}`}
-                      className="flex items-center gap-2 rounded-lg border border-white/8 p-3 text-sm text-white/60 hover:text-white"
-                    >
-                      <FileText className="h-4 w-4" />
-                      {file.filename}
-                    </a>
-                  ))
+                  attachments.map((file) => {
+                    const endpoint = `/api/fleet/maintenance/attachments/${file.id}?businessId=${encodeURIComponent(businessId)}`
+                    return file.content_type?.startsWith('image/') ? (
+                      <div key={file.id} className="rounded-lg border border-white/8 p-2 text-xs text-white/55">
+                        <PrivateMediaImage cacheKey={`${businessId}:maintenance:${file.id}`} endpoint={`${endpoint}&format=json`} alt={file.filename} sizes="360px" />
+                        <a target="_blank" rel="noreferrer" href={endpoint} className="mt-2 block truncate hover:text-white">{file.filename}</a>
+                      </div>
+                    ) : (
+                      <a key={file.id} target="_blank" rel="noreferrer" href={endpoint} className="flex items-center gap-2 rounded-lg border border-white/8 p-3 text-sm text-white/60 hover:text-white">
+                        <FileText className="h-4 w-4" />
+                        {file.filename}
+                      </a>
+                    )
+                  })
                 ) : (
                   <p className="text-sm text-white/30">No uploaded attachments.</p>
                 )}

@@ -74,8 +74,8 @@ function getStatusStyle(status: string): string {
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
-  gemini:   'Gemini / Imagen',
-  leonardo: 'Leonardo AI',
+  gemini:   'Standard generation',
+  leonardo: 'Reference-guided generation',
 }
 
 // How long (ms) a generating/queued package can go without a DB update
@@ -790,7 +790,7 @@ export function Product360StudioClient({ userRole, defaultTenantId, tenants, mod
           <div>
             <h1 className="text-xl font-bold text-white">360 Product Studio</h1>
             <p className="text-xs text-white/40">
-              {packages.length} package{packages.length !== 1 ? 's' : ''} · Gemini AI generation
+              {packages.length} package{packages.length !== 1 ? 's' : ''} · AI image generation
             </p>
           </div>
         </div>
@@ -1431,7 +1431,7 @@ function PackageCard({
             )}
             {/* Blueprint analysis version badge */}
             {(pkg as P360Package & { analysis_version?: number }).analysis_version === 2 && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-violet-400 bg-violet-400/10 border border-violet-400/20 px-2 py-0.5 rounded-full" title="Blueprint grounded from Gemini vision analysis of the master frame">
+              <span className="inline-flex items-center gap-1 text-[10px] text-violet-400 bg-violet-400/10 border border-violet-400/20 px-2 py-0.5 rounded-full" title="Blueprint grounded from AI analysis of the master frame">
                 <Sparkles className="h-2.5 w-2.5" />
                 Vision-grounded
               </span>
@@ -2188,12 +2188,12 @@ function PackageDetailInfo({ pkg }: { pkg: P360Package }) {
           />
           <p className="text-[9px] text-teal-400/60 text-center">
             0° front view — visual anchor for all frames
-            {isVisionGrounded && ' · Gemini-analyzed ✓'}
+            {isVisionGrounded && ' · AI-analyzed ✓'}
           </p>
         </div>
       )}
 
-      <Row label="AI Model"     value={pkg.ai_model ?? 'imagen-4.0-ultra-generate-001'} />
+      <Row label="Generation service" value="Managed AI" />
       <Row label="Type"         value={pkg.package_type.replace(/_/g, ' ')} />
       <Row label="Frames"       value={`${pkg.frame_count} / ${pkg.target_frame_count}`} />
       {pkg.lighting_preset    && <Row label="Lighting"    value={pkg.lighting_preset.replace(/_/g, ' ')} />}
@@ -2411,7 +2411,7 @@ function ProviderDiagnosticsCard({ pkg }: { pkg: P360Package }) {
           )}
 
           {!isLeonardo && (
-            <p className="text-[10px] text-white/30">This package uses {pkgExt.generation_provider ?? 'gemini'}. Switch to Leonardo to see Leonardo diagnostics.</p>
+            <p className="text-[10px] text-white/30">This package uses standard generation. Reference-guided diagnostics are available for compatible packages.</p>
           )}
         </div>
       )}
@@ -2864,8 +2864,8 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
             <Field label="AI Provider" className="sm:col-span-2">
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  { value: 'gemini',   label: 'Gemini / Imagen',  desc: 'Text-prompt generation, no reference required' },
-                  { value: 'leonardo', label: 'Leonardo AI',       desc: 'Blueprint Executions with reference image' },
+                  { value: 'gemini',   label: 'Standard generation',  desc: 'Text-prompt generation, no reference required' },
+                  { value: 'leonardo', label: 'Reference-guided generation', desc: 'Uses a reference image for stronger consistency' },
                 ] as const).map(p => (
                   <button key={p.value} type="button" onClick={() => setProvider(p.value)}
                     className={`h-auto py-2.5 px-3 rounded-xl text-xs font-medium border transition-colors flex flex-col items-start gap-0.5 ${
@@ -2882,7 +2882,7 @@ function CreatePackageModal({ products, defaultProduct, tenantId, onCreated, onC
               </div>
               {provider === 'leonardo' && (
                 <p className="text-[10px] text-indigo-400/70 mt-1.5 leading-relaxed">
-                  Leonardo uses Blueprint Executions. Uploading a reference photo produces much more consistent 360° frames — strongly recommended.
+                  Reference-guided generation uses your uploaded photo to produce more consistent 360° frames.
                 </p>
               )}
             </Field>

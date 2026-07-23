@@ -12,6 +12,7 @@ import { decryptSecret, type EncryptedSecret } from '@/lib/server/crypto/encrypt
 import { resolveSlackUserSnapshot } from '@/lib/server/slack/user'
 import { ingestMaintenanceSlackEvent } from '@/lib/server/maintenance/slack-ingest'
 import { resolveSlackChannelPurpose } from '@/lib/server/slack/channel-routing'
+import { getSlackChannelInfo } from '@/lib/server/slack/api'
 import { getVanDamageServiceClient } from '@/lib/server/van-damage/supabase'
 import { sendVanDamageJob } from '@/lib/server/aws/sqs'
 import { slackTsToIso } from '@/lib/van-damage/history'
@@ -165,18 +166,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, ignored: 'workspace_not_connected' })
   }
 
-  const { data: allowedChannel } = await db
+  const { data: allowedChannels, error: channelError } = await db
     .from('van_slack_channels')
     .select('id,purpose')
     .eq('integration_id', integration.id)
     .eq('slack_channel_id', channelId)
     .eq('is_enabled', true)
-    .maybeSingle()
+    .limit(2)
+  if (channelError || (allowedChannels?.length ?? 0) > 1) {
+    await auditIgnored(payload, 'ambiguous_channel_configuration')
+    return NextResponse.json({ ok: true, ignored: 'ambiguous_channel_configuration' })
+  }
+  const allowedChannel = allowedChannels?.[0]
   if (!allowedChannel) {
     await auditIgnored(payload, 'channel_not_selected')
     return NextResponse.json({ ok: true, ignored: 'channel_not_selected' })
   }
   const token = decryptSecret(integration.encrypted_bot_token as EncryptedSecret)
+  try {
+    const verifiedChannel = await getSlackChannelInfo(token, channelId)
+    if (!verifiedChannel || verifiedChannel.is_archived || !verifiedChannel.is_member) {
+      await auditIgnored(payload, 'channel_access_unverified')
+      return NextResponse.json({ ok: true, ignored: 'channel_access_unverified' })
+    }
+  } catch {
+    await auditIgnored(payload, 'channel_access_unverified')
+    return NextResponse.json({ ok: true, ignored: 'channel_access_unverified' })
+  }
 
   const purpose = resolveSlackChannelPurpose(
     (allowedChannel as { purpose?: string }).purpose ?? 'damage_inspection'

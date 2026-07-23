@@ -11,8 +11,6 @@ export async function GET() {
     return NextResponse.json({ error: 'Owner or admin access required' }, { status: 403 })
   }
   const checks = getVanDamageConfigPresence()
-  const ok = Object.entries(checks)
-    .filter(([key]) => key !== 'geminiModel')
-    .every(([, value]) => value === true)
+  const ok = Object.values(checks).every((value) => value === true)
   return NextResponse.json({ ok, checks })
 }

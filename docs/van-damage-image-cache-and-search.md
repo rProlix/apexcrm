@@ -1,6 +1,6 @@
 # Van Damage image caching and advanced search
 
-Phase 3G adds private image reuse and URL-driven inspection discovery without changing Slack ingestion, Gemini prompts, worker processing, inspection creation, damage analysis, fleet rules, damage-map logic, or driver attribution.
+Phase 3G adds private image reuse and URL-driven inspection discovery without changing Slack ingestion, AI prompts, worker processing, inspection creation, damage analysis, fleet rules, damage-map logic, or driver attribution.
 
 ## Private image caching
 

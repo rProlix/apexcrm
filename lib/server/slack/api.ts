@@ -32,6 +32,15 @@ export type SlackChannel = {
   is_archived?: boolean
 }
 
+export async function getSlackChannelInfo(token: string, channelId: string) {
+  const response = await callSlackApi<SlackResponse & { channel?: SlackChannel }>(
+    'conversations.info',
+    token,
+    { channel: channelId },
+  )
+  return response.channel ?? null
+}
+
 export async function listSlackChannels(token: string): Promise<SlackChannel[]> {
   const channels: SlackChannel[] = []
   let cursor = ''
@@ -39,9 +48,9 @@ export async function listSlackChannels(token: string): Promise<SlackChannel[]> 
     const response = await callSlackApi<SlackResponse & { channels?: SlackChannel[] }>(
       'conversations.list',
       token,
-      { types: 'public_channel,private_channel', exclude_archived: true, limit: 200, cursor: cursor || undefined },
+      { types: 'public_channel,private_channel', exclude_archived: false, limit: 200, cursor: cursor || undefined },
     )
-    channels.push(...(response.channels ?? []).filter((channel) => !channel.is_archived))
+    channels.push(...(response.channels ?? []))
     cursor = response.response_metadata?.next_cursor?.trim() ?? ''
   } while (cursor)
   return channels.sort((a, b) => a.name.localeCompare(b.name))

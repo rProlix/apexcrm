@@ -257,7 +257,7 @@ export function PremiumDesignPanel({ tenantId, initialPageId, initialSectionId, 
       if (data.aiPlan) setAiPlan(data.aiPlan)
       flash('Premium design plan generated!')
     } catch (err) {
-      flash(err instanceof Error ? err.message : 'Generation failed. Check GEMINI_API_KEY.', true)
+      flash(err instanceof Error ? err.message : 'AI generation is temporarily unavailable.', true)
     } finally {
       setPlanning(false)
     }

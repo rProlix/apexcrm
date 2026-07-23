@@ -159,7 +159,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   } else {
     const provider = getP360Provider()
     if (!provider) {
-      const errMsg = 'AI image generation is not configured. Add GEMINI_API_KEY to your Vercel environment variables (Settings → Environment Variables).'
+      const errMsg = 'AI image generation is not configured. Ask an administrator to configure the server-side AI image service.'
       await db.from('product_360_packages').update({
         status:             'failed',
         generation_error:   errMsg,

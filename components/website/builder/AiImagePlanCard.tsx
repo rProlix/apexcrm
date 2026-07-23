@@ -203,7 +203,7 @@ export function AiImagePlanCard({
           {/* Prompt */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">Imagen Prompt</p>
+              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">Generation Prompt</p>
               <button
                 onClick={() => setEditing(e => !e)}
                 className="text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
@@ -305,7 +305,7 @@ export function AiImagePlanCard({
               </div>
               <div className="flex items-start gap-2">
                 <span className="text-white/30 w-20 shrink-0">Model</span>
-                <span className="text-white/60 font-mono">imagen-4.0-ultra-generate-001</span>
+                <span className="text-white/60">Configured AI image model</span>
               </div>
             </div>
           </div>

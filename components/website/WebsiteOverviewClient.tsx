@@ -167,7 +167,7 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
                   <p className="text-sm font-semibold text-white group-hover:text-violet-300 transition-colors">AI Website Autofill</p>
                   <span className="text-2xs font-bold px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400 uppercase tracking-wide">AI</span>
                 </div>
-                <p className="text-xs text-white/40 leading-relaxed">Paste reviews, services, prices — Gemini organizes them into sections.</p>
+                <p className="text-xs text-white/40 leading-relaxed">Paste reviews, services, and prices for AI-assisted organization into sections.</p>
               </div>
               <ArrowRight className="h-4 w-4 text-violet-400/50 group-hover:text-violet-400 group-hover:translate-x-1 transition-all duration-150 shrink-0" />
             </div>

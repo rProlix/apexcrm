@@ -4,11 +4,11 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { resolveVanDamageAccess } from '@/lib/server/van-damage/access'
 import { getVanDamageServiceClient } from '@/lib/server/van-damage/supabase'
 import { getVanDamageAwsEnv } from '@/lib/server/env'
+import { getCachedPrivateMediaSignedUrl } from '@/lib/server/private-media/signed-url-cache'
 
 export const runtime = 'nodejs'
 
 const SIGNED_URL_TTL_SECONDS = 15 * 60
-const signedUrlCache = new Map<string, { url: string; expiresAt: number }>()
 
 export async function GET(
   request: NextRequest,
@@ -31,26 +31,20 @@ export async function GET(
   const { region } = getVanDamageAwsEnv()
   const download = request.nextUrl.searchParams.get('download') === '1'
   const cacheKey = `${access.tenantId}:${access.businessId}:${image.id}:${download ? 'download' : 'view'}`
-  const cached = signedUrlCache.get(cacheKey)
   const now = Date.now()
-  let signed = cached && cached.expiresAt - 30_000 > now ? cached : null
-  if (!signed) {
-    const url = await getSignedUrl(
+  const signed = await getCachedPrivateMediaSignedUrl({
+    cacheKey,
+    ttlSeconds: SIGNED_URL_TTL_SECONDS,
+    create: () => getSignedUrl(
       new S3Client({ region, maxAttempts: 2 }),
       new GetObjectCommand({
-        Bucket: image.s3_bucket,
-        Key: image.s3_key,
+        Bucket: image.s3_bucket!,
+        Key: image.s3_key!,
         ...(download ? { ResponseContentDisposition: `attachment; filename="inspection-${image.id}"` } : {}),
       }),
       { expiresIn: SIGNED_URL_TTL_SECONDS },
-    )
-    signed = { url, expiresAt: now + SIGNED_URL_TTL_SECONDS * 1000 }
-    signedUrlCache.set(cacheKey, signed)
-    if (signedUrlCache.size > 1000) {
-      const oldestKey = signedUrlCache.keys().next().value
-      if (oldestKey) signedUrlCache.delete(oldestKey)
-    }
-  }
+    ),
+  })
   const headers = {
     'Cache-Control': `private, max-age=${SIGNED_URL_TTL_SECONDS - 30}, must-revalidate`,
     Vary: 'Cookie',

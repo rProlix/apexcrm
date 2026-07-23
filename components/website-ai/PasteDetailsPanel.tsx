@@ -19,7 +19,7 @@ const SOURCE_TYPES = [
 ]
 
 const TIPS = [
-  'You can paste multiple types of content at once — Gemini detects each type separately.',
+  'You can paste multiple types of content at once — AI analysis detects each type separately.',
   'Include the source name for reviews (e.g. "Maria G: Great service!").',
   'For services, include prices: "Oil change $79, Tire rotation $35".',
   'For hours, natural language works: "Mon–Fri 9am–6pm, closed weekends".',
@@ -64,7 +64,7 @@ export function PasteDetailsPanel({ tenantId, isOwner, onAnalyzed }: Props) {
         method: 'POST',
       })
       const analyzeJson = await analyzeRes.json()
-      if (!analyzeRes.ok) throw new Error(analyzeJson.error ?? 'Gemini analysis failed')
+      if (!analyzeRes.ok) throw new Error(analyzeJson.error ?? 'AI analysis is temporarily unavailable')
 
       setRawInput('')
       onAnalyzed(jobId)
@@ -83,7 +83,7 @@ export function PasteDetailsPanel({ tenantId, isOwner, onAnalyzed }: Props) {
         </div>
         <div>
           <h2 className="text-sm font-semibold text-white">Paste Business Details</h2>
-          <p className="text-xs text-white/40">Gemini will organize them into structured website content.</p>
+          <p className="text-xs text-white/40">AI analysis will organize them into structured website content.</p>
         </div>
       </div>
 
@@ -151,7 +151,7 @@ export function PasteDetailsPanel({ tenantId, isOwner, onAnalyzed }: Props) {
         className="w-full justify-center"
       >
         <Wand2 className="h-4 w-4" />
-        {analyzing ? 'Gemini is analyzing…' : 'Analyze with Gemini'}
+        {analyzing ? 'Analysis in progress…' : 'Analyze content'}
       </Button>
     </div>
   )

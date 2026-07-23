@@ -50,7 +50,7 @@ export async function runHealth() {
       const contract = await supabase.checkSchemaCompatibility()
       return `Connected; schema ${contract.version}`
     }),
-    check('gemini', true, () => assertGeminiInitialized(config)),
+    check('aiAnalysis', true, () => assertGeminiInitialized(config)),
     check('slack', true, () => {
       assertSlackClientInitialized()
       getTokenEncryptionKey(config.encryptionKey)

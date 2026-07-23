@@ -74,9 +74,9 @@ export default async function DamageAIPage({ searchParams }: { searchParams: Pro
       .select('inspection_id, damage_type, normalized_damage_type, vehicle_area, canonical_region, severity, description, repair_recommendation, observation_type, damage_case_id, created_at')
       .eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId).limit(10000),
     tables.from('van_damage_observations')
-      .select('inspection_id, damage_case_id, observation_type').eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId).limit(10000),
+      .select('inspection_id, damage_case_id, observation_type, observed_at').eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId).limit(10000),
     tables.from('van_damage_cases')
-      .select('id, latest_observed_inspection_id, first_detected_at, last_observed_at, current_severity, lifecycle_status, needs_review, metadata')
+      .select('id, latest_observed_inspection_id, first_detected_at, first_source_timestamp, last_observed_at, current_severity, lifecycle_status, needs_review, first_reporter_snapshot, latest_uploader_snapshot, metadata')
       .eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId).limit(5000),
     tables.from('van_damage_images')
       .select('id, inspection_id, status, created_at').eq('tenant_id', scope.tenantId).eq('business_id', scope.businessId).order('created_at', { ascending: false }).limit(10000),
@@ -94,10 +94,13 @@ export default async function DamageAIPage({ searchParams }: { searchParams: Pro
     if (inspectionId) itemsByInspection.set(inspectionId, [...(itemsByInspection.get(inspectionId) ?? []), item])
   }
   const observationsByInspection = new Map<string, Record<string, unknown>[]>()
+  const observationCountByCase = new Map<string, number>()
   for (const raw of observationResult.data ?? []) {
     const observation = asRecord(raw)
     const inspectionId = text(observation.inspection_id)
     if (inspectionId) observationsByInspection.set(inspectionId, [...(observationsByInspection.get(inspectionId) ?? []), observation])
+    const caseId = text(observation.damage_case_id)
+    if (caseId) observationCountByCase.set(caseId, (observationCountByCase.get(caseId) ?? 0) + 1)
   }
   const cases = new Map((caseResult.data ?? []).map((raw) => {
     const damageCase = asRecord(raw)
@@ -127,13 +130,33 @@ export default async function DamageAIPage({ searchParams }: { searchParams: Pro
       const caseMetadata = asRecord(damageCase.metadata)
       return text(caseMetadata.repairStatus, text(caseMetadata.repair_status, text(damageCase.lifecycle_status)))
     }))
-    const latestDamageAt = linkedCases.map((damageCase) => text(damageCase.last_observed_at)).sort().at(-1)
+    const latestDamageAt = linkedCases.map((damageCase) => text(damageCase.first_source_timestamp, text(damageCase.first_detected_at))).filter(Boolean).sort().at(-1)
       ?? items.map((item) => text(item.created_at)).sort().at(-1) ?? null
-    const firstDamageAt = linkedCases.map((damageCase) => text(damageCase.first_detected_at)).filter(Boolean).sort().at(0)
+    const firstDamageAt = linkedCases.map((damageCase) => text(damageCase.first_source_timestamp, text(damageCase.first_detected_at))).filter(Boolean).sort().at(0)
       ?? items.map((item) => text(item.created_at)).filter(Boolean).sort().at(0) ?? null
+    const latestObservationAt = linkedCases.map((damageCase) => text(damageCase.last_observed_at)).filter(Boolean).sort().at(-1)
+      ?? observations.map((observation) => text(observation.observed_at)).filter(Boolean).sort().at(-1) ?? null
+    const snapshotId = (snapshot: Record<string, unknown>) => text(snapshot.driverProfileId, text(snapshot.slackUserId, text(snapshot.slack_user_id)))
+    const snapshotName = (snapshot: Record<string, unknown>) => formatDriverName({
+      slackUserId: text(snapshot.slackUserId, text(snapshot.slack_user_id)) || null,
+      displayName: text(snapshot.displayName, text(snapshot.display_name)) || null,
+      realName: text(snapshot.realName, text(snapshot.real_name)) || null,
+      username: text(snapshot.username) || null,
+    })
+    const snapshotIdentity = (snapshot: Record<string, unknown>) => ({
+      id: snapshotId(snapshot),
+      name: snapshotName(snapshot),
+    })
+    const firstReporters = linkedCases
+      .map((damageCase) => snapshotIdentity(asRecord(damageCase.first_reporter_snapshot)))
+      .filter((identity) => identity.id)
+    const latestUploaders = linkedCases
+      .map((damageCase) => snapshotIdentity(asRecord(damageCase.latest_uploader_snapshot)))
+      .filter((identity) => identity.id)
     const vanNumber = text(vehicle.van_number)
     const inspectionNumber = text(metadata.inspectionNumber, text(metadata.inspection_number, `INS-${id.slice(0, 8).toUpperCase()}`))
     const driverId = text(inspection.driver_profile_id, text(inspection.slack_user_id)) || null
+    const severities = stringList([...items.map((item) => text(item.severity)), ...linkedCases.map((damageCase) => text(damageCase.current_severity))])
     return {
       id,
       title: text(inspection.title) || null,
@@ -149,6 +172,8 @@ export default async function DamageAIPage({ searchParams }: { searchParams: Pro
       uploadAt: text(inspection.slack_upload_at, text(inspection.created_at)),
       latestDamageAt,
       firstDamageAt,
+      latestObservationAt,
+      observationCount: linkedCaseIds.reduce((total, caseId) => total + (observationCountByCase.get(caseId) ?? 0), 0),
       driverName: formatDriverName({
         slackUserId: text(driver.slackUserId, text(inspection.slack_user_id)) || null,
         displayName: text(driver.displayName) || null,
@@ -162,10 +187,16 @@ export default async function DamageAIPage({ searchParams }: { searchParams: Pro
       inspectionNumber,
       damageTypes: stringList(items.map((item) => text(item.normalized_damage_type, text(item.damage_type)))),
       regions: stringList(items.map((item) => text(item.canonical_region, text(item.vehicle_area)))),
-      severities: stringList([...items.map((item) => text(item.severity)), ...linkedCases.map((damageCase) => text(damageCase.current_severity))]),
+      severities,
       observationTypes: stringList([...items.map((item) => text(item.observation_type)), ...observations.map((observation) => text(observation.observation_type))]),
       repairStatuses,
       notes: stringList([...items.map((item) => text(item.description)), ...items.map((item) => text(item.repair_recommendation)), text(metadata.notes)]),
+      damageCaseIds: linkedCaseIds,
+      firstReporterIds: stringList(firstReporters.map((identity) => identity.id)),
+      firstReporterNames: stringList(firstReporters.map((identity) => identity.name)),
+      latestUploaderIds: stringList(latestUploaders.map((identity) => identity.id)),
+      latestUploaderNames: stringList(latestUploaders.map((identity) => identity.name)),
+      hasLevel3: severities.some((severity) => ['high', 'critical', 'level_3'].includes(severity)),
       activeDamageCount: linkedCases.filter((damageCase) => text(damageCase.lifecycle_status) === 'active').length,
       latestImageId: latestImageByInspection.get(id) ?? null,
     }
@@ -187,6 +218,9 @@ export default async function DamageAIPage({ searchParams }: { searchParams: Pro
     review: (['needs_review', 'ai_reviewed', 'human_reviewed'].includes(value(query, 'review')) ? value(query, 'review') : 'all') as InspectionReviewFilter,
     images: (['has_images', 'no_images'].includes(value(query, 'images')) ? value(query, 'images') : 'all') as InspectionImageFilter,
     repairStatus: value(query, 'repairStatus') || 'all',
+    firstReporter: value(query, 'firstReporter') || 'all',
+    latestUploader: value(query, 'latestUploader') || 'all',
+    level3: value(query, 'level3') === '1',
     today: value(query, 'today') === '1',
   }
   const results = filterAndSortInspections(allRows, filters, timeZone)
@@ -203,6 +237,8 @@ export default async function DamageAIPage({ searchParams }: { searchParams: Pro
   const env = getVanDamageConfigPresence()
   const driverOptions = [...new Map(allRows.filter((row) => row.driverId).map((row) => [row.driverId!, { value: row.driverId!, label: row.driverName }])).values()].sort((a, b) => a.label.localeCompare(b.label))
   const vanOptions = [...new Map(allRows.filter((row) => row.vanId).map((row) => [row.vanId!, { value: row.vanId!, label: row.vanNumber ? `Van ${row.vanNumber}` : row.vanName }])).values()].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+  const firstReporterOptions = [...new Map(allRows.flatMap((row) => row.firstReporterIds.map((id, index) => [id, { value: id, label: row.firstReporterNames[index] ?? id }] as const))).values()].sort((a, b) => a.label.localeCompare(b.label))
+  const latestUploaderOptions = [...new Map(allRows.flatMap((row) => row.latestUploaderIds.map((id, index) => [id, { value: id, label: row.latestUploaderNames[index] ?? id }] as const))).values()].sort((a, b) => a.label.localeCompare(b.label))
 
   return <div className="space-y-7">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -221,7 +257,7 @@ export default async function DamageAIPage({ searchParams }: { searchParams: Pro
 
     <div className="grid gap-4 lg:grid-cols-2">
       <section className="rounded-xl border border-white/10 bg-graphite-800 p-5"><div className="flex items-center justify-between"><div className="flex items-center gap-3"><MessageSquare className="h-5 w-5 text-fuchsia-300" /><div><h2 className="text-sm font-semibold text-white">Slack intake</h2><p className="text-xs text-white/40">{connected.connected ? connected.workspaceName || connected.teamId : 'Disconnected'}</p></div></div><span className={`text-xs ${connected.connected ? 'text-emerald-300' : 'text-white/35'}`}>{connected.connected ? 'Connected' : 'Not configured'}</span></div><p className="mt-4 text-xs text-white/45">Selected channels: {channelResult.count ?? 0}. Image messages outside these channels are ignored.</p></section>
-      <section className="rounded-xl border border-white/10 bg-graphite-800 p-5"><h2 className="text-sm font-semibold text-white">Infrastructure configuration</h2><div className="mt-4 grid grid-cols-2 gap-2 text-xs">{[['SQS', env.sqsQueue], ['S3', env.s3Bucket], ['Gemini', env.gemini], ['Supabase', env.supabase]].map(([label, ok]) => <div key={String(label)} className="rounded-lg bg-white/[0.03] px-3 py-2 text-white/55">{label}: <span className={ok ? 'text-emerald-300' : 'text-amber-300'}>{ok ? 'configured' : 'missing'}</span></div>)}</div></section>
+      <section className="rounded-xl border border-white/10 bg-graphite-800 p-5"><h2 className="text-sm font-semibold text-white">Infrastructure configuration</h2><div className="mt-4 grid grid-cols-2 gap-2 text-xs">{[['Queue', env.sqsQueue], ['Private media', env.s3Bucket], ['AI analysis', env.aiAnalysis], ['Data store', env.supabase]].map(([label, ok]) => <div key={String(label)} className="rounded-lg bg-white/[0.03] px-3 py-2 text-white/55">{label}: <span className={ok ? 'text-emerald-300' : 'text-amber-300'}>{ok ? 'configured' : 'missing'}</span></div>)}</div></section>
     </div>
 
     <InspectionSearchControls
@@ -233,6 +269,8 @@ export default async function DamageAIPage({ searchParams }: { searchParams: Pro
       damageTypes={uniqueOptions(allRows, 'damageTypes')}
       regions={uniqueOptions(allRows, 'regions')}
       repairStatuses={[...new Set(['repair_scheduled', 'in_repair', 'repaired', ...uniqueOptions(allRows, 'repairStatuses')])]}
+      firstReporters={firstReporterOptions}
+      latestUploaders={latestUploaderOptions}
     />
 
     <section className="overflow-hidden rounded-xl border border-white/10 bg-graphite-800">

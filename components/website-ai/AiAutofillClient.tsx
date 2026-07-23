@@ -71,7 +71,7 @@ export function AiAutofillClient({ tenantId, isOwner, initialJobs }: Props) {
           <div>
             <h1 className="text-xl font-bold text-white tracking-tight">AI Website Autofill</h1>
             <p className="text-sm text-white/40 mt-0.5">
-              Paste raw business details — Gemini structures them into website content.
+              Paste raw business details — AI analysis structures them into website content.
             </p>
           </div>
         </div>

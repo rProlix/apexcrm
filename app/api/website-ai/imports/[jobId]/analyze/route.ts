@@ -74,13 +74,13 @@ export async function POST(_req: NextRequest, { params }: Params) {
       .from('website_ai_import_jobs')
       .update({
         status:        'failed',
-        error_message: geminiResult.error ?? 'Unknown Gemini error',
+        error_message: 'AI analysis is temporarily unavailable. The content can be reviewed manually.',
         token_usage:   geminiResult.tokenUsage as never,
       })
       .eq('id', jobId)
 
     return NextResponse.json(
-      { error: geminiResult.error ?? 'Gemini analysis failed' },
+      { error: 'AI analysis is temporarily unavailable. Your content was saved and can be reviewed manually.' },
       { status: 502 }
     )
   }
