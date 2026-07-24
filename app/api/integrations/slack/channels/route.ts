@@ -4,6 +4,7 @@ import { resolveVanDamageAccess } from '@/lib/server/van-damage/access'
 import { listSlackChannels } from '@/lib/server/slack/api'
 import { decryptIntegrationToken, loadActiveSlackIntegration } from '@/lib/server/slack/integration'
 import { getVanDamageServiceClient } from '@/lib/server/van-damage/supabase'
+import { validateSlackChannelSelection } from '@/lib/slack/channel-selection'
 import type { Json } from '@/lib/supabase/types'
 
 const updateSchema = z.object({
@@ -31,15 +32,17 @@ async function auditChannelConfiguration(input: {
   action: string
   metadata: Record<string, unknown>
 }) {
-  await getVanDamageServiceClient().from('activity_logs').insert({
-    tenant_id: input.tenantId,
-    actor_type: 'user',
-    actor_id: input.userId,
-    action: input.action,
-    entity_type: 'van_slack_integration',
-    entity_id: input.integrationId,
-    metadata: input.metadata as Json,
-  })
+  await getVanDamageServiceClient()
+    .from('activity_logs')
+    .insert({
+      tenant_id: input.tenantId,
+      actor_type: 'user',
+      actor_id: input.userId,
+      action: input.action,
+      entity_type: 'van_slack_integration',
+      entity_id: input.integrationId,
+      metadata: input.metadata as Json,
+    })
 }
 
 export async function GET(request: NextRequest) {
@@ -52,28 +55,31 @@ export async function GET(request: NextRequest) {
   try {
     const db = getVanDamageServiceClient()
     const scopeWarnings = missingScopes(integration.scopes)
-    const [channels, selectedResult, inspectionEventResult, maintenanceEventResult] = await Promise.all([
-      scopeWarnings.length
-        ? Promise.resolve([])
-        : listSlackChannels(decryptIntegrationToken(integration)),
-      db
-        .from('van_slack_channels')
-        .select('slack_channel_id,slack_channel_name,channel_type,purpose,is_enabled')
-        .eq('integration_id', integration.id)
-        .order('created_at', { ascending: true }),
-      db.from('van_damage_slack_events')
-        .select('created_at,slack_channel_id,status')
-        .eq('integration_id', integration.id)
-        .eq('status', 'enqueued')
-        .order('created_at', { ascending: false })
-        .limit(1),
-      db.from('fleet_maintenance_slack_events')
-        .select('created_at,slack_channel_id,status')
-        .eq('integration_id', integration.id)
-        .eq('status', 'processed')
-        .order('created_at', { ascending: false })
-        .limit(1),
-    ])
+    const [channels, selectedResult, inspectionEventResult, maintenanceEventResult] =
+      await Promise.all([
+        scopeWarnings.length
+          ? Promise.resolve([])
+          : listSlackChannels(decryptIntegrationToken(integration)),
+        db
+          .from('van_slack_channels')
+          .select('slack_channel_id,slack_channel_name,channel_type,purpose,is_enabled')
+          .eq('integration_id', integration.id)
+          .order('created_at', { ascending: true }),
+        db
+          .from('van_damage_slack_events')
+          .select('created_at,slack_channel_id,status')
+          .eq('integration_id', integration.id)
+          .eq('status', 'enqueued')
+          .order('created_at', { ascending: false })
+          .limit(1),
+        db
+          .from('fleet_maintenance_slack_events')
+          .select('created_at,slack_channel_id,status')
+          .eq('integration_id', integration.id)
+          .eq('status', 'processed')
+          .order('created_at', { ascending: false })
+          .limit(1),
+      ])
     if (selectedResult.error) throw new Error(selectedResult.error.message)
     const mappings = selectedResult.data ?? []
     const selectedIds = new Set(
@@ -87,7 +93,9 @@ export async function GET(request: NextRequest) {
       null
     const maintenanceId = maintenanceMapping?.slack_channel_id ?? null
     const availableIds = new Set(channels.map((channel) => channel.id))
-    const unavailableMappings = mappings.filter((mapping) => !availableIds.has(mapping.slack_channel_id))
+    const unavailableMappings = mappings.filter(
+      (mapping) => !availableIds.has(mapping.slack_channel_id)
+    )
     const mergedChannels = [
       ...channels.map((channel) => ({
         id: channel.id,
@@ -110,14 +118,18 @@ export async function GET(request: NextRequest) {
         maintenanceSelected: mapping.purpose === 'maintenance',
       })),
     ]
-    const channelIssues = mappings.filter((mapping) => mapping.is_enabled).flatMap((mapping) => {
-      const channel = mergedChannels.find((entry) => entry.id === mapping.slack_channel_id)
-      const label = mapping.purpose === 'maintenance' ? 'maintenance' : 'inspection'
-      if (!channel?.isAccessible) return [`The saved ${label} channel is no longer accessible to the Slack app.`]
-      if (channel.isArchived) return [`The saved ${label} channel #${channel.name} is archived.`]
-      if (!channel.isMember) return [`Invite the Slack app to the saved ${label} channel #${channel.name}.`]
-      return []
-    })
+    const channelIssues = mappings
+      .filter((mapping) => mapping.is_enabled)
+      .flatMap((mapping) => {
+        const channel = mergedChannels.find((entry) => entry.id === mapping.slack_channel_id)
+        const label = mapping.purpose === 'maintenance' ? 'maintenance' : 'inspection'
+        if (!channel?.isAccessible)
+          return [`The saved ${label} channel is no longer accessible to the Slack app.`]
+        if (channel.isArchived) return [`The saved ${label} channel #${channel.name} is archived.`]
+        if (!channel.isMember)
+          return [`Invite the Slack app to the saved ${label} channel #${channel.name}.`]
+        return []
+      })
     const issues = [
       ...(scopeWarnings.length ? [`Reconnect Slack to grant: ${scopeWarnings.join(', ')}`] : []),
       ...channelIssues,
@@ -151,6 +163,26 @@ export async function PUT(request: NextRequest) {
   if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status })
   const integration = await loadActiveSlackIntegration(access.tenantId, access.businessId)
   if (!integration) return NextResponse.json({ error: 'Slack is not connected' }, { status: 404 })
+  const selectionError = validateSlackChannelSelection({
+    inspectionChannelIds: parsed.data.channelIds,
+    maintenanceChannelId: parsed.data.maintenanceChannelId ?? null,
+    maintenanceEnabled: parsed.data.maintenanceEnabled,
+  })
+  if (selectionError) {
+    if (
+      parsed.data.maintenanceChannelId &&
+      parsed.data.channelIds.includes(parsed.data.maintenanceChannelId)
+    ) {
+      await auditChannelConfiguration({
+        tenantId: access.tenantId,
+        userId: access.userId,
+        integrationId: integration.id,
+        action: 'slack_channel_purpose_conflict_rejected',
+        metadata: { channelId: parsed.data.maintenanceChannelId },
+      })
+    }
+    return NextResponse.json({ error: selectionError }, { status: 400 })
+  }
   const scopes = missingScopes(integration.scopes)
   if (scopes.length) {
     return NextResponse.json(
@@ -196,29 +228,6 @@ export async function PUT(request: NextRequest) {
       { status: 400 }
     )
   }
-  if (
-    parsed.data.maintenanceChannelId &&
-    parsed.data.channelIds.includes(parsed.data.maintenanceChannelId)
-  ) {
-    await auditChannelConfiguration({
-      tenantId: access.tenantId,
-      userId: access.userId,
-      integrationId: integration.id,
-      action: 'slack_channel_purpose_conflict_rejected',
-      metadata: { channelId: parsed.data.maintenanceChannelId },
-    })
-    return NextResponse.json(
-      { error: 'A Slack channel cannot be used for both inspections and maintenance' },
-      { status: 400 }
-    )
-  }
-  if (parsed.data.maintenanceEnabled && !parsed.data.maintenanceChannelId) {
-    return NextResponse.json(
-      { error: 'Select a maintenance channel before enabling maintenance ingestion' },
-      { status: 400 }
-    )
-  }
-
   const db = getVanDamageServiceClient()
   const { data: previousMaintenance } = await db
     .from('van_slack_channels')
@@ -304,7 +313,8 @@ export async function POST(request: NextRequest) {
     }
     const [available, mappingResult] = await Promise.all([
       listSlackChannels(decryptIntegrationToken(integration)),
-      db.from('van_slack_channels')
+      db
+        .from('van_slack_channels')
         .select('slack_channel_id,purpose,is_enabled')
         .eq('integration_id', integration.id),
     ])
@@ -313,7 +323,10 @@ export async function POST(request: NextRequest) {
     const enabledMappings = (mappingResult.data ?? []).filter((mapping) => mapping.is_enabled)
     const issues = enabledMappings.flatMap((mapping) => {
       const channel = availableMap.get(mapping.slack_channel_id)
-      if (!channel) return [`The selected ${mapping.purpose === 'maintenance' ? 'maintenance' : 'inspection'} channel is inaccessible.`]
+      if (!channel)
+        return [
+          `The selected ${mapping.purpose === 'maintenance' ? 'maintenance' : 'inspection'} channel is inaccessible.`,
+        ]
       if (channel.is_archived) return [`#${channel.name} is archived.`]
       if (!channel.is_member) return [`Invite the Slack app to #${channel.name}.`]
       return []
@@ -327,10 +340,13 @@ export async function POST(request: NextRequest) {
     })
     return NextResponse.json({ ok: issues.length === 0, healthy: issues.length === 0, issues })
   } catch (error) {
-    return NextResponse.json({
-      ok: false,
-      healthy: false,
-      issues: [error instanceof Error ? error.message : 'Unable to test channel configuration'],
-    }, { status: 502 })
+    return NextResponse.json(
+      {
+        ok: false,
+        healthy: false,
+        issues: [error instanceof Error ? error.message : 'Unable to test channel configuration'],
+      },
+      { status: 502 }
+    )
   }
 }
