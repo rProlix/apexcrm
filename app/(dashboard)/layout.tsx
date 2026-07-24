@@ -11,6 +11,8 @@ import type { NavModule } from '@/modules/shared/moduleTypes'
 import type { User } from '@supabase/supabase-js'
 import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import { slugifyBusinessName } from '@/lib/validation/auth'
+import { hasPermission } from '@/lib/auth/permissions'
+import type { AnyRole } from '@/lib/auth/types'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   // ── Auth guard ──────────────────────────────────────────────────────
@@ -31,8 +33,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // ── Tenant resolution ───────────────────────────────────────────────
   const headersList = await headers()
-  const host        = headersList.get('host') ?? ''
-  const admin       = getSupabaseServerClient()
+  const host = headersList.get('host') ?? ''
+  const admin = getSupabaseServerClient()
 
   let tenant = await getTenantFromHost(host)
 
@@ -76,7 +78,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     // Persist the link so downstream pages can find the tenant from the users table.
     if (tenant && user) {
       await admin.from('users').upsert(
-        { auth_user_id: user.id, tenant_id: tenant.id, email: user.email ?? '', role: 'admin', status: 'active' },
+        {
+          auth_user_id: user.id,
+          tenant_id: tenant.id,
+          email: user.email ?? '',
+          role: 'admin',
+          status: 'active',
+        },
         { onConflict: 'auth_user_id' }
       )
     }
@@ -86,12 +94,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // while email confirmation was required and the tenant was never created).
   if (!tenant && user.email) {
     console.log('[DashboardLayout] No tenant found — attempting auto-recovery for', user.email)
-    const rawName      = (user.user_metadata?.businessName as string | undefined) || user.email.split('@')[0]
+    const rawName =
+      (user.user_metadata?.businessName as string | undefined) || user.email.split('@')[0]
     const businessName = rawName.trim() || 'My Workspace'
-    let   slug         = slugifyBusinessName(businessName)
+    let slug = slugifyBusinessName(businessName)
 
     for (let i = 0; i < 6; i++) {
-      const { data: clash } = await admin.from('tenants').select('id').eq('slug', slug).maybeSingle()
+      const { data: clash } = await admin
+        .from('tenants')
+        .select('id')
+        .eq('slug', slug)
+        .maybeSingle()
       if (!clash) break
       slug = `${slugifyBusinessName(businessName)}-${Math.random().toString(36).slice(2, 5)}`
     }
@@ -99,11 +112,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const { data: newTenant, error: insertErr } = await admin
       .from('tenants')
       .insert({
-        name:      businessName,
+        name: businessName,
         slug,
         subdomain: slug,
-        status:    'active',
-        branding:  { primary_color: '#c9a84c', accent: 'gold', industry: 'general', logo_url: null },
+        status: 'active',
+        branding: { primary_color: '#c9a84c', accent: 'gold', industry: 'general', logo_url: null },
       })
       .select('*')
       .single()
@@ -112,17 +125,27 @@ export default async function DashboardLayout({ children }: { children: React.Re
       console.error('[DashboardLayout] auto-recovery tenant insert error:', insertErr)
     } else if (newTenant) {
       const { error: upsertErr } = await admin.from('users').upsert(
-        { tenant_id: newTenant.id, auth_user_id: user.id, email: user.email, role: 'admin', status: 'active' },
+        {
+          tenant_id: newTenant.id,
+          auth_user_id: user.id,
+          email: user.email,
+          role: 'admin',
+          status: 'active',
+        },
         { onConflict: 'auth_user_id' }
       )
       if (upsertErr) console.error('[DashboardLayout] auto-recovery user upsert error:', upsertErr)
 
       const { error: modulesErr } = await admin.from('tenant_modules').insert(
         ['contacts', 'leads', 'appointments', 'payments', 'store', 'website'].map((key) => ({
-          tenant_id: newTenant.id, module_key: key, enabled: true, config: {},
+          tenant_id: newTenant.id,
+          module_key: key,
+          enabled: true,
+          config: {},
         }))
       )
-      if (modulesErr) console.error('[DashboardLayout] auto-recovery modules insert error:', modulesErr)
+      if (modulesErr)
+        console.error('[DashboardLayout] auto-recovery modules insert error:', modulesErr)
 
       tenant = newTenant as unknown as TenantRecord
       console.log('[DashboardLayout] auto-recovery succeeded — tenant id:', newTenant.id)
@@ -131,7 +154,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!tenant) {
     console.error('[DashboardLayout] All tenant resolution paths exhausted for user:', user.id)
-    return <WorkspaceError message="We couldn't find your workspace." debug={`auth_user_id=${user.id} email=${user.email}`} />
+    return (
+      <WorkspaceError
+        message="We couldn't find your workspace."
+        debug={`auth_user_id=${user.id} email=${user.email}`}
+      />
+    )
   }
 
   // ── Config + modules ────────────────────────────────────────────────
@@ -139,27 +167,47 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!config) {
     console.error('[DashboardLayout] loadTenantConfig returned null for tenant:', tenant.id)
-    return <WorkspaceError message="Your workspace configuration failed to load." debug={`tenant_id=${tenant.id}`} />
+    return (
+      <WorkspaceError
+        message="Your workspace configuration failed to load."
+        debug={`tenant_id=${tenant.id}`}
+      />
+    )
   }
 
   const navModules: NavModule[] = loadEnabledModules(config.enabledModuleKeys).map((m) => ({
-    key:   m.key,
+    key: m.key,
     label: m.label,
-    href:  m.href,
+    href: m.href,
   }))
 
   // ── User profile ─────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (admin as any)
+  const { data: profile } = (await (admin as any)
     .from('users')
-    .select('email, role, status, approved')
+    .select('id, email, role, status, approved')
     .eq('auth_user_id', user.id)
-    .maybeSingle() as { data: { email: string; role: string; status: string; approved: boolean } | null }
+    .maybeSingle()) as {
+    data: { id: string; email: string; role: string; status: string; approved: boolean } | null
+  }
 
-  const userRole        = (profile?.role ?? 'admin') as string
-  const userStatus      = (profile?.status ?? 'active') as string
-  const userApproved    = profile?.approved !== false
+  const userRole = (profile?.role ?? 'admin') as string
+  const userStatus = (profile?.status ?? 'active') as string
+  const userApproved = profile?.approved !== false
   const isPlatformAdmin = userRole === 'owner'
+  const commandCenter = {
+    inbox: !isPlatformAdmin && hasPermission(userRole as AnyRole, 'view_dashboard'),
+    activity: !isPlatformAdmin && hasPermission(userRole as AnyRole, 'view_dashboard'),
+    reports: !isPlatformAdmin && hasPermission(userRole as AnyRole, 'view_reports'),
+    setup: !isPlatformAdmin && hasPermission(userRole as AnyRole, 'view_modules'),
+    notifications: !isPlatformAdmin && hasPermission(userRole as AnyRole, 'view_dashboard'),
+  }
+  const { count: unreadNotifications } = await admin
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('tenant_id', tenant.id)
+    .eq('recipient_user_id', profile?.id ?? '')
+    .is('read_at', null)
 
   // Block suspended or disabled accounts
   if (userStatus === 'suspended' || userStatus === 'disabled') {
@@ -188,6 +236,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       userRole={userRole}
       modules={navModules}
       isPlatformAdmin={isPlatformAdmin}
+      commandCenter={commandCenter}
+      unreadNotifications={unreadNotifications ?? 0}
     >
       {children}
     </DashboardShell>
@@ -235,7 +285,9 @@ function WorkspaceError({ message, debug }: { message: string; debug?: string })
         </Link>
         {isDev && (
           <p className="mt-4 text-xs text-white/20">
-            <a href="/api/debug-session" className="underline">Run diagnostic →</a>
+            <a href="/api/debug-session" className="underline">
+              Run diagnostic →
+            </a>
           </p>
         )}
       </div>

@@ -179,7 +179,7 @@ export interface Database {
           tenant_id: string | null // null for platform owner
           auth_user_id: string | null
           email: string
-          role: 'owner' | 'admin' | 'staff'
+          role: 'owner' | 'admin' | 'manager' | 'staff'
           status: string
           metadata: Json
           created_at: string
@@ -189,7 +189,7 @@ export interface Database {
           tenant_id?: string | null
           auth_user_id?: string | null
           email: string
-          role?: 'owner' | 'admin' | 'staff'
+          role?: 'owner' | 'admin' | 'manager' | 'staff'
           status?: string
           metadata?: Json
         }
@@ -197,7 +197,7 @@ export interface Database {
           tenant_id?: string | null
           auth_user_id?: string | null
           email?: string
-          role?: 'owner' | 'admin' | 'staff'
+          role?: 'owner' | 'admin' | 'manager' | 'staff'
           status?: string
           metadata?: Json
         }
@@ -374,6 +374,8 @@ export interface Database {
           tenant_id: string
           customer_id: string | null
           contact_id: string | null
+          staff_id: string | null
+          appointment_block_id: string | null
           service_name: string
           starts_at: string
           ends_at: string
@@ -387,6 +389,8 @@ export interface Database {
           tenant_id: string
           customer_id?: string | null
           contact_id?: string | null
+          staff_id?: string | null
+          appointment_block_id?: string | null
           service_name: string
           starts_at: string
           ends_at: string
@@ -398,6 +402,8 @@ export interface Database {
           tenant_id?: string
           customer_id?: string | null
           contact_id?: string | null
+          staff_id?: string | null
+          appointment_block_id?: string | null
           service_name?: string
           starts_at?: string
           ends_at?: string
@@ -565,6 +571,302 @@ export interface Database {
           metadata?: Json
         }
         Update: never
+        Relationships: []
+      }
+      command_action_items: {
+        Row: {
+          id: string
+          tenant_id: string
+          module_key: string
+          source_record_type: string
+          source_record_id: string
+          source_record_label: string | null
+          action_type: string
+          title: string
+          description: string
+          priority: 'urgent' | 'high' | 'normal' | 'low'
+          status: 'open' | 'in_progress' | 'resolved' | 'dismissed' | 'snoozed'
+          assigned_user_id: string | null
+          assigned_role: 'admin' | 'manager' | 'staff' | null
+          due_at: string | null
+          first_detected_at: string
+          latest_activity_at: string
+          resolved_at: string | null
+          resolved_by: string | null
+          dismissed_at: string | null
+          dismissed_by: string | null
+          dismissal_reason: string | null
+          snoozed_until: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          module_key: string
+          source_record_type: string
+          source_record_id: string
+          source_record_label?: string | null
+          action_type: string
+          title: string
+          description?: string
+          priority?: 'urgent' | 'high' | 'normal' | 'low'
+          status?: 'open' | 'in_progress' | 'resolved' | 'dismissed' | 'snoozed'
+          assigned_user_id?: string | null
+          assigned_role?: 'admin' | 'manager' | 'staff' | null
+          due_at?: string | null
+          first_detected_at?: string
+          latest_activity_at?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          dismissed_at?: string | null
+          dismissed_by?: string | null
+          dismissal_reason?: string | null
+          snoozed_until?: string | null
+          metadata?: Json
+        }
+        Update: Record<string, Json | undefined>
+        Relationships: []
+      }
+      command_setup_steps: {
+        Row: {
+          id: string
+          tenant_id: string
+          module_key: string
+          step_key: string
+          status: 'not_started' | 'in_progress' | 'complete' | 'blocked' | 'optional' | 'dismissed'
+          completed_at: string | null
+          dismissed_at: string | null
+          dismissed_by: string | null
+          dismissal_reason: string | null
+          last_evaluated_at: string
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          module_key: string
+          step_key: string
+          status?: 'not_started' | 'in_progress' | 'complete' | 'blocked' | 'optional' | 'dismissed'
+          completed_at?: string | null
+          dismissed_at?: string | null
+          dismissed_by?: string | null
+          dismissal_reason?: string | null
+          last_evaluated_at?: string
+          metadata?: Json
+        }
+        Update: Record<string, Json | undefined>
+        Relationships: []
+      }
+      command_report_runs: {
+        Row: {
+          id: string
+          tenant_id: string
+          report_key: string
+          module_key: string
+          format: 'pdf' | 'csv'
+          date_from: string
+          date_to: string
+          generated_by: string | null
+          row_count: number
+          status: 'generated' | 'failed'
+          error_code: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          report_key: string
+          module_key: string
+          format: 'pdf' | 'csv'
+          date_from: string
+          date_to: string
+          generated_by?: string | null
+          row_count?: number
+          status?: 'generated' | 'failed'
+          error_code?: string | null
+        }
+        Update: never
+        Relationships: []
+      }
+      universal_notes: {
+        Row: {
+          id: string
+          tenant_id: string
+          entity_type:
+            | 'customer'
+            | 'vehicle'
+            | 'inspection'
+            | 'damage_case'
+            | 'maintenance_item'
+            | 'appointment'
+            | 'order'
+            | 'payment'
+            | 'website_lead'
+          entity_id: string
+          author_user_id: string
+          author_display_snapshot: string
+          body: string
+          source: 'manual' | 'slack' | 'system' | 'import'
+          visibility: 'internal' | 'staff_admin' | 'customer_visible'
+          is_internal: boolean
+          created_at: string
+          updated_at: string
+          edited_at: string | null
+          archived_at: string | null
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          entity_type:
+            | 'customer'
+            | 'vehicle'
+            | 'inspection'
+            | 'damage_case'
+            | 'maintenance_item'
+            | 'appointment'
+            | 'order'
+            | 'payment'
+            | 'website_lead'
+          entity_id: string
+          author_user_id: string
+          author_display_snapshot: string
+          body: string
+          source?: 'manual' | 'slack' | 'system' | 'import'
+          visibility?: 'internal' | 'staff_admin' | 'customer_visible'
+          is_internal?: boolean
+          created_at?: string
+        }
+        Update: Record<string, Json | undefined>
+        Relationships: []
+      }
+      universal_note_attachments: {
+        Row: {
+          id: string
+          tenant_id: string
+          note_id: string
+          entity_type:
+            | 'customer'
+            | 'vehicle'
+            | 'inspection'
+            | 'damage_case'
+            | 'maintenance_item'
+            | 'appointment'
+            | 'order'
+            | 'payment'
+            | 'website_lead'
+          entity_id: string
+          storage_bucket: string
+          storage_path: string
+          file_name: string
+          mime_type: string
+          size_bytes: number
+          uploaded_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          note_id: string
+          entity_type:
+            | 'customer'
+            | 'vehicle'
+            | 'inspection'
+            | 'damage_case'
+            | 'maintenance_item'
+            | 'appointment'
+            | 'order'
+            | 'payment'
+            | 'website_lead'
+          entity_id: string
+          storage_bucket?: string
+          storage_path: string
+          file_name: string
+          mime_type: string
+          size_bytes: number
+          uploaded_by: string
+        }
+        Update: never
+        Relationships: []
+      }
+      notification_rules: {
+        Row: {
+          id: string
+          tenant_id: string
+          event_type: string
+          module_key: string
+          enabled: boolean
+          recipient_type: 'specific_user' | 'role' | 'assigned_user' | 'record_owner' | 'customer'
+          recipient_user_id: string | null
+          recipient_role: 'admin' | 'manager' | 'staff' | null
+          channel: 'in_app' | 'email' | 'sms' | 'slack'
+          conditions: Json
+          quiet_hours: Json
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          event_type: string
+          module_key: string
+          enabled?: boolean
+          recipient_type: 'specific_user' | 'role' | 'assigned_user' | 'record_owner' | 'customer'
+          recipient_user_id?: string | null
+          recipient_role?: 'admin' | 'manager' | 'staff' | null
+          channel: 'in_app' | 'email' | 'sms' | 'slack'
+          conditions?: Json
+          quiet_hours?: Json
+          created_by: string
+        }
+        Update: Record<string, Json | undefined>
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          id: string
+          tenant_id: string
+          rule_id: string | null
+          event_type: string
+          module_key: string
+          source_record_type: string
+          source_record_id: string
+          recipient_user_id: string | null
+          recipient_role: string | null
+          channel: 'in_app' | 'email' | 'sms' | 'slack'
+          title: string
+          body: string
+          source_href: string | null
+          status: 'pending' | 'sent' | 'failed' | 'read'
+          error_code: string | null
+          sent_at: string | null
+          read_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          rule_id?: string | null
+          event_type: string
+          module_key: string
+          source_record_type: string
+          source_record_id: string
+          recipient_user_id?: string | null
+          recipient_role?: string | null
+          channel: 'in_app' | 'email' | 'sms' | 'slack'
+          title: string
+          body?: string
+          source_href?: string | null
+          status?: 'pending' | 'sent' | 'failed' | 'read'
+          error_code?: string | null
+          sent_at?: string | null
+          read_at?: string | null
+        }
+        Update: Record<string, Json | undefined>
         Relationships: []
       }
       roles: {

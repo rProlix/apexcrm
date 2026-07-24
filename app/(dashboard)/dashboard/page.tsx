@@ -33,7 +33,7 @@ import {
 import Link from 'next/link'
 import { TenantStatusButton } from '@/app/(admin)/admin/TenantStatusButton'
 import type { WidgetData } from '@/lib/dashboard/types'
-import { DashboardSetupChecklist } from '@/components/onboarding/DashboardSetupChecklist'
+import { CommandCenterDashboard } from '@/components/command-center/CommandCenterDashboard'
 
 export default async function DashboardPage() {
   const host = (await headers()).get('host') ?? ''
@@ -169,8 +169,9 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Setup checklist (only shown for new tenants) */}
-      <DashboardSetupChecklist enabledModules={config.enabledModuleKeys} tenantId={tenant.id} />
+      {/* Role-aware operational command center. Every loader revalidates the
+          authenticated tenant, active modules, and user permission server-side. */}
+      <CommandCenterDashboard />
 
       {/* Dashboard builder — drag-and-drop + suggestions */}
       <DashboardBuilder

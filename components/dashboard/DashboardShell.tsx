@@ -7,12 +7,22 @@ import { BottomNav } from '@/components/shell/BottomNav'
 import type { NavModule } from '@/modules/shared/moduleTypes'
 
 interface DashboardShellProps {
-  tenantName:       string
-  userEmail?:       string
-  userRole?:        string
-  modules:          NavModule[]
+  tenantName: string
+  userEmail?: string
+  userRole?: string
+  modules: NavModule[]
   isPlatformAdmin?: boolean
-  children:         React.ReactNode
+  commandCenter?: CommandCenterNavConfig
+  unreadNotifications?: number
+  children: React.ReactNode
+}
+
+export interface CommandCenterNavConfig {
+  inbox: boolean
+  activity: boolean
+  reports: boolean
+  setup: boolean
+  notifications: boolean
 }
 
 export function DashboardShell({
@@ -21,6 +31,8 @@ export function DashboardShell({
   userRole,
   modules,
   isPlatformAdmin,
+  commandCenter,
+  unreadNotifications = 0,
   children,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -32,6 +44,7 @@ export function DashboardShell({
         modules={modules}
         userRole={userRole}
         isPlatformAdmin={isPlatformAdmin}
+        commandCenter={commandCenter}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -48,18 +61,19 @@ export function DashboardShell({
         tenantName={tenantName}
         userEmail={userEmail}
         userRole={userRole}
+        actionSearchEnabled={commandCenter?.inbox ?? false}
+        unreadNotifications={unreadNotifications}
+        notificationsEnabled={commandCenter?.notifications ?? false}
         onMenuClick={() => setSidebarOpen(true)}
       />
 
       {/* Main content: no left padding on mobile (sidebar overlays), pl-60 on desktop */}
       <main className="md:pl-60 pt-14 min-h-dvh">
-        <div className="max-w-screen-2xl mx-auto px-4 md:px-6 py-8 pb-24 md:pb-8">
-          {children}
-        </div>
+        <div className="max-w-screen-2xl mx-auto px-4 md:px-6 py-8 pb-24 md:pb-8">{children}</div>
       </main>
 
       {/* Mobile bottom nav */}
-      <BottomNav modules={modules} />
+      <BottomNav modules={modules} userRole={userRole} commandCenter={commandCenter} />
     </div>
   )
 }

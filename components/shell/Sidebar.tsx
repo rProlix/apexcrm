@@ -27,12 +27,18 @@ import {
   LayoutGrid,
   Wrench,
   ServerCog,
+  Inbox,
+  Activity,
+  FileBarChart,
+  ListChecks,
+  Bell,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { sidebarItemHover } from '@/lib/motion'
 import { LiveBadge } from '@/components/ui/LiveBadge'
 import type { NavModule } from '@/modules/shared/moduleTypes'
+import type { CommandCenterNavConfig } from '@/components/dashboard/DashboardShell'
 
 const MODULE_ICONS: Record<string, LucideIcon> = {
   payments: CreditCard,
@@ -58,6 +64,7 @@ interface SidebarProps {
   isOpen?: boolean
   /** Called when user closes the drawer (mobile) */
   onClose?: () => void
+  commandCenter?: CommandCenterNavConfig
 }
 
 interface NavItem {
@@ -69,7 +76,7 @@ interface NavItem {
   roles?: string[]
 }
 
-const coreNav: NavItem[] = [
+const baseCoreNav: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, exact: true },
   // Settings and Modules visible to admin + owner; staff sees only Dashboard
   { label: 'Settings', href: '/settings', icon: Settings, roles: ['owner', 'admin'] },
@@ -93,10 +100,21 @@ export function Sidebar({
   isPlatformAdmin,
   isOpen = false,
   onClose,
+  commandCenter,
 }: SidebarProps) {
   const pathname = usePathname()
   const isOwner = isPlatformAdmin || userRole === 'owner'
   const isAdmin = isOwner || userRole === 'admin'
+  const commandNav: NavItem[] = [
+    ...(commandCenter?.inbox ? [{ label: 'Action Required', href: '/actions', icon: Inbox }] : []),
+    ...(commandCenter?.activity ? [{ label: 'Activity', href: '/activity', icon: Activity }] : []),
+    ...(commandCenter?.reports ? [{ label: 'Reports', href: '/reports', icon: FileBarChart }] : []),
+    ...(commandCenter?.setup ? [{ label: 'Setup', href: '/setup', icon: ListChecks }] : []),
+    ...(commandCenter?.notifications
+      ? [{ label: 'Notifications', href: '/notifications', icon: Bell }]
+      : []),
+  ]
+  const coreNav = [baseCoreNav[0], ...commandNav, ...baseCoreNav.slice(1)]
 
   function isActive(href: string, exact = false) {
     return exact ? pathname === href : pathname.startsWith(href)

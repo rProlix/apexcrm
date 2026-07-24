@@ -14,6 +14,9 @@ import {
   type VehicleImageCandidate,
 } from '@/lib/van-damage/inspection-vehicle'
 import type { Json } from '@/lib/supabase/types'
+import { requireCommandCenterContext } from '@/lib/command-center/context'
+import { loadUniversalNotesResult } from '@/lib/command-center/notes'
+import { UniversalNotesPanel } from '@/components/command-center/UniversalNotesPanel'
 
 export const metadata = { title: 'Van Damage Inspection — NexoraNow' }
 
@@ -631,58 +634,71 @@ export default async function InspectionPage({
         })
       : Promise.resolve(),
   ])
+  const commandContext = await requireCommandCenterContext('use_modules')
+  const notes = await loadUniversalNotesResult(commandContext, 'inspection', inspectionId)
 
   return (
-    <InspectionExperience
-      businessId={scope.businessId}
-      returnHref={query.returnTo?.startsWith('/dashboard/damage-ai?') ? query.returnTo : undefined}
-      tenantName={tenantResult.data?.name || 'NexoraNow workspace'}
-      timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
-      canManage={['owner', 'admin'].includes(scope.ctx.role)}
-      canViewMetadata={scope.ctx.role === 'owner'}
-      uploaderName={uploaderName}
-      inspectionTimestamp={inspection.slack_upload_at ?? inspection.created_at}
-      inspection={{
-        id: inspection.id,
-        title: inspection.title,
-        status: inspection.status,
-        review_status: inspection.review_status,
-        source: inspection.source,
-        image_count: inspection.image_count,
-        damage_count: inspection.damage_count,
-        ai_summary: inspection.ai_summary,
-        ai_confidence: inspection.ai_confidence,
-        van_id: resolvedVehicle?.id ?? inspection.van_id,
-        metadata: safeInspectionMetadata(inspection.metadata),
-        created_at: inspection.created_at,
-        updated_at: inspection.updated_at,
-        completed_at: inspection.completed_at,
-        reviewed_at: inspection.reviewed_at,
-      }}
-      vehicle={resolvedVehicle}
-      vehicleResolution={{
-        state: vehicleResolution.state,
-        source: vehicleResolution.source,
-      }}
-      vehicleImage={vehicleImage}
-      vehicleStats={{
-        activeLevel3Count,
-        activeMaintenanceCount,
-        lastInspectionAt: relatedResult.data?.[0]?.created_at ?? inspection.created_at,
-      }}
-      images={images}
-      items={items}
-      aiRun={aiRun}
-      job={job}
-      ownerMetadata={ownerMetadata}
-      related={relatedResult.data ?? []}
-      slack={{
-        workspace: integrationResult.data?.slack_team_name ?? null,
-        channel: channelResult.data?.slack_channel_name
-          ? `#${channelResult.data.slack_channel_name}`
-          : null,
-        url: slackUrl,
-      }}
-    />
+    <div className="space-y-6">
+      <InspectionExperience
+        businessId={scope.businessId}
+        returnHref={
+          query.returnTo?.startsWith('/dashboard/damage-ai?') ? query.returnTo : undefined
+        }
+        tenantName={tenantResult.data?.name || 'NexoraNow workspace'}
+        timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
+        canManage={['owner', 'admin'].includes(scope.ctx.role)}
+        canViewMetadata={scope.ctx.role === 'owner'}
+        uploaderName={uploaderName}
+        inspectionTimestamp={inspection.slack_upload_at ?? inspection.created_at}
+        inspection={{
+          id: inspection.id,
+          title: inspection.title,
+          status: inspection.status,
+          review_status: inspection.review_status,
+          source: inspection.source,
+          image_count: inspection.image_count,
+          damage_count: inspection.damage_count,
+          ai_summary: inspection.ai_summary,
+          ai_confidence: inspection.ai_confidence,
+          van_id: resolvedVehicle?.id ?? inspection.van_id,
+          metadata: safeInspectionMetadata(inspection.metadata),
+          created_at: inspection.created_at,
+          updated_at: inspection.updated_at,
+          completed_at: inspection.completed_at,
+          reviewed_at: inspection.reviewed_at,
+        }}
+        vehicle={resolvedVehicle}
+        vehicleResolution={{
+          state: vehicleResolution.state,
+          source: vehicleResolution.source,
+        }}
+        vehicleImage={vehicleImage}
+        vehicleStats={{
+          activeLevel3Count,
+          activeMaintenanceCount,
+          lastInspectionAt: relatedResult.data?.[0]?.created_at ?? inspection.created_at,
+        }}
+        images={images}
+        items={items}
+        aiRun={aiRun}
+        job={job}
+        ownerMetadata={ownerMetadata}
+        related={relatedResult.data ?? []}
+        slack={{
+          workspace: integrationResult.data?.slack_team_name ?? null,
+          channel: channelResult.data?.slack_channel_name
+            ? `#${channelResult.data.slack_channel_name}`
+            : null,
+          url: slackUrl,
+        }}
+      />
+      <UniversalNotesPanel
+        entityType="inspection"
+        entityId={inspectionId}
+        initialNotes={notes.notes}
+        loadError={notes.error}
+        canManageVisibility={['owner', 'admin', 'manager'].includes(scope.ctx.role)}
+      />
+    </div>
   )
 }

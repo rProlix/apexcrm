@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { PrivateMediaImage } from '@/components/private-media/PrivateMediaImage'
 import {
   AlertTriangle,
@@ -844,6 +845,12 @@ export function MaintenanceWorkspace({
             <div className="mt-5 rounded-xl border border-white/10 p-4">
               <p className="text-sm text-white/70">{selected.description}</p>
               <p className="mt-3 text-xs text-white/35">{selected.priority_reason}</p>
+              <Link
+                href={`/notes/maintenance_item/${selected.id}`}
+                className="mt-3 inline-flex text-xs font-medium text-gold-400 hover:text-gold-300"
+              >
+                Open universal notes and private attachments
+              </Link>
             </div>
             {selected.source === 'slack' ? (
               <div className="mt-4 rounded-xl border border-fuchsia-300/10 bg-fuchsia-300/[.04] p-4 text-xs text-white/50">

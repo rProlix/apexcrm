@@ -10,6 +10,9 @@ import {
   type VanProfileSession,
 } from '@/components/van-damage/VanProfileWorkspace'
 import { resolveInspectionTimeZone } from '@/lib/van-damage/inspection-period'
+import { requireCommandCenterContext } from '@/lib/command-center/context'
+import { loadUniversalNotesResult } from '@/lib/command-center/notes'
+import { UniversalNotesPanel } from '@/components/command-center/UniversalNotesPanel'
 
 export const metadata = { title: 'Vehicle Profile — NexoraNow' }
 
@@ -198,9 +201,11 @@ export default async function VehicleProfilePage({
         })),
     })
   )
+  const commandContext = await requireCommandCenterContext('use_modules')
+  const notes = await loadUniversalNotesResult(commandContext, 'vehicle', vehicleId)
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="space-y-6 p-4 md:p-6">
       <VanProfileWorkspace
         businessId={scope.businessId}
         timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
@@ -221,6 +226,13 @@ export default async function VehicleProfilePage({
           latest_activity_at: item.latest_activity_at,
           due_at: item.due_at,
         }))}
+      />
+      <UniversalNotesPanel
+        entityType="vehicle"
+        entityId={vehicleId}
+        initialNotes={notes.notes}
+        loadError={notes.error}
+        canManageVisibility={['owner', 'admin', 'manager'].includes(scope.ctx.role)}
       />
     </div>
   )
