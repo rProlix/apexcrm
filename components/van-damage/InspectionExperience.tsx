@@ -125,6 +125,7 @@ type Job = {
 
 export type InspectionExperienceProps = {
   businessId: string
+  returnHref?: string
   tenantName: string
   timeZone: string
   canManage: boolean
@@ -468,7 +469,10 @@ export function InspectionExperience(props: InspectionExperienceProps) {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <Link
-                href={`/dashboard/damage-ai?businessId=${encodeURIComponent(props.businessId)}`}
+                href={
+                  props.returnHref ||
+                  `/dashboard/damage-ai?businessId=${encodeURIComponent(props.businessId)}`
+                }
                 className="focus-ring rounded-xl border border-white/10 p-2 text-white/55 hover:bg-white/5 hover:text-white"
                 aria-label="Back to inspections"
               >
@@ -694,10 +698,12 @@ export function InspectionExperience(props: InspectionExperienceProps) {
                     asText(parsed.summary, 'Analysis has not completed yet.')}
                 </p>
                 <p className="mt-3 text-xs leading-5 text-white/35">
-                  AI-generated findings should be reviewed by an authorized person before repair or responsibility decisions are made.
+                  AI-generated findings should be reviewed by an authorized person before repair or
+                  responsibility decisions are made.
                 </p>
                 <p className="mt-1 text-xs leading-5 text-white/35">
-                  Reporter information identifies who submitted the inspection images and does not determine who caused the damage.
+                  Reporter information identifies who submitted the inspection images and does not
+                  determine who caused the damage.
                 </p>
               </div>
             </div>

@@ -88,24 +88,28 @@ export default async function FleetMaintenancePage() {
         </div>
       </header>
       {itemsResult.error ? (
-        <p className="rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">
-          {itemsResult.error.message}
-        </p>
-      ) : null}
-      <MaintenanceWorkspace
-        businessId={tenantId}
-        canManage={['owner', 'admin'].includes(ctx.role)}
-        initialItems={items}
-        vehicles={vehiclesResult.data ?? []}
-        users={(usersResult.data ?? []).map((user) => ({
-          id: user.id,
-          email: user.email,
-          full_name:
-            typeof record(user.metadata).fullName === 'string'
-              ? String(record(user.metadata).fullName)
-              : null,
-        }))}
-      />
+        <div role="alert" className="rounded-xl border border-red-400/20 bg-red-400/10 p-5">
+          <p className="text-sm font-medium text-red-100">We couldn’t load fleet maintenance.</p>
+          <p className="mt-1 text-xs text-red-100/65">
+            Refresh the page to try again. If the problem continues, contact your platform owner.
+          </p>
+        </div>
+      ) : (
+        <MaintenanceWorkspace
+          businessId={tenantId}
+          canManage={['owner', 'admin'].includes(ctx.role)}
+          initialItems={items}
+          vehicles={vehiclesResult.data ?? []}
+          users={(usersResult.data ?? []).map((user) => ({
+            id: user.id,
+            email: user.email,
+            full_name:
+              typeof record(user.metadata).fullName === 'string'
+                ? String(record(user.metadata).fullName)
+                : null,
+          }))}
+        />
+      )}
     </div>
   )
 }

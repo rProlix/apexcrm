@@ -25,9 +25,22 @@ import { createClient } from '@/lib/supabase/browser'
 type Vehicle = { id: string; name: string; van_number: string | null; status: string }
 type User = { id: string; full_name: string | null; email: string }
 type Sort =
-  | 'priority' | 'safety' | 'impact' | 'quick_fix' | 'overdue' | 'due'
-  | 'appointment' | 'newest' | 'oldest' | 'activity' | 'van' | 'reporter'
-  | 'scheduled' | 'completed' | 'estimated_cost' | 'actual_cost'
+  | 'priority'
+  | 'safety'
+  | 'impact'
+  | 'quick_fix'
+  | 'overdue'
+  | 'due'
+  | 'appointment'
+  | 'newest'
+  | 'oldest'
+  | 'activity'
+  | 'van'
+  | 'reporter'
+  | 'scheduled'
+  | 'completed'
+  | 'estimated_cost'
+  | 'actual_cost'
 const closed = new Set(['completed', 'cancelled'])
 
 function label(value: string) {
@@ -103,8 +116,20 @@ export function MaintenanceWorkspace({
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString())
     const values = {
-      q: query, status, priority, category, vanId, severity, impact, effort,
-      dependency, reporter, assigned, attention, sort, page: String(page),
+      q: query,
+      status,
+      priority,
+      category,
+      vanId,
+      severity,
+      impact,
+      effort,
+      dependency,
+      reporter,
+      assigned,
+      attention,
+      sort,
+      page: String(page),
     }
     for (const [key, value] of Object.entries(values)) {
       const defaultValue = key === 'status' ? 'active' : key === 'sort' ? 'priority' : 'all'
@@ -114,7 +139,25 @@ export function MaintenanceWorkspace({
     const next = params.toString()
     const current = searchParams.toString()
     if (next !== current) router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false })
-  }, [assigned, attention, category, dependency, effort, impact, page, pathname, priority, query, reporter, router, searchParams, severity, sort, status, vanId])
+  }, [
+    assigned,
+    attention,
+    category,
+    dependency,
+    effort,
+    impact,
+    page,
+    pathname,
+    priority,
+    query,
+    reporter,
+    router,
+    searchParams,
+    severity,
+    sort,
+    status,
+    vanId,
+  ])
 
   useEffect(() => {
     if (openedInitialItem.current) return
@@ -167,10 +210,14 @@ export function MaintenanceWorkspace({
     [initialItems]
   )
   const reporters = useMemo(
-    () => [...new Map(initialItems.filter((item) => item.slack_reporter_id).map((item) => [
-      item.slack_reporter_id!,
-      reporterName(item),
-    ])).entries()].sort((a, b) => a[1].localeCompare(b[1])),
+    () =>
+      [
+        ...new Map(
+          initialItems
+            .filter((item) => item.slack_reporter_id)
+            .map((item) => [item.slack_reporter_id!, reporterName(item)])
+        ).entries(),
+      ].sort((a, b) => a[1].localeCompare(b[1])),
     [initialItems]
   )
   const metrics = useMemo(
@@ -204,8 +251,19 @@ export function MaintenanceWorkspace({
         if (dependency !== 'all' && item.scheduling_dependency !== dependency) return false
         if (reporter !== 'all' && item.slack_reporter_id !== reporter) return false
         if (assigned !== 'all' && item.assigned_user_id !== assigned) return false
-        if (attention === 'overdue' && (!item.due_at || Date.parse(item.due_at) >= now || closed.has(item.status))) return false
-        if (attention === 'due_soon' && (!item.due_at || Date.parse(item.due_at) < now || Date.parse(item.due_at) > now + 7 * 86_400_000 || closed.has(item.status))) return false
+        if (
+          attention === 'overdue' &&
+          (!item.due_at || Date.parse(item.due_at) >= now || closed.has(item.status))
+        )
+          return false
+        if (
+          attention === 'due_soon' &&
+          (!item.due_at ||
+            Date.parse(item.due_at) < now ||
+            Date.parse(item.due_at) > now + 7 * 86_400_000 ||
+            closed.has(item.status))
+        )
+          return false
         if (attention === 'needs_review' && !item.needs_review) return false
         if (attention === 'attachments' && !item.attachment_count) return false
         if (attention === 'related_damage' && !item.related_damage_case_id) return false
@@ -261,14 +319,67 @@ export function MaintenanceWorkspace({
         if (sort === 'newest') return b.reported_at.localeCompare(a.reported_at)
         if (sort === 'oldest') return a.reported_at.localeCompare(b.reported_at)
         if (sort === 'activity') return b.latest_activity_at.localeCompare(a.latest_activity_at)
-        if (sort === 'safety') return ['critical', 'high', 'moderate', 'low', 'unknown'].indexOf(a.severity) - ['critical', 'high', 'moderate', 'low', 'unknown'].indexOf(b.severity)
-        if (sort === 'impact') return ['out_of_service', 'restricted_use', 'operational_with_caution', 'operational', 'unknown'].indexOf(a.operational_impact) - ['out_of_service', 'restricted_use', 'operational_with_caution', 'operational', 'unknown'].indexOf(b.operational_impact)
-        if (sort === 'quick_fix') return ['quick_fix', 'on_site_service', 'parts_required', 'appointment_required', 'repair_shop_required', 'diagnostic_required', 'unknown'].indexOf(a.resolution_effort) - ['quick_fix', 'on_site_service', 'parts_required', 'appointment_required', 'repair_shop_required', 'diagnostic_required', 'unknown'].indexOf(b.resolution_effort)
-        if (sort === 'overdue') return (a.due_at ? Date.parse(a.due_at) : Number.MAX_SAFE_INTEGER) - (b.due_at ? Date.parse(b.due_at) : Number.MAX_SAFE_INTEGER)
-        if (sort === 'due') return (a.due_at ? Date.parse(a.due_at) : Number.MAX_SAFE_INTEGER) - (b.due_at ? Date.parse(b.due_at) : Number.MAX_SAFE_INTEGER)
-        if (sort === 'appointment') return (a.scheduled_at ? Date.parse(a.scheduled_at) : Number.MAX_SAFE_INTEGER) - (b.scheduled_at ? Date.parse(b.scheduled_at) : Number.MAX_SAFE_INTEGER)
+        if (sort === 'safety')
+          return (
+            ['critical', 'high', 'moderate', 'low', 'unknown'].indexOf(a.severity) -
+            ['critical', 'high', 'moderate', 'low', 'unknown'].indexOf(b.severity)
+          )
+        if (sort === 'impact')
+          return (
+            [
+              'out_of_service',
+              'restricted_use',
+              'operational_with_caution',
+              'operational',
+              'unknown',
+            ].indexOf(a.operational_impact) -
+            [
+              'out_of_service',
+              'restricted_use',
+              'operational_with_caution',
+              'operational',
+              'unknown',
+            ].indexOf(b.operational_impact)
+          )
+        if (sort === 'quick_fix')
+          return (
+            [
+              'quick_fix',
+              'on_site_service',
+              'parts_required',
+              'appointment_required',
+              'repair_shop_required',
+              'diagnostic_required',
+              'unknown',
+            ].indexOf(a.resolution_effort) -
+            [
+              'quick_fix',
+              'on_site_service',
+              'parts_required',
+              'appointment_required',
+              'repair_shop_required',
+              'diagnostic_required',
+              'unknown',
+            ].indexOf(b.resolution_effort)
+          )
+        if (sort === 'overdue')
+          return (
+            (a.due_at ? Date.parse(a.due_at) : Number.MAX_SAFE_INTEGER) -
+            (b.due_at ? Date.parse(b.due_at) : Number.MAX_SAFE_INTEGER)
+          )
+        if (sort === 'due')
+          return (
+            (a.due_at ? Date.parse(a.due_at) : Number.MAX_SAFE_INTEGER) -
+            (b.due_at ? Date.parse(b.due_at) : Number.MAX_SAFE_INTEGER)
+          )
+        if (sort === 'appointment')
+          return (
+            (a.scheduled_at ? Date.parse(a.scheduled_at) : Number.MAX_SAFE_INTEGER) -
+            (b.scheduled_at ? Date.parse(b.scheduled_at) : Number.MAX_SAFE_INTEGER)
+          )
         if (sort === 'reporter') return reporterName(a).localeCompare(reporterName(b))
-        if (sort === 'scheduled') return (a.scheduled_at ?? '9999').localeCompare(b.scheduled_at ?? '9999')
+        if (sort === 'scheduled')
+          return (a.scheduled_at ?? '9999').localeCompare(b.scheduled_at ?? '9999')
         if (sort === 'completed') return (b.completed_at ?? '').localeCompare(a.completed_at ?? '')
         if (sort === 'estimated_cost') return (b.estimated_cost ?? -1) - (a.estimated_cost ?? -1)
         if (sort === 'actual_cost') return (b.actual_cost ?? -1) - (a.actual_cost ?? -1)
@@ -276,7 +387,22 @@ export function MaintenanceWorkspace({
           numeric: true,
         })
       })
-  }, [assigned, attention, category, dependency, effort, impact, initialItems, priority, query, reporter, severity, sort, status, vanId])
+  }, [
+    assigned,
+    attention,
+    category,
+    dependency,
+    effort,
+    impact,
+    initialItems,
+    priority,
+    query,
+    reporter,
+    severity,
+    sort,
+    status,
+    vanId,
+  ])
   const pageSize = 50
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize))
   const currentPage = Math.min(page, pageCount)
@@ -405,7 +531,8 @@ export function MaintenanceWorkspace({
         ))}
       </div>
       <p className="rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 text-xs leading-5 text-white/40">
-        Priority suggestions are based on the reported information and should be reviewed when vehicle safety or operability is uncertain.
+        Priority suggestions are based on the reported information and should be reviewed when
+        vehicle safety or operability is uncertain.
       </p>
 
       <section className="rounded-2xl border border-white/10 bg-graphite-800 p-4">
@@ -463,32 +590,68 @@ export function MaintenanceWorkspace({
             [
               severity,
               setSeverity,
-              [['all', 'All severity'], ...['critical', 'high', 'moderate', 'low', 'unknown'].map((value) => [value, label(value)])],
+              [
+                ['all', 'All severity'],
+                ...['critical', 'high', 'moderate', 'low', 'unknown'].map((value) => [
+                  value,
+                  label(value),
+                ]),
+              ],
             ],
             [
               impact,
               setImpact,
-              [['all', 'All operational impact'], ...['out_of_service', 'restricted_use', 'operational_with_caution', 'operational', 'unknown'].map((value) => [value, label(value)])],
+              [
+                ['all', 'All operational impact'],
+                ...[
+                  'out_of_service',
+                  'restricted_use',
+                  'operational_with_caution',
+                  'operational',
+                  'unknown',
+                ].map((value) => [value, label(value)]),
+              ],
             ],
             [
               effort,
               setEffort,
-              [['all', 'All repair effort'], ...['quick_fix', 'on_site_service', 'parts_required', 'appointment_required', 'repair_shop_required', 'diagnostic_required', 'unknown'].map((value) => [value, label(value)])],
+              [
+                ['all', 'All repair effort'],
+                ...[
+                  'quick_fix',
+                  'on_site_service',
+                  'parts_required',
+                  'appointment_required',
+                  'repair_shop_required',
+                  'diagnostic_required',
+                  'unknown',
+                ].map((value) => [value, label(value)]),
+              ],
             ],
             [
               dependency,
               setDependency,
-              [['all', 'All scheduling needs'], ...['no_appointment', 'internal_staff', 'mobile_service', 'shop_appointment', 'vendor_availability', 'parts_availability', 'unknown'].map((value) => [value, label(value)])],
+              [
+                ['all', 'All scheduling needs'],
+                ...[
+                  'no_appointment',
+                  'internal_staff',
+                  'mobile_service',
+                  'shop_appointment',
+                  'vendor_availability',
+                  'parts_availability',
+                  'unknown',
+                ].map((value) => [value, label(value)]),
+              ],
             ],
-            [
-              reporter,
-              setReporter,
-              [['all', 'All reporters'], ...reporters],
-            ],
+            [reporter, setReporter, [['all', 'All reporters'], ...reporters]],
             [
               assigned,
               setAssigned,
-              [['all', 'All assignees'], ...users.map((user) => [user.id, user.full_name || user.email])],
+              [
+                ['all', 'All assignees'],
+                ...users.map((user) => [user.id, user.full_name || user.email]),
+              ],
             ],
             [
               attention,
@@ -553,7 +716,9 @@ export function MaintenanceWorkspace({
       <div className="space-y-3">
         {items.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/10 p-12 text-center text-sm text-white/35">
-            No maintenance items match these filters.
+            {initialItems.length === 0
+              ? 'No maintenance items have been reported yet.'
+              : 'No maintenance items match these filters.'}
           </div>
         ) : null}
         {visibleItems.map((item) => (
@@ -604,10 +769,29 @@ export function MaintenanceWorkspace({
           </button>
         ))}
         {items.length > pageSize && (
-          <nav aria-label="Maintenance result pages" className="flex items-center justify-between border-t border-white/8 px-4 py-3">
-            <button type="button" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/60 disabled:opacity-25">Previous</button>
-            <span className="text-xs text-white/35">Page {currentPage} of {pageCount} · {items.length} records</span>
-            <button type="button" disabled={currentPage === pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/60 disabled:opacity-25">Next</button>
+          <nav
+            aria-label="Maintenance result pages"
+            className="flex items-center justify-between border-t border-white/8 px-4 py-3"
+          >
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => setPage((value) => Math.max(1, value - 1))}
+              className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/60 disabled:opacity-25"
+            >
+              Previous
+            </button>
+            <span className="text-xs text-white/35">
+              Page {currentPage} of {pageCount} · {items.length} records
+            </span>
+            <button
+              type="button"
+              disabled={currentPage === pageCount}
+              onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+              className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/60 disabled:opacity-25"
+            >
+              Next
+            </button>
           </nav>
         )}
       </div>
@@ -765,12 +949,33 @@ export function MaintenanceWorkspace({
                   attachments.map((file) => {
                     const endpoint = `/api/fleet/maintenance/attachments/${file.id}?businessId=${encodeURIComponent(businessId)}`
                     return file.content_type?.startsWith('image/') ? (
-                      <div key={file.id} className="rounded-lg border border-white/8 p-2 text-xs text-white/55">
-                        <PrivateMediaImage cacheKey={`${businessId}:maintenance:${file.id}`} endpoint={`${endpoint}&format=json`} alt={file.filename} sizes="360px" />
-                        <a target="_blank" rel="noreferrer" href={endpoint} className="mt-2 block truncate hover:text-white">{file.filename}</a>
+                      <div
+                        key={file.id}
+                        className="rounded-lg border border-white/8 p-2 text-xs text-white/55"
+                      >
+                        <PrivateMediaImage
+                          cacheKey={`${businessId}:maintenance:${file.id}`}
+                          endpoint={`${endpoint}&format=json`}
+                          alt={file.filename}
+                          sizes="360px"
+                        />
+                        <a
+                          target="_blank"
+                          rel="noreferrer"
+                          href={endpoint}
+                          className="mt-2 block truncate hover:text-white"
+                        >
+                          {file.filename}
+                        </a>
                       </div>
                     ) : (
-                      <a key={file.id} target="_blank" rel="noreferrer" href={endpoint} className="flex items-center gap-2 rounded-lg border border-white/8 p-3 text-sm text-white/60 hover:text-white">
+                      <a
+                        key={file.id}
+                        target="_blank"
+                        rel="noreferrer"
+                        href={endpoint}
+                        className="flex items-center gap-2 rounded-lg border border-white/8 p-3 text-sm text-white/60 hover:text-white"
+                      >
                         <FileText className="h-4 w-4" />
                         {file.filename}
                       </a>

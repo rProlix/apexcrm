@@ -33,7 +33,7 @@ export default async function InspectionPage({
   searchParams,
 }: {
   params: Promise<{ inspectionId: string }>
-  searchParams: Promise<{ businessId?: string }>
+  searchParams: Promise<{ businessId?: string; returnTo?: string }>
 }) {
   const [{ inspectionId }, query] = await Promise.all([params, searchParams])
   const scope = await getVanDamagePageScope(query.businessId)
@@ -247,6 +247,7 @@ export default async function InspectionPage({
   return (
     <InspectionExperience
       businessId={scope.businessId}
+      returnHref={query.returnTo?.startsWith('/dashboard/damage-ai?') ? query.returnTo : undefined}
       tenantName={tenantResult.data?.name || 'NexoraNow workspace'}
       timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
       canManage={['owner', 'admin'].includes(scope.ctx.role)}

@@ -13,7 +13,7 @@
     "format:check": "prettier --check .",
     "type-check": "tsc --noEmit",
     "db:setup": "node scripts/setup-db.mjs",
-    "test:van-damage": "tsx --test lib/van-damage/__tests__/*.test.ts lib/maintenance/__tests__/*.test.ts",
+    "test:van-damage": "tsx --test lib/van-damage/__tests__/*.test.ts lib/maintenance/__tests__/*.test.ts lib/auth/__tests__/*.test.ts",
     "worker:van:build": "npm --prefix workers/van-damage-worker run build",
     "worker:van:start": "npm --prefix workers/van-damage-worker run start",
     "worker:van:dev": "npm --prefix workers/van-damage-worker run dev",

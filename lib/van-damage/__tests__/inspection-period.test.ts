@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   DEFAULT_INSPECTION_TIME_ZONE,
   formatInspectionTimestamp,
+  getInspectionDateGroup,
   getInspectionLocalDateKey,
   getInspectionPeriod,
   resolveInspectionTimeZone,
@@ -40,15 +41,50 @@ test('inspection period handles DST transition instants', () => {
 
 test('legacy inspections classify from existing created_at timestamps', () => {
   const legacyInspection = { created_at: '2024-02-10T16:20:00.000Z' }
-  assert.equal(getInspectionPeriod(legacyInspection.created_at, 'America/Los_Angeles').period, 'SOD')
+  assert.equal(
+    getInspectionPeriod(legacyInspection.created_at, 'America/Los_Angeles').period,
+    'SOD'
+  )
 })
 
 test('tenant timezone resolver prefers tenant branding and falls back safely', () => {
-  assert.equal(resolveInspectionTimeZone({ tenant: { branding: { timezone: 'America/Chicago' } } }), 'America/Chicago')
-  assert.equal(resolveInspectionTimeZone({ tenant: { branding: { timezone: 'Not/AZone' } } }), DEFAULT_INSPECTION_TIME_ZONE)
+  assert.equal(
+    resolveInspectionTimeZone({ tenant: { branding: { timezone: 'America/Chicago' } } }),
+    'America/Chicago'
+  )
+  assert.equal(
+    resolveInspectionTimeZone({ tenant: { branding: { timezone: 'Not/AZone' } } }),
+    DEFAULT_INSPECTION_TIME_ZONE
+  )
 })
 
 test('inspection date helpers format with timezone-aware local dates', () => {
-  assert.equal(getInspectionLocalDateKey('2026-07-19T04:30:00.000Z', 'America/Los_Angeles'), '2026-07-18')
-  assert.match(formatInspectionTimestamp('2026-07-18T14:00:00.000Z', { timeZone: 'America/Los_Angeles' }), /7:00 AM/)
+  assert.equal(
+    getInspectionLocalDateKey('2026-07-19T04:30:00.000Z', 'America/Los_Angeles'),
+    '2026-07-18'
+  )
+  assert.match(
+    formatInspectionTimestamp('2026-07-18T14:00:00.000Z', { timeZone: 'America/Los_Angeles' }),
+    /7:00 AM/
+  )
+})
+
+test('recent inspection groups use tenant-local dates', () => {
+  const now = new Date('2026-07-20T07:30:00.000Z')
+  assert.equal(
+    getInspectionDateGroup('2026-07-20T07:15:00.000Z', 'America/Los_Angeles', now),
+    'Today'
+  )
+  assert.equal(
+    getInspectionDateGroup('2026-07-19T18:30:00.000Z', 'America/Los_Angeles', now),
+    'Yesterday'
+  )
+  assert.equal(
+    getInspectionDateGroup('2026-07-17T18:00:00.000Z', 'America/Los_Angeles', now),
+    'Earlier this week'
+  )
+  assert.equal(
+    getInspectionDateGroup('2026-07-01T18:00:00.000Z', 'America/Los_Angeles', now),
+    'Older'
+  )
 })

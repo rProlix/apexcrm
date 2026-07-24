@@ -33,11 +33,15 @@ function isValidTimeZone(value: string | null | undefined): value is string {
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
 }
 
 function firstString(...values: unknown[]) {
-  return values.find((value): value is string => typeof value === 'string' && value.trim().length > 0)
+  return values.find(
+    (value): value is string => typeof value === 'string' && value.trim().length > 0
+  )
 }
 
 export function resolveInspectionTimeZone(input?: {
@@ -63,7 +67,7 @@ export function resolveInspectionTimeZone(input?: {
     business.timeZone,
     input?.organizationTimeZone,
     input?.fallback,
-    DEFAULT_INSPECTION_TIME_ZONE,
+    DEFAULT_INSPECTION_TIME_ZONE
   )
   return isValidTimeZone(configured) ? configured : DEFAULT_INSPECTION_TIME_ZONE
 }
@@ -92,7 +96,7 @@ function getZonedParts(timestamp: string, timeZone: string): DateParts | null {
 
 export function getInspectionPeriod(
   timestamp: string | null | undefined,
-  timeZone = DEFAULT_INSPECTION_TIME_ZONE,
+  timeZone = DEFAULT_INSPECTION_TIME_ZONE
 ): InspectionPeriodResult {
   const resolvedTimeZone = resolveInspectionTimeZone({ fallback: timeZone })
   if (!timestamp) return unknownPeriod(resolvedTimeZone)
@@ -110,7 +114,7 @@ export function getInspectionPeriod(
 
 export function inspectionPeriodPresentation(
   period: InspectionPeriod,
-  timeZone = DEFAULT_INSPECTION_TIME_ZONE,
+  timeZone = DEFAULT_INSPECTION_TIME_ZONE
 ): InspectionPeriodResult {
   if (period === 'SOD') {
     return {
@@ -145,7 +149,7 @@ function unknownPeriod(timeZone: string): InspectionPeriodResult {
 
 export function formatInspectionTimestamp(
   timestamp: string | null | undefined,
-  options?: { timeZone?: string; fallback?: string; includeTimeZoneName?: boolean },
+  options?: { timeZone?: string; fallback?: string; includeTimeZoneName?: boolean }
 ) {
   if (!timestamp) return options?.fallback ?? 'Pending'
   const date = new Date(timestamp)
@@ -164,7 +168,7 @@ export function formatInspectionTimestamp(
 
 export function formatInspectionDateOnly(
   timestamp: string | null | undefined,
-  options?: { timeZone?: string; fallback?: string },
+  options?: { timeZone?: string; fallback?: string }
 ) {
   if (!timestamp) return options?.fallback ?? 'Unknown'
   const date = new Date(timestamp)
@@ -180,7 +184,7 @@ export function formatInspectionDateOnly(
 
 export function getInspectionLocalDateKey(
   timestamp: string | null | undefined,
-  timeZone = DEFAULT_INSPECTION_TIME_ZONE,
+  timeZone = DEFAULT_INSPECTION_TIME_ZONE
 ) {
   if (!timestamp) return null
   const resolvedTimeZone = resolveInspectionTimeZone({ fallback: timeZone })
@@ -191,4 +195,28 @@ export function getInspectionLocalDateKey(
     String(parts.month).padStart(2, '0'),
     String(parts.day).padStart(2, '0'),
   ].join('-')
+}
+
+export type InspectionDateGroup = 'Today' | 'Yesterday' | 'Earlier this week' | 'Older'
+
+function dateKeyDayNumber(key: string | null) {
+  if (!key) return null
+  const [year, month, day] = key.split('-').map(Number)
+  if (![year, month, day].every(Number.isFinite)) return null
+  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000)
+}
+
+export function getInspectionDateGroup(
+  timestamp: string | null | undefined,
+  timeZone = DEFAULT_INSPECTION_TIME_ZONE,
+  now = new Date()
+): InspectionDateGroup {
+  const inspectionDay = dateKeyDayNumber(getInspectionLocalDateKey(timestamp, timeZone))
+  const currentDay = dateKeyDayNumber(getInspectionLocalDateKey(now.toISOString(), timeZone))
+  if (inspectionDay == null || currentDay == null) return 'Older'
+  const difference = currentDay - inspectionDay
+  if (difference <= 0) return 'Today'
+  if (difference === 1) return 'Yesterday'
+  if (difference <= 6) return 'Earlier this week'
+  return 'Older'
 }

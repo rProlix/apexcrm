@@ -26,6 +26,7 @@ import {
   List,
   LayoutGrid,
   Wrench,
+  ServerCog,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -79,6 +80,7 @@ const adminOnlyNav: NavItem[] = [{ label: 'Staff', href: '/staff', icon: Users }
 
 const platformNav: NavItem[] = [
   { label: 'Businesses', href: '/owner/tenants', icon: Users },
+  { label: 'Infrastructure Configuration', href: '/owner/infrastructure', icon: ServerCog },
   { label: 'Admin', href: '/admin', icon: Shield },
   { label: 'Module Access', href: '/owner/modules', icon: Layers },
   { label: 'Plans', href: '/owner/plans', icon: CreditCard },
