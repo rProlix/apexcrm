@@ -35,6 +35,10 @@ export type DamageItem = {
     uploadSessionId: string | null
     evidenceImageId: string | null
     latestUploader: Record<string, unknown>
+    lastObservedAt: string | null
+    observationCount: number
+    needsReview: boolean
+    repairStatus: string | null
   } | null
   created_at: string
 }

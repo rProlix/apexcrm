@@ -49,6 +49,7 @@ import {
 import { StatusBadge } from './StatusBadge'
 import { InspectionPeriodBadge } from './InspectionPeriodBadge'
 import { DamageImageGallery } from './DamageImageGallery'
+import { SignedDamageImage } from './SignedDamageImage'
 import { FordTransit2019DamageMap } from './FordTransit2019DamageMap'
 import type { DamageImage, DamageItem } from './inspection-types'
 import { formatInspectionTimestamp, getInspectionPeriod } from '@/lib/van-damage/inspection-period'
@@ -81,6 +82,48 @@ type Vehicle = {
   status: string
   metadata: RecordValue
 } | null
+type VehicleResolution = {
+  state: 'resolved' | 'ambiguous' | 'missing'
+  source: 'inspection_van_id' | 'upload_session_van_id' | 'legacy_van_number' | 'none'
+}
+type VehicleImage = {
+  imageId: string | null
+  source:
+    | 'primary_profile'
+    | 'featured_fleet'
+    | 'approved_vehicle_image'
+    | 'automatic_first_upload'
+    | 'placeholder'
+}
+type OwnerMetadata = {
+  source: {
+    workspace: string | null
+    channel: string | null
+    messageTimestamp: string | null
+    uploadSessionId: string | null
+  }
+  processing: {
+    inspectionCreatedAt: string
+    analysisStartedAt: string | null
+    analysisCompletedAt: string | null
+    retryCount: number
+    workerStatus: string | null
+    workerVersion: string | null
+  }
+  storage: {
+    imageCount: number
+    provider: string
+    cache: string
+  }
+  database: {
+    inspectionId: string
+    vehicleId: string | null
+    damageCaseIds: string[]
+    createdAt: string
+    updatedAt: string
+  }
+  vehicleResolution: VehicleResolution
+}
 type Inspection = {
   id: string
   title: string | null
@@ -91,11 +134,6 @@ type Inspection = {
   damage_count: number
   ai_summary: string | null
   ai_confidence: number | null
-  ai_model: string | null
-  slack_team_id: string | null
-  slack_channel_id: string | null
-  slack_message_ts: string | null
-  slack_user_id: string | null
   van_id: string | null
   metadata: RecordValue
   created_at: string
@@ -106,10 +144,6 @@ type Inspection = {
 type AiRun = {
   id: string
   status: string
-  provider: string
-  model: string | null
-  prompt_version: string | null
-  input_summary: RecordValue
   parsed_response: RecordValue
   created_at: string
   completed_at: string | null
@@ -120,7 +154,6 @@ type Job = {
   created_at: string
   started_at: string | null
   completed_at: string | null
-  payload: RecordValue
 } | null
 
 export type InspectionExperienceProps = {
@@ -129,13 +162,24 @@ export type InspectionExperienceProps = {
   tenantName: string
   timeZone: string
   canManage: boolean
+  canViewMetadata: boolean
+  uploaderName: string
+  inspectionTimestamp: string
   inspection: Inspection
   vehicle: Vehicle
+  vehicleResolution: VehicleResolution
+  vehicleImage: VehicleImage
+  vehicleStats: {
+    activeLevel3Count: number
+    activeMaintenanceCount: number
+    lastInspectionAt: string
+  }
   images: DamageImage[]
   items: DamageItem[]
   aiRun: AiRun
   job: Job
   related: RelatedInspection[]
+  ownerMetadata: OwnerMetadata | null
   slack: { workspace: string | null; channel: string | null; url: string | null }
 }
 
@@ -274,12 +318,19 @@ export function InspectionExperience(props: InspectionExperienceProps) {
   const lifecycle = asText(phase.lifecycle, inspection.review_status)
   const processing =
     isProcessing(inspection.status) || Boolean(props.job && isProcessing(props.job.status))
-  const reviewDuration = formatDuration(inspection.created_at, inspection.reviewed_at)
-  const slackToReadyDuration = formatDuration(
-    inspection.created_at,
-    inspection.completed_at || aiRun?.completed_at
+  const inspectionPeriod = getInspectionPeriod(props.inspectionTimestamp, props.timeZone)
+  const newDamageCount = items.filter((item) => item.observation_type === 'new_damage').length
+  const existingDamageCount = items.filter(
+    (item) => item.observation_type === 'existing_damage_observed'
+  ).length
+  const level3Items = items.filter((item) =>
+    ['high', 'critical', 'level_3'].includes(item.severity ?? '')
   )
-  const inspectionPeriod = getInspectionPeriod(inspection.created_at, props.timeZone)
+  const findingsNeedingReview = items.filter(
+    (item) =>
+      ['high', 'critical'].includes(item.severity ?? '') ||
+      item.first_attribution?.needsReview === true
+  ).length
   const severityOptions = uniqueTexts(items.map((item) => item.severity))
   const areaOptions = useMemo(
     () => uniqueTexts(items.map((item) => resolveItemTransitRegion(item))),
@@ -464,7 +515,10 @@ export function InspectionExperience(props: InspectionExperienceProps) {
           }
         }
       `}</style>
-      <section className="overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_80%_0%,rgba(201,168,76,.12),transparent_32%),linear-gradient(135deg,#18181b,#101012)] shadow-panel-lg">
+      <section
+        id="inspection-summary"
+        className="scroll-mt-20 overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_80%_0%,rgba(201,168,76,.12),transparent_32%),linear-gradient(135deg,#18181b,#101012)] shadow-panel-lg"
+      >
         <div className="border-b border-white/8 px-5 py-4 md:px-7">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-center gap-3">
@@ -480,17 +534,23 @@ export function InspectionExperience(props: InspectionExperienceProps) {
               </Link>
               <div className="min-w-0">
                 <p className="truncate text-xs font-medium uppercase tracking-[.18em] text-gold-300/75">
-                  AI fleet inspection
+                  {inspectionPeriod.label} inspection
                 </p>
                 <h1 className="mt-1 truncate text-xl font-semibold text-white md:text-2xl">
-                  {inspection.title || 'Van damage inspection'}
+                  {vehicle?.van_number
+                    ? `Van ${vehicle.van_number}`
+                    : vehicle?.name || inspection.title || 'Unlinked vehicle inspection'}
                 </h1>
+                <p className="mt-1 text-xs text-white/45">
+                  {formatDateInZone(props.inspectionTimestamp, props.timeZone)} · Uploaded by{' '}
+                  {props.uploaderName}
+                </p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={inspection.status} />
               <InspectionPeriodBadge
-                timestamp={inspection.created_at}
+                timestamp={props.inspectionTimestamp}
                 timeZone={props.timeZone}
                 showLabel
               />
@@ -500,13 +560,26 @@ export function InspectionExperience(props: InspectionExperienceProps) {
               >
                 {severity.label} severity
               </span>
-              <button
-                onClick={() => copyText(inspection.id)}
-                className="focus-ring no-print inline-flex items-center rounded-full border border-white/10 px-3 py-1 text-xs text-white/55 hover:bg-white/5 hover:text-white"
-              >
-                <Copy className="mr-1.5 h-3 w-3" />
-                Copy ID
-              </button>
+              {level3Items.length > 0 && (
+                <span className="inline-flex items-center rounded-full border border-red-400/30 bg-red-400/10 px-2.5 py-1 text-xs font-medium text-red-100">
+                  <ShieldAlert className="mr-1.5 h-3.5 w-3.5" />
+                  Level 3 damage
+                </span>
+              )}
+              {needsReview && (
+                <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-xs font-medium text-amber-100">
+                  Human review required
+                </span>
+              )}
+              {props.canViewMetadata && (
+                <button
+                  onClick={() => copyText(inspection.id)}
+                  className="focus-ring no-print inline-flex items-center rounded-full border border-white/10 px-3 py-1 text-xs text-white/55 hover:bg-white/5 hover:text-white"
+                >
+                  <Copy className="mr-1.5 h-3 w-3" />
+                  Copy ID
+                </button>
+              )}
               <button
                 onClick={() => toggleStored('bookmark')}
                 aria-pressed={bookmarked}
@@ -532,7 +605,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
               >
                 <Printer className="h-3.5 w-3.5" />
               </button>
-              {props.canManage && (
+              {props.canViewMetadata && (
                 <button
                   onClick={exportJson}
                   className="focus-ring no-print rounded-full border border-white/10 p-1.5 text-white/45 hover:bg-white/5 hover:text-white"
@@ -556,9 +629,12 @@ export function InspectionExperience(props: InspectionExperienceProps) {
         </div>
 
         <div className="grid lg:grid-cols-[.85fr_1.3fr_1fr]">
-          <div className="border-b border-white/8 p-5 md:p-7 lg:border-b-0 lg:border-r">
+          <div
+            id="vehicle-profile"
+            className="scroll-mt-20 border-b border-white/8 p-5 md:p-7 lg:border-b-0 lg:border-r"
+          >
             <p className="text-xs font-medium uppercase tracking-[.16em] text-white/35">
-              Inspection overview
+              Inspection status
             </p>
             <div className="mt-5 flex items-end gap-3">
               <ConfidenceRing value={confidence} />
@@ -576,20 +652,17 @@ export function InspectionExperience(props: InspectionExperienceProps) {
               </div>
             </div>
             <dl className="mt-6 space-y-3 text-xs">
-              <MetaRow label="Inspection ID" value={inspection.id.slice(0, 8).toUpperCase()} mono />
               <MetaRow label="Period" value={inspectionPeriod.label} />
               <MetaRow
                 label="Captured"
-                value={formatDateInZone(inspection.created_at, props.timeZone)}
+                value={formatDateInZone(props.inspectionTimestamp, props.timeZone)}
               />
+              <MetaRow label="Uploaded by" value={props.uploaderName} />
               <MetaRow
-                label="Van number"
-                value={vehicle?.van_number || asText(inspection.metadata.vanNumber)}
+                label="Analysis"
+                value={processing ? 'In progress' : humanize(inspection.status)}
               />
-              <MetaRow label="Tenant" value={props.tenantName} />
-              <MetaRow label="Lifecycle" value={humanize(lifecycle)} />
-              <MetaRow label="Slack to ready" value={slackToReadyDuration} />
-              <MetaRow label="Review duration" value={reviewDuration} />
+              <MetaRow label="Review" value={needsReview ? 'Required' : humanize(lifecycle)} />
             </dl>
           </div>
 
@@ -605,34 +678,72 @@ export function InspectionExperience(props: InspectionExperienceProps) {
                 {vehicle?.status || 'unmatched'}
               </span>
             </div>
-            <div className="mt-4 grid grid-cols-[110px_1fr] gap-5">
-              <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[.07] to-white/[.02]">
-                <VanIllustration />
-                <span className="absolute bottom-2 rounded-full bg-black/35 px-2 py-1 text-[9px] text-white/40 backdrop-blur">
-                  Fleet vehicle
-                </span>
+            <div className="mt-4 grid gap-5 sm:grid-cols-[140px_1fr]">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/10 bg-white/[.03]">
+                {vehicle && props.vehicleImage.imageId ? (
+                  <SignedDamageImage
+                    imageId={props.vehicleImage.imageId}
+                    businessId={props.businessId}
+                    alt={`${vehicle.name} profile image`}
+                    sizes="140px"
+                    eager
+                    fillContainer
+                  />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center p-3 text-center text-white/30">
+                    <ImageIcon className="mb-2 h-7 w-7" />
+                    <span className="text-[10px]">
+                      {vehicle
+                        ? 'No profile image has been added for this van.'
+                        : props.vehicleResolution.state === 'ambiguous'
+                          ? 'Vehicle link needs review.'
+                          : 'No linked vehicle'}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="min-w-0">
                 <h2 className="truncate text-xl font-semibold text-white">
-                  {vehicle?.name || 'Vehicle pending match'}
+                  {vehicle?.name ||
+                    (props.vehicleResolution.state === 'ambiguous'
+                      ? 'Vehicle match is ambiguous'
+                      : 'No vehicle profile linked')}
                 </h2>
                 <p className="mt-1 text-sm text-white/45">
-                  {[vehicle?.year, vehicle?.make, vehicle?.model].filter(Boolean).join(' ') ||
-                    'Vehicle details unavailable'}
+                  {vehicle
+                    ? [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(' ') ||
+                      'Vehicle specifications have not been added.'
+                    : props.vehicleResolution.state === 'ambiguous'
+                      ? 'This inspection could not be linked to a single vehicle profile.'
+                      : 'No vehicle profile is linked to this inspection.'}
                 </p>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <MiniStat
-                    label="Mileage"
-                    value={
-                      typeof mileage === 'number' || typeof mileage === 'string'
-                        ? Number(mileage).toLocaleString()
-                        : '—'
-                    }
-                  />
-                  <MiniStat label="Plate" value={vehicle?.plate_number || '—'} />
-                  <MiniStat label="Damage" value={`${inspection.damage_count} detected`} />
-                  <MiniStat label="Source" value={props.slack.channel || 'Slack'} />
-                </div>
+                {vehicle && (
+                  <>
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      {(typeof mileage === 'number' || typeof mileage === 'string') && (
+                        <MiniStat label="Mileage" value={Number(mileage).toLocaleString()} />
+                      )}
+                      {vehicle.plate_number && (
+                        <MiniStat label="Plate" value={vehicle.plate_number} />
+                      )}
+                      <MiniStat
+                        label="Level 3"
+                        value={`${props.vehicleStats.activeLevel3Count} active`}
+                      />
+                      <MiniStat
+                        label="Maintenance"
+                        value={`${props.vehicleStats.activeMaintenanceCount} active`}
+                      />
+                    </div>
+                    <Link
+                      href={`/dashboard/vehicles/${vehicle.id}?businessId=${encodeURIComponent(props.businessId)}`}
+                      className="focus-ring no-print mt-4 inline-flex min-h-10 items-center rounded-xl border border-white/10 px-3 text-xs font-medium text-white/65 hover:bg-white/5"
+                    >
+                      Open Van Profile
+                      <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -680,11 +791,155 @@ export function InspectionExperience(props: InspectionExperienceProps) {
         </div>
       </section>
 
+      <nav
+        aria-label="Inspection report sections"
+        className="no-print rounded-2xl border border-white/10 bg-graphite-900/90 p-2 backdrop-blur"
+      >
+        <div className="flex flex-wrap gap-1">
+          {[
+            ['Summary', '#inspection-summary'],
+            ['Vehicle', '#vehicle-profile'],
+            ...(level3Items.length ? [['Critical Findings', '#critical-findings']] : []),
+            ['Damage Map', '#vehicle-damage-map'],
+            ['Images', '#inspection-images'],
+            ['Findings', '#damage-findings'],
+            ['Timeline', '#inspection-timeline'],
+            ...(props.canViewMetadata ? [['Inspection Metadata', '#inspection-metadata']] : []),
+          ].map(([label, href]) => (
+            <a
+              key={href}
+              href={href}
+              className="focus-ring min-h-10 rounded-xl px-3 py-2 text-xs font-medium text-white/55 hover:bg-white/5 hover:text-white"
+            >
+              {label}
+            </a>
+          ))}
+        </div>
+      </nav>
+
+      <section
+        aria-label="Inspection status summary"
+        className="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2 xl:grid-cols-6"
+      >
+        {[
+          ['Images received', String(images.length)],
+          ['New damage', String(newDamageCount)],
+          ['Existing observed', String(existingDamageCount)],
+          ['Level 3 findings', String(level3Items.length)],
+          ['Need review', String(findingsNeedingReview)],
+          ['Analysis', processing ? 'In progress' : humanize(inspection.status)],
+        ].map(([label, value]) => (
+          <div key={label} className="bg-graphite-800 px-4 py-3">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-white/35">{label}</p>
+            <p className="mt-1 text-sm font-semibold capitalize text-white">{value}</p>
+          </div>
+        ))}
+      </section>
+
       <WorkflowActions {...props} />
+
+      {level3Items.length > 0 && (
+        <section
+          id="critical-findings"
+          aria-labelledby="critical-findings-title"
+          className="scroll-mt-20 overflow-hidden rounded-2xl border border-red-400/25 bg-red-400/[.055]"
+        >
+          <div className="border-b border-red-400/15 px-5 py-4 md:px-6">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-red-200" />
+              <h2 id="critical-findings-title" className="font-semibold text-white">
+                Critical Findings
+              </h2>
+            </div>
+            <p className="mt-1 text-xs text-red-100/55">
+              Level 3 findings are shown first because they may require operational action.
+            </p>
+          </div>
+          <div className="divide-y divide-red-400/15">
+            {level3Items.map((item) => (
+              <article
+                key={item.id}
+                className="grid gap-4 px-5 py-5 md:px-6 lg:grid-cols-[1fr_auto]"
+              >
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-medium capitalize text-white">
+                      {humanize(item.vehicle_area)} · {humanize(item.damage_type)}
+                    </h3>
+                    <StatusBadge status={item.severity ?? 'high'} />
+                    {item.first_attribution?.needsReview && (
+                      <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-2 py-0.5 text-[10px] text-amber-100">
+                        Needs review
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-white/65">
+                    {item.description || 'A severe visible condition requires human review.'}
+                  </p>
+                  {item.first_attribution && (
+                    <dl className="mt-4 grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
+                      <MetaRow
+                        label="First detected"
+                        value={formatDateInZone(
+                          item.first_attribution.sourceTimestamp,
+                          props.timeZone
+                        )}
+                      />
+                      <MetaRow
+                        label="First reported by"
+                        value={formatDriverName(item.first_attribution.reporter)}
+                      />
+                      <MetaRow
+                        label="Last observed"
+                        value={formatDateInZone(
+                          item.first_attribution.lastObservedAt,
+                          props.timeZone
+                        )}
+                      />
+                      <MetaRow
+                        label="Latest uploader"
+                        value={formatDriverName(item.first_attribution.latestUploader)}
+                      />
+                      <MetaRow
+                        label="Observations"
+                        value={String(item.first_attribution.observationCount)}
+                      />
+                      <MetaRow
+                        label="Repair status"
+                        value={humanize(item.first_attribution.repairStatus)}
+                      />
+                    </dl>
+                  )}
+                  <p className="mt-4 text-xs leading-5 text-white/40">
+                    Reporter information identifies who submitted the inspection images and does not
+                    determine who caused the damage.
+                  </p>
+                </div>
+                {item.image_id && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.dispatchEvent(
+                        new CustomEvent('van-damage:focus-image', { detail: item.image_id })
+                      )
+                    }
+                    className="focus-ring no-print min-h-11 self-start rounded-xl border border-red-300/20 px-4 text-sm font-medium text-red-100 hover:bg-red-300/10"
+                  >
+                    View evidence
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <main className="min-w-0 space-y-6">
-          <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
+          <section
+            id="inspection-images"
+            className="scroll-mt-20 rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6"
+          >
             <div className="flex items-start gap-4">
               <div className="rounded-xl border border-gold-400/20 bg-gold-400/10 p-2.5">
                 <Bot className="h-5 w-5 text-gold-300" />
@@ -758,7 +1013,10 @@ export function InspectionExperience(props: InspectionExperienceProps) {
             {mapAnnouncement}
           </p>
 
-          <section className="overflow-hidden rounded-2xl border border-white/10 bg-graphite-800">
+          <section
+            id="damage-findings"
+            className="scroll-mt-20 overflow-hidden rounded-2xl border border-white/10 bg-graphite-800"
+          >
             <div className="flex flex-col gap-4 border-b border-white/8 px-5 py-4 md:px-6 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <h2 className="font-semibold text-white">Damage findings</h2>
@@ -971,7 +1229,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
               </div>
             ) : (
               <p className="p-8 text-center text-sm text-white/35">
-                No structured damage findings.
+                No damage was detected in this inspection.
               </p>
             )}
           </section>
@@ -998,7 +1256,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
             related={related}
             timeZone={props.timeZone}
           />
-          <InspectionMetadata {...props} />
+          {props.canViewMetadata && props.ownerMetadata && <InspectionMetadata {...props} />}
         </main>
 
         <aside className="space-y-6 xl:sticky xl:top-20 xl:self-start">
@@ -1314,25 +1572,6 @@ function repairPriority(severity: keyof typeof severityPresentation) {
         ? 'Schedule promptly'
         : 'Monitor / routine'
 }
-function VanIllustration() {
-  return (
-    <svg viewBox="0 0 140 90" className="h-20 w-24 text-white/25" aria-label="Vehicle placeholder">
-      <path
-        d="M17 51l8-22c2-6 7-9 13-9h52c8 0 14 3 18 10l12 21 9 5v18h-11a12 12 0 01-23 0H48a12 12 0 01-23 0H12V58c0-4 2-6 5-7z"
-        fill="currentColor"
-        opacity=".28"
-      />
-      <path
-        d="M35 27h28v22H27l8-22zm34 0h20c6 0 10 2 13 8l8 14H69V27z"
-        fill="currentColor"
-        opacity=".7"
-      />
-      <circle cx="36" cy="73" r="8" fill="#0d0d0f" stroke="currentColor" strokeWidth="4" />
-      <circle cx="106" cy="73" r="8" fill="#0d0d0f" stroke="currentColor" strokeWidth="4" />
-    </svg>
-  )
-}
-
 function SeverityPanel({
   items,
   active,
@@ -1484,7 +1723,10 @@ function ProcessingTimeline({
     },
   ]
   return (
-    <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
+    <section
+      id="inspection-timeline"
+      className="scroll-mt-20 rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6"
+    >
       <div className="flex items-center gap-2">
         <History className="h-4 w-4 text-violet-300" />
         <h2 className="font-semibold text-white">Inspection timeline</h2>
@@ -2014,56 +2256,97 @@ function ActivityFeed({
 
 function InspectionMetadata(props: InspectionExperienceProps) {
   const [open, setOpen] = useState(false)
-  const processingDuration = formatDuration(props.job?.started_at, props.job?.completed_at)
-  const workerVersion = asText(
-    props.job?.payload.workerVersion ?? props.aiRun?.input_summary.workerVersion,
-    '—'
-  )
-  const rows = [
-    ['Slack workspace', props.slack.workspace || props.inspection.slack_team_id || '—'],
-    ['Slack channel', props.slack.channel || props.inspection.slack_channel_id || '—'],
-    ['Slack user', props.inspection.slack_user_id || '—'],
-    ['Message timestamp', props.inspection.slack_message_ts || '—'],
-    ['Inspection period', getInspectionPeriod(props.inspection.created_at, props.timeZone).label],
-    ['Inspection timezone', props.timeZone],
-    ['Processing time', processingDuration],
-    ['Analysis status', props.aiRun?.status || props.inspection.status || '—'],
-    ['Worker version', workerVersion],
-    ['Inspection source', humanize(props.inspection.source)],
-    [
-      'S3 image count',
-      String(
-        props.images.filter((image) => image.status === 'uploaded' || image.status === 'analyzed')
-          .length
-      ),
-    ],
-    ['Processing duration', processingDuration],
+  const metadata = props.ownerMetadata
+  if (!metadata) return null
+  const groups = [
+    {
+      title: 'Source',
+      rows: [
+        ['Slack workspace', metadata.source.workspace || 'Not available'],
+        [
+          'Slack channel',
+          metadata.source.channel ? `#${metadata.source.channel}` : 'Not available',
+        ],
+        ['Source message', metadata.source.messageTimestamp || 'Not available'],
+        ['Upload session', metadata.source.uploadSessionId || 'Not available'],
+      ],
+    },
+    {
+      title: 'Processing',
+      rows: [
+        [
+          'Inspection created',
+          formatDateInZone(metadata.processing.inspectionCreatedAt, props.timeZone),
+        ],
+        [
+          'Analysis started',
+          formatDateInZone(metadata.processing.analysisStartedAt, props.timeZone),
+        ],
+        [
+          'Analysis completed',
+          formatDateInZone(metadata.processing.analysisCompletedAt, props.timeZone),
+        ],
+        ['Retry count', String(metadata.processing.retryCount)],
+        ['Worker status', humanize(metadata.processing.workerStatus)],
+        ['Worker version', metadata.processing.workerVersion || 'Not reported'],
+      ],
+    },
+    {
+      title: 'Storage',
+      rows: [
+        ['Image count', String(metadata.storage.imageCount)],
+        ['Storage', metadata.storage.provider],
+        ['Cache state', metadata.storage.cache],
+      ],
+    },
+    {
+      title: 'Database',
+      rows: [
+        ['Inspection ID', metadata.database.inspectionId],
+        ['Van ID', metadata.database.vehicleId || 'Not linked'],
+        ['Damage cases', String(metadata.database.damageCaseIds.length)],
+        ['Created', formatDateInZone(metadata.database.createdAt, props.timeZone)],
+        ['Updated', formatDateInZone(metadata.database.updatedAt, props.timeZone)],
+        ['Vehicle resolution', humanize(metadata.vehicleResolution.source)],
+      ],
+    },
   ]
   return (
-    <section className="overflow-hidden rounded-2xl border border-white/10 bg-graphite-800">
+    <section
+      id="inspection-metadata"
+      className="no-print scroll-mt-20 overflow-hidden rounded-2xl border border-white/10 bg-graphite-800"
+    >
       <button
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         className="focus-ring flex w-full items-center justify-between px-5 py-4 text-left md:px-6"
       >
         <span>
-          <span className="font-semibold text-white">Inspection metadata</span>
+          <span className="font-semibold text-white">Inspection Metadata</span>
           <span className="ml-2 text-xs text-white/30">Technical details</span>
         </span>
         <ChevronDown className={`h-4 w-4 text-white/40 transition ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <dl className="grid gap-px border-t border-white/8 bg-white/5 sm:grid-cols-2">
-          {rows.map(([label, value]) => (
-            <div
-              key={label}
-              className="flex items-center justify-between gap-4 bg-graphite-800 px-5 py-3 text-xs"
-            >
-              <dt className="text-white/35">{label}</dt>
-              <dd className="truncate text-right text-white/60">{value}</dd>
-            </div>
+        <div className="grid gap-px border-t border-white/8 bg-white/5 lg:grid-cols-2">
+          {groups.map((group) => (
+            <section key={group.title} className="bg-graphite-800 p-5">
+              <h3 className="text-[10px] font-semibold uppercase tracking-[.16em] text-gold-300/65">
+                {group.title}
+              </h3>
+              <dl className="mt-3 space-y-3">
+                {group.rows.map(([label, value]) => (
+                  <div key={label} className="flex items-start justify-between gap-4 text-xs">
+                    <dt className="text-white/35">{label}</dt>
+                    <dd className="max-w-[65%] break-all text-right font-mono text-white/60">
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
           ))}
-        </dl>
+        </div>
       )}
     </section>
   )

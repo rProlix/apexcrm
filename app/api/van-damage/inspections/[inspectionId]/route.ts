@@ -171,7 +171,18 @@ export async function POST(
     .eq('tenant_id', access.tenantId)
     .eq('business_id', access.businessId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true, comment })
+  return NextResponse.json({
+    ok: true,
+    comment: {
+      ...comment,
+      attachments: uploaded.map((attachment) => ({
+        id: attachment.id,
+        name: attachment.name,
+        contentType: attachment.contentType,
+        size: attachment.size,
+      })),
+    },
+  })
 }
 
 export async function PATCH(
@@ -315,5 +326,14 @@ export async function PATCH(
     p_actor_id: access.userId,
   })
   if (caseError) return NextResponse.json({ error: caseError.message }, { status: 500 })
+  await db.from('activity_logs').insert({
+    tenant_id: access.tenantId,
+    actor_type: 'user',
+    actor_id: access.userId,
+    action: `van_damage.inspection_${parsed.data.action}`,
+    entity_type: 'van_damage_inspection',
+    entity_id: inspectionId,
+    metadata: { review_status: config.reviewStatus } as Json,
+  })
   return NextResponse.json({ ok: true, action: parsed.data.action })
 }
