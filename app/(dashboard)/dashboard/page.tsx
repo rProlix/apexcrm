@@ -6,6 +6,12 @@ import { getTenantFromHost, type TenantRecord } from '@/lib/tenant/getTenantFrom
 import { loadTenantConfig } from '@/lib/tenant/loadTenantConfig'
 import { loadLayout } from '@/lib/dashboard/loadLayout'
 import { WIDGET_REGISTRY } from '@/lib/dashboard/widgetRegistry'
+import {
+  filterDashboardLayoutForActiveWidgets,
+  getActiveDashboardModulesForTenantUser,
+  getActiveWidgetRegistryMeta,
+  getWidgetKeysFromLayout,
+} from '@/lib/dashboard/activeModules'
 import { suggestMetrics } from '@/lib/ai/suggestMetrics'
 import { DashboardBuilder } from '@/components/dashboard/DashboardBuilder'
 import { LiveBadge } from '@/components/ui/LiveBadge'
@@ -14,8 +20,15 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { hasPermission } from '@/lib/auth/permissions'
 import { formatDate } from '@/lib/utils'
 import {
-  Building2, Users, TrendingUp, Shield,
-  ArrowRight, Package, AlertTriangle, CheckCircle2, XCircle,
+  Building2,
+  Users,
+  TrendingUp,
+  Shield,
+  ArrowRight,
+  Package,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react'
 import Link from 'next/link'
 import { TenantStatusButton } from '@/app/(admin)/admin/TenantStatusButton'
@@ -23,7 +36,7 @@ import type { WidgetData } from '@/lib/dashboard/types'
 import { DashboardSetupChecklist } from '@/components/onboarding/DashboardSetupChecklist'
 
 export default async function DashboardPage() {
-  const host  = (await headers()).get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const admin = getSupabaseServerClient()
 
   // ── Determine role context ────────────────────────────────────────────
@@ -41,7 +54,9 @@ export default async function DashboardPage() {
   // authenticated user's own tenant so the page is never empty in development.
   if (!tenant) {
     const sessionClient = await createSessionServerClient()
-    const { data: { user } } = await sessionClient.auth.getUser()
+    const {
+      data: { user },
+    } = await sessionClient.auth.getUser()
 
     if (user) {
       const { data: userRecord } = await admin
@@ -88,21 +103,41 @@ export default async function DashboardPage() {
   }
 
   // Load tenant's saved layout
-  const layout = await loadLayout(tenant.id)
+  const savedLayout = await loadLayout(tenant.id)
+  const activeDashboard = getActiveDashboardModulesForTenantUser({
+    tenantConfig: config,
+    userRole,
+  })
+  const activeWidgetKeys = activeDashboard.widgets.map((widget) => widget.key)
+  const layout = filterDashboardLayoutForActiveWidgets(savedLayout, activeWidgetKeys)
 
   // Collect every widget key present in the layout
-  const layoutWidgetKeys = layout.sections.flatMap((s) => s.widgets.map((w) => w.key))
+  const layoutWidgetKeys = getWidgetKeysFromLayout(layout)
 
-  // Fetch widget data for all widgets currently in the layout
+  // Fetch widget data only after the active-module resolver has approved it.
   const widgetDataEntries = await Promise.all(
     layoutWidgetKeys.map(async (key): Promise<[string, WidgetData]> => {
       const def = WIDGET_REGISTRY[key]
-      if (!def) return [key, { type: 'stat', value: 0, formatted: '—', label: key } as WidgetData]
+      if (!def)
+        return [key, { type: 'error', label: key, message: 'Widget unavailable' } as WidgetData]
       try {
         const data = await def.fetcher(tenant.id)
         return [key, data]
-      } catch {
-        return [key, { type: 'stat', value: 0, formatted: '—', label: key } as WidgetData]
+      } catch (error) {
+        console.error('[dashboard] widget query failed', {
+          tenantId: tenant.id,
+          widgetKey: key,
+          moduleKey: def.moduleKey ?? null,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
+        return [
+          key,
+          {
+            type: 'error',
+            label: def.label,
+            message: `We couldn’t load ${def.label.toLowerCase()}.`,
+          } as WidgetData,
+        ]
       }
     })
   )
@@ -110,23 +145,13 @@ export default async function DashboardPage() {
 
   // AI-suggested widget keys (not already in layout)
   const suggestedKeys = suggestMetrics({
-    enabledModuleKeys: config.enabledModuleKeys,
-    currentLayout:     layout,
+    enabledModuleKeys: activeDashboard.accessibleModuleKeys,
+    currentLayout: layout,
+    allowedWidgetKeys: activeWidgetKeys,
   })
 
   // Slim registry metadata safe to pass to client (no fetcher functions)
-  const registryMeta = Object.fromEntries(
-    Object.values(WIDGET_REGISTRY).map((def) => [
-      def.key,
-      {
-        key:            def.key,
-        label:          def.label,
-        description:    def.description,
-        type:           def.type,
-        defaultSection: def.defaultSection,
-      },
-    ])
-  )
+  const registryMeta = getActiveWidgetRegistryMeta(activeWidgetKeys)
 
   return (
     <div className="space-y-8">
@@ -138,7 +163,8 @@ export default async function DashboardPage() {
             <LiveBadge />
           </div>
           <p className="text-sm text-white/40">
-            {config.enabledModuleKeys.length} module{config.enabledModuleKeys.length !== 1 ? 's' : ''} active
+            {config.enabledModuleKeys.length} module
+            {config.enabledModuleKeys.length !== 1 ? 's' : ''} active
           </p>
         </div>
       </div>
@@ -183,7 +209,8 @@ async function OwnerDashboard({
     admin.from('tenants').select('id', { count: 'exact', head: true }).eq('status', 'suspended'),
     admin.from('users').select('id', { count: 'exact', head: true }),
     admin.from('customers').select('id', { count: 'exact', head: true }),
-    admin.from('tenants')
+    admin
+      .from('tenants')
       .select('id, name, slug, subdomain, status, created_at, subscriptions(status, plan_id)')
       .order('created_at', { ascending: false }),
     admin.from('tenant_modules').select('tenant_id, module_key, enabled').eq('enabled', true),
@@ -191,23 +218,63 @@ async function OwnerDashboard({
 
   // Build module count per tenant
   const moduleCountMap: Record<string, number> = {}
-  for (const m of (tenantModulesRaw ?? [])) {
+  for (const m of tenantModulesRaw ?? []) {
     moduleCountMap[m.tenant_id] = (moduleCountMap[m.tenant_id] ?? 0) + 1
   }
 
   const tenants = (allTenants ?? []) as unknown as Array<{
-    id: string; name: string; slug: string; subdomain: string | null
-    status: string; created_at: string
+    id: string
+    name: string
+    slug: string
+    subdomain: string | null
+    status: string
+    created_at: string
     subscriptions: Array<{ status: string; plan_id: string | null }>
   }>
 
   const stats = [
-    { label: 'Total Businesses', value: totalTenants ?? 0,    icon: Building2,   color: 'text-gold-400',    bg: 'bg-gold-500/8'    },
-    { label: 'Active',           value: activeTenants ?? 0,   icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-500/8' },
-    { label: 'Inactive',         value: inactiveTenants ?? 0, icon: XCircle,      color: 'text-white/40',    bg: 'bg-white/4'       },
-    { label: 'Suspended',        value: suspendedTenants ?? 0,icon: AlertTriangle, color: 'text-amber-400',  bg: 'bg-amber-500/8'   },
-    { label: 'Staff Users',      value: totalUsers ?? 0,      icon: Users,        color: 'text-blue-400',    bg: 'bg-blue-500/8'    },
-    { label: 'Customers',        value: totalCustomers ?? 0,  icon: TrendingUp,   color: 'text-purple-400',  bg: 'bg-purple-500/8'  },
+    {
+      label: 'Total Businesses',
+      value: totalTenants ?? 0,
+      icon: Building2,
+      color: 'text-gold-400',
+      bg: 'bg-gold-500/8',
+    },
+    {
+      label: 'Active',
+      value: activeTenants ?? 0,
+      icon: CheckCircle2,
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-500/8',
+    },
+    {
+      label: 'Inactive',
+      value: inactiveTenants ?? 0,
+      icon: XCircle,
+      color: 'text-white/40',
+      bg: 'bg-white/4',
+    },
+    {
+      label: 'Suspended',
+      value: suspendedTenants ?? 0,
+      icon: AlertTriangle,
+      color: 'text-amber-400',
+      bg: 'bg-amber-500/8',
+    },
+    {
+      label: 'Staff Users',
+      value: totalUsers ?? 0,
+      icon: Users,
+      color: 'text-blue-400',
+      bg: 'bg-blue-500/8',
+    },
+    {
+      label: 'Customers',
+      value: totalCustomers ?? 0,
+      icon: TrendingUp,
+      color: 'text-purple-400',
+      bg: 'bg-purple-500/8',
+    },
   ]
 
   return (
@@ -243,7 +310,9 @@ async function OwnerDashboard({
             <div className={`inline-flex p-2 rounded-lg ${bg} mb-3`}>
               <Icon className={`h-4 w-4 ${color}`} strokeWidth={1.75} />
             </div>
-            <p className="text-2xl font-bold text-white leading-none mb-1">{value.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-white leading-none mb-1">
+              {value.toLocaleString()}
+            </p>
             <p className="text-xs text-white/35 font-medium">{label}</p>
           </div>
         ))}
@@ -268,14 +337,16 @@ async function OwnerDashboard({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/6">
-                  {['Business', 'Slug', 'Subscription', 'Modules', 'Joined', 'Status'].map((col) => (
-                    <th
-                      key={col}
-                      className="text-left text-xs font-semibold text-white/25 uppercase tracking-widest px-5 py-3 whitespace-nowrap"
-                    >
-                      {col}
-                    </th>
-                  ))}
+                  {['Business', 'Slug', 'Subscription', 'Modules', 'Joined', 'Status'].map(
+                    (col) => (
+                      <th
+                        key={col}
+                        className="text-left text-xs font-semibold text-white/25 uppercase tracking-widest px-5 py-3 whitespace-nowrap"
+                      >
+                        {col}
+                      </th>
+                    )
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/4">
@@ -283,7 +354,10 @@ async function OwnerDashboard({
                   const sub = t.subscriptions?.[0]
                   const moduleCount = moduleCountMap[t.id] ?? 0
                   return (
-                    <tr key={t.id} className="hover:bg-white/[0.02] transition-colors duration-100 group">
+                    <tr
+                      key={t.id}
+                      className="hover:bg-white/[0.02] transition-colors duration-100 group"
+                    >
                       <td className="px-5 py-3.5 whitespace-nowrap">
                         <div className="flex items-center gap-2.5">
                           <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-500/20 flex items-center justify-center shrink-0">
@@ -304,11 +378,13 @@ async function OwnerDashboard({
                       </td>
                       <td className="px-5 py-3.5 whitespace-nowrap">
                         {sub ? (
-                          <span className={`text-xs px-2 py-0.5 rounded-lg border ${
-                            sub.status === 'active'
-                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                              : 'bg-white/5 border-white/10 text-white/30'
-                          }`}>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-lg border ${
+                              sub.status === 'active'
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                : 'bg-white/5 border-white/10 text-white/30'
+                            }`}
+                          >
                             {sub.status}
                           </span>
                         ) : (
@@ -329,10 +405,7 @@ async function OwnerDashboard({
                         {formatDate(t.created_at)}
                       </td>
                       <td className="px-5 py-3.5 whitespace-nowrap">
-                        <TenantStatusButton
-                          tenantId={t.id}
-                          currentStatus={t.status}
-                        />
+                        <TenantStatusButton tenantId={t.id} currentStatus={t.status} />
                       </td>
                     </tr>
                   )

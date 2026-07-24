@@ -6,6 +6,7 @@ export type ModuleKey =
   | 'appointments'
   | 'rewards'
   | 'vehicles'
+  | 'maintenance'
   | 'damage_ai'
   | 'leads'
   | 'messages'
@@ -25,33 +26,33 @@ export type StatCategory = 'operations' | 'financial' | 'usage'
  * by the dashboard config system.
  */
 export interface DashboardStat {
-  key:          string
-  label:        string
-  category:     StatCategory
-  getValue:     (tenantId: string) => Promise<number | string>
-  format?:      (value: number | string) => string
+  key: string
+  label: string
+  category: StatCategory
+  getValue: (tenantId: string) => Promise<number | string>
+  format?: (value: number | string) => string
   emptyMessage?: string
   /** Optional: override the accent color (Tailwind class) */
-  color?:       string
+  color?: string
 }
 
 /** A stat with its resolved value — used in PremiumDashboard */
 export interface ResolvedStat {
-  key:          string
-  label:        string
-  category:     StatCategory
-  value:        number | string
-  formatted:    string
-  isEmpty:      boolean
+  key: string
+  label: string
+  category: StatCategory
+  value: number | string
+  formatted: string
+  isEmpty: boolean
   emptyMessage: string
-  color?:       string
+  color?: string
 }
 
 /** A grouped section rendered in PremiumDashboard */
 export interface DashboardSection {
-  title:    string
+  title: string
   category: StatCategory
-  stats:    ResolvedStat[]
+  stats: ResolvedStat[]
 }
 
 /** Full resolved dashboard config passed to PremiumDashboard */
@@ -72,23 +73,23 @@ export interface ModuleStat {
  * Contains no React components or functions.
  */
 export interface NavModule {
-  key:   string
+  key: string
   label: string
-  href:  string
+  href: string
 }
 
 /** Full module definition registered in MODULE_REGISTRY */
 export interface ModuleDefinition {
-  key:         ModuleKey
-  label:       string
+  key: ModuleKey
+  label: string
   description: string
-  icon:        LucideIcon
-  href:        string
-  color:       string
-  bgColor:     string
-  order:       number
+  icon: LucideIcon
+  href: string
+  color: string
+  bgColor: string
+  order: number
   /** Categorized stats for PremiumDashboard */
-  stats?:      DashboardStat[]
+  stats?: DashboardStat[]
   /** Legacy quick-stats for ModuleCard grid */
-  getStats?:   (tenantId: string) => Promise<ModuleStat[]>
+  getStats?: (tenantId: string) => Promise<ModuleStat[]>
 }

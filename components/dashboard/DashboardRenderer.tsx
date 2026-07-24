@@ -13,10 +13,11 @@ import type {
   WidgetDataStat,
   WidgetDataChart,
   WidgetDataUsage,
+  WidgetDataError,
 } from '@/lib/dashboard/types'
 
 interface DashboardRendererProps {
-  layout:        DashboardLayout
+  layout: DashboardLayout
   widgetDataMap: Record<string, WidgetData>
   /** When provided, wraps each widget in a draggable handle */
   renderWidget?: (widgetConfig: WidgetConfig, content: React.ReactNode) => React.ReactNode
@@ -30,16 +31,32 @@ function StatWidgetInner({ data }: { data: WidgetDataStat }) {
       <p className="text-xs font-semibold text-white/35 uppercase tracking-widest mb-3 truncate">
         {data.label}
       </p>
-      {(data.value === 0 || data.value === '') ? (
+      {data.value === 0 || data.value === '' ? (
         <div>
           <p className="text-2xl font-bold text-white/15 tabular-nums">—</p>
-          <p className="text-xs text-white/25 mt-1.5">No data yet</p>
+          <p className="text-xs text-white/25 mt-1.5">{data.emptyMessage ?? 'No data yet'}</p>
         </div>
       ) : (
-        <p className={cn('text-2xl font-bold tabular-nums tracking-tight', data.color ?? 'text-gold-400')}>
+        <p
+          className={cn(
+            'text-2xl font-bold tabular-nums tracking-tight',
+            data.color ?? 'text-gold-400'
+          )}
+        >
           {data.formatted}
         </p>
       )}
+    </div>
+  )
+}
+
+function ErrorWidgetInner({ data }: { data: WidgetDataError }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-white/35 uppercase tracking-widest mb-3 truncate">
+        {data.label}
+      </p>
+      <p className="text-sm text-red-300">{data.message}</p>
     </div>
   )
 }
@@ -114,23 +131,22 @@ function renderWidgetContent(config: WidgetConfig, data: WidgetData | undefined)
     )
   }
 
-  if (data.type === 'stat')  return <StatWidgetInner  data={data as WidgetDataStat}  />
+  if (data.type === 'stat') return <StatWidgetInner data={data as WidgetDataStat} />
   if (data.type === 'chart') return <ChartWidgetInner data={data as WidgetDataChart} />
+  if (data.type === 'error') return <ErrorWidgetInner data={data as WidgetDataError} />
   if (data.type === 'usage') {
-    return config.key === 'widget_usage_chart'
-      ? <UsageChartWidget data={data as unknown as WidgetDataChart} />
-      : <UsageCostWidget  data={data as WidgetDataUsage} />
+    return config.key === 'widget_usage_chart' ? (
+      <UsageChartWidget data={data as unknown as WidgetDataChart} />
+    ) : (
+      <UsageCostWidget data={data as WidgetDataUsage} />
+    )
   }
   return null
 }
 
 // ─── Main renderer ───────────────────────────────────────────────
 
-export function DashboardRenderer({
-  layout,
-  widgetDataMap,
-  renderWidget,
-}: DashboardRendererProps) {
+export function DashboardRenderer({ layout, widgetDataMap, renderWidget }: DashboardRendererProps) {
   const visibleSections = layout.sections.filter((s) => s.widgets.length > 0)
 
   if (visibleSections.length === 0) {
@@ -142,7 +158,9 @@ export function DashboardRenderer({
         className="rounded-2xl premium-panel premium-border p-16 text-center"
       >
         <p className="text-sm font-semibold text-white mb-1">Your dashboard is empty</p>
-        <p className="text-xs text-white/35">Use the suggestions below to add your first widgets.</p>
+        <p className="text-xs text-white/35">
+          Use the suggestions below to add your first widgets.
+        </p>
       </motion.div>
     )
   }
@@ -165,7 +183,9 @@ export function DashboardRenderer({
                 {section.title}
               </h2>
               <div className="flex-1 h-px bg-white/5" />
-              <span className="text-2xs text-white/20">{section.widgets.length} widget{section.widgets.length !== 1 ? 's' : ''}</span>
+              <span className="text-2xs text-white/20">
+                {section.widgets.length} widget{section.widgets.length !== 1 ? 's' : ''}
+              </span>
             </div>
 
             {/* Widget grid */}
@@ -176,17 +196,19 @@ export function DashboardRenderer({
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
             >
               {section.widgets.map((widgetConfig) => {
-                const data    = widgetDataMap[widgetConfig.key]
-                const isWide  = widgetConfig.type === 'chart' || widgetConfig.type === 'usage'
+                const data = widgetDataMap[widgetConfig.key]
+                const isWide = widgetConfig.type === 'chart' || widgetConfig.type === 'usage'
                 const content = (
                   <WidgetShell config={widgetConfig} wide={isWide}>
                     {renderWidgetContent(widgetConfig, data)}
                   </WidgetShell>
                 )
 
-                return renderWidget
-                  ? renderWidget(widgetConfig, content)
-                  : <div key={widgetConfig.id}>{content}</div>
+                return renderWidget ? (
+                  renderWidget(widgetConfig, content)
+                ) : (
+                  <div key={widgetConfig.id}>{content}</div>
+                )
               })}
             </motion.div>
           </motion.section>

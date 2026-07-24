@@ -10,30 +10,28 @@ import type { ModuleKey } from '@/modules/shared/moduleTypes'
  * false → disabled by default (tenant must explicitly enable)
  */
 export const DEFAULT_MODULE_STATES: Record<ModuleKey, boolean> = {
-  payments:      true,
-  appointments:  true,
-  contacts:      true,
-  leads:         true,
-  messages:      true,
-  store:         true,
-  website:       true,
-  customers:     true,
-  rewards:       false,          // opt-in: not all businesses run loyalty programs
-  vehicles:      false,          // opt-in: fleet/rental vertical only
-  damage_ai:     false,          // opt-in: requires vehicle module + AI setup
-  product_360:   false,          // opt-in: AI 360 product studio
-  inventory:     false,          // opt-in: inventory tracking module
-  pos:           false,          // opt-in: point of sale module
+  payments: true,
+  appointments: true,
+  contacts: true,
+  leads: true,
+  messages: true,
+  store: true,
+  website: true,
+  customers: true,
+  rewards: false, // opt-in: not all businesses run loyalty programs
+  vehicles: false, // opt-in: fleet/rental vertical only
+  maintenance: false, // opt-in: fleet maintenance workflows
+  damage_ai: false, // opt-in: requires vehicle module + AI setup
+  product_360: false, // opt-in: AI 360 product studio
+  inventory: false, // opt-in: inventory tracking module
+  pos: false, // opt-in: point of sale module
 }
 
 /**
  * Subset of module keys that are considered "critical" — disabling them
  * would break core CRM functionality. Used to warn owners before disabling.
  */
-export const CRITICAL_MODULE_KEYS: ReadonlySet<ModuleKey> = new Set([
-  'contacts',
-  'leads',
-])
+export const CRITICAL_MODULE_KEYS: ReadonlySet<ModuleKey> = new Set(['contacts', 'leads'])
 
 /**
  * Returns the default enabled state for a module key.
