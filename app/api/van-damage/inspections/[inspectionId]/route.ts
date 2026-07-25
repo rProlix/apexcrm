@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { resolveVanDamageAccess } from '@/lib/server/van-damage/access'
 import { getVanDamageServiceClient } from '@/lib/server/van-damage/supabase'
 import { getVanDamageAwsEnv } from '@/lib/server/env'
+import { normalizeTransitRegion } from '@/lib/van-damage/transit-blueprint'
 import type { Json } from '@/lib/supabase/types'
 
 export const runtime = 'nodejs'
@@ -19,9 +20,27 @@ const commentSchema = z.object({
   parentId: z.string().uuid().nullable().optional(),
 })
 
-const requestSchema = z.discriminatedUnion('type', [actionSchema, commentSchema])
+const regionCorrectionSchema = z.object({
+  type: z.literal('region_correction'),
+  itemId: z.string().uuid(),
+  canonicalRegion: z.string().trim().min(1).max(120),
+  reason: z.string().trim().min(1).max(500),
+})
+
+const requestSchema = z.discriminatedUnion('type', [
+  actionSchema,
+  commentSchema,
+  regionCorrectionSchema,
+])
 
 type MetadataRecord = Record<string, unknown>
+type LooseQuery = {
+  select: (columns: string) => LooseQuery
+  update: (values: Record<string, unknown>) => LooseQuery
+  eq: (column: string, value: unknown) => LooseQuery
+  maybeSingle: () => Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>
+  then: PromiseLike<{ error: { message: string } | null }>['then']
+}
 
 function asRecord(value: unknown): MetadataRecord {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -241,6 +260,145 @@ export async function PATCH(
       .eq('business_id', access.businessId)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, comment })
+  }
+
+  if (parsed.data.type === 'region_correction') {
+    const canonicalRegion = normalizeTransitRegion(parsed.data.canonicalRegion)
+    if (!canonicalRegion) {
+      return NextResponse.json({ error: 'Select a valid vehicle section.' }, { status: 400 })
+    }
+    const looseDb = db as unknown as { from: (table: string) => LooseQuery }
+
+    const { data: item, error: itemError } = await looseDb
+      .from('van_damage_items')
+      .select('id, damage_case_id, canonical_region, vehicle_area, metadata')
+      .eq('id', parsed.data.itemId)
+      .eq('inspection_id', inspectionId)
+      .eq('tenant_id', access.tenantId)
+      .eq('business_id', access.businessId)
+      .maybeSingle()
+    if (itemError) return NextResponse.json({ error: itemError.message }, { status: 500 })
+    if (!item) return NextResponse.json({ error: 'Damage finding not found.' }, { status: 404 })
+
+    const previousRegion =
+      typeof item.canonical_region === 'string' && item.canonical_region.trim()
+        ? item.canonical_region
+        : typeof item.vehicle_area === 'string'
+          ? item.vehicle_area
+          : null
+    const correction = {
+      id: crypto.randomUUID(),
+      type: 'region_corrected',
+      itemId: parsed.data.itemId,
+      damageCaseId:
+        typeof item.damage_case_id === 'string' && item.damage_case_id ? item.damage_case_id : null,
+      previousRegion,
+      canonicalRegion,
+      reason: parsed.data.reason,
+      actorId: access.userId,
+      actorName,
+      createdAt: now,
+    }
+    const itemMetadata = asRecord(item.metadata)
+    const { error: updateItemError } = await looseDb
+      .from('van_damage_items')
+      .update({
+        canonical_region: canonicalRegion,
+        metadata: {
+          ...itemMetadata,
+          humanReviewedCanonicalRegion: canonicalRegion,
+          canonicalRegionReviewedAt: now,
+          canonicalRegionReviewedBy: access.userId,
+          canonicalRegionReviewReason: parsed.data.reason,
+          previousCanonicalRegion: previousRegion,
+        } as unknown as Json,
+      })
+      .eq('id', parsed.data.itemId)
+      .eq('inspection_id', inspectionId)
+      .eq('tenant_id', access.tenantId)
+      .eq('business_id', access.businessId)
+    if (updateItemError)
+      return NextResponse.json({ error: updateItemError.message }, { status: 500 })
+
+    if (correction.damageCaseId) {
+      const { data: damageCase, error: caseLoadError } = await looseDb
+        .from('van_damage_cases')
+        .select('metadata')
+        .eq('id', correction.damageCaseId)
+        .eq('tenant_id', access.tenantId)
+        .eq('business_id', access.businessId)
+        .maybeSingle()
+      if (caseLoadError) return NextResponse.json({ error: caseLoadError.message }, { status: 500 })
+      const caseMetadata = asRecord(damageCase?.metadata)
+      const { error: updateCaseError } = await looseDb
+        .from('van_damage_cases')
+        .update({
+          canonical_region: canonicalRegion,
+          needs_review: false,
+          metadata: {
+            ...caseMetadata,
+            humanReviewedCanonicalRegion: canonicalRegion,
+            canonicalRegionReviewedAt: now,
+            canonicalRegionReviewedBy: access.userId,
+            canonicalRegionReviewReason: parsed.data.reason,
+            previousCanonicalRegion: previousRegion,
+          } as unknown as Json,
+          updated_at: now,
+        })
+        .eq('id', correction.damageCaseId)
+        .eq('tenant_id', access.tenantId)
+        .eq('business_id', access.businessId)
+      if (updateCaseError)
+        return NextResponse.json({ error: updateCaseError.message }, { status: 500 })
+    }
+
+    const nextMetadata = {
+      ...metadata,
+      phase3c: {
+        ...phase3c,
+        auditTrail: [
+          ...auditTrail,
+          {
+            id: correction.id,
+            type: correction.type,
+            label: `Damage section corrected to ${canonicalRegion.replaceAll('_', ' ')}`,
+            actorId: access.userId,
+            actorName,
+            createdAt: now,
+            itemId: parsed.data.itemId,
+            damageCaseId: correction.damageCaseId,
+            previousRegion,
+            canonicalRegion,
+            reason: parsed.data.reason,
+          },
+        ].slice(-250),
+      },
+    }
+    const { error: inspectionError } = await db
+      .from('van_damage_inspections')
+      .update({
+        review_status: inspection.review_status === 'reviewed' ? 'reviewed' : 'in_review',
+        status: inspection.status === 'completed' ? inspection.status : 'needs_review',
+        reviewed_by: access.userId,
+        reviewed_at: now,
+        metadata: nextMetadata as unknown as Json,
+      })
+      .eq('id', inspectionId)
+      .eq('tenant_id', access.tenantId)
+      .eq('business_id', access.businessId)
+    if (inspectionError)
+      return NextResponse.json({ error: inspectionError.message }, { status: 500 })
+
+    await db.from('activity_logs').insert({
+      tenant_id: access.tenantId,
+      actor_type: 'user',
+      actor_id: access.userId,
+      action: 'van_damage.region_corrected',
+      entity_type: 'van_damage_inspection',
+      entity_id: inspectionId,
+      metadata: correction as unknown as Json,
+    })
+    return NextResponse.json({ ok: true, canonicalRegion })
   }
 
   const actionConfig = {

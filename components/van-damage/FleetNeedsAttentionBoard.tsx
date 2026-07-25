@@ -413,6 +413,8 @@ function FleetDamageGrid({
       .filter((card) => fleetCardMatches(card, filters))
       .sort((a, b) => compareFleetDamageCards(a, b, filters.sort) || a.id.localeCompare(b.id))
   }, [ageFilter, cards, levelFilter, searchQuery, sortOrder, statusFilter])
+  const visibleCards = displayed.slice(0, 18)
+  const hiddenCount = Math.max(displayed.length - visibleCards.length, 0)
   const activeFilterCount = [searchQuery, levelFilter, ageFilter, statusFilter].filter(
     (value, index) => (index === 0 ? Boolean(value) : value !== 'all')
   ).length
@@ -423,7 +425,7 @@ function FleetDamageGrid({
         <div>
           <h2 className="text-lg font-semibold text-white">Fleet damage grid</h2>
           <p className="mt-1 text-xs text-white/40">
-            {activeFilterCount ? `${displayed.length} of ${cards.length} vans` : `${cards.length} vans`} · current confirmed damage level with analysis age.
+            {activeFilterCount ? `${displayed.length} of ${cards.length} vans` : `${cards.length} vans`} · showing up to 18 vans in a 3-row damage board.
           </p>
         </div>
         <form className="grid gap-2 md:grid-cols-[minmax(12rem,1fr)_10rem_11rem_11rem_13rem_auto]" aria-label="Filter Fleet damage grid">
@@ -489,8 +491,8 @@ function FleetDamageGrid({
         </form>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
-        {displayed.map((card) => (
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {visibleCards.map((card) => (
           <FleetDamageCardView
             key={card.id}
             card={card}
@@ -499,6 +501,11 @@ function FleetDamageGrid({
           />
         ))}
       </div>
+      {hiddenCount > 0 && (
+        <p className="mt-4 rounded-xl border border-white/[0.075] bg-white/[0.025] px-4 py-3 text-center text-xs text-white/45">
+          {hiddenCount} more {hiddenCount === 1 ? 'van is' : 'vans are'} available in the current filters. Refine search or sorting to bring a van into this 3-row board.
+        </p>
+      )}
       {!displayed.length && (
         <p className="mt-5 rounded-xl border border-dashed border-white/10 p-8 text-center text-sm text-white/35">
           No vans match the current Fleet filters.

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Activity,
@@ -879,7 +879,11 @@ export function InspectionExperience(props: InspectionExperienceProps) {
         ))}
       </section>
 
-      <WorkflowActions {...props} />
+      <WorkflowActions
+        {...props}
+        selectedRegion={areaFilter === 'all' ? null : areaFilter}
+        visibleItems={filteredItems}
+      />
 
       {level3Items.length > 0 && (
         <section
@@ -1353,7 +1357,50 @@ function ArrowUpDownIcon() {
   return <Filter className="mr-2 h-3.5 w-3.5 rotate-90 text-white/30" />
 }
 
-function WorkflowActions(props: InspectionExperienceProps) {
+function CollapsedInspectionPanel({
+  id,
+  title,
+  description,
+  icon: Icon,
+  iconClassName = 'text-white/45',
+  className = 'rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6',
+  children,
+}: {
+  id?: string
+  title: string
+  description?: string
+  icon: typeof Activity
+  iconClassName?: string
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <details id={id} className={`group ${className}`}>
+      <summary className="focus-ring -m-2 flex cursor-pointer list-none items-center justify-between gap-4 rounded-xl p-2 marker:hidden [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <Icon className={`h-4 w-4 ${iconClassName}`} />
+            <h2 className="font-semibold text-white">{title}</h2>
+          </div>
+          {description && <p className="mt-1 text-xs text-white/35">{description}</p>}
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/[.03] px-2.5 py-1 text-[10px] text-white/45 transition group-open:text-white/65">
+          <span className="group-open:hidden">Open</span>
+          <span className="hidden group-open:inline">Hide</span>
+          <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+      <div className="mt-5">{children}</div>
+    </details>
+  )
+}
+
+function WorkflowActions(
+  props: InspectionExperienceProps & {
+    selectedRegion: string | null
+    visibleItems: DamageItem[]
+  }
+) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [confirmation, setConfirmation] = useState<{
@@ -1363,9 +1410,16 @@ function WorkflowActions(props: InspectionExperienceProps) {
     danger?: boolean
   } | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [correctionItemId, setCorrectionItemId] = useState('')
+  const [correctionReason, setCorrectionReason] = useState('')
   if (!props.canManage) return null
   const phase = asRecord(props.inspection.metadata.phase3c)
   const archived = phase.lifecycle === 'archived'
+  const correctionItems = props.visibleItems.length ? props.visibleItems : props.items
+  const selectedCorrectionItem = correctionItems.find((item) => item.id === correctionItemId)
+  const selectedCurrentRegion = selectedCorrectionItem
+    ? resolveItemTransitRegion(selectedCorrectionItem)
+    : null
   const actions: Array<{
     action: 'approve' | 'reject' | 'manual_review' | 'mark_repaired' | 'archive' | 'restore'
     label: string
@@ -1441,6 +1495,34 @@ function WorkflowActions(props: InspectionExperienceProps) {
     setConfirmation(null)
     startTransition(() => router.refresh())
   }
+  async function applyRegionCorrection() {
+    if (!props.selectedRegion || !correctionItemId || !correctionReason.trim()) {
+      setMessage('Select the correct map section, choose a finding, and enter a review reason.')
+      return
+    }
+    setMessage(null)
+    const response = await fetch(
+      `/api/van-damage/inspections/${props.inspection.id}?businessId=${encodeURIComponent(props.businessId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'region_correction',
+          itemId: correctionItemId,
+          canonicalRegion: props.selectedRegion,
+          reason: correctionReason,
+        }),
+      }
+    )
+    const result = (await response.json().catch(() => ({}))) as { error?: string }
+    if (!response.ok) {
+      setMessage(result.error || 'Unable to correct the damage section.')
+      return
+    }
+    setMessage(`Damage section corrected to ${humanize(props.selectedRegion)}.`)
+    setCorrectionReason('')
+    startTransition(() => router.refresh())
+  }
   return (
     <section
       aria-label="Inspection workflow"
@@ -1450,7 +1532,8 @@ function WorkflowActions(props: InspectionExperienceProps) {
         <div>
           <p className="text-xs font-medium text-white/70">Review workflow</p>
           <p className="mt-0.5 text-[11px] text-white/35">
-            {message || 'Actions are recorded in the inspection audit trail.'}
+            {message ||
+              'Actions and map-section corrections are recorded in the inspection audit trail.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1466,6 +1549,60 @@ function WorkflowActions(props: InspectionExperienceProps) {
             </button>
           ))}
         </div>
+      </div>
+      <div className="mt-4 rounded-xl border border-white/[0.075] bg-black/10 p-3">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-white/65">Correct damaged vehicle section</p>
+            <p className="mt-1 text-[11px] text-white/35">
+              Select the correct section on the vehicle damage map, then choose which AI finding to
+              move there.
+            </p>
+          </div>
+          <div className="grid flex-1 gap-2 md:grid-cols-[minmax(12rem,1fr)_minmax(12rem,1.2fr)]">
+            <label className="text-[11px] text-white/35">
+              Finding
+              <select
+                value={correctionItemId}
+                onChange={(event) => setCorrectionItemId(event.target.value)}
+                className="focus-ring mt-1 w-full rounded-lg border border-white/10 bg-graphite-900 px-3 py-2 text-xs text-white/65"
+              >
+                <option value="">Choose finding…</option>
+                {correctionItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {humanize(item.damage_type || item.normalized_damage_type || 'Damage')} ·{' '}
+                    {humanize(resolveItemTransitRegion(item) || item.vehicle_area || 'Unknown')}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-[11px] text-white/35">
+              Review reason
+              <input
+                value={correctionReason}
+                onChange={(event) => setCorrectionReason(event.target.value)}
+                maxLength={500}
+                placeholder="Example: visible damage is on passenger sliding door"
+                className="focus-ring mt-1 w-full rounded-lg border border-white/10 bg-graphite-900 px-3 py-2 text-xs text-white/65 placeholder:text-white/25"
+              />
+            </label>
+          </div>
+          <button
+            disabled={pending || !props.selectedRegion || !correctionItemId || !correctionReason.trim()}
+            onClick={applyRegionCorrection}
+            className="focus-ring rounded-xl border border-gold-400/20 px-3 py-2 text-xs text-gold-200 disabled:opacity-45"
+          >
+            Save section correction
+          </button>
+        </div>
+        <p className="mt-2 text-[11px] text-white/35">
+          Current finding section:{' '}
+          <span className="text-white/55">{humanize(selectedCurrentRegion || 'Not selected')}</span>{' '}
+          · Correct section selected:{' '}
+          <span className="text-white/55">
+            {props.selectedRegion ? humanize(props.selectedRegion) : 'Select one on the map'}
+          </span>
+        </p>
       </div>
       {confirmation && (
         <div
@@ -1704,22 +1841,19 @@ function RepairEstimate({
             ]
           : ['Cleaning / cosmetic', 'Low', 'Minimal', 'Monitor during routine checks']
   return (
-    <section className="rounded-2xl border border-gold-400/15 bg-[linear-gradient(135deg,rgba(201,168,76,.08),rgba(20,20,22,1)_45%)] p-5 md:p-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Wrench className="h-4 w-4 text-gold-300" />
-            <h2 className="font-semibold text-white">Estimated repair plan</h2>
-          </div>
-          <p className="mt-1 text-xs text-white/35">
-            AI-generated operational estimate · not a repair quote
-          </p>
-        </div>
+    <CollapsedInspectionPanel
+      title="Estimated repair plan"
+      description="AI-generated operational estimate · not a repair quote"
+      icon={Wrench}
+      iconClassName="text-gold-300"
+      className="rounded-2xl border border-gold-400/15 bg-[linear-gradient(135deg,rgba(201,168,76,.08),rgba(20,20,22,1)_45%)] p-5 md:p-6"
+    >
+      <div className="flex justify-end">
         <span className="rounded-full border border-gold-400/20 bg-gold-400/10 px-2.5 py-1 text-[10px] text-gold-200">
           AI estimate
         </span>
       </div>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {['Complexity', 'Priority', 'Downtime', 'Next action'].map((label, index) => (
           <div key={label} className="rounded-xl border border-white/8 bg-black/10 p-4">
             <p className="text-[10px] uppercase tracking-wider text-white/30">{label}</p>
@@ -1731,7 +1865,7 @@ function RepairEstimate({
         {recommendation}
         {safetyConcern ? ' A qualified technician should confirm any possible safety concern.' : ''}
       </p>
-    </section>
+    </CollapsedInspectionPanel>
   )
 }
 
@@ -1768,15 +1902,15 @@ function ProcessingTimeline({
     },
   ]
   return (
-    <section
+    <CollapsedInspectionPanel
       id="inspection-timeline"
+      title="Inspection timeline"
+      description="Processing, AI analysis, review, and vehicle update milestones"
+      icon={History}
+      iconClassName="text-violet-300"
       className="scroll-mt-20 rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6"
     >
-      <div className="flex items-center gap-2">
-        <History className="h-4 w-4 text-violet-300" />
-        <h2 className="font-semibold text-white">Inspection timeline</h2>
-      </div>
-      <ol className="mt-6 grid gap-0 md:grid-cols-7">
+      <ol className="grid gap-0 md:grid-cols-7">
         {steps.map(({ label, time, icon: Icon }, index) => (
           <li
             key={label}
@@ -1811,7 +1945,7 @@ function ProcessingTimeline({
           </li>
         ))}
       </ol>
-    </section>
+    </CollapsedInspectionPanel>
   )
 }
 
@@ -1904,15 +2038,13 @@ function CommentsPanel(props: InspectionExperienceProps) {
     router.refresh()
   }
   return (
-    <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-semibold text-white">Inspection notes</h2>
-          <p className="mt-1 text-xs text-white/35">Internal, AI, and system conversation</p>
-        </div>
-        <MessageSquare className="h-4 w-4 text-fuchsia-300" />
-      </div>
-      <div className="mt-5 space-y-4">
+    <CollapsedInspectionPanel
+      title="Inspection notes"
+      description="Internal, AI, and system conversation"
+      icon={MessageSquare}
+      iconClassName="text-fuchsia-300"
+    >
+      <div className="space-y-4">
         {roots.map((comment) => (
           <div key={comment.id} className="rounded-xl border border-white/8 bg-white/[.02] p-4">
             <CommentHeader comment={comment} timeZone={props.timeZone} />
@@ -2019,7 +2151,7 @@ function CommentsPanel(props: InspectionExperienceProps) {
           </button>
         </div>
       </div>
-    </section>
+    </CollapsedInspectionPanel>
   )
 }
 function CommentHeader({
@@ -2267,12 +2399,14 @@ function ActivityFeed({
     { label: 'Inspection created', time: inspection.created_at, icon: FileCheck2 },
   ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
   return (
-    <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-white">Activity</h2>
-        <Activity className="h-4 w-4 text-violet-300" />
-      </div>
-      <div className="mt-5 max-h-[520px] space-y-0 overflow-y-auto pr-1">
+    <CollapsedInspectionPanel
+      title="Activity"
+      description="Audit trail and processing events"
+      icon={Activity}
+      iconClassName="text-violet-300"
+      className="rounded-2xl border border-white/10 bg-graphite-800 p-5"
+    >
+      <div className="max-h-[520px] space-y-0 overflow-y-auto pr-1">
         {events.slice(0, 30).map(({ label, time, icon: Icon }, index) => (
           <div key={`${label}-${time}-${index}`} className="relative flex gap-3 pb-5 last:pb-0">
             {index < events.length - 1 && (
@@ -2295,7 +2429,7 @@ function ActivityFeed({
           </div>
         ))}
       </div>
-    </section>
+    </CollapsedInspectionPanel>
   )
 }
 
