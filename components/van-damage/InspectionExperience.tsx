@@ -879,11 +879,13 @@ export function InspectionExperience(props: InspectionExperienceProps) {
         ))}
       </section>
 
-      <WorkflowActions
-        {...props}
-        selectedRegion={areaFilter === 'all' ? null : areaFilter}
-        visibleItems={filteredItems}
-      />
+      {level3Items.length > 0 && (
+        <WorkflowActions
+          {...props}
+          selectedRegion={areaFilter === 'all' ? null : areaFilter}
+          visibleItems={filteredItems}
+        />
+      )}
 
       {level3Items.length > 0 && (
         <section
@@ -983,8 +985,12 @@ export function InspectionExperience(props: InspectionExperienceProps) {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <main className="min-w-0 space-y-6">
-          <section
+          <CollapsedInspectionPanel
             id="inspection-images"
+            title="AI damage summary"
+            description="AI-generated findings, image counts, affected panels, and operational impact"
+            icon={Bot}
+            iconClassName="text-gold-300"
             className="scroll-mt-20 rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6"
           >
             <div className="flex items-start gap-4">
@@ -992,9 +998,6 @@ export function InspectionExperience(props: InspectionExperienceProps) {
                 <Bot className="h-5 w-5 text-gold-300" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium uppercase tracking-[.16em] text-gold-300/70">
-                  AI damage summary
-                </p>
                 <p className="mt-3 text-base leading-7 text-white/75">
                   {inspection.ai_summary ||
                     asText(parsed.summary, 'Analysis has not completed yet.')}
@@ -1033,7 +1036,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
               />
               <SummaryMetric icon={Warehouse} label="Rental impact" value={safeToRent} />
             </div>
-          </section>
+          </CollapsedInspectionPanel>
 
           <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
             <DamageImageGallery images={images} items={items} businessId={props.businessId} />
@@ -1778,12 +1781,13 @@ function SeverityPanel({
     },
   ]
   return (
-    <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
-      <h2 className="font-semibold text-white">Severity profile</h2>
-      <p className="mt-1 text-xs text-white/35">
-        Highest observed class: <span className="capitalize text-white/60">{active}</span>
-      </p>
-      <div className="mt-5 grid grid-cols-2 gap-3">
+    <CollapsedInspectionPanel
+      title="Severity profile"
+      description={`Highest observed class: ${active}`}
+      icon={CircleGauge}
+      iconClassName="text-violet-300"
+    >
+      <div className="grid grid-cols-2 gap-3">
         {cards.map((card, index) => {
           const count = items.filter((item) => card.levels.includes(item.severity ?? '')).length
           const selected = card.key === active
@@ -1809,7 +1813,7 @@ function SeverityPanel({
           )
         })}
       </div>
-    </section>
+    </CollapsedInspectionPanel>
   )
 }
 
