@@ -511,11 +511,6 @@ export function renderReportPdf(input: {
   data: ReportData
 }): Uint8Array {
   const lines = [
-    input.tenantName,
-    input.reportName,
-    `Date range: ${input.dateFrom} through ${input.dateTo}`,
-    `Generated: ${input.generatedAt} by ${input.generatedBy}`,
-    '',
     ...input.data.summary.map((item) => `${item.label}: ${item.value}`),
     '',
     input.data.columns.map((column) => column.label).join(' | '),
@@ -524,8 +519,11 @@ export function renderReportPdf(input: {
     ),
   ]
   if (input.data.rows.length === 0) lines.push(input.data.emptyMessage)
-  lines.push('', 'Generated securely by the business command center.')
-  return buildTextPdf(lines)
+  return buildTextPdf(lines, {
+    heading: `${input.tenantName}  |  ${input.reportName}`,
+    subheading: `${input.dateFrom} through ${input.dateTo}  |  Generated ${input.generatedAt} by ${input.generatedBy}`,
+    footer: 'CONFIDENTIAL  |  Generated securely by the business command center',
+  })
 }
 
 interface SimpleReportDefinition {
@@ -606,8 +604,20 @@ function validateDateRange(from: string, to: string): void {
   }
 }
 
-function buildTextPdf(lines: string[]): Uint8Array {
-  const pages = chunk(lines.map(asciiText), 46)
+function buildTextPdf(
+  lines: string[],
+  chrome: { heading: string; subheading: string; footer: string }
+): Uint8Array {
+  const bodyPages = chunk(lines.map(asciiText), 39)
+  const pages = bodyPages.map((pageLines, index) => [
+    asciiText(chrome.heading),
+    asciiText(chrome.subheading),
+    '________________________________________________________________________________',
+    '',
+    ...pageLines,
+    '',
+    `${asciiText(chrome.footer)}  |  Page ${index + 1} of ${bodyPages.length}`,
+  ])
   const objects: string[] = []
   const pageObjectIds = pages.map((_, index) => 4 + index * 2)
   objects[1] = '<< /Type /Catalog /Pages 2 0 R >>'

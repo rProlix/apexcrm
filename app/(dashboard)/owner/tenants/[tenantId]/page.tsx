@@ -4,15 +4,13 @@ export const dynamic = 'force-dynamic'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getUserContext } from '@/lib/auth/getUserContext'
-import { getTenantById }  from '@/lib/owner/getTenants'
+import { getTenantById } from '@/lib/owner/getTenants'
 import { getTenantModulesWithDefaults } from '@/lib/modules/getTenantModulesWithDefaults'
 import { TenantModuleManager } from '@/components/owner/TenantModuleManager'
 import { BusinessUsersPanel } from '@/components/owner/BusinessUsersPanel'
-import {
-  ArrowLeft, Globe, Calendar,
-  CheckCircle2, XCircle, Users, Layers,
-} from 'lucide-react'
+import { ArrowLeft, Globe, Calendar, Users, Layers } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 
 export const metadata = { title: 'Tenant Detail — Owner Panel' }
 
@@ -23,7 +21,7 @@ export default async function TenantDetailPage({ params }: PageProps) {
   // ── Owner guard ────────────────────────────────────────────────────────────
   const ctx = await getUserContext()
 
-  if (!ctx)               redirect('/login')
+  if (!ctx) redirect('/login')
   if (ctx.role !== 'owner') redirect('/dashboard?error=forbidden')
 
   // ── Data ───────────────────────────────────────────────────────────────────
@@ -38,7 +36,7 @@ export default async function TenantDetailPage({ params }: PageProps) {
   const isActive = tenant.status === 'active'
 
   return (
-    <div className="space-y-8">
+    <div className="ui-page">
       {/* Back navigation */}
       <Link
         href="/owner/tenants"
@@ -49,34 +47,26 @@ export default async function TenantDetailPage({ params }: PageProps) {
       </Link>
 
       {/* Tenant header */}
-      <div className="rounded-2xl border border-surface-border bg-graphite-900/70 overflow-hidden">
+      <div className="ui-surface overflow-hidden">
         {/* Top bar */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/6">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-gold-500/20 to-amber-600/10 border border-gold-500/20 flex items-center justify-center shrink-0">
-              <span className="text-gold-400 font-bold text-base">
-                {tenant.name.slice(0, 2).toUpperCase()}
-              </span>
+            <div className="brand-accent-surface flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border">
+              <span className="text-base font-bold">{tenant.name.slice(0, 2).toUpperCase()}</span>
             </div>
             <div>
-              <div className="flex items-center gap-2.5 mb-0.5">
-                {isActive
-                  ? <CheckCircle2 className="h-4 w-4 text-emerald-400" strokeWidth={2} />
-                  : <XCircle      className="h-4 w-4 text-white/25"     strokeWidth={1.75} />
-                }
+              <div className="mb-0.5 flex items-center gap-2.5">
                 <h1 className="text-xl font-bold text-white">{tenant.name}</h1>
               </div>
               <p className="text-sm text-white/35 font-mono">{tenant.slug}</p>
             </div>
           </div>
 
-          <span className={`text-xs font-semibold px-3 py-1.5 rounded-xl border ${
-            isActive
-              ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
-              : 'bg-white/5 border-white/10 text-white/30'
-          }`}>
-            {tenant.status}
-          </span>
+          <StatusBadge
+            status={tenant.status}
+            tone={isActive ? 'success' : 'disabled'}
+            label={tenant.status}
+          />
         </div>
 
         {/* Info grid */}
@@ -114,9 +104,7 @@ export default async function TenantDetailPage({ params }: PageProps) {
                   {label}
                 </span>
               </div>
-              <p className={`text-sm text-white/70 truncate ${mono ? 'font-mono' : ''}`}>
-                {value}
-              </p>
+              <p className={`text-sm text-white/70 truncate ${mono ? 'font-mono' : ''}`}>{value}</p>
             </div>
           ))}
         </div>
@@ -131,7 +119,8 @@ export default async function TenantDetailPage({ params }: PageProps) {
           <div>
             <h2 className="text-base font-bold text-white">Module Access</h2>
             <p className="text-xs text-white/35">
-              Toggle which features admins of <span className="text-white/55">{tenant.name}</span> can access
+              Toggle which features admins of <span className="text-white/55">{tenant.name}</span>{' '}
+              can access
             </p>
           </div>
         </div>
@@ -144,10 +133,7 @@ export default async function TenantDetailPage({ params }: PageProps) {
       </div>
 
       {/* Business users section */}
-      <BusinessUsersPanel
-        tenantId={tenant.id}
-        tenantName={tenant.name}
-      />
+      <BusinessUsersPanel tenantId={tenant.id} tenantName={tenant.name} />
     </div>
   )
 }

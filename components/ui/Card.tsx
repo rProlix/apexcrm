@@ -8,10 +8,8 @@ export function Card({ glass, className, children, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-2xl p-6',
-        glass
-          ? 'glass-surface'
-          : 'premium-panel premium-border noise-overlay',
+        'rounded-2xl border p-5 sm:p-6',
+        glass ? 'glass-surface' : 'border-white/[0.075] bg-graphite-900/70 shadow-panel',
         className
       )}
       {...props}
@@ -21,17 +19,25 @@ export function Card({ glass, className, children, ...props }: CardProps) {
   )
 }
 
-export function CardHeader({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export function CardHeader({
+  className,
+  children,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn('flex items-center justify-between mb-4', className)} {...props}>
+    <div className={cn('mb-4 flex items-start justify-between gap-3', className)} {...props}>
       {children}
     </div>
   )
 }
 
-export function CardTitle({ className, children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+export function CardTitle({
+  className,
+  children,
+  ...props
+}: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h3 className={cn('text-sm font-semibold text-white/80 uppercase tracking-widest', className)} {...props}>
+    <h3 className={cn('ui-card-title', className)} {...props}>
       {children}
     </h3>
   )

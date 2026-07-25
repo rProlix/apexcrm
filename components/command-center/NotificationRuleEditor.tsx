@@ -13,6 +13,8 @@ import type {
   NotificationChannelCapability,
   NotificationEventDefinition,
 } from '@/lib/command-center/notificationPolicy'
+import { EmptyState } from '@/components/ui/StatePanel'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 
 interface RuleRow {
   id: string
@@ -83,13 +85,13 @@ export function NotificationRuleEditor({
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 rounded-2xl border border-white/10 bg-graphite-900/60 p-4 md:grid-cols-5">
-        <label className="text-xs text-white/45 md:col-span-2">
+      <div className="ui-toolbar grid gap-3 md:grid-cols-5">
+        <label className="ui-label md:col-span-2">
           Event
           <select
             value={eventType}
             onChange={(event) => setEventType(event.target.value)}
-            className="mt-1.5 w-full rounded-lg border border-white/10 bg-graphite-950 px-2.5 py-2 text-xs text-white"
+            className="ui-input mt-1.5 w-full px-2.5 py-2 text-xs"
           >
             {events.map((event) => (
               <option key={`${event.moduleKey}:${event.eventType}`} value={event.eventType}>
@@ -98,12 +100,12 @@ export function NotificationRuleEditor({
             ))}
           </select>
         </label>
-        <label className="text-xs text-white/45">
+        <label className="ui-label">
           Recipient
           <select
             value={recipientType}
             onChange={(event) => setRecipientType(event.target.value as typeof recipientType)}
-            className="mt-1.5 w-full rounded-lg border border-white/10 bg-graphite-950 px-2.5 py-2 text-xs text-white"
+            className="ui-input mt-1.5 w-full px-2.5 py-2 text-xs"
           >
             <option value="role">Role</option>
             <option value="specific_user">Specific user</option>
@@ -112,12 +114,12 @@ export function NotificationRuleEditor({
           </select>
         </label>
         {recipientType === 'role' ? (
-          <label className="text-xs text-white/45">
+          <label className="ui-label">
             Role
             <select
               value={recipientRole}
               onChange={(event) => setRecipientRole(event.target.value as typeof recipientRole)}
-              className="mt-1.5 w-full rounded-lg border border-white/10 bg-graphite-950 px-2.5 py-2 text-xs text-white"
+              className="ui-input mt-1.5 w-full px-2.5 py-2 text-xs"
             >
               <option value="admin">Admin</option>
               <option value="manager">Manager</option>
@@ -125,12 +127,12 @@ export function NotificationRuleEditor({
             </select>
           </label>
         ) : recipientType === 'specific_user' ? (
-          <label className="text-xs text-white/45">
+          <label className="ui-label">
             User
             <select
               value={recipientUserId}
               onChange={(event) => setRecipientUserId(event.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-white/10 bg-graphite-950 px-2.5 py-2 text-xs text-white"
+              className="ui-input mt-1.5 w-full px-2.5 py-2 text-xs"
             >
               {users.map((user) => (
                 <option key={user.id} value={user.id}>
@@ -144,12 +146,12 @@ export function NotificationRuleEditor({
             The recipient is resolved from each source record.
           </div>
         )}
-        <label className="text-xs text-white/45">
+        <label className="ui-label">
           Channel
           <select
             value={channel}
             onChange={(event) => setChannel(event.target.value as NotificationChannel)}
-            className="mt-1.5 w-full rounded-lg border border-white/10 bg-graphite-950 px-2.5 py-2 text-xs text-white"
+            className="ui-input mt-1.5 w-full px-2.5 py-2 text-xs"
           >
             {channels
               .filter((item) => item.enabled)
@@ -168,7 +170,7 @@ export function NotificationRuleEditor({
             type="button"
             disabled={pending || !eventType}
             onClick={addRule}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-gold-500 px-3 py-2 text-xs font-semibold text-graphite-950 disabled:opacity-40"
+            className="ui-button ui-button-primary shrink-0"
           >
             {pending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -187,9 +189,10 @@ export function NotificationRuleEditor({
 
       <div className="space-y-2">
         {rules.length === 0 && (
-          <div className="rounded-xl border border-dashed border-white/10 p-8 text-center text-sm text-white/35">
-            No notification rules yet.
-          </div>
+          <EmptyState
+            title="No notification rules"
+            description="Create a rule to route important workspace events."
+          />
         )}
         {rules.map((rule) => {
           const event = events.find((item) => item.eventType === rule.event_type)
@@ -197,22 +200,28 @@ export function NotificationRuleEditor({
           return (
             <div
               key={rule.id}
-              className="flex flex-col gap-3 rounded-xl border border-white/8 bg-white/[0.025] p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="ui-surface-muted flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
                 <p className="text-sm font-medium text-white/75">
                   {event?.label ?? rule.event_type}
                 </p>
-                <p className="mt-1 text-xs text-white/35">
-                  {rule.channel.replace('_', ' ')} ·{' '}
-                  {rule.recipient_type === 'role'
-                    ? rule.recipient_role
-                    : rule.recipient_type === 'specific_user'
-                      ? (user?.email ?? 'Specific user')
-                      : rule.recipient_type === 'assigned_user'
-                        ? 'Assigned user'
-                        : 'Record owner'}
-                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+                  <StatusBadge
+                    status={rule.enabled ? 'active' : 'disabled'}
+                    label={rule.enabled ? 'Enabled' : 'Paused'}
+                  />
+                  <span>
+                    {rule.channel.replace('_', ' ')} ·{' '}
+                    {rule.recipient_type === 'role'
+                      ? rule.recipient_role
+                      : rule.recipient_type === 'specific_user'
+                        ? (user?.email ?? 'Specific user')
+                        : rule.recipient_type === 'assigned_user'
+                          ? 'Assigned user'
+                          : 'Record owner'}
+                  </span>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -221,7 +230,7 @@ export function NotificationRuleEditor({
                   onClick={() =>
                     changeRule(() => setNotificationRuleEnabled(rule.id, !rule.enabled))
                   }
-                  className="text-xs text-white/40 hover:text-white disabled:opacity-40"
+                  className="ui-button ui-button-ghost"
                 >
                   {rule.enabled ? 'Pause' : 'Enable'}
                 </button>
@@ -229,7 +238,7 @@ export function NotificationRuleEditor({
                   type="button"
                   disabled={pending}
                   onClick={() => changeRule(() => deleteNotificationRule(rule.id))}
-                  className="inline-flex items-center gap-1.5 text-xs text-white/30 hover:text-red-400 disabled:opacity-40"
+                  className="ui-button ui-button-ghost text-red-200"
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Remove
                 </button>

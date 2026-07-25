@@ -49,10 +49,7 @@ export function RecentInspectionsList({
   }
 
   return (
-    <section
-      aria-labelledby="recent-inspections-heading"
-      className="overflow-hidden rounded-xl border border-white/10 bg-graphite-800"
-    >
+    <section aria-labelledby="recent-inspections-heading" className="ui-surface overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/8 px-4 py-4 sm:px-5">
         <div>
           <h2 id="recent-inspections-heading" className="font-semibold text-white">
@@ -65,7 +62,7 @@ export function RecentInspectionsList({
         </div>
         <Link
           href={`/dashboard/damage-ai?businessId=${encodeURIComponent(businessId)}`}
-          className="focus-ring rounded-lg px-3 py-2 text-xs font-medium text-gold-300 hover:bg-gold-400/10"
+          className="ui-button ui-button-ghost"
         >
           View all inspections
         </Link>
@@ -203,7 +200,7 @@ export function RecentInspectionsList({
                         <div className="sm:col-start-2 lg:col-start-auto">
                           <Link
                             href={href}
-                            className="focus-ring inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-white/10 px-4 text-sm font-medium text-white/75 hover:bg-white/5 lg:w-auto"
+                            className="ui-button ui-button-secondary w-full lg:w-auto"
                           >
                             {needsReview ? 'Review findings' : 'View inspection'}
                             <ArrowRight className="ml-2 h-4 w-4" />

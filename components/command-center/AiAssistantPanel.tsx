@@ -58,14 +58,14 @@ export function AiAssistantPanel({ groups }: { groups: AssistantGroup[] }) {
   if (groups.length === 0) return null
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-graphite-900/60 p-5">
+    <section className="ui-surface p-5">
       <div className="flex items-start gap-3">
         <div className="rounded-xl bg-violet-500/10 p-2 text-violet-300">
           <Bot className="h-4 w-4" aria-hidden="true" />
         </div>
         <div>
           <h2 className="text-sm font-semibold text-white">Module AI Assistants</h2>
-          <p className="mt-1 text-xs text-white/40">
+          <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
             Practical summaries use only active-module facts you can access. Suggestions still need
             human judgment.
           </p>
@@ -74,10 +74,7 @@ export function AiAssistantPanel({ groups }: { groups: AssistantGroup[] }) {
 
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {groups.map((group) => (
-          <div
-            key={group.moduleKey}
-            className="rounded-xl border border-white/8 bg-white/[0.025] p-3"
-          >
+          <div key={group.moduleKey} className="ui-surface-muted p-3">
             <p className="mb-2 text-xs font-semibold capitalize text-white/65">
               {group.moduleKey.replace('_', ' ')} AI Assistant
             </p>
@@ -90,7 +87,7 @@ export function AiAssistantPanel({ groups }: { groups: AssistantGroup[] }) {
                     type="button"
                     disabled={loading !== null}
                     onClick={() => void ask(group.moduleKey, question.key)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-left text-xs text-white/50 hover:border-violet-400/30 hover:text-white disabled:opacity-40"
+                    className="ui-button ui-button-secondary h-auto justify-start px-2.5 py-1.5 text-left text-xs"
                   >
                     {loading === requestKey ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -115,11 +112,11 @@ export function AiAssistantPanel({ groups }: { groups: AssistantGroup[] }) {
         </div>
       )}
       {result && (
-        <div className="mt-4 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
-          <p className="text-xs font-semibold capitalize text-violet-200">
+        <div className="mt-4 rounded-xl border border-violet-400/20 bg-violet-400/[0.06] p-4">
+          <p className="text-xs font-semibold capitalize text-violet-100">
             {result.moduleKey.replace('_', ' ')} AI Summary
           </p>
-          <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/65">
+          <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">
             {result.summary}
           </div>
           {result.sourceLinks.length > 0 && (
@@ -128,7 +125,7 @@ export function AiAssistantPanel({ groups }: { groups: AssistantGroup[] }) {
                 <Link
                   key={`${link.href}:${link.label}`}
                   href={link.href}
-                  className="text-xs text-gold-400 hover:text-gold-300"
+                  className="focus-ring rounded text-xs text-[var(--tenant-accent)] hover:underline"
                 >
                   {link.label}
                 </Link>

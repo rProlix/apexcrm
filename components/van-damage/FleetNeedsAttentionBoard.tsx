@@ -253,7 +253,7 @@ export function FleetNeedsAttentionBoard({
       </div>
 
       <section
-        className="rounded-2xl border border-red-400/15 bg-[linear-gradient(145deg,rgba(127,29,29,.12),rgba(20,20,22,1)_40%)] p-4 md:p-6"
+        className="rounded-2xl border border-red-400/20 bg-[var(--surface-panel)] p-4 shadow-[inset_3px_0_0_rgba(248,113,113,.7)] md:p-6"
         aria-labelledby="needs-attention-heading"
       >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -274,7 +274,7 @@ export function FleetNeedsAttentionBoard({
               value={filter}
               onChange={(event) => setFilter(event.target.value as AttentionFilter)}
               aria-label="Filter Needs Attention vans"
-              className="focus-ring rounded-xl border border-white/10 bg-graphite-900 px-3 py-2 text-xs text-white/65"
+              className="ui-input px-3 py-2 text-xs"
             >
               <option value="all">All severe vans</option>
               <option value="unacknowledged">Unacknowledged</option>
@@ -286,7 +286,7 @@ export function FleetNeedsAttentionBoard({
               value={sort}
               onChange={(event) => setSort(event.target.value as AttentionSort)}
               aria-label="Sort Needs Attention vans"
-              className="focus-ring rounded-xl border border-white/10 bg-graphite-900 px-3 py-2 text-xs text-white/65"
+              className="ui-input px-3 py-2 text-xs"
             >
               <option value="priority">Priority</option>
               <option value="oldest">Oldest unresolved</option>
@@ -396,7 +396,7 @@ function SevereVanCard({
     severityLevel(item.highest_severity) >= 4 ? 'Critical damage' : 'Level 3 severe damage'
   return (
     <article
-      className="overflow-hidden rounded-2xl border border-red-400/15 bg-graphite-900"
+      className="ui-surface overflow-hidden border-red-400/15"
       aria-label={`${item.van_number ? `Van ${item.van_number}` : item.vehicle_name}, ${severeLabel}`}
     >
       <div className="grid sm:grid-cols-[180px_1fr]">
@@ -597,7 +597,7 @@ function FleetColumn({
   maintenanceByVan: Map<string, FleetMaintenanceSummary>
 }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5">
+    <section className="ui-surface p-5">
       <div className="flex items-start justify-between">
         <div>
           <h2 className="font-semibold text-white">{title}</h2>

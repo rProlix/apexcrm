@@ -96,16 +96,13 @@ export function UniversalNotesPanel({
   }
 
   return (
-    <section
-      className="rounded-2xl border border-white/10 bg-graphite-900/60 p-5"
-      aria-labelledby="record-notes-title"
-    >
+    <section className="ui-surface p-5" aria-labelledby="record-notes-title">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h2 id="record-notes-title" className="text-sm font-semibold text-white">
             Notes and attachments
           </h2>
-          <p className="mt-1 text-xs text-white/40">
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">
             Internal by default. Files stay private and open through short-lived links.
           </p>
         </div>
@@ -134,7 +131,7 @@ export function UniversalNotesPanel({
               rows={3}
               maxLength={10_000}
               placeholder="Add an internal note…"
-              className="w-full resize-y rounded-xl border border-white/10 bg-graphite-950 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-gold-500/50"
+              className="ui-input w-full resize-y"
             />
             <div className="flex flex-wrap items-center justify-between gap-3">
               {canManageVisibility ? (
@@ -142,7 +139,7 @@ export function UniversalNotesPanel({
                   aria-label="Note visibility"
                   value={visibility}
                   onChange={(event) => setVisibility(event.target.value as typeof visibility)}
-                  className="rounded-lg border border-white/10 bg-graphite-950 px-2.5 py-2 text-xs text-white/70"
+                  className="ui-input px-2.5 py-2 text-xs"
                 >
                   <option value="internal">Internal</option>
                   <option value="staff_admin">Staff and admins</option>
@@ -160,7 +157,7 @@ export function UniversalNotesPanel({
                       setBody('')
                       setVisibility('internal')
                     }}
-                    className="rounded-lg px-3 py-2 text-xs text-white/45 hover:text-white"
+                    className="ui-button ui-button-ghost"
                   >
                     Cancel
                   </button>
@@ -169,7 +166,7 @@ export function UniversalNotesPanel({
                   type="button"
                   onClick={submit}
                   disabled={isPending || !body.trim()}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gold-500 px-3 py-2 text-xs font-semibold text-graphite-950 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="ui-button ui-button-primary"
                 >
                   {isPending ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -196,14 +193,11 @@ export function UniversalNotesPanel({
               </div>
             )}
             {initialNotes.map((note) => (
-              <article
-                key={note.id}
-                className="rounded-xl border border-white/8 bg-white/[0.025] p-4"
-              >
+              <article key={note.id} className="ui-surface-muted p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold text-white/80">{note.authorDisplay}</p>
-                    <p className="mt-0.5 text-2xs text-white/30">
+                    <p className="mt-0.5 text-2xs text-[var(--text-tertiary)]">
                       {new Intl.DateTimeFormat('en-US', {
                         dateStyle: 'medium',
                         timeStyle: 'short',
@@ -211,11 +205,11 @@ export function UniversalNotesPanel({
                       {note.editedAt ? ' · edited' : ''}
                     </p>
                   </div>
-                  <span className="rounded-full bg-white/5 px-2 py-1 text-2xs capitalize text-white/35">
+                  <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-2xs capitalize text-[var(--text-secondary)]">
                     {note.visibility.replace('_', ' ')}
                   </span>
                 </div>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-white/65">
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">
                   {note.body}
                 </p>
 

@@ -1,5 +1,12 @@
 import Link from 'next/link'
-import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, ListChecks } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  ListChecks,
+  Newspaper,
+} from 'lucide-react'
 import { getModuleAssistantQuestions } from '@/lib/command-center/ai'
 import { loadTopActionItems } from '@/lib/command-center/actions'
 import { loadActivityFeed } from '@/lib/command-center/activity'
@@ -9,6 +16,7 @@ import { formatInTenantTime } from '@/lib/command-center/time'
 import { requireCommandCenterContext } from '@/lib/command-center/context'
 import { recordCommandAudit } from '@/lib/command-center/audit'
 import { AiAssistantPanel } from './AiAssistantPanel'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 
 export async function CommandCenterDashboard() {
   const context = await requireCommandCenterContext('view_dashboard')
@@ -31,17 +39,22 @@ export async function CommandCenterDashboard() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-white/10 bg-graphite-900/60 p-5">
+      <section className="ui-surface p-5">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-          <div>
-            <p className="text-2xs font-semibold uppercase tracking-widest text-gold-400/70">
-              What changed today
-            </p>
-            <h2 className="mt-1 text-lg font-semibold text-white">{daily.dateLabel}</h2>
-            <p className="mt-1 text-xs text-white/35">
-              {daily.timeZone} · refreshed{' '}
-              {formatInTenantTime(daily.freshnessTimestamp, daily.timeZone)}
-            </p>
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold-500/15 bg-gold-500/8">
+              <Newspaper className="h-4 w-4 text-gold-400" />
+            </div>
+            <div>
+              <p className="text-2xs font-semibold uppercase tracking-widest text-gold-400/70">
+                What changed today
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-white">{daily.dateLabel}</h2>
+              <p className="mt-1 text-xs text-white/35">
+                Your operational newspaper · {daily.timeZone} · refreshed{' '}
+                {formatInTenantTime(daily.freshnessTimestamp, daily.timeZone)}
+              </p>
+            </div>
           </div>
           {daily.criticalAlerts.length > 0 && (
             <Link
@@ -65,10 +78,7 @@ export async function CommandCenterDashboard() {
         ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {daily.sections.map((section) => (
-              <div
-                key={section.moduleKey}
-                className="rounded-xl border border-white/8 bg-white/[0.025] p-4"
-              >
+              <div key={section.moduleKey} className="ui-surface-muted p-4">
                 <p className="text-xs font-semibold text-white/65">{section.title}</p>
                 <ul className="mt-2 space-y-2">
                   {section.bullets.map((bullet) => (
@@ -77,9 +87,14 @@ export async function CommandCenterDashboard() {
                         href={bullet.href}
                         className="flex items-start gap-2 text-sm text-white/50 hover:text-white"
                       >
-                        <span
-                          className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${bullet.critical ? 'bg-red-400' : 'bg-gold-400/70'}`}
-                        />
+                        <span className="mt-0.5 shrink-0">
+                          <StatusBadge
+                            status={bullet.critical ? 'critical' : 'info'}
+                            label={bullet.critical ? 'Critical' : 'Update'}
+                            icon={bullet.critical}
+                            className="min-h-5 px-1.5 text-2xs"
+                          />
+                        </span>
                         {bullet.text}
                       </Link>
                     </li>
@@ -92,7 +107,7 @@ export async function CommandCenterDashboard() {
       </section>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <section className="rounded-2xl border border-white/10 bg-graphite-900/60 p-5">
+        <section className="ui-surface p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-2xs font-semibold uppercase tracking-widest text-red-300/70">
@@ -120,8 +135,10 @@ export async function CommandCenterDashboard() {
                 href={action.href}
                 className="flex items-start gap-3 rounded-xl border border-white/8 bg-white/[0.025] p-3 hover:border-white/15"
               >
-                <span
-                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${action.priority === 'urgent' ? 'bg-red-400' : action.priority === 'high' ? 'bg-orange-400' : 'bg-blue-400'}`}
+                <StatusBadge
+                  status={action.priority}
+                  label={action.priority}
+                  className="shrink-0 capitalize"
                 />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-white/70">{action.title}</p>
@@ -142,7 +159,7 @@ export async function CommandCenterDashboard() {
             </p>
           </section>
         ) : !setup.allRequiredComplete && setup.items.length > 0 ? (
-          <section className="rounded-2xl border border-white/10 bg-graphite-900/60 p-5">
+          <section className="ui-surface p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-2xs font-semibold uppercase tracking-widest text-blue-300/70">
@@ -191,7 +208,7 @@ export async function CommandCenterDashboard() {
         )}
       </div>
 
-      <section className="rounded-2xl border border-white/10 bg-graphite-900/60 p-5">
+      <section className="ui-surface p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-2xs font-semibold uppercase tracking-widest text-white/30">

@@ -22,6 +22,8 @@ import type { MaintenanceHistoryEvent, MaintenanceItem } from '@/lib/maintenance
 import { maintenanceResponsibilityDisclaimer } from '@/lib/maintenance/types'
 import { compareMaintenancePriority } from '@/lib/maintenance/triage'
 import { createClient } from '@/lib/supabase/browser'
+import { EmptyState } from '@/components/ui/StatePanel'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 
 type Vehicle = { id: string; name: string; van_number: string | null; status: string }
 type User = { id: string; full_name: string | null; email: string }
@@ -64,13 +66,6 @@ function time(value: string | null) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
     new Date(value)
   )
-}
-
-function priorityTone(priority: string) {
-  if (priority === 'urgent') return 'border-red-400/30 bg-red-400/10 text-red-200'
-  if (priority === 'high') return 'border-amber-400/25 bg-amber-400/10 text-amber-100'
-  if (priority === 'low') return 'border-sky-400/20 bg-sky-400/10 text-sky-200'
-  return 'border-white/10 bg-white/[.04] text-white/65'
 }
 
 export function MaintenanceWorkspace({
@@ -522,29 +517,30 @@ export function MaintenanceWorkspace({
     <div className="space-y-6" aria-busy={pending}>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {metricCards.map(({ name, value, icon: Icon, tone }) => (
-          <div key={name} className="rounded-2xl border border-white/10 bg-graphite-800 p-4">
+          <div key={name} className="ui-surface p-4">
             <span className={`inline-flex rounded-lg p-2 ${tone}`}>
               <Icon className="h-4 w-4" />
             </span>
-            <p className="mt-3 text-2xl font-semibold text-white">{value}</p>
-            <p className="text-xs text-white/40">{name}</p>
+            <p className="mt-3 text-2xl font-semibold tabular-nums text-white">{value}</p>
+            <p className="text-xs text-[var(--text-secondary)]">{name}</p>
           </div>
         ))}
       </div>
-      <p className="rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 text-xs leading-5 text-white/40">
+      <p className="ui-surface-muted px-4 py-3 text-xs leading-5 text-[var(--text-secondary)]">
         Priority suggestions are based on the reported information and should be reviewed when
         vehicle safety or operability is uncertain.
       </p>
 
-      <section className="rounded-2xl border border-white/10 bg-graphite-800 p-4">
+      <section className="ui-toolbar">
         <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap">
           <label className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-white/30" />
+            <span className="sr-only">Search maintenance</span>
+            <Search className="absolute left-3 top-3 h-4 w-4 text-[var(--text-tertiary)]" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search van, issue, reporter, or item number"
-              className="w-full rounded-xl border border-white/10 bg-graphite-900 py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-white/25"
+              className="ui-input w-full py-2.5 pl-9 pr-3"
             />
           </label>
           {[
@@ -695,7 +691,8 @@ export function MaintenanceWorkspace({
               key={index}
               value={value as string}
               onChange={(event) => (setter as (value: string) => void)(event.target.value)}
-              className="rounded-xl border border-white/10 bg-graphite-900 px-3 py-2.5 text-xs text-white/65"
+              aria-label={(options as string[][])[0]?.[1] ?? `Filter ${index + 1}`}
+              className="ui-input min-w-0 px-3 py-2.5 text-xs"
             >
               {(options as string[][]).map(([optionValue, optionLabel]) => (
                 <option key={optionValue} value={optionValue}>
@@ -705,8 +702,9 @@ export function MaintenanceWorkspace({
             </select>
           ))}
           <button
+            type="button"
             onClick={() => setCreating(true)}
-            className="rounded-xl bg-amber-300 px-4 py-2.5 text-sm font-semibold text-graphite-950 hover:bg-amber-200"
+            className="ui-button ui-button-primary"
           >
             <Plus className="mr-1.5 inline h-4 w-4" />
             New item
@@ -716,37 +714,43 @@ export function MaintenanceWorkspace({
 
       <div className="space-y-3">
         {items.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/10 p-12 text-center text-sm text-white/35">
-            {initialItems.length === 0
-              ? 'No maintenance items have been reported yet.'
-              : 'No maintenance items match these filters.'}
-          </div>
+          <EmptyState
+            title={initialItems.length === 0 ? 'No maintenance items yet' : 'No items found'}
+            description={
+              initialItems.length === 0
+                ? 'New maintenance reports will appear here.'
+                : 'No maintenance items match the current filters.'
+            }
+          />
         ) : null}
         {visibleItems.map((item) => (
           <button
             key={item.id}
             onClick={() => openItem(item)}
-            className="group grid w-full gap-4 rounded-2xl border border-white/10 bg-graphite-800 p-4 text-left transition hover:border-amber-300/25 md:grid-cols-[minmax(0,1fr)_auto]"
+            className="ui-surface group grid w-full gap-4 p-4 text-left transition hover:border-[var(--border-strong)] hover:bg-[rgb(var(--surface-raised))] md:grid-cols-[minmax(0,1fr)_auto]"
           >
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${priorityTone(item.effective_priority)}`}
-                >
-                  {item.effective_priority}
+                <StatusBadge
+                  status={item.effective_priority}
+                  label={label(item.effective_priority)}
+                />
+                <span className="text-xs text-[var(--text-tertiary)]">
+                  M-{item.maintenance_number}
                 </span>
-                <span className="text-xs text-white/35">M-{item.maintenance_number}</span>
-                <span className="text-xs text-white/35">{label(item.status)}</span>
+                <StatusBadge status={item.status} label={label(item.status)} />
                 {item.needs_review ? (
-                  <span className="text-xs text-fuchsia-200">Needs review</span>
+                  <StatusBadge status="needs_review" label="Needs review" />
                 ) : null}
                 {item.due_at && Date.parse(item.due_at) < Date.now() && !closed.has(item.status) ? (
-                  <span className="text-xs text-red-200">Overdue</span>
+                  <StatusBadge status="overdue" tone="critical" label="Overdue" />
                 ) : null}
               </div>
               <h3 className="mt-2 truncate font-semibold text-white">{item.title}</h3>
-              <p className="mt-1 line-clamp-2 text-sm text-white/45">{item.description}</p>
-              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/35">
+              <p className="mt-1 line-clamp-2 text-sm text-[var(--text-secondary)]">
+                {item.description}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-tertiary)]">
                 <span>
                   {item.van?.van_number
                     ? `Van ${item.van.van_number}`
@@ -763,7 +767,7 @@ export function MaintenanceWorkspace({
                 ) : null}
               </div>
             </div>
-            <div className="flex items-center gap-3 self-center text-xs text-white/35">
+            <div className="flex items-center gap-3 self-center text-xs text-[var(--text-tertiary)]">
               <span>{time(item.latest_activity_at)}</span>
               <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
             </div>
@@ -804,14 +808,22 @@ export function MaintenanceWorkspace({
             if (event.currentTarget === event.target) setSelected(null)
           }}
         >
-          <aside className="h-full w-full max-w-2xl overflow-y-auto border-l border-white/10 bg-graphite-900 p-5 shadow-2xl md:p-7">
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="maintenance-detail-title"
+            className="h-full w-full max-w-2xl overflow-y-auto border-l border-[var(--border-default)] bg-[rgb(var(--surface-base))] p-5 shadow-2xl md:p-7"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs text-white/35">Maintenance M-{selected.maintenance_number}</p>
-                <h2 className="mt-1 text-xl font-semibold text-white">{selected.title}</h2>
+                <h2 id="maintenance-detail-title" className="mt-1 text-xl font-semibold text-white">
+                  {selected.title}
+                </h2>
               </div>
               <button
                 onClick={() => setSelected(null)}
+                aria-label="Close maintenance details"
                 className="rounded-lg border border-white/10 p-2 text-white/50 hover:text-white"
               >
                 <X className="h-4 w-4" />
@@ -924,12 +936,9 @@ export function MaintenanceWorkspace({
                   required
                   maxLength={4000}
                   placeholder="Record diagnosis, scheduling, parts, or repair progress"
-                  className="min-w-0 flex-1 rounded-lg border border-white/10 bg-graphite-800 px-3 py-2 text-sm text-white placeholder:text-white/25"
+                  className="ui-input min-w-0 flex-1"
                 />
-                <button
-                  disabled={drawerBusy}
-                  className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-graphite-950"
-                >
+                <button disabled={drawerBusy} className="ui-button ui-button-primary">
                   Add
                 </button>
               </div>
@@ -1097,20 +1106,22 @@ function CreateMaintenanceModal({
           setBusy(false)
         }}
         className="w-full max-w-xl rounded-2xl border border-white/10 bg-graphite-900 p-6 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-maintenance-title"
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">New maintenance item</h2>
-          <button type="button" onClick={onClose}>
+          <h2 id="new-maintenance-title" className="text-lg font-semibold text-white">
+            New maintenance item
+          </h2>
+          <button type="button" onClick={onClose} aria-label="Close new maintenance item">
             <X className="h-4 w-4 text-white/50" />
           </button>
         </div>
         <div className="mt-5 space-y-4">
-          <label className="block text-xs text-white/45">
+          <label className="ui-label">
             Van
-            <select
-              name="vanId"
-              className="mt-1 w-full rounded-lg border border-white/10 bg-graphite-800 px-3 py-2 text-sm text-white"
-            >
+            <select name="vanId" className="ui-input mt-1 w-full">
               <option value="">Unresolved / fleet-wide</option>
               {vehicles.map((van) => (
                 <option key={van.id} value={van.id}>
@@ -1119,32 +1130,24 @@ function CreateMaintenanceModal({
               ))}
             </select>
           </label>
-          <label className="block text-xs text-white/45">
+          <label className="ui-label">
             Title
-            <input
-              required
-              name="title"
-              maxLength={160}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-graphite-800 px-3 py-2 text-sm text-white"
-            />
+            <input required name="title" maxLength={160} className="ui-input mt-1 w-full" />
           </label>
-          <label className="block text-xs text-white/45">
+          <label className="ui-label">
             Report
             <textarea
               required
               name="description"
               rows={5}
               maxLength={4000}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-graphite-800 px-3 py-2 text-sm text-white"
+              className="ui-input mt-1 w-full"
             />
           </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block text-xs text-white/45">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="ui-label">
               Assign to
-              <select
-                name="assignedUserId"
-                className="mt-1 w-full rounded-lg border border-white/10 bg-graphite-800 px-3 py-2 text-sm text-white"
-              >
+              <select name="assignedUserId" className="ui-input mt-1 w-full">
                 <option value="">Unassigned</option>
                 {users.map((user) => (
                   <option key={user.id} value={user.id}>
@@ -1153,29 +1156,18 @@ function CreateMaintenanceModal({
                 ))}
               </select>
             </label>
-            <label className="block text-xs text-white/45">
+            <label className="ui-label">
               Due date
-              <input
-                type="datetime-local"
-                name="dueAt"
-                className="mt-1 w-full rounded-lg border border-white/10 bg-graphite-800 px-3 py-2 text-sm text-white"
-              />
+              <input type="datetime-local" name="dueAt" className="ui-input mt-1 w-full" />
             </label>
           </div>
         </div>
         {error ? <p className="mt-3 text-sm text-red-200">{error}</p> : null}
         <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white/60"
-          >
+          <button type="button" onClick={onClose} className="ui-button ui-button-secondary">
             Cancel
           </button>
-          <button
-            disabled={busy}
-            className="rounded-lg bg-amber-300 px-4 py-2 text-sm font-semibold text-graphite-950"
-          >
+          <button disabled={busy} className="ui-button ui-button-primary">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create item'}
           </button>
         </div>

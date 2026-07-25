@@ -4,8 +4,16 @@
 import { useState, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  CreditCard, CalendarDays, Star, Car, ScanLine,
-  UserPlus, MessageSquare, BookUser, Globe, ShoppingBag,
+  CreditCard,
+  CalendarDays,
+  Star,
+  Car,
+  ScanLine,
+  UserPlus,
+  MessageSquare,
+  BookUser,
+  Globe,
+  ShoppingBag,
   type LucideIcon,
   AlertTriangle,
   Loader2,
@@ -14,16 +22,16 @@ import { cn } from '@/lib/utils'
 import type { TenantModuleState } from '@/lib/modules/getTenantModules'
 
 const MODULE_ICONS: Record<string, LucideIcon> = {
-  payments:     CreditCard,
+  payments: CreditCard,
   appointments: CalendarDays,
-  rewards:      Star,
-  vehicles:     Car,
-  damage_ai:    ScanLine,
-  leads:        UserPlus,
-  messages:     MessageSquare,
-  contacts:     BookUser,
-  website:      Globe,
-  store:        ShoppingBag,
+  rewards: Star,
+  vehicles: Car,
+  damage_ai: ScanLine,
+  leads: UserPlus,
+  messages: MessageSquare,
+  contacts: BookUser,
+  website: Globe,
+  store: ShoppingBag,
 }
 
 // Keys that are considered critical — show a warning before disabling
@@ -31,7 +39,7 @@ const CRITICAL_KEYS = new Set(['contacts', 'leads'])
 
 interface ModuleToggleCardProps {
   tenantId: string
-  module:   TenantModuleState
+  module: TenantModuleState
   /** Called after a successful toggle so parent can update state */
   onToggle?: (moduleKey: string, newState: boolean) => void
   /**
@@ -42,11 +50,16 @@ interface ModuleToggleCardProps {
   onToggleRequest?: (moduleKey: string, enabled: boolean) => Promise<boolean>
 }
 
-export function ModuleToggleCard({ tenantId, module: mod, onToggle, onToggleRequest }: ModuleToggleCardProps) {
-  const [enabled, setEnabled]     = useState(mod.is_enabled)
+export function ModuleToggleCard({
+  tenantId,
+  module: mod,
+  onToggle,
+  onToggleRequest,
+}: ModuleToggleCardProps) {
+  const [enabled, setEnabled] = useState(mod.is_enabled)
   const [isPending, startTransition] = useTransition()
-  const [error, setError]         = useState<string | null>(null)
-  const [showWarn, setShowWarn]   = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [showWarn, setShowWarn] = useState(false)
 
   const Icon = MODULE_ICONS[mod.key] ?? CreditCard
   const isCritical = CRITICAL_KEYS.has(mod.key)
@@ -78,12 +91,12 @@ export function ModuleToggleCard({ tenantId, module: mod, onToggle, onToggleRequ
         } else {
           // Default: POST /api/admin/toggle-module
           const res = await fetch('/api/admin/toggle-module', {
-            method:  'POST',
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({
-              tenant_id:  tenantId,
+            body: JSON.stringify({
+              tenant_id: tenantId,
               module_key: mod.key,
-              enabled:    next,
+              enabled: next,
             }),
           })
 
@@ -132,16 +145,20 @@ export function ModuleToggleCard({ tenantId, module: mod, onToggle, onToggleRequ
             />
           </div>
           <div>
-            <p className={cn(
-              'text-sm font-semibold transition-colors duration-200',
-              enabled ? 'text-white' : 'text-white/30'
-            )}>
+            <p
+              className={cn(
+                'text-sm font-semibold transition-colors duration-200',
+                enabled ? 'text-white' : 'text-white/30'
+              )}
+            >
               {mod.label}
             </p>
-            <p className={cn(
-              'text-xs transition-colors duration-200 leading-snug mt-0.5 max-w-[180px]',
-              enabled ? 'text-white/40' : 'text-white/20'
-            )}>
+            <p
+              className={cn(
+                'text-xs transition-colors duration-200 leading-snug mt-0.5 max-w-[180px]',
+                enabled ? 'text-white/40' : 'text-white/20'
+              )}
+            >
               {mod.description}
             </p>
           </div>
@@ -159,7 +176,7 @@ export function ModuleToggleCard({ tenantId, module: mod, onToggle, onToggleRequ
             'focus-visible:ring-offset-graphite-900',
             isPending && 'cursor-wait opacity-60',
             enabled
-              ? 'bg-gradient-to-r from-gold-500 to-amber-400 shadow-[0_0_12px_rgba(201,168,76,0.4)]'
+              ? 'bg-brand shadow-[0_4px_16px_rgb(var(--tenant-accent-rgb)/0.18)]'
               : 'bg-graphite-700 border border-white/10'
           )}
         >
@@ -185,18 +202,14 @@ export function ModuleToggleCard({ tenantId, module: mod, onToggle, onToggleRequ
           <span
             className={cn(
               'text-2xs font-semibold uppercase tracking-widest px-2 py-0.5 rounded',
-              enabled
-                ? 'bg-emerald-500/12 text-emerald-400'
-                : 'bg-white/5 text-white/20'
+              enabled ? 'bg-emerald-500/12 text-emerald-400' : 'bg-white/5 text-white/20'
             )}
           >
             {enabled ? 'Enabled' : 'Disabled'}
           </span>
         )}
 
-        {isCritical && (
-          <span className="text-2xs text-amber-400/60 font-medium">Critical</span>
-        )}
+        {isCritical && <span className="text-2xs text-amber-400/60 font-medium">Critical</span>}
       </div>
 
       {/* Critical module warning */}
@@ -209,10 +222,14 @@ export function ModuleToggleCard({ tenantId, module: mod, onToggle, onToggleRequ
             className="overflow-hidden"
           >
             <div className="flex items-start gap-2 rounded-xl bg-amber-500/8 border border-amber-500/20 px-3 py-2.5">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" strokeWidth={2} />
+              <AlertTriangle
+                className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5"
+                strokeWidth={2}
+              />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-amber-300/80 leading-snug mb-2">
-                  Disabling <strong>{mod.label}</strong> will remove access for all admins. Continue?
+                  Disabling <strong>{mod.label}</strong> will remove access for all admins.
+                  Continue?
                 </p>
                 <div className="flex gap-2">
                   <button

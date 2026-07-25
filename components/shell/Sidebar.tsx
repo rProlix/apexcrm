@@ -32,6 +32,7 @@ import {
   FileBarChart,
   ListChecks,
   Bell,
+  Boxes,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -57,6 +58,7 @@ const MODULE_ICONS: Record<string, LucideIcon> = {
 
 interface SidebarProps {
   tenantName: string
+  tenantLogoUrl?: string | null
   modules: NavModule[]
   userRole?: string
   isPlatformAdmin?: boolean
@@ -65,6 +67,7 @@ interface SidebarProps {
   /** Called when user closes the drawer (mobile) */
   onClose?: () => void
   commandCenter?: CommandCenterNavConfig
+  openActionCount?: number
 }
 
 interface NavItem {
@@ -74,6 +77,7 @@ interface NavItem {
   exact?: boolean
   /** Minimum roles that can see this item. Omit to show to everyone. */
   roles?: string[]
+  badge?: number
 }
 
 const baseCoreNav: NavItem[] = [
@@ -90,23 +94,35 @@ const platformNav: NavItem[] = [
   { label: 'Infrastructure Configuration', href: '/owner/infrastructure', icon: ServerCog },
   { label: 'Admin', href: '/admin', icon: Shield },
   { label: 'Module Access', href: '/owner/modules', icon: Layers },
+  { label: 'Module Packages', href: '/owner/packages', icon: Boxes },
   { label: 'Plans', href: '/owner/plans', icon: CreditCard },
 ]
 
 export function Sidebar({
   tenantName,
+  tenantLogoUrl,
   modules,
   userRole,
   isPlatformAdmin,
   isOpen = false,
   onClose,
   commandCenter,
+  openActionCount = 0,
 }: SidebarProps) {
   const pathname = usePathname()
   const isOwner = isPlatformAdmin || userRole === 'owner'
   const isAdmin = isOwner || userRole === 'admin'
   const commandNav: NavItem[] = [
-    ...(commandCenter?.inbox ? [{ label: 'Action Required', href: '/actions', icon: Inbox }] : []),
+    ...(commandCenter?.inbox
+      ? [
+          {
+            label: 'Action Required',
+            href: '/actions',
+            icon: Inbox,
+            badge: openActionCount,
+          },
+        ]
+      : []),
     ...(commandCenter?.activity ? [{ label: 'Activity', href: '/activity', icon: Activity }] : []),
     ...(commandCenter?.reports ? [{ label: 'Reports', href: '/reports', icon: FileBarChart }] : []),
     ...(commandCenter?.setup ? [{ label: 'Setup', href: '/setup', icon: ListChecks }] : []),
@@ -134,9 +150,9 @@ export function Sidebar({
     <aside
       className={cn(
         // Base — fixed rail, always above overlay
-        'fixed left-0 top-0 bottom-0 z-40 w-60',
+        'fixed bottom-0 left-0 top-0 z-40 w-64',
         'flex flex-col border-r border-surface-border',
-        'bg-graphite-900/95 backdrop-blur-xl',
+        'bg-graphite-900/97 shadow-[12px_0_40px_rgba(0,0,0,0.12)] backdrop-blur-xl',
         // CSS-only transition so Framer Motion cannot override translateX
         'transition-transform duration-300 ease-in-out',
         isOpen ? 'translate-x-0' : '-translate-x-full',
@@ -145,20 +161,27 @@ export function Sidebar({
       )}
     >
       {/* Logo / tenant name */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-surface-border">
-        <div className="h-8 w-8 rounded-lg bg-gold-gradient flex items-center justify-center shrink-0">
-          <span className="text-graphite-900 font-bold text-xs">
-            {tenantName.slice(0, 2).toUpperCase()}
-          </span>
+      <div className="flex min-h-16 items-center gap-3 border-b border-white/[0.065] px-4">
+        <div
+          className="brand-accent-surface flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border bg-cover bg-center"
+          style={tenantLogoUrl ? { backgroundImage: `url("${tenantLogoUrl}")` } : undefined}
+          role={tenantLogoUrl ? 'img' : undefined}
+          aria-label={tenantLogoUrl ? `${tenantName} logo` : undefined}
+        >
+          {!tenantLogoUrl && (
+            <span className="text-xs font-bold">{tenantName.slice(0, 2).toUpperCase()}</span>
+          )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-white truncate">{tenantName}</p>
-          <LiveBadge label="Active" className="mt-0.5" />
+          <p className="truncate text-sm font-semibold tracking-[-0.01em] text-white">
+            {tenantName}
+          </p>
+          <LiveBadge label="Workspace active" className="mt-0.5" />
         </div>
         {/* Mobile close button */}
         <button
           onClick={onClose}
-          className="md:hidden flex items-center justify-center h-7 w-7 rounded-lg text-white/30 hover:text-white hover:bg-graphite-700 transition-colors shrink-0"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-white/[0.05] hover:text-white md:hidden"
           aria-label="Close sidebar"
         >
           <svg
@@ -174,7 +197,7 @@ export function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4" aria-label="Primary navigation">
         {/* Core pages — filtered by role */}
         {coreNav.filter(canSee).map((item) => (
           <SidebarItem
@@ -189,9 +212,7 @@ export function Sidebar({
         {modules.length > 0 && (
           <>
             <div className="pt-4 pb-1 px-2">
-              <span className="text-2xs font-semibold text-white/25 uppercase tracking-widest">
-                Modules
-              </span>
+              <span className="text-xs font-medium text-white/[0.32]">Modules</span>
             </div>
             {modules.map((mod) => (
               <div key={mod.key}>
@@ -354,8 +375,8 @@ export function Sidebar({
           initial="rest"
           whileHover="hover"
           className={cn(
-            'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl',
-            'text-white/40 hover:text-red-400 hover:bg-red-500/8 transition-colors duration-150',
+            'flex min-h-10 w-full items-center gap-3 rounded-xl px-3 py-2.5',
+            'text-white/45 transition-colors duration-150 hover:bg-red-500/[0.08] hover:text-red-300',
             'text-sm font-medium'
           )}
         >
@@ -372,26 +393,36 @@ interface SidebarItemProps extends NavItem {
   onNavigate?: () => void
 }
 
-function SidebarItem({ label, href, icon: Icon, active, onNavigate }: SidebarItemProps) {
+function SidebarItem({ label, href, icon: Icon, active, onNavigate, badge }: SidebarItemProps) {
   return (
     <motion.div initial="rest" whileHover="hover" variants={sidebarItemHover}>
       <Link
         href={href}
         onClick={onNavigate}
         className={cn(
-          'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium',
+          'relative flex min-h-10 items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium',
           'transition-colors duration-150 focus-ring',
           active
-            ? 'bg-gold-500/12 text-gold-400 border border-gold-500/20'
-            : 'text-white/50 hover:text-white hover:bg-graphite-700'
+            ? 'border-brand/20 bg-brand/[0.09] text-white'
+            : 'text-white/[0.52] hover:bg-white/[0.04] hover:text-white'
         )}
       >
         <Icon
-          className={cn('h-4 w-4 shrink-0', active ? 'text-gold-400' : 'text-white/35')}
+          className={cn('h-4 w-4 shrink-0', active ? 'text-brand' : 'text-white/[0.38]')}
           strokeWidth={1.75}
         />
-        {label}
-        {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-gold-400" />}
+        <span className="truncate">{label}</span>
+        {typeof badge === 'number' && badge > 0 && (
+          <span className="ml-auto min-w-5 rounded-md bg-white/[0.07] px-1.5 text-center text-2xs font-semibold leading-5 text-white/65">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+        {active && (
+          <span
+            className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-brand"
+            aria-hidden="true"
+          />
+        )}
       </Link>
     </motion.div>
   )

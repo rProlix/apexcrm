@@ -11,6 +11,7 @@ import {
   type FleetVehicleRow,
 } from '@/components/van-damage/FleetNeedsAttentionBoard'
 import { resolveInspectionTimeZone } from '@/lib/van-damage/inspection-period'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 export const metadata = { title: 'Fleet — NexoraNow' }
 
@@ -173,34 +174,30 @@ export default async function VehiclesPage() {
   )
 
   return (
-    <div className="space-y-8 p-4 md:p-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[.18em] text-gold-300/65">
-            Fleet operations
-          </p>
-          <h1 className="mt-1 text-2xl font-bold text-white">Fleet</h1>
-          <p className="mt-1 text-sm text-white/40">
-            Operational status and severe-damage attention in one tenant-scoped board.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={`/dashboard/vehicles/maintenance?businessId=${encodeURIComponent(tenantId)}`}
-            className="focus-ring inline-flex items-center rounded-xl bg-amber-300 px-4 py-2.5 text-sm font-semibold text-graphite-950 transition hover:bg-amber-200"
-          >
-            <Wrench className="mr-2 h-4 w-4" />
-            Fleet Maintenance
-          </Link>
-          <Link
-            href={`/dashboard/vehicles/drivers?businessId=${encodeURIComponent(tenantId)}`}
-            className="focus-ring inline-flex items-center rounded-xl border border-white/10 bg-white/[.03] px-4 py-2.5 text-sm text-white/65 transition hover:border-gold-400/30 hover:text-white"
-          >
-            <UserRound className="mr-2 h-4 w-4" />
-            Driver profiles
-          </Link>
-        </div>
-      </header>
+    <div className="ui-page">
+      <PageHeader
+        eyebrow="Fleet operations"
+        title="Fleet"
+        description="Operational status, maintenance workload, and severe-damage attention in one tenant-scoped board."
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/dashboard/vehicles/maintenance?businessId=${encodeURIComponent(tenantId)}`}
+              className="ui-button ui-button-primary"
+            >
+              <Wrench className="mr-2 h-4 w-4" />
+              Fleet Maintenance
+            </Link>
+            <Link
+              href={`/dashboard/vehicles/drivers?businessId=${encodeURIComponent(tenantId)}`}
+              className="ui-button ui-button-secondary"
+            >
+              <UserRound className="mr-2 h-4 w-4" />
+              Driver profiles
+            </Link>
+          </div>
+        }
+      />
       <FleetNeedsAttentionBoard
         tenantId={tenantId}
         timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}

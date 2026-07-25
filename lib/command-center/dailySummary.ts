@@ -80,24 +80,66 @@ async function loadModuleSection(
   range: ReturnType<typeof getTenantDayRange>
 ): Promise<DailySummary['sections'][number] | null> {
   if (moduleKey === 'damage_ai') {
-    const [{ count: inspections, error }, { count: needsReview, error: reviewError }] =
-      await Promise.all([
-        context.db
-          .from('van_damage_inspections')
-          .select('id', { count: 'exact', head: true })
-          .eq('tenant_id', context.tenantId)
-          .gte('created_at', range.startIso)
-          .lt('created_at', range.endIso),
-        context.db
-          .from('van_damage_inspections')
-          .select('id', { count: 'exact', head: true })
-          .eq('tenant_id', context.tenantId)
-          .in('status', ['needs_review', 'failed'])
-          .gte('created_at', range.startIso)
-          .lt('created_at', range.endIso),
+    const [
+      { count: inspections, error },
+      { data: reviewRows, error: reviewError },
+      { count: level3Detected, error: level3Error },
+      { data: activeAlerts, error: activeAlertError },
+    ] = await Promise.all([
+      context.db
+        .from('van_damage_inspections')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', context.tenantId)
+        .gte('created_at', range.startIso)
+        .lt('created_at', range.endIso),
+      context.db
+        .from('van_damage_inspections')
+        .select('id, van_id')
+        .eq('tenant_id', context.tenantId)
+        .in('status', ['needs_review', 'failed'])
+        .gte('created_at', range.startIso)
+        .lt('created_at', range.endIso),
+      context.db
+        .from('van_damage_attention_alerts')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', context.tenantId)
+        .gte('first_triggered_at', range.startIso)
+        .lt('first_triggered_at', range.endIso),
+      context.db
+        .from('van_damage_attention_alerts')
+        .select('id, van_id')
+        .eq('tenant_id', context.tenantId)
+        .eq('status', 'active')
+        .order('first_triggered_at', { ascending: true })
+        .limit(5),
+    ])
+    if (error || reviewError || level3Error || activeAlertError) {
+      throw new Error(
+        error?.code ?? reviewError?.code ?? level3Error?.code ?? activeAlertError?.code
+      )
+    }
+
+    const reviewVehicleIds = new Set(
+      (reviewRows ?? []).map((row) => row.van_id ?? `inspection:${row.id}`)
+    )
+    const alertVehicleIds = Array.from(new Set((activeAlerts ?? []).map((alert) => alert.van_id)))
+    const { data: alertVehicles, error: vehicleError } =
+      alertVehicleIds.length === 0
+        ? { data: [], error: null }
+        : await context.db
+            .from('vehicles')
+            .select('id, name, van_number')
+            .eq('tenant_id', context.tenantId)
+            .in('id', alertVehicleIds)
+    if (vehicleError) throw new Error(vehicleError.code)
+    const vehicleLabels = new Map(
+      (alertVehicles ?? []).map((vehicle) => [
+        vehicle.id,
+        vehicle.van_number ? `Van ${vehicle.van_number}` : vehicle.name,
       ])
-    if (error || reviewError) throw new Error(error?.code ?? reviewError?.code)
-    return section('damage_ai', 'Van Damage AI', [
+    )
+
+    return section('damage_ai', 'Fleet inspections', [
       countBullet(
         'damage:inspections',
         'damage_ai',
@@ -109,11 +151,28 @@ async function loadModuleSection(
       countBullet(
         'damage:review',
         'damage_ai',
-        needsReview,
-        'inspection needs review',
-        'inspections need review',
+        reviewVehicleIds.size,
+        'van needs review',
+        'vans need review',
         '/actions?module=damage_ai'
       ),
+      countBullet(
+        'damage:level3-detected',
+        'damage_ai',
+        level3Detected,
+        'Level 3 damage detected',
+        'Level 3 damage events detected',
+        '/dashboard/vehicles?attention=level3',
+        (level3Detected ?? 0) > 0
+      ),
+      ...(activeAlerts ?? []).map((alert) => ({
+        id: `damage:dispatch:${alert.id}`,
+        moduleKey: 'damage_ai',
+        text: `${vehicleLabels.get(alert.van_id) ?? 'A van'} should not be dispatched until reviewed`,
+        value: alert.van_id,
+        href: `/dashboard/vehicles/${alert.van_id}`,
+        critical: true,
+      })),
     ])
   }
 

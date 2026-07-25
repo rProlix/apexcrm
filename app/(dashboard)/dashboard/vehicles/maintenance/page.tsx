@@ -7,6 +7,8 @@ import { guardModuleAccess } from '@/lib/modules/guardModuleAccess'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { MaintenanceWorkspace } from '@/components/maintenance/MaintenanceWorkspace'
 import type { MaintenanceItem } from '@/lib/maintenance/types'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { ErrorState } from '@/components/ui/StatePanel'
 
 export const metadata = { title: 'Fleet Maintenance' }
 
@@ -64,36 +66,27 @@ export default async function FleetMaintenancePage() {
   })) as unknown as MaintenanceItem[]
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+    <div className="ui-page">
+      <PageHeader
+        eyebrow="Fleet operations"
+        title="Fleet maintenance"
+        description="Prioritized reports, repair workflow, notes, and service history."
+        leading={
           <Link
             href="/dashboard/vehicles"
-            className="text-xs text-white/40 transition hover:text-white/70"
+            className="focus-ring inline-flex items-center rounded-md text-xs text-[var(--text-secondary)] transition hover:text-white"
           >
             <ArrowLeft className="mr-1 inline h-3.5 w-3.5" />
             Fleet
           </Link>
-          <div className="mt-3 flex items-center gap-3">
-            <span className="rounded-xl bg-amber-400/10 p-2.5 text-amber-200">
-              <Wrench className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="text-2xl font-bold text-white">Fleet Maintenance</h1>
-              <p className="mt-1 text-sm text-white/40">
-                Prioritized reports, repair workflow, notes, and service history.
-              </p>
-            </div>
-          </div>
-        </div>
-      </header>
+        }
+        icon={Wrench}
+      />
       {itemsResult.error ? (
-        <div role="alert" className="rounded-xl border border-red-400/20 bg-red-400/10 p-5">
-          <p className="text-sm font-medium text-red-100">We couldn’t load fleet maintenance.</p>
-          <p className="mt-1 text-xs text-red-100/65">
-            Refresh the page to try again. If the problem continues, contact your platform owner.
-          </p>
-        </div>
+        <ErrorState
+          title="We couldn’t load fleet maintenance"
+          description="Refresh to try again. If the problem continues, contact your platform owner."
+        />
       ) : (
         <MaintenanceWorkspace
           businessId={tenantId}

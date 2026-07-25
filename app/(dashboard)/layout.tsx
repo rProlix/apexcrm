@@ -13,6 +13,7 @@ import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import { slugifyBusinessName } from '@/lib/validation/auth'
 import { hasPermission } from '@/lib/auth/permissions'
 import type { AnyRole } from '@/lib/auth/types'
+import { resolveSafeTenantAccent } from '@/lib/design-system/tenantAccent'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   // ── Auth guard ──────────────────────────────────────────────────────
@@ -154,12 +155,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!tenant) {
     console.error('[DashboardLayout] All tenant resolution paths exhausted for user:', user.id)
-    return (
-      <WorkspaceError
-        message="We couldn't find your workspace."
-        debug={`auth_user_id=${user.id} email=${user.email}`}
-      />
-    )
+    return <WorkspaceError message="We couldn't find your workspace." />
   }
 
   // ── Config + modules ────────────────────────────────────────────────
@@ -167,12 +163,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!config) {
     console.error('[DashboardLayout] loadTenantConfig returned null for tenant:', tenant.id)
-    return (
-      <WorkspaceError
-        message="Your workspace configuration failed to load."
-        debug={`tenant_id=${tenant.id}`}
-      />
-    )
+    return <WorkspaceError message="Your workspace configuration failed to load." />
   }
 
   const navModules: NavModule[] = loadEnabledModules(config.enabledModuleKeys).map((m) => ({
@@ -195,6 +186,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const userStatus = (profile?.status ?? 'active') as string
   const userApproved = profile?.approved !== false
   const isPlatformAdmin = userRole === 'owner'
+  const safeAccent = resolveSafeTenantAccent(config.branding.primary_color)
   const commandCenter = {
     inbox: !isPlatformAdmin && hasPermission(userRole as AnyRole, 'view_dashboard'),
     activity: !isPlatformAdmin && hasPermission(userRole as AnyRole, 'view_dashboard'),
@@ -208,6 +200,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .eq('tenant_id', tenant.id)
     .eq('recipient_user_id', profile?.id ?? '')
     .is('read_at', null)
+  let openActionCount = 0
+  if (commandCenter.inbox && profile?.id && config.enabledModuleKeys.length > 0) {
+    let actionCountQuery = admin
+      .from('command_action_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenant.id)
+      .in('module_key', config.enabledModuleKeys)
+      .in('status', ['open', 'in_progress', 'snoozed'])
+    if (userRole === 'staff') {
+      actionCountQuery = actionCountQuery.or(
+        `assigned_user_id.eq.${profile.id},and(assigned_user_id.is.null,assigned_role.is.null),and(assigned_user_id.is.null,assigned_role.eq.staff)`
+      )
+    }
+    const { count } = await actionCountQuery
+    openActionCount = count ?? 0
+  }
 
   // Block suspended or disabled accounts
   if (userStatus === 'suspended' || userStatus === 'disabled') {
@@ -238,6 +246,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
       isPlatformAdmin={isPlatformAdmin}
       commandCenter={commandCenter}
       unreadNotifications={unreadNotifications ?? 0}
+      openActionCount={openActionCount}
+      tenantLogoUrl={config.branding.logo_url}
+      tenantAccent={safeAccent}
     >
       {children}
     </DashboardShell>
@@ -264,8 +275,7 @@ function AccountBlockedPage({ title, message }: { title: string; message: string
   )
 }
 
-function WorkspaceError({ message, debug }: { message: string; debug?: string }) {
-  const isDev = process.env.NODE_ENV === 'development'
+function WorkspaceError({ message }: { message: string }) {
   return (
     <div className="min-h-dvh bg-graphite-950 flex flex-col items-center justify-center px-6">
       <div className="text-center max-w-sm">
@@ -274,22 +284,12 @@ function WorkspaceError({ message, debug }: { message: string; debug?: string })
         </div>
         <h1 className="text-xl font-bold text-white mb-2">Workspace unavailable</h1>
         <p className="text-sm text-white/50 mb-6 leading-relaxed">{message}</p>
-        {isDev && debug && (
-          <p className="text-xs text-white/20 font-mono mb-4 break-all">{debug}</p>
-        )}
         <Link
           href="/login"
           className="inline-flex items-center justify-center h-10 px-6 rounded-xl font-semibold bg-gold-gradient text-graphite-900 text-sm hover:shadow-glow-gold transition-shadow duration-200"
         >
           Sign out and try again
         </Link>
-        {isDev && (
-          <p className="mt-4 text-xs text-white/20">
-            <a href="/api/debug-session" className="underline">
-              Run diagnostic →
-            </a>
-          </p>
-        )}
       </div>
     </div>
   )

@@ -27,6 +27,9 @@ import {
   type InspectionReviewFilter,
   type InspectionSearchRow,
 } from '@/lib/van-damage/inspection-search'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { EmptyState } from '@/components/ui/StatePanel'
 
 export const metadata = { title: 'Van Damage AI — ApexCRM' }
 
@@ -440,24 +443,23 @@ export default async function DamageAIPage({
   const returnHref = `/dashboard/damage-ai?${returnParams.toString()}`
 
   return (
-    <div className="space-y-7">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Van Damage AI</h1>
-          <p className="mt-1 text-sm text-white/40">
-            Slack-powered van image intake and AI damage analysis
-          </p>
-        </div>
-        {['owner', 'admin'].includes(scope.ctx.role) && (
-          <Link
-            href={`/dashboard/damage-ai/settings/slack${suffix}`}
-            className="inline-flex items-center rounded-lg border border-white/10 px-3 py-2 text-sm text-white/70 hover:bg-white/5"
-          >
-            <Settings className="mr-2 h-4 w-4" />
-            Slack settings
-          </Link>
-        )}
-      </header>
+    <div className="ui-page">
+      <PageHeader
+        eyebrow="Inspection intelligence"
+        title="Van Damage AI"
+        description="Slack-powered image intake, damage analysis, and review workflow."
+        actions={
+          ['owner', 'admin'].includes(scope.ctx.role) ? (
+            <Link
+              href={`/dashboard/damage-ai/settings/slack${suffix}`}
+              className="ui-button ui-button-secondary"
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Slack settings
+            </Link>
+          ) : null
+        }
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
@@ -471,35 +473,35 @@ export default async function DamageAIPage({
           { label: 'Completed', value: completed, icon: CheckCircle2, color: 'text-emerald-300' },
           { label: 'Needs review', value: review, icon: AlertTriangle, color: 'text-amber-300' },
         ].map(({ label, value: count, icon: Icon, color }) => (
-          <div key={label} className="rounded-xl border border-white/10 bg-graphite-800 p-4">
+          <div key={label} className="ui-surface p-4">
             <Icon className={`h-5 w-5 ${color}`} />
-            <p className="mt-4 text-2xl font-semibold text-white">{count}</p>
-            <p className="text-xs text-white/40">{label}</p>
+            <p className="mt-4 text-2xl font-semibold tabular-nums text-white">{count}</p>
+            <p className="text-xs text-[var(--text-secondary)]">{label}</p>
           </div>
         ))}
       </div>
 
       <div className="grid gap-4">
-        <section className="rounded-xl border border-white/10 bg-graphite-800 p-5">
+        <section className="ui-surface p-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <MessageSquare className="h-5 w-5 text-fuchsia-300" />
               <div>
                 <h2 className="text-sm font-semibold text-white">Slack intake</h2>
-                <p className="text-xs text-white/40">
+                <p className="text-xs text-[var(--text-secondary)]">
                   {connected.connected
                     ? connected.workspaceName || connected.teamId
                     : 'Disconnected'}
                 </p>
               </div>
             </div>
-            <span
-              className={`text-xs ${connected.connected ? 'text-emerald-300' : 'text-white/35'}`}
-            >
-              {connected.connected ? 'Connected' : 'Not configured'}
-            </span>
+            <StatusBadge
+              status={connected.connected ? 'connected' : 'disconnected'}
+              tone={connected.connected ? 'success' : 'disabled'}
+              label={connected.connected ? 'Connected' : 'Not configured'}
+            />
           </div>
-          <p className="mt-4 text-xs text-white/45">
+          <p className="mt-4 text-xs text-[var(--text-secondary)]">
             Selected channels: {channelResult.count ?? 0}. Image messages outside these channels are
             ignored.
           </p>
@@ -597,14 +599,14 @@ function PaginationLink({
 
 function MissingBusiness() {
   return (
-    <div className="rounded-xl border border-white/10 bg-graphite-800 p-8 text-center">
-      <h1 className="text-xl font-semibold text-white">Select a business</h1>
-      <p className="mt-2 text-sm text-white/40">
-        Platform owners must open Van Damage AI with a businessId query parameter.
-      </p>
-      <Link href="/owner/tenants" className="mt-5 inline-block text-sm text-gold-300">
-        Browse businesses
-      </Link>
-    </div>
+    <EmptyState
+      title="Select a business"
+      description="Platform owners must select a business before opening Van Damage AI."
+      action={
+        <Link href="/owner/tenants" className="ui-button ui-button-primary">
+          Browse businesses
+        </Link>
+      }
+    />
   )
 }

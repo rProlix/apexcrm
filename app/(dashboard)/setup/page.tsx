@@ -3,6 +3,9 @@ import { ArrowRight, CheckCircle2, Circle, Clock3, LockKeyhole } from 'lucide-re
 import { loadSetupChecklist } from '@/lib/command-center/setup'
 import { isTenantAdmin, requireCommandCenterContext } from '@/lib/command-center/context'
 import { SetupStepActions } from '@/components/command-center/SetupStepActions'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { ErrorState } from '@/components/ui/StatePanel'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,18 +17,17 @@ export default async function SetupPage() {
   } catch {
     return (
       <div className="space-y-6">
-        <header>
-          <p className="text-xs font-semibold uppercase tracking-widest text-blue-300/70">
-            Business setup
-          </p>
-          <h1 className="mt-1 text-2xl font-bold text-white">Smart Setup Checklist</h1>
-        </header>
-        <div
-          role="alert"
-          className="rounded-xl border border-red-500/20 bg-red-500/5 p-5 text-sm text-red-200/75"
-        >
-          We couldn’t load setup progress. No steps were marked complete.
-        </div>
+        <PageHeader
+          eyebrow="Business setup"
+          title="Smart Setup Checklist"
+          description="Finish the configuration required by your active modules."
+          icon={CheckCircle2}
+        />
+        <ErrorState
+          title="We couldn’t load setup progress"
+          description="No steps were marked complete. Try again to reload the authoritative setup state."
+          compact
+        />
       </div>
     )
   }
@@ -33,18 +35,24 @@ export default async function SetupPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <p className="text-xs font-semibold uppercase tracking-widest text-blue-300/70">
-          Business setup
-        </p>
-        <h1 className="mt-1 text-2xl font-bold text-white">Smart Setup Checklist</h1>
-        <p className="mt-2 max-w-2xl text-sm text-white/45">
-          Steps come from active modules and complete only when the underlying business data is
-          actually configured.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Business setup"
+        title="Smart Setup Checklist"
+        description="Steps come from active modules and complete only when the underlying business data is actually configured."
+        icon={CheckCircle2}
+        meta={
+          <StatusBadge
+            status={checklist.allRequiredComplete ? 'complete' : 'in_progress'}
+            label={
+              checklist.allRequiredComplete
+                ? 'Required setup complete'
+                : `${checklist.completed} of ${checklist.required} complete`
+            }
+          />
+        }
+      />
 
-      <section className="rounded-2xl border border-white/10 bg-graphite-900/60 p-5">
+      <section className="ui-surface p-5">
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="text-xs text-white/35">Required setup</p>
@@ -56,17 +64,14 @@ export default async function SetupPage() {
         </div>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
           <div
-            className="h-full rounded-full bg-gold-400"
+            className="h-full rounded-full bg-brand"
             style={{ width: `${checklist.percent}%` }}
           />
         </div>
       </section>
 
       {groups.map((moduleKey) => (
-        <section
-          key={moduleKey}
-          className="rounded-2xl border border-white/10 bg-graphite-900/60 p-5"
-        >
+        <section key={moduleKey} className="ui-surface p-5">
           <h2 className="text-sm font-semibold capitalize text-white">
             {moduleKey.replace('_', ' ')}
           </h2>
@@ -105,7 +110,7 @@ export default async function SetupPage() {
                     {item.status !== 'complete' && item.status !== 'dismissed' && (
                       <Link
                         href={item.actionHref}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-gold-400 hover:text-gold-300"
+                        className="inline-flex min-h-9 items-center gap-1 text-xs font-medium text-brand hover:brightness-110"
                       >
                         {item.actionLabel}
                         <ArrowRight className="h-3 w-3" />

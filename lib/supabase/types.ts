@@ -110,6 +110,83 @@ export interface Database {
         }
         Relationships: []
       }
+      owner_module_packages: {
+        Row: {
+          id: string
+          slug: string
+          name: string
+          description: string
+          benefits: string[]
+          status: 'active' | 'archived'
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          slug: string
+          name: string
+          description?: string
+          benefits?: string[]
+          status?: 'active' | 'archived'
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          slug?: string
+          name?: string
+          description?: string
+          benefits?: string[]
+          status?: 'active' | 'archived'
+          created_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      owner_module_package_items: {
+        Row: {
+          package_id: string
+          module_key: string
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          package_id: string
+          module_key: string
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          module_key?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      tenant_module_package_applications: {
+        Row: {
+          id: string
+          tenant_id: string
+          package_id: string | null
+          package_name: string
+          applied_by: string | null
+          previous_modules: Json
+          applied_modules: string[]
+          applied_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          package_id?: string | null
+          package_name: string
+          applied_by?: string | null
+          previous_modules?: Json
+          applied_modules?: string[]
+          applied_at?: string
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
       plans: {
         Row: {
           id: string
@@ -2624,6 +2701,28 @@ export interface Database {
       is_platform_owner: {
         Args: Record<string, never>
         Returns: boolean
+      }
+      apply_owner_module_package: {
+        Args: {
+          p_tenant_id: string
+          p_package_id: string
+          p_actor_user_id: string
+          p_all_module_keys: string[]
+        }
+        Returns: string
+      }
+      save_owner_module_package: {
+        Args: {
+          p_package_id: string | null
+          p_slug: string
+          p_name: string
+          p_description: string
+          p_benefits: string[]
+          p_module_keys: string[]
+          p_actor_user_id: string
+          p_all_module_keys: string[]
+        }
+        Returns: string
       }
       decrement_product_inventory: {
         Args: { p_product_id: string; p_quantity: number }
