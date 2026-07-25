@@ -13,6 +13,7 @@ import {
   Eye,
   History,
   ImageIcon,
+  Search,
   ShieldAlert,
   UserRound,
   Wrench,
@@ -25,6 +26,11 @@ import { InspectionPeriodBadge } from './InspectionPeriodBadge'
 import { useOperationsRefresh } from '@/components/command-center/OperationsRealtimeProvider'
 import { QuickPeekTrigger } from '@/components/command-center/QuickPeek'
 import { MOTION_TRANSITION } from '@/lib/design-system/motion'
+import {
+  compareFleetDamageCards,
+  type FleetDamageCard,
+  type FleetDamageLevel,
+} from '@/lib/van-damage/fleet-damage'
 
 type JsonRecord = Record<string, unknown>
 
@@ -38,6 +44,7 @@ export type FleetVehicleRow = {
   plate_number: string | null
   status: string
   metadata: JsonRecord
+  profileImageId?: string | null
 }
 
 export type FleetAttentionRow = {
@@ -106,6 +113,8 @@ export function FleetNeedsAttentionBoard({
   vehicles,
   attention,
   maintenance,
+  fleetDamageCards,
+  fleetQuery,
   attentionError,
 }: {
   tenantId: string
@@ -114,6 +123,14 @@ export function FleetNeedsAttentionBoard({
   vehicles: FleetVehicleRow[]
   attention: FleetAttentionRow[]
   maintenance: FleetMaintenanceSummary[]
+  fleetDamageCards: FleetDamageCard[]
+  fleetQuery: {
+    q?: string
+    level?: string
+    age?: string
+    status?: string
+    sort?: string
+  }
   attentionError: string | null
 }) {
   const router = useRouter()
@@ -232,6 +249,13 @@ export function FleetNeedsAttentionBoard({
           tone="text-red-200 bg-red-400/10"
         />
       </div>
+
+      <FleetDamageGrid
+        cards={fleetDamageCards}
+        businessId={tenantId}
+        timeZone={timeZone}
+        query={fleetQuery}
+      />
 
       <section
         className="rounded-2xl border border-red-400/20 bg-[var(--surface-panel)] p-4 shadow-[inset_3px_0_0_rgba(248,113,113,.7)] md:p-6"
@@ -365,6 +389,312 @@ export function FleetNeedsAttentionBoard({
       </section>
     </div>
   )
+}
+
+function FleetDamageGrid({
+  cards,
+  businessId,
+  timeZone,
+  query,
+}: {
+  cards: FleetDamageCard[]
+  businessId: string
+  timeZone: string
+  query: { q?: string; level?: string; age?: string; status?: string; sort?: string }
+}) {
+  const searchQuery = query.q?.trim() ?? ''
+  const levelFilter = query.level || 'all'
+  const ageFilter = query.age || 'all'
+  const statusFilter = query.status || 'all'
+  const sortOrder = query.sort || 'highest_damage'
+  const displayed = useMemo(() => {
+    const filters = { q: searchQuery, level: levelFilter, age: ageFilter, status: statusFilter, sort: sortOrder }
+    return cards
+      .filter((card) => fleetCardMatches(card, filters))
+      .sort((a, b) => compareFleetDamageCards(a, b, filters.sort) || a.id.localeCompare(b.id))
+  }, [ageFilter, cards, levelFilter, searchQuery, sortOrder, statusFilter])
+  const activeFilterCount = [searchQuery, levelFilter, ageFilter, statusFilter].filter(
+    (value, index) => (index === 0 ? Boolean(value) : value !== 'all')
+  ).length
+
+  return (
+    <section className="rounded-2xl border border-white/[0.075] bg-[var(--surface-panel)] p-4 md:p-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Fleet damage grid</h2>
+          <p className="mt-1 text-xs text-white/40">
+            {activeFilterCount ? `${displayed.length} of ${cards.length} vans` : `${cards.length} vans`} · current confirmed damage level with analysis age.
+          </p>
+        </div>
+        <form className="grid gap-2 md:grid-cols-[minmax(12rem,1fr)_10rem_11rem_11rem_13rem_auto]" aria-label="Filter Fleet damage grid">
+          <label className="relative">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-white/25" />
+            <input name="q" defaultValue={searchQuery} placeholder="Search vans" className="ui-input min-h-10 py-2 pl-9 text-xs" />
+          </label>
+          <FleetSelect name="level" value={levelFilter} label="Damage level" options={[
+            ['all', 'All levels'],
+            ['level_0', 'Level 0'],
+            ['level_1', 'Level 1'],
+            ['level_0_1', 'Level 0 and 1'],
+            ['level_2', 'Level 2'],
+            ['level_3', 'Level 3'],
+            ['needs_review', 'Needs review'],
+            ['no_damage', 'No active damage'],
+            ['no_analysis', 'No completed analysis'],
+          ]} />
+          <FleetSelect name="age" value={ageFilter} label="Analysis age" options={[
+            ['all', 'Any age'],
+            ['today', 'Today'],
+            ['24h', 'Last 24 hours'],
+            ['3d', 'Last 3 days'],
+            ['7d', 'Last 7 days'],
+            ['14d', 'Last 14 days'],
+            ['30d', 'Last 30 days'],
+            ['older_30d', 'Older than 30 days'],
+            ['never', 'Never analyzed'],
+          ]} />
+          <FleetSelect name="fleetStatus" value={statusFilter} label="Status" options={[
+            ['all', 'Any status'],
+            ['active_damage', 'Active damage'],
+            ['no_active_damage', 'No active damage'],
+            ['needs_attention', 'Needs Attention'],
+            ['out_of_service', 'Out of service'],
+            ['active_maintenance', 'Active maintenance'],
+            ['missing_profile_image', 'Missing image'],
+            ['analysis_processing', 'Analysis processing'],
+            ['analysis_failed', 'Analysis failed'],
+          ]} />
+          <FleetSelect name="fleetSort" value={sortOrder} label="Sort" options={[
+            ['highest_damage', 'Highest damage first'],
+            ['lowest_damage', 'Lowest damage first'],
+            ['recent_analysis', 'Most recent analysis'],
+            ['oldest_analysis', 'Oldest analysis'],
+            ['recent_observation', 'Recent damage observed'],
+            ['oldest_unresolved', 'Oldest unresolved damage'],
+            ['van_asc', 'Van number ascending'],
+            ['van_desc', 'Van number descending'],
+            ['needs_review', 'Needs Review first'],
+            ['out_of_service', 'Out of service first'],
+            ['most_damage', 'Most active damage'],
+            ['most_maintenance', 'Most active maintenance'],
+          ]} />
+          <div className="flex gap-2">
+            <button className="ui-button-secondary min-h-10 px-3 text-xs">Apply</button>
+            {activeFilterCount > 0 && (
+              <Link href="/dashboard/vehicles" className="ui-button-ghost min-h-10 px-3 text-xs">
+                Clear
+              </Link>
+            )}
+          </div>
+        </form>
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+        {displayed.map((card) => (
+          <FleetDamageCardView
+            key={card.id}
+            card={card}
+            businessId={businessId}
+            timeZone={timeZone}
+          />
+        ))}
+      </div>
+      {!displayed.length && (
+        <p className="mt-5 rounded-xl border border-dashed border-white/10 p-8 text-center text-sm text-white/35">
+          No vans match the current Fleet filters.
+        </p>
+      )}
+    </section>
+  )
+}
+
+function FleetDamageCardView({
+  card,
+  businessId,
+  timeZone,
+}: {
+  card: FleetDamageCard
+  businessId: string
+  timeZone: string
+}) {
+  const tone = damageLevelTone(card.damageLevel, card.analysisState)
+  const imageId = card.profileImageId || card.latestEvidenceImageId
+  const label =
+    card.analysisState === 'completed' ? `Level ${card.damageLevel}` : analysisStateLabel(card.analysisState)
+  return (
+    <Link
+      href={`/dashboard/vehicles/${card.id}?businessId=${encodeURIComponent(businessId)}`}
+      className={`focus-ring group overflow-hidden rounded-xl border bg-graphite-900/70 transition hover:-translate-y-0.5 ${tone.card}`}
+      aria-label={`${card.van_number ? `Van ${card.van_number}` : card.name}, ${label}, ${card.activeDamageCount} active damage cases, ${analysisAge(card.latestAnalysisAt)}`}
+    >
+      <div className={`h-1 ${tone.rail}`} />
+      <div className="relative aspect-[16/9] bg-black/20">
+        {imageId ? (
+          <SignedDamageImage
+            imageId={imageId}
+            businessId={businessId}
+            alt={`${card.van_number ? `Van ${card.van_number}` : card.name} profile image`}
+            fillContainer
+            sizes="(min-width: 1536px) 14vw, (min-width: 1024px) 25vw, 50vw"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-white/25">
+            <ImageIcon className="h-7 w-7" />
+          </div>
+        )}
+      </div>
+      <div className="p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-[11px] uppercase tracking-[.13em] text-white/35">
+              {card.van_number ? `Van ${card.van_number}` : 'Vehicle'}
+            </p>
+            <h3 className="mt-1 truncate text-sm font-semibold text-white/85">{card.name}</h3>
+            <p className="mt-0.5 truncate text-[11px] text-white/35">
+              {[card.year, card.make, card.model].filter(Boolean).join(' ') || card.plate_number || 'Details unavailable'}
+            </p>
+          </div>
+          <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-medium ${tone.badge}`}>
+            {label}
+          </span>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-white/40">
+          <span>{card.activeDamageCount} active damage</span>
+          <span>{card.level3Count} Level 3</span>
+          <span>{card.activeMaintenanceCount} maintenance</span>
+          <span>{humanize(card.status)}</span>
+        </div>
+        <p className="mt-3 truncate text-[11px] text-white/35" title={card.latestAnalysisAt ? formatDate(card.latestAnalysisAt, timeZone) : undefined}>
+          {analysisAge(card.latestAnalysisAt)}
+        </p>
+        {card.needsReview && (
+          <p className="mt-2 rounded-lg border border-sky-300/15 bg-sky-300/[.06] px-2 py-1 text-[11px] text-sky-100/75">
+            Needs Review
+          </p>
+        )}
+      </div>
+    </Link>
+  )
+}
+
+function FleetSelect({
+  name,
+  value,
+  label,
+  options,
+}: {
+  name: string
+  value: string
+  label: string
+  options: Array<[string, string]>
+}) {
+  return (
+    <select name={name} defaultValue={value} aria-label={label} className="ui-input min-h-10 px-3 py-2 text-xs">
+      {options.map(([optionValue, optionLabel]) => (
+        <option key={optionValue} value={optionValue}>
+          {optionLabel}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+function fleetCardMatches(
+  card: FleetDamageCard,
+  filters: { q: string; level: string; age: string; status: string; sort: string }
+) {
+  const query = filters.q.toLocaleLowerCase()
+  if (query) {
+    const haystack = [
+      card.van_number,
+      card.name,
+      card.plate_number,
+      card.make,
+      card.model,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLocaleLowerCase()
+    if (!haystack.includes(query)) return false
+  }
+  if (filters.level === 'level_0' && card.damageLevel !== 0) return false
+  if (filters.level === 'level_1' && card.damageLevel !== 1) return false
+  if (filters.level === 'level_0_1' && card.damageLevel > 1) return false
+  if (filters.level === 'level_2' && card.damageLevel !== 2) return false
+  if (filters.level === 'level_3' && card.damageLevel !== 3) return false
+  if (filters.level === 'needs_review' && !card.needsReview) return false
+  if (filters.level === 'no_damage' && card.activeDamageCount > 0) return false
+  if (filters.level === 'no_analysis' && card.analysisState !== 'never') return false
+  if (!ageMatches(card.latestAnalysisAt, filters.age)) return false
+  if (filters.status === 'active_damage' && card.activeDamageCount === 0) return false
+  if (filters.status === 'no_active_damage' && card.activeDamageCount > 0) return false
+  if (filters.status === 'needs_attention' && card.damageLevel < 3 && !card.needsReview) return false
+  if (filters.status === 'out_of_service' && !['out_of_service', 'inactive', 'maintenance'].includes(card.status)) return false
+  if (filters.status === 'active_maintenance' && card.activeMaintenanceCount === 0) return false
+  if (filters.status === 'missing_profile_image' && !card.missingProfileImage) return false
+  if (filters.status === 'analysis_processing' && card.analysisState !== 'processing') return false
+  if (filters.status === 'analysis_failed' && card.analysisState !== 'failed') return false
+  return true
+}
+
+function ageMatches(value: string | null, age: string) {
+  if (age === 'all') return true
+  if (age === 'never') return !value
+  if (!value) return false
+  const hours = (Date.now() - Date.parse(value)) / 3_600_000
+  if (age === 'today') return new Date(value).toDateString() === new Date().toDateString()
+  if (age === '24h') return hours <= 24
+  if (age === '3d') return hours <= 72
+  if (age === '7d') return hours <= 168
+  if (age === '14d') return hours <= 336
+  if (age === '30d') return hours <= 720
+  if (age === 'older_30d') return hours > 720
+  return true
+}
+
+function damageLevelTone(level: FleetDamageLevel, analysisState: string) {
+  if (analysisState !== 'completed') {
+    return {
+      rail: 'bg-white/20',
+      card: 'border-white/[0.075]',
+      badge: 'border-white/10 bg-white/[.04] text-white/55',
+    }
+  }
+  if (level >= 3) {
+    return {
+      rail: 'bg-red-400',
+      card: 'border-red-400/25 shadow-[inset_0_0_0_1px_rgba(248,113,113,.05)]',
+      badge: 'border-red-300/20 bg-red-400/10 text-red-100',
+    }
+  }
+  if (level === 2) {
+    return {
+      rail: 'bg-amber-300',
+      card: 'border-amber-300/22',
+      badge: 'border-amber-300/20 bg-amber-300/10 text-amber-100',
+    }
+  }
+  return {
+    rail: 'bg-emerald-300',
+    card: 'border-emerald-300/18',
+    badge: 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
+  }
+}
+
+function analysisStateLabel(state: string) {
+  if (state === 'processing') return 'Processing'
+  if (state === 'failed') return 'Failed'
+  return 'No analysis'
+}
+
+function analysisAge(value: string | null) {
+  if (!value) return 'Never analyzed'
+  const hours = Math.max(0, (Date.now() - Date.parse(value)) / 3_600_000)
+  if (hours < 1) return 'Analyzed less than 1 hour ago'
+  if (hours < 24) return `Analyzed ${Math.floor(hours)} hour${Math.floor(hours) === 1 ? '' : 's'} ago`
+  const days = Math.floor(hours / 24)
+  if (days === 1) return 'Analyzed yesterday'
+  return `Analyzed ${days} days ago`
 }
 
 function SevereVanCard({

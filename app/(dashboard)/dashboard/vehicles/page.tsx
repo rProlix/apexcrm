@@ -11,6 +11,12 @@ import {
   type FleetVehicleRow,
 } from '@/components/van-damage/FleetNeedsAttentionBoard'
 import { resolveInspectionTimeZone } from '@/lib/van-damage/inspection-period'
+import {
+  buildFleetDamageCards,
+  type FleetAnalysisInput,
+  type FleetDamageCaseInput,
+} from '@/lib/van-damage/fleet-damage'
+import { selectVehicleProfileImage, type VehicleImageCandidate } from '@/lib/van-damage/inspection-vehicle'
 import { PageHeader } from '@/components/ui/PageHeader'
 
 export const metadata = { title: 'Fleet — NexoraNow' }
@@ -21,38 +27,68 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {}
 }
 
-export default async function VehiclesPage() {
+type LooseQuery = {
+  select: (columns: string) => LooseQuery
+  eq: (column: string, value: string) => LooseQuery
+  in: (column: string, values: string[]) => LooseQuery
+  not: (column: string, operator: string, value: string) => LooseQuery
+  order: (column: string, options: { ascending: boolean }) => LooseQuery
+  limit: (count: number) => Promise<{ data: unknown[] | null; error?: { message: string } | null }>
+}
+
+type MaintenanceRawRow = {
+  id: string
+  van_id: string | null
+  title: string
+  status: string
+  effective_priority: string
+  severity: string | null
+  operational_impact: string | null
+  resolution_effort: string | null
+  due_at: string | null
+  latest_activity_at: string
+}
+
+type InspectionRawRow = {
+  id: string
+  tenant_id: string
+  van_id: string | null
+  status: string | null
+  created_at: string
+  completed_at: string | null
+}
+
+type RunRawRow = {
+  inspection_id: string
+  tenant_id: string
+  status: string | null
+  completed_at: string | null
+}
+
+export default async function VehiclesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const params = await searchParams
   const ctx = await requirePermission('use_modules')
   const tenantId = ctx.tenant_id!
   await guardModuleAccess(tenantId, 'vehicles', ctx.role)
 
   const db = getSupabaseServerClient()
   const looseDb = db as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        eq: (
-          column: string,
-          value: string
-        ) => {
-          eq: (
-            column: string,
-            value: string
-          ) => {
-            order: (
-              column: string,
-              options: { ascending: boolean }
-            ) => {
-              limit: (
-                count: number
-              ) => Promise<{ data: unknown[] | null; error?: { message: string } | null }>
-            }
-          }
-        }
-      }
-    }
+    from: (table: string) => LooseQuery
   }
-  const [vehiclesResult, attentionResult, tenantResult, maintenanceResult, damageCasesResult] =
-    await Promise.all([
+  const [
+    vehiclesResult,
+    attentionResult,
+    tenantResult,
+    maintenanceResult,
+    damageCasesResult,
+    inspectionResult,
+    runResult,
+    imageResult,
+  ] = await Promise.all([
       db
         .from('vehicles')
         .select(
@@ -76,18 +112,70 @@ export default async function VehiclesPage() {
       looseDb
         .from('van_damage_cases')
         .select(
-          'id,van_id,first_detected_inspection_id,first_upload_session_id,first_evidence_image_id,first_reporter_snapshot,first_source_timestamp,first_source_timestamp_kind,latest_uploader_snapshot,last_observed_at'
+          'id,tenant_id,business_id,van_id,lifecycle_status,current_severity,max_observed_severity,effective_severity,needs_review,latest_observed_inspection_id,latest_evidence_image_id,first_detected_inspection_id,first_upload_session_id,first_evidence_image_id,first_reporter_snapshot,first_source_timestamp,first_source_timestamp_kind,latest_uploader_snapshot,last_observed_at'
         )
         .eq('tenant_id', tenantId)
         .eq('business_id', tenantId)
         .order('last_observed_at', { ascending: false })
         .limit(750),
+      db
+        .from('van_damage_inspections')
+        .select('id,tenant_id,business_id,van_id,status,created_at,completed_at')
+        .eq('tenant_id', tenantId)
+        .eq('business_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(1000),
+      db
+        .from('van_damage_ai_runs')
+        .select('inspection_id,tenant_id,status,completed_at')
+        .eq('tenant_id', tenantId)
+        .eq('business_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(1000),
+      looseDb
+        .from('van_damage_images')
+        .select(
+          'id,image_role,created_at,upload_order,original_file_index,van_damage_inspections!inner(van_id)'
+        )
+        .eq('tenant_id', tenantId)
+        .eq('business_id', tenantId)
+        .in('status', ['uploaded', 'analyzed'])
+        .order('created_at', { ascending: false })
+        .limit(1500),
     ])
 
-  const vehicles = (vehiclesResult.data ?? []).map((vehicle) => ({
-    ...vehicle,
-    metadata: asRecord(vehicle.metadata),
-  })) as FleetVehicleRow[]
+  const imageCandidatesByVan = new Map<string, VehicleImageCandidate[]>()
+  for (const rawImage of (imageResult.data ?? []) as Array<Record<string, unknown>>) {
+    const relation = rawImage.van_damage_inspections
+    const inspection = Array.isArray(relation) ? asRecord(relation[0]) : asRecord(relation)
+    const vanId = typeof inspection.van_id === 'string' ? inspection.van_id : null
+    const id = typeof rawImage.id === 'string' ? rawImage.id : null
+    const createdAt = typeof rawImage.created_at === 'string' ? rawImage.created_at : null
+    if (!vanId || !id || !createdAt) continue
+    const current = imageCandidatesByVan.get(vanId) ?? []
+    current.push({
+      id,
+      imageRole: typeof rawImage.image_role === 'string' ? rawImage.image_role : null,
+      createdAt,
+      uploadOrder: typeof rawImage.upload_order === 'number' ? rawImage.upload_order : null,
+      originalFileIndex:
+        typeof rawImage.original_file_index === 'number' ? rawImage.original_file_index : null,
+    })
+    imageCandidatesByVan.set(vanId, current)
+  }
+  const vehicles = ((vehiclesResult.data ?? []) as Array<FleetVehicleRow>).map((vehicle) => {
+    const metadata = asRecord(vehicle.metadata)
+    const profileImage = selectVehicleProfileImage(
+      metadata,
+      imageCandidatesByVan.get(vehicle.id) ?? [],
+      { allowAutomaticFirstUpload: false }
+    )
+    return {
+      ...vehicle,
+      metadata,
+      profileImageId: profileImage.imageId,
+    }
+  }) as FleetVehicleRow[]
   const damageCases = (damageCasesResult.data ?? []) as Array<Record<string, unknown>>
   const attention = (attentionResult.data ?? []).map((item) => {
     const damageCase = damageCases.find((candidate) => candidate.id === item.latest_damage_case_id)
@@ -119,8 +207,9 @@ export default async function VehiclesPage() {
       latest_uploader: asRecord(damageCase?.latest_uploader_snapshot),
     }
   }) as FleetAttentionRow[]
+  const maintenanceRows = (maintenanceResult.data ?? []) as MaintenanceRawRow[]
   const maintenance = Object.values(
-    (maintenanceResult.data ?? []).reduce<
+    maintenanceRows.reduce<
       Record<
         string,
         {
@@ -172,6 +261,41 @@ export default async function VehiclesPage() {
       return groups
     }, {})
   )
+  const runByInspection = new Map<string, { status: string | null; completedAt: string | null }>(
+    ((runResult.data ?? []) as RunRawRow[]).map((run) => [
+      run.inspection_id,
+      { status: run.status, completedAt: run.completed_at },
+    ])
+  )
+  const fleetDamageCards = buildFleetDamageCards({
+    tenantId,
+    vehicles: vehicles.map((vehicle) => ({
+      id: vehicle.id,
+      van_number: vehicle.van_number,
+      name: vehicle.name,
+      make: vehicle.make,
+      model: vehicle.model,
+      year: vehicle.year,
+      plate_number: vehicle.plate_number,
+      status: vehicle.status,
+      profileImageId: vehicle.profileImageId,
+    })),
+    damageCases: damageCases as FleetDamageCaseInput[],
+    analyses: ((inspectionResult.data ?? []) as InspectionRawRow[]).map((inspection) => {
+      const run = runByInspection.get(inspection.id)
+      return {
+        tenant_id: inspection.tenant_id,
+        van_id: inspection.van_id,
+        inspection_id: inspection.id,
+        inspection_status: inspection.status,
+        completed_at: inspection.completed_at,
+        created_at: inspection.created_at,
+        run_status: run?.status ?? null,
+        run_completed_at: run?.completedAt ?? null,
+      }
+    }) as FleetAnalysisInput[],
+    maintenanceByVan: new Map(maintenance.map((item) => [item.vanId, item])),
+  })
 
   return (
     <div className="ui-page">
@@ -205,6 +329,14 @@ export default async function VehiclesPage() {
         vehicles={vehicles}
         attention={attention}
         maintenance={maintenance}
+        fleetDamageCards={fleetDamageCards}
+        fleetQuery={{
+          q: stringParam(params.q),
+          level: stringParam(params.level),
+          age: stringParam(params.age),
+          status: stringParam(params.fleetStatus),
+          sort: stringParam(params.fleetSort),
+        }}
         attentionError={
           attentionResult.error?.message ??
           vehiclesResult.error?.message ??
@@ -214,4 +346,8 @@ export default async function VehiclesPage() {
       />
     </div>
   )
+}
+
+function stringParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value
 }

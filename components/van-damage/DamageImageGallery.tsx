@@ -7,6 +7,7 @@ import { AlertTriangle, Copy, Eye, EyeOff, ImageIcon, Maximize2 } from 'lucide-r
 import { getSignedDamageImageUrl } from '@/lib/van-damage/image-url-cache'
 import type { DamageImage, DamageItem, ResolvedDamageImage } from './inspection-types'
 import { SignedDamageImage } from './SignedDamageImage'
+import { DamageOverlayFrame } from './DamageOverlayFrame'
 
 const DamageLightbox = dynamic(() => import('./DamageLightbox'), { ssr: false })
 
@@ -170,21 +171,10 @@ export function DamageImageGallery({
               className="group overflow-hidden rounded-2xl border border-white/10 bg-graphite-800 text-left transition hover:-translate-y-0.5 hover:border-white/20 hover:shadow-panel-lg"
             >
               <div className="relative aspect-[4/3] overflow-hidden bg-white/[0.03]">
-                <button
+                <div
                   id={`image-${image.id}`}
-                  aria-label={`Open inspection image ${index + 1}`}
-                  onClick={(event) => void openImage(index, event.currentTarget)}
-                  className="focus-ring absolute inset-0 block h-full w-full text-left"
+                  className="absolute inset-0 block h-full w-full text-left"
                 >
-                  <SignedDamageImage
-                    imageId={image.id}
-                    businessId={businessId}
-                    alt={`Inspection image ${index + 1}`}
-                    sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                    eager={index < 3}
-                    fillContainer
-                    onUrl={(url) => rememberUrl(image.id, url)}
-                  />
                   <span className="absolute right-3 top-3 rounded-lg bg-black/55 p-2 text-white/75 opacity-0 backdrop-blur transition group-hover:opacity-100">
                     <Maximize2 className="h-4 w-4" />
                   </span>
@@ -199,29 +189,18 @@ export function DamageImageGallery({
                       {quality}
                     </span>
                   )}
-                </button>
-                {overlays &&
-                  imageItems.map((item) => {
-                    const box = item.bounding_box!
-                    return (
-                      <button
-                        key={item.id}
-                        aria-label={`Select ${item.damage_type?.replaceAll('_', ' ') || 'damage'} annotation in ${item.vehicle_area?.replaceAll('_', ' ') || 'unknown region'}`}
-                        onClick={() => {
-                          window.dispatchEvent(
-                            new CustomEvent('van-damage:select-finding', { detail: item.id })
-                          )
-                        }}
-                        className="focus-ring absolute z-10 border-2 border-amber-300 bg-amber-300/15 shadow-[0_0_12px_rgba(232,195,74,.3)]"
-                        style={{
-                          left: `${box.x * 100}%`,
-                          top: `${box.y * 100}%`,
-                          width: `${box.width * 100}%`,
-                          height: `${box.height * 100}%`,
-                        }}
-                      />
-                    )
-                  })}
+                </div>
+                <DamageOverlayFrame
+                  image={image}
+                  items={imageItems}
+                  businessId={businessId}
+                  alt={`Inspection image ${index + 1}`}
+                  eager={index < 3}
+                  overlays={overlays}
+                  onUrl={(url) => rememberUrl(image.id, url)}
+                  onOpen={() => void openImage(index)}
+                  className="absolute inset-0 p-2"
+                />
               </div>
               <div className="flex items-center justify-between px-4 py-3">
                 <span className="text-xs capitalize text-white/65">

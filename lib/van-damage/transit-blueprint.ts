@@ -248,7 +248,6 @@ const TRANSIT_REGION_METADATA: Record<TransitView, readonly TransitRegionMetadat
       id: 'driver_front_door',
       label: 'Driver front door',
       view: 'driver',
-      aliases: ['front_door', 'door'],
     },
     {
       id: 'driver_cargo_panel',
@@ -279,13 +278,11 @@ const TRANSIT_REGION_METADATA: Record<TransitView, readonly TransitRegionMetadat
       id: 'driver_front_wheel',
       label: 'Driver front wheel',
       view: 'driver',
-      aliases: ['front_wheel', 'wheel'],
     },
     {
       id: 'driver_rear_wheel',
       label: 'Driver rear wheel',
       view: 'driver',
-      aliases: ['rear_wheel', 'wheel'],
     },
     {
       id: 'rear_bumper_driver',
@@ -342,7 +339,6 @@ const TRANSIT_REGION_METADATA: Record<TransitView, readonly TransitRegionMetadat
       id: 'passenger_front_door',
       label: 'Passenger front door',
       view: 'passenger',
-      aliases: ['front_door', 'door'],
     },
     {
       id: 'passenger_sliding_door',
@@ -379,13 +375,11 @@ const TRANSIT_REGION_METADATA: Record<TransitView, readonly TransitRegionMetadat
       id: 'passenger_front_wheel',
       label: 'Passenger front wheel',
       view: 'passenger',
-      aliases: ['front_wheel', 'wheel'],
     },
     {
       id: 'passenger_rear_wheel',
       label: 'Passenger rear wheel',
       view: 'passenger',
-      aliases: ['rear_wheel', 'wheel'],
     },
     {
       id: 'rear_bumper_passenger',
@@ -498,13 +492,13 @@ const TRANSIT_REGION_METADATA: Record<TransitView, readonly TransitRegionMetadat
       id: 'driver_rear_door',
       label: 'Driver split rear door',
       view: 'rear',
-      aliases: ['left_rear_door', 'rear_door', 'cargo_door', 'tailgate', 'liftgate', 'rear_panel'],
+      aliases: ['left_rear_door'],
     },
     {
       id: 'passenger_rear_door',
       label: 'Passenger split rear door',
       view: 'rear',
-      aliases: ['right_rear_door', 'rear_door', 'cargo_door', 'tailgate', 'liftgate', 'rear_panel'],
+      aliases: ['right_rear_door'],
     },
     {
       id: 'rear_door_center_seam',
@@ -624,7 +618,7 @@ const TRANSIT_REGION_METADATA: Record<TransitView, readonly TransitRegionMetadat
       id: 'rear_door_center_seam',
       label: 'Rear split-door boundary',
       view: 'top',
-      aliases: ['rear_door', 'cargo_door'],
+      aliases: ['rear_door_seam', 'split_door_seam'],
       small: true,
     },
     {
@@ -717,15 +711,12 @@ const REGION_REWRITES: Array<[RegExp, string]> = [
   [/\bhood|bonnet\b/, 'hood'],
   [/\bfront.*bumper|bumper.*front\b/, 'front_bumper'],
   [/\brear.*bumper|back.*bumper|bumper.*rear\b/, 'rear_bumper'],
-  [/\brear.*(door|panel)|cargo.*door|tailgate|liftgate\b/, 'driver_rear_door'],
+  [/\brear.*center.*seam|split.*door.*seam\b/, 'rear_door_center_seam'],
   [/\broof.*front\b/, 'roof_front'],
   [/\broof.*rear\b/, 'roof_rear'],
   [/\broof\b/, 'roof_center'],
   [/\bdriver|left\b/, 'driver_cargo_panel'],
   [/\bpassenger|right\b/, 'passenger_sliding_door'],
-  [/\bmirror\b/, 'driver_mirror'],
-  [/\bwheel|tire\b/, 'driver_front_wheel'],
-  [/\bdoor\b/, 'passenger_front_door'],
 ]
 
 export function normalizeTransitRegion(value: string | null | undefined) {

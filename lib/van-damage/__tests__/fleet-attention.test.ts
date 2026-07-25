@@ -6,6 +6,7 @@ import {
   normalizeDamageSeverity,
   type FleetAttentionCandidate,
 } from '../severity'
+import { buildFleetDamageCards, compareFleetDamageCards } from '../fleet-damage'
 
 test('Level 3 severity normalization accepts numeric, string, and severe representations', () => {
   for (const value of [
@@ -108,3 +109,95 @@ test('repair states remain qualifying and recurrence returns the van to attentio
   assert.equal(result.length, 2)
   assert.equal(result.find((item) => item.vanId === 'van-1')?.severeSourceCount, 2)
 })
+
+test('Fleet damage cards resolve current level, analysis state and tenant isolation', () => {
+  const cards = buildFleetDamageCards({
+    tenantId: 'tenant-1',
+    vehicles: [
+      vehicle('van-1', '64'),
+      vehicle('van-2', '65'),
+      vehicle('van-3', '66'),
+    ],
+    damageCases: [
+      damageCase({ van_id: 'van-1', current_severity: 'level_2' }),
+      damageCase({ van_id: 'van-1', current_severity: 'level_3', needs_review: true }),
+      damageCase({ van_id: 'van-2', current_severity: 'level_3', lifecycle_status: 'repaired' }),
+      damageCase({ tenant_id: 'tenant-2', business_id: 'tenant-2', van_id: 'van-3', current_severity: 'level_3' }),
+    ],
+    analyses: [
+      analysis({ van_id: 'van-1', run_completed_at: '2026-07-24T10:00:00.000Z' }),
+      analysis({ van_id: 'van-2', run_status: 'processing' }),
+      analysis({ tenant_id: 'tenant-2', van_id: 'van-3', run_completed_at: '2026-07-24T11:00:00.000Z' }),
+    ],
+  })
+
+  assert.equal(cards.find((card) => card.id === 'van-1')?.damageLevel, 3)
+  assert.equal(cards.find((card) => card.id === 'van-1')?.level3Count, 1)
+  assert.equal(cards.find((card) => card.id === 'van-1')?.needsReview, true)
+  assert.equal(cards.find((card) => card.id === 'van-1')?.analysisState, 'completed')
+  assert.equal(cards.find((card) => card.id === 'van-2')?.damageLevel, 0)
+  assert.equal(cards.find((card) => card.id === 'van-2')?.analysisState, 'processing')
+  assert.equal(cards.find((card) => card.id === 'van-3')?.damageLevel, 0)
+  assert.equal(cards.find((card) => card.id === 'van-3')?.analysisState, 'never')
+})
+
+test('Fleet damage sorting is deterministic for severity and van number', () => {
+  const cards = buildFleetDamageCards({
+    tenantId: 'tenant-1',
+    vehicles: [vehicle('van-1', '10'), vehicle('van-2', '2')],
+    damageCases: [
+      damageCase({ van_id: 'van-1', current_severity: 'level_1' }),
+      damageCase({ van_id: 'van-2', current_severity: 'level_3' }),
+    ],
+    analyses: [],
+  })
+
+  assert.deepEqual([...cards].sort((a, b) => compareFleetDamageCards(a, b, 'highest_damage')).map((card) => card.van_number), ['2', '10'])
+  assert.deepEqual([...cards].sort((a, b) => compareFleetDamageCards(a, b, 'van_asc')).map((card) => card.van_number), ['2', '10'])
+  assert.deepEqual([...cards].sort((a, b) => compareFleetDamageCards(a, b, 'van_desc')).map((card) => card.van_number), ['10', '2'])
+})
+
+function vehicle(id: string, vanNumber: string) {
+  return {
+    id,
+    van_number: vanNumber,
+    name: `Van ${vanNumber}`,
+    make: 'Ford',
+    model: 'Transit',
+    year: 2019,
+    plate_number: null,
+    status: 'active',
+    profileImageId: null,
+  }
+}
+
+function damageCase(overrides: Partial<Parameters<typeof buildFleetDamageCards>[0]['damageCases'][number]>) {
+  return {
+    tenant_id: 'tenant-1',
+    business_id: 'tenant-1',
+    van_id: 'van-1',
+    lifecycle_status: 'active',
+    current_severity: 'level_1',
+    max_observed_severity: null,
+    effective_severity: null,
+    needs_review: false,
+    last_observed_at: '2026-07-24T09:00:00.000Z',
+    latest_observed_inspection_id: 'inspection-1',
+    latest_evidence_image_id: 'image-1',
+    ...overrides,
+  }
+}
+
+function analysis(overrides: Partial<Parameters<typeof buildFleetDamageCards>[0]['analyses'][number]>) {
+  return {
+    tenant_id: 'tenant-1',
+    van_id: 'van-1',
+    inspection_id: 'inspection-1',
+    inspection_status: 'completed',
+    completed_at: null,
+    created_at: '2026-07-24T08:00:00.000Z',
+    run_status: 'completed',
+    run_completed_at: null,
+    ...overrides,
+  }
+}
