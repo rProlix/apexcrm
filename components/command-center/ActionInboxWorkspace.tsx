@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { ActionStatusControls } from '@/components/command-center/ActionStatusControls'
 import { QuickPeekTrigger } from '@/components/command-center/QuickPeek'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { SignedDamageImage } from '@/components/van-damage/SignedDamageImage'
 
 export function ActionInboxWorkspace({
   items,
@@ -187,6 +188,18 @@ export function ActionInboxWorkspace({
                 {current.description}
               </p>
 
+              {current.evidenceImage && (
+                <div className="mt-6 max-w-xl">
+                  <ActionEvidencePreview
+                    imageId={current.evidenceImage.imageId}
+                    businessId={current.evidenceImage.businessId}
+                    alt={current.evidenceImage.alt ?? `${current.title} evidence image`}
+                    caption={current.evidenceImage.caption}
+                    eager
+                  />
+                </div>
+              )}
+
               <div className="mt-6 grid gap-4 border-y border-white/[0.075] py-5 sm:grid-cols-2">
                 <FocusDetail
                   label="Why it needs action"
@@ -315,7 +328,7 @@ function ActionCard({
       )}
     >
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={item.priority} />
             <span className="rounded-lg border border-white/8 bg-white/[0.035] px-2 py-1 text-xs capitalize text-white/50">
@@ -331,6 +344,16 @@ function ActionCard({
             {item.dueAt && <span>Due {formatDate(item.dueAt, timeZone)}</span>}
           </div>
         </div>
+        {item.evidenceImage && (
+          <div className="w-full shrink-0 lg:w-44">
+            <ActionEvidencePreview
+              imageId={item.evidenceImage.imageId}
+              businessId={item.evidenceImage.businessId}
+              alt={item.evidenceImage.alt ?? `${item.title} evidence image`}
+              caption={item.evidenceImage.caption}
+            />
+          </div>
+        )}
         <div className="flex shrink-0 flex-wrap gap-2">
           <button type="button" onClick={onFocus} className="ui-button-secondary text-xs">
             <Focus className="h-3.5 w-3.5" />
@@ -352,6 +375,37 @@ function ActionCard({
         </div>
       )}
     </div>
+  )
+}
+
+function ActionEvidencePreview({
+  imageId,
+  businessId,
+  alt,
+  caption,
+  eager = false,
+}: {
+  imageId: string
+  businessId: string
+  alt: string
+  caption?: string
+  eager?: boolean
+}) {
+  return (
+    <figure className="overflow-hidden rounded-xl border border-white/[0.075] bg-white/[0.025]">
+      <SignedDamageImage
+        imageId={imageId}
+        businessId={businessId}
+        alt={alt}
+        sizes="(max-width: 1024px) 100vw, 18rem"
+        eager={eager}
+      />
+      {caption && (
+        <figcaption className="border-t border-white/[0.06] px-3 py-2 text-xs capitalize text-white/42">
+          {caption}
+        </figcaption>
+      )}
+    </figure>
   )
 }
 

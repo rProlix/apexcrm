@@ -11,6 +11,7 @@ import type {
   QuickPeekField,
   QuickPeekPayload,
 } from '@/lib/command-center/experience'
+import { damageEvidenceFromMetadata, damageEvidenceToQuickPeekMedia } from './evidence'
 
 export async function loadQuickPeek(
   context: CommandCenterContext,
@@ -109,6 +110,7 @@ async function loadInspection(
       href: `/dashboard/vehicles/maintenance?inspectionId=${data.id}`,
     })
   }
+  const evidenceImage = await loadInspectionEvidenceImage(context, data.id)
   return {
     type: 'inspection',
     id: data.id,
@@ -130,6 +132,7 @@ async function loadInspection(
     ],
     actions,
     updatedAt: data.updated_at,
+    media: damageEvidenceToQuickPeekMedia(evidenceImage),
   }
 }
 
@@ -281,7 +284,7 @@ async function loadAction(context: CommandCenterContext, id: string): Promise<Qu
   const { data, error } = await context.db
     .from('command_action_items')
     .select(
-      'id,module_key,title,description,priority,status,source_record_label,assigned_user_id,assigned_role,due_at,first_detected_at,latest_activity_at'
+      'id,module_key,title,description,priority,status,source_record_type,source_record_id,source_record_label,assigned_user_id,assigned_role,due_at,first_detected_at,latest_activity_at,metadata'
     )
     .eq('tenant_id', context.tenantId)
     .eq('id', id)
@@ -296,6 +299,12 @@ async function loadAction(context: CommandCenterContext, id: string): Promise<Qu
   ) {
     throw notFound()
   }
+  const metadataEvidence = damageEvidenceFromMetadata(data.metadata)
+  const sourceEvidence =
+    metadataEvidence ||
+    (data.source_record_type === 'inspection'
+      ? await loadInspectionEvidenceImage(context, data.source_record_id)
+      : null)
   return {
     type: 'action',
     id: data.id,
@@ -313,6 +322,29 @@ async function loadAction(context: CommandCenterContext, id: string): Promise<Qu
     ]),
     actions: [{ label: 'Open Action Required', href: `/actions?focus=${data.id}`, primary: true }],
     updatedAt: data.latest_activity_at,
+    media: damageEvidenceToQuickPeekMedia(sourceEvidence),
+  }
+}
+
+async function loadInspectionEvidenceImage(
+  context: CommandCenterContext,
+  inspectionId: string
+): Promise<{ imageId: string; businessId: string; alt: string; caption?: string } | null> {
+  const { data } = await context.db
+    .from('van_damage_images')
+    .select('id,business_id,image_role')
+    .eq('tenant_id', context.tenantId)
+    .eq('inspection_id', inspectionId)
+    .in('status', ['uploaded', 'analyzed'])
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (!data?.id || !data.business_id) return null
+  return {
+    imageId: data.id,
+    businessId: data.business_id,
+    alt: 'Van damage inspection image',
+    caption: data.image_role?.replaceAll('_', ' ') || 'Inspection image',
   }
 }
 

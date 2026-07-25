@@ -1,4 +1,5 @@
 import type { Json } from '@/lib/supabase/types'
+import type { DamageEvidenceImage } from './evidence'
 
 export type CommandPriority = 'urgent' | 'high' | 'normal' | 'low'
 export type CommandActionStatus = 'open' | 'in_progress' | 'resolved' | 'dismissed' | 'snoozed'
@@ -28,6 +29,7 @@ export interface ActionItem extends ActionCandidate {
   resolvedAt: string | null
   dismissedAt: string | null
   snoozedUntil: string | null
+  evidenceImage?: DamageEvidenceImage | null
 }
 
 export type SetupStatus =

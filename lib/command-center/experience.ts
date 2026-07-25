@@ -29,6 +29,14 @@ export interface QuickPeekField {
   tone?: 'default' | 'strong' | 'warning' | 'danger' | 'success'
 }
 
+export interface QuickPeekMedia {
+  kind: 'damage_image'
+  imageId: string
+  businessId: string
+  alt: string
+  caption?: string
+}
+
 export interface QuickPeekPayload {
   type: CommandRecordType
   id: string
@@ -41,6 +49,7 @@ export interface QuickPeekPayload {
   fields: QuickPeekField[]
   actions: Array<{ label: string; href: string; primary?: boolean }>
   updatedAt?: string
+  media?: QuickPeekMedia[]
 }
 
 export interface CommandNavigationInput {

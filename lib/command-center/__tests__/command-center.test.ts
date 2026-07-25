@@ -10,6 +10,11 @@ import { canEditNote, isNoteEntityType, NOTE_ENTITY_TYPES } from '@/lib/command-
 import { getAvailableReports, renderReportCsv, renderReportPdf } from '@/lib/command-center/reports'
 import { evaluateSetupStatus, setupDefinitionIsActive } from '@/lib/command-center/setupPolicy'
 import { formatInTenantTime, getTenantDateRange } from '@/lib/command-center/time'
+import {
+  damageEvidenceFromMetadata,
+  damageEvidenceMetadata,
+  damageEvidenceToQuickPeekMedia,
+} from '@/lib/command-center/evidence'
 import type { ActionItem, ActivityItem } from '@/lib/command-center/types'
 
 const actionBase: ActionItem = {
@@ -254,6 +259,49 @@ test('customer-facing command-center UI is provider-neutral', async () => {
   const files = (await Promise.all(roots.map(readTsxFiles))).flat()
   const contents = await Promise.all(files.map((file) => readFile(file, 'utf8')))
   assert.equal(/\bgemini\b/i.test(contents.join('\n')), false)
+})
+
+test('damage evidence metadata carries private image references without raw URLs', () => {
+  const metadata = damageEvidenceMetadata({
+    imageId: 'image-1',
+    businessId: 'business-1',
+    alt: 'Inspection photo',
+    caption: 'driver side',
+  })
+
+  assert.deepEqual(damageEvidenceFromMetadata(metadata), {
+    imageId: 'image-1',
+    businessId: 'business-1',
+    alt: 'Inspection photo',
+    caption: 'driver side',
+  })
+  assert.deepEqual(damageEvidenceToQuickPeekMedia(damageEvidenceFromMetadata(metadata)), [
+    {
+      kind: 'damage_image',
+      imageId: 'image-1',
+      businessId: 'business-1',
+      alt: 'Inspection photo',
+      caption: 'driver side',
+    },
+  ])
+  assert.equal(JSON.stringify(metadata).includes('https://'), false)
+  assert.equal(damageEvidenceFromMetadata({ evidence_image_id: 'image-1' }), null)
+})
+
+test('command-center damage previews use signed image rendering', async () => {
+  const [quickPeek, actionInbox, quickPeekLoader, actionLoader] = await Promise.all([
+    readFile(path.join(process.cwd(), 'components/command-center/QuickPeek.tsx'), 'utf8'),
+    readFile(path.join(process.cwd(), 'components/command-center/ActionInboxWorkspace.tsx'), 'utf8'),
+    readFile(path.join(process.cwd(), 'lib/command-center/quickPeek.ts'), 'utf8'),
+    readFile(path.join(process.cwd(), 'lib/command-center/actions.ts'), 'utf8'),
+  ])
+
+  assert.match(quickPeek, /SignedDamageImage/)
+  assert.match(actionInbox, /SignedDamageImage/)
+  assert.match(quickPeekLoader, /loadInspectionEvidenceImage/)
+  assert.match(actionLoader, /damageEvidenceMetadata/)
+  assert.doesNotMatch(quickPeek, /slack_file_url/)
+  assert.doesNotMatch(actionInbox, /slack_file_url/)
 })
 
 test('command-center migration enables RLS on every new tenant table', async () => {

@@ -7,8 +7,10 @@ import { cn } from '@/lib/utils'
 import type {
   CommandRecordType,
   QuickPeekField,
+  QuickPeekMedia,
   QuickPeekPayload,
 } from '@/lib/command-center/experience'
+import { SignedDamageImage } from '@/components/van-damage/SignedDamageImage'
 
 interface QuickPeekRequest {
   type: CommandRecordType
@@ -240,6 +242,17 @@ export function QuickPeekProvider({ children }: { children: React.ReactNode }) {
                     )}
                   </div>
 
+                  {record.media?.length ? (
+                    <div className="space-y-2">
+                      {record.media.map((media) => (
+                        <QuickPeekMediaPreview
+                          key={`${media.kind}:${media.imageId}`}
+                          media={media}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+
                   <dl className="grid grid-cols-2 gap-x-5 gap-y-4 border-y border-white/[0.075] py-5">
                     {record.fields.map((item) => (
                       <div key={item.label} className="min-w-0">
@@ -321,6 +334,26 @@ export function QuickPeekTrigger({
         </>
       )}
     </button>
+  )
+}
+
+function QuickPeekMediaPreview({ media }: { media: QuickPeekMedia }) {
+  if (media.kind !== 'damage_image') return null
+  return (
+    <figure className="overflow-hidden rounded-xl border border-white/[0.075] bg-white/[0.025]">
+      <SignedDamageImage
+        imageId={media.imageId}
+        businessId={media.businessId}
+        alt={media.alt}
+        sizes="(max-width: 640px) 100vw, 28rem"
+        eager
+      />
+      {media.caption && (
+        <figcaption className="border-t border-white/[0.06] px-3 py-2 text-xs capitalize text-white/45">
+          {media.caption}
+        </figcaption>
+      )}
+    </figure>
   )
 }
 

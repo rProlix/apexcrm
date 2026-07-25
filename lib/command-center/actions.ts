@@ -12,6 +12,7 @@ import {
 import type { ActionCandidate, ActionItem, CommandActionStatus, CommandPriority } from './types'
 import { emitNotificationEvent } from './notifications'
 import { canRoleSeeAction, filterAndSortActionItems, type ActionFilterQuery } from './actionPolicy'
+import { damageEvidenceMetadata, damageEvidenceFromMetadata } from './evidence'
 
 const OPEN_STATUSES: CommandActionStatus[] = ['open', 'in_progress', 'snoozed']
 const MAINTENANCE_ACTIVE_STATUSES = [
@@ -201,11 +202,15 @@ async function loadDamageActions(context: CommandCenterContext): Promise<SourceR
     'inspection_vehicle_unresolved',
   ]
   try {
-    const [{ data: inspections, error }, { data: runs, error: runError }] = await Promise.all([
+    const [
+      { data: inspections, error },
+      { data: runs, error: runError },
+      { data: images, error: imageError },
+    ] = await Promise.all([
       context.db
         .from('van_damage_inspections')
         .select(
-          'id, van_id, title, status, review_status, image_count, error_message, created_at, updated_at'
+          'id, business_id, van_id, title, status, review_status, image_count, error_message, created_at, updated_at'
         )
         .eq('tenant_id', context.tenantId)
         .order('created_at', { ascending: false })
@@ -216,18 +221,32 @@ async function loadDamageActions(context: CommandCenterContext): Promise<SourceR
         .eq('tenant_id', context.tenantId)
         .order('created_at', { ascending: false })
         .limit(250),
+      context.db
+        .from('van_damage_images')
+        .select('id, business_id, inspection_id, image_role, status, created_at')
+        .eq('tenant_id', context.tenantId)
+        .in('status', ['uploaded', 'analyzed'])
+        .order('created_at', { ascending: true })
+        .limit(750),
     ])
-    if (error || runError) throw new Error(error?.code ?? runError?.code ?? 'query_failed')
+    if (error || runError || imageError) {
+      throw new Error(error?.code ?? runError?.code ?? imageError?.code ?? 'query_failed')
+    }
 
     const latestRun = new Map<string, typeof runs extends Array<infer R> | null ? R : never>()
     for (const run of runs ?? []) {
       if (!latestRun.has(run.inspection_id)) latestRun.set(run.inspection_id, run)
+    }
+    const imageByInspection = new Map<string, typeof images extends Array<infer I> | null ? I : never>()
+    for (const image of images ?? []) {
+      if (!imageByInspection.has(image.inspection_id)) imageByInspection.set(image.inspection_id, image)
     }
 
     const candidates: ActionCandidate[] = []
     for (const inspection of inspections ?? []) {
       const label = inspection.title || `Inspection ${inspection.created_at.slice(0, 10)}`
       const href = `/dashboard/damage-ai/inspections/${inspection.id}`
+      const evidenceImage = imageByInspection.get(inspection.id)
       const base = {
         moduleKey: 'damage_ai',
         sourceRecordType: 'inspection',
@@ -235,6 +254,16 @@ async function loadDamageActions(context: CommandCenterContext): Promise<SourceR
         sourceRecordLabel: label,
         latestActivityAt: inspection.updated_at,
         href,
+        metadata: damageEvidenceMetadata(
+          evidenceImage
+            ? {
+                imageId: evidenceImage.id,
+                businessId: evidenceImage.business_id,
+                alt: `${label} van damage image`,
+                caption: evidenceImage.image_role?.replaceAll('_', ' ') || 'Inspection image',
+              }
+            : null
+        ),
       }
 
       if (
@@ -299,7 +328,10 @@ async function loadDamageActions(context: CommandCenterContext): Promise<SourceR
           description: 'Potential dents or vehicle damage require human confirmation.',
           priority: 'urgent',
           assignedRole: 'admin',
-          metadata: { damage_rating: 3 },
+          metadata: {
+            ...(asRecord(base.metadata) as Record<string, Json>),
+            damage_rating: 3,
+          },
         })
       }
     }
@@ -975,6 +1007,7 @@ function mapActionRow(row: {
     snoozedUntil: row.snoozed_until,
     href: typeof metadata.href === 'string' ? metadata.href : '/actions',
     metadata: row.metadata,
+    evidenceImage: damageEvidenceFromMetadata(row.metadata),
   }
 }
 
