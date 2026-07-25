@@ -13,6 +13,11 @@ import { resolveInspectionTimeZone } from '@/lib/van-damage/inspection-period'
 import { requireCommandCenterContext } from '@/lib/command-center/context'
 import { loadUniversalNotesResult } from '@/lib/command-center/notes'
 import { UniversalNotesPanel } from '@/components/command-center/UniversalNotesPanel'
+import {
+  ContextualActionRail,
+  type ContextualAction,
+} from '@/components/command-center/ContextualActionRail'
+import { Camera, Images, Wrench } from 'lucide-react'
 
 export const metadata = { title: 'Vehicle Profile — NexoraNow' }
 
@@ -203,30 +208,72 @@ export default async function VehicleProfilePage({
   )
   const commandContext = await requireCommandCenterContext('use_modules')
   const notes = await loadUniversalNotesResult(commandContext, 'vehicle', vehicleId)
+  const contextualActions: ContextualAction[] = [
+    ...(commandContext.activeModuleSet.has('damage_ai')
+      ? [
+          {
+            label: 'View inspections',
+            description: 'Review uploads and inspection history.',
+            href: '#driver-upload-history',
+            icon: Images,
+            primary: true,
+          } satisfies ContextualAction,
+          {
+            label: 'View damage',
+            description: 'Review the vehicle damage history.',
+            href: '#damage-history',
+            icon: Camera,
+          } satisfies ContextualAction,
+        ]
+      : []),
+    ...(commandContext.activeModuleSet.has('maintenance')
+      ? [
+          {
+            label: 'View maintenance',
+            description: 'Open active and completed maintenance work.',
+            href: '#vehicle-maintenance',
+            icon: Wrench,
+          } satisfies ContextualAction,
+        ]
+      : []),
+    ...(canManageRole(scope.ctx.role)
+      ? [
+          {
+            label: 'Update profile image',
+            description: 'Use the private vehicle image workflow.',
+            href: '#profile-image',
+            icon: Camera,
+          } satisfies ContextualAction,
+        ]
+      : []),
+  ]
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <VanProfileWorkspace
-        businessId={scope.businessId}
-        timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
-        canManage={['owner', 'admin'].includes(scope.ctx.role)}
-        vehicle={{ ...vehicle, metadata: asRecord(vehicle.metadata) }}
-        profileImage={profileImage}
-        fallbackProfileImageId={fallbackProfileImageId}
-        latestSession={hydratedSessions[0] ?? null}
-        sessions={hydratedSessions}
-        cases={hydratedCases}
-        maintenance={(maintenanceResult.data ?? []).map((item) => ({
-          id: item.id,
-          maintenance_number: item.maintenance_number,
-          title: item.title,
-          status: item.status,
-          effective_priority: item.effective_priority,
-          resolution_effort: item.resolution_effort,
-          latest_activity_at: item.latest_activity_at,
-          due_at: item.due_at,
-        }))}
-      />
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_17rem]">
+        <VanProfileWorkspace
+          businessId={scope.businessId}
+          timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
+          canManage={['owner', 'admin'].includes(scope.ctx.role)}
+          vehicle={{ ...vehicle, metadata: asRecord(vehicle.metadata) }}
+          profileImage={profileImage}
+          fallbackProfileImageId={fallbackProfileImageId}
+          latestSession={hydratedSessions[0] ?? null}
+          sessions={hydratedSessions}
+          cases={hydratedCases}
+          maintenance={(maintenanceResult.data ?? []).map((item) => ({
+            id: item.id,
+            maintenance_number: item.maintenance_number,
+            title: item.title,
+            status: item.status,
+            effective_priority: item.effective_priority,
+            resolution_effort: item.resolution_effort,
+            latest_activity_at: item.latest_activity_at,
+            due_at: item.due_at,
+          }))}
+        />
+        <ContextualActionRail title="Van actions" actions={contextualActions} />
+      </div>
       <UniversalNotesPanel
         entityType="vehicle"
         entityId={vehicleId}
@@ -236,4 +283,8 @@ export default async function VehicleProfilePage({
       />
     </div>
   )
+}
+
+function canManageRole(role: string): boolean {
+  return role === 'owner' || role === 'admin'
 }

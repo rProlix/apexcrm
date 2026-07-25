@@ -345,7 +345,10 @@ export function VanProfileWorkspace({
 
       <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="space-y-6">
-          <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
+          <section
+            id="driver-upload-history"
+            className="scroll-mt-24 rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6"
+          >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="font-semibold text-white">Driver & upload history</h2>
@@ -411,7 +414,10 @@ export function VanProfileWorkspace({
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
+          <section
+            id="vehicle-maintenance"
+            className="scroll-mt-24 rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6"
+          >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="font-semibold text-white">Maintenance</h2>
@@ -465,7 +471,10 @@ export function VanProfileWorkspace({
             )}
           </section>
 
-          <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
+          <section
+            id="damage-history"
+            className="scroll-mt-24 rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6"
+          >
             <h2 className="font-semibold text-white">Damage history</h2>
             <p className="mt-1 text-xs text-white/35">
               Grouped by durable damage case, so repeat observations do not become duplicate alerts.
@@ -976,7 +985,10 @@ function ProfileImageControls({
     startTransition(() => window.location.reload())
   }
   return (
-    <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5">
+    <section
+      id="profile-image"
+      className="scroll-mt-24 rounded-2xl border border-white/10 bg-graphite-800 p-5"
+    >
       <h2 className="text-sm font-semibold text-white">Profile image</h2>
       <p className="mt-2 text-xs leading-5 text-white/35">
         Admins can restore the automatic first uploaded image or remove a manual selection. Original

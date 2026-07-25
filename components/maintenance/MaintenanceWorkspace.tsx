@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { AnimatePresence, motion } from 'framer-motion'
 import { PrivateMediaImage } from '@/components/private-media/PrivateMediaImage'
 import {
   AlertTriangle,
@@ -21,9 +22,11 @@ import {
 import type { MaintenanceHistoryEvent, MaintenanceItem } from '@/lib/maintenance/types'
 import { maintenanceResponsibilityDisclaimer } from '@/lib/maintenance/types'
 import { compareMaintenancePriority } from '@/lib/maintenance/triage'
-import { createClient } from '@/lib/supabase/browser'
 import { EmptyState } from '@/components/ui/StatePanel'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { useOperationsRefresh } from '@/components/command-center/OperationsRealtimeProvider'
+import { QuickPeekTrigger } from '@/components/command-center/QuickPeek'
+import { MOTION_TRANSITION } from '@/lib/design-system/motion'
 
 type Vehicle = { id: string; name: string; van_number: string | null; status: string }
 type User = { id: string; full_name: string | null; email: string }
@@ -108,6 +111,8 @@ export function MaintenanceWorkspace({
   const [drawerBusy, setDrawerBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [statusIntent, setStatusIntent] = useState<'complete' | 'cancel' | 'reopen' | null>(null)
+  const [statusReason, setStatusReason] = useState('')
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString())
@@ -165,41 +170,9 @@ export function MaintenanceWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    const supabase = createClient()
-    let refreshTimer: ReturnType<typeof setTimeout> | null = null
-    const refresh = () => {
-      if (refreshTimer) clearTimeout(refreshTimer)
-      refreshTimer = setTimeout(() => startTransition(() => router.refresh()), 250)
-    }
-    const channel = supabase
-      .channel(`fleet-maintenance-${businessId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'fleet_maintenance_items',
-          filter: `tenant_id=eq.${businessId}`,
-        },
-        refresh
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'fleet_maintenance_history',
-          filter: `tenant_id=eq.${businessId}`,
-        },
-        refresh
-      )
-      .subscribe()
-    return () => {
-      if (refreshTimer) clearTimeout(refreshTimer)
-      void supabase.removeChannel(channel)
-    }
-  }, [businessId, router])
+  useOperationsRefresh(['fleet_maintenance_items', 'fleet_maintenance_history'], () =>
+    startTransition(() => router.refresh())
+  )
 
   const categories = useMemo(
     () => [...new Set(initialItems.map((item) => item.category))].sort(),
@@ -443,6 +416,8 @@ export function MaintenanceWorkspace({
 
   async function openItem(item: MaintenanceItem) {
     setSelected(item)
+    setStatusIntent(null)
+    setStatusReason('')
     setDrawerBusy(true)
     setMessage(null)
     const response = await fetch(
@@ -723,56 +698,74 @@ export function MaintenanceWorkspace({
             }
           />
         ) : null}
-        {visibleItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => openItem(item)}
-            className="ui-surface group grid w-full gap-4 p-4 text-left transition hover:border-[var(--border-strong)] hover:bg-[rgb(var(--surface-raised))] md:grid-cols-[minmax(0,1fr)_auto]"
-          >
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge
-                  status={item.effective_priority}
-                  label={label(item.effective_priority)}
-                />
-                <span className="text-xs text-[var(--text-tertiary)]">
-                  M-{item.maintenance_number}
-                </span>
-                <StatusBadge status={item.status} label={label(item.status)} />
-                {item.needs_review ? (
-                  <StatusBadge status="needs_review" label="Needs review" />
-                ) : null}
-                {item.due_at && Date.parse(item.due_at) < Date.now() && !closed.has(item.status) ? (
-                  <StatusBadge status="overdue" tone="critical" label="Overdue" />
-                ) : null}
-              </div>
-              <h3 className="mt-2 truncate font-semibold text-white">{item.title}</h3>
-              <p className="mt-1 line-clamp-2 text-sm text-[var(--text-secondary)]">
-                {item.description}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-tertiary)]">
-                <span>
-                  {item.van?.van_number
-                    ? `Van ${item.van.van_number}`
-                    : (item.van?.name ?? 'Van unresolved')}
-                </span>
-                <span>{label(item.category)}</span>
-                <span>{label(item.resolution_effort)}</span>
-                <span>{reporterName(item)}</span>
-                {item.attachment_count ? (
-                  <span>
-                    <Paperclip className="mr-1 inline h-3 w-3" />
-                    {item.attachment_count}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-            <div className="flex items-center gap-3 self-center text-xs text-[var(--text-tertiary)]">
-              <span>{time(item.latest_activity_at)}</span>
-              <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
-            </div>
-          </button>
-        ))}
+        <AnimatePresence initial={false} mode="popLayout">
+          {visibleItems.map((item) => (
+            <motion.div
+              layout
+              key={item.id}
+              initial={false}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.995 }}
+              transition={MOTION_TRANSITION.layout}
+              className="relative"
+            >
+              <button
+                onClick={() => openItem(item)}
+                className="ui-surface group grid w-full gap-4 p-4 pr-32 text-left transition hover:border-[var(--border-strong)] hover:bg-[rgb(var(--surface-raised))] md:grid-cols-[minmax(0,1fr)_auto]"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge
+                      status={item.effective_priority}
+                      label={label(item.effective_priority)}
+                    />
+                    <span className="text-xs text-[var(--text-tertiary)]">
+                      M-{item.maintenance_number}
+                    </span>
+                    <StatusBadge status={item.status} label={label(item.status)} />
+                    {item.needs_review ? (
+                      <StatusBadge status="needs_review" label="Needs review" />
+                    ) : null}
+                    {item.due_at &&
+                    Date.parse(item.due_at) < Date.now() &&
+                    !closed.has(item.status) ? (
+                      <StatusBadge status="overdue" tone="critical" label="Overdue" />
+                    ) : null}
+                  </div>
+                  <h3 className="mt-2 truncate font-semibold text-white">{item.title}</h3>
+                  <p className="mt-1 line-clamp-2 text-sm text-[var(--text-secondary)]">
+                    {item.description}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-tertiary)]">
+                    <span>
+                      {item.van?.van_number
+                        ? `Van ${item.van.van_number}`
+                        : (item.van?.name ?? 'Van unresolved')}
+                    </span>
+                    <span>{label(item.category)}</span>
+                    <span>{label(item.resolution_effort)}</span>
+                    <span>{reporterName(item)}</span>
+                    {item.attachment_count ? (
+                      <span>
+                        <Paperclip className="mr-1 inline h-3 w-3" />
+                        {item.attachment_count}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="hidden items-center gap-3 self-center text-xs text-[var(--text-tertiary)] lg:flex">
+                  <span>{time(item.latest_activity_at)}</span>
+                  <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+                </div>
+              </button>
+              <QuickPeekTrigger
+                type="maintenance"
+                id={item.id}
+                className="absolute right-3 top-3 min-h-9 px-2.5 text-xs"
+              />
+            </motion.div>
+          ))}
+        </AnimatePresence>
         {items.length > pageSize && (
           <nav
             aria-label="Maintenance result pages"
@@ -890,32 +883,71 @@ export function MaintenanceWorkspace({
                   <ActionButton onClick={() => action('start')} label="Start work" />
                 ) : null}
                 <ActionButton
-                  onClick={() => {
-                    const reason = window.prompt('Completion note (required)')
-                    if (reason) void action('complete', reason)
-                  }}
+                  onClick={() => setStatusIntent('complete')}
                   label="Complete"
                   primary
                 />
-                <ActionButton
-                  onClick={() => {
-                    const reason = window.prompt('Cancellation reason (required)')
-                    if (reason) void action('cancel', reason)
-                  }}
-                  label="Cancel"
-                />
+                <ActionButton onClick={() => setStatusIntent('cancel')} label="Cancel" />
               </div>
             ) : null}
             {canManage && closed.has(selected.status) ? (
               <div className="mt-5">
-                <ActionButton
-                  onClick={() => {
-                    const reason = window.prompt('Reopen reason (required)')
-                    if (reason) void action('reopen', reason)
-                  }}
-                  label="Reopen"
-                />
+                <ActionButton onClick={() => setStatusIntent('reopen')} label="Reopen" />
               </div>
+            ) : null}
+            {statusIntent ? (
+              <form
+                className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.025] p-4"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  const normalizedReason = statusReason.trim()
+                  if (!normalizedReason) {
+                    setMessage(`${label(statusIntent)} reason is required.`)
+                    return
+                  }
+                  void action(statusIntent, normalizedReason)
+                }}
+              >
+                <label
+                  htmlFor="maintenance-status-reason"
+                  className="text-sm font-medium text-white/70"
+                >
+                  {statusIntent === 'complete'
+                    ? 'Completion note'
+                    : statusIntent === 'cancel'
+                      ? 'Cancellation reason'
+                      : 'Reopen reason'}
+                </label>
+                <textarea
+                  id="maintenance-status-reason"
+                  value={statusReason}
+                  onChange={(event) => setStatusReason(event.target.value)}
+                  rows={3}
+                  maxLength={1000}
+                  autoFocus
+                  required
+                  className="ui-input mt-2 w-full resize-y"
+                  placeholder="Record the reason for this status change"
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button disabled={drawerBusy} className="ui-button ui-button-primary">
+                    {drawerBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Confirm {statusIntent}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={drawerBusy}
+                    onClick={() => {
+                      setStatusIntent(null)
+                      setStatusReason('')
+                      setMessage(null)
+                    }}
+                    className="ui-button ui-button-ghost"
+                  >
+                    Keep current status
+                  </button>
+                </div>
+              </form>
             ) : null}
             <form
               className="mt-7"

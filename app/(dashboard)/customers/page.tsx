@@ -6,7 +6,12 @@ import { CustomersDashboard } from '@/components/customers/CustomersDashboard'
 
 export const dynamic = 'force-dynamic'
 
-export default async function CustomersPage() {
+export default async function CustomersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const params = await searchParams
   const ctx = await requirePermission('view_customers')
   const tenantId = ctx.tenant_id!
 
@@ -25,6 +30,9 @@ export default async function CustomersPage() {
       activeCount={activeCount}
       tenantId={tenantId}
       userRole={ctx.role}
+      autoOpenInvite={
+        (Array.isArray(params.command) ? params.command[0] : params.command) === 'invite'
+      }
     />
   )
 }

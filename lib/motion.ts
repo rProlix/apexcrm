@@ -1,54 +1,48 @@
-// Shared Framer Motion animation variants for consistent premium feel
+import { MOTION_EASING, MOTION_TRANSITION } from '@/lib/design-system/motion'
 
 export const fadeUp = {
-  hidden:  { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: MOTION_TRANSITION.state },
 }
 
 export const fadeIn = {
-  hidden:  { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.25, ease: 'easeOut' } },
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: MOTION_TRANSITION.state },
 }
 
 export const slideInLeft = {
-  hidden:  { opacity: 0, x: -16 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+  hidden: { opacity: 0, x: -12 },
+  visible: { opacity: 1, x: 0, transition: MOTION_TRANSITION.overlay },
 }
 
 export const slideInRight = {
-  hidden:  { opacity: 0, x: 16 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+  hidden: { opacity: 0, x: 12 },
+  visible: { opacity: 1, x: 0, transition: MOTION_TRANSITION.overlay },
 }
 
 export const scaleIn = {
-  hidden:  { opacity: 0, scale: 0.96 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 0.25, ease: 'easeOut' } },
+  hidden: { opacity: 0, scale: 0.985 },
+  visible: { opacity: 1, scale: 1, transition: MOTION_TRANSITION.overlay },
 }
 
-/** Staggered container — children animate in sequence */
 export const staggerContainer = (staggerChildren = 0.07, delayChildren = 0) => ({
-  hidden:  {},
+  hidden: {},
   visible: {
-    transition: { staggerChildren, delayChildren },
+    transition: {
+      staggerChildren: Math.min(staggerChildren, 0.06),
+      delayChildren: Math.min(delayChildren, 0.12),
+    },
   },
 })
 
-/** Card hover — subtle lift */
 export const cardHover = {
-  rest: { scale: 1,    y: 0,  transition: { duration: 0.2, ease: 'easeOut' } },
-  hover:{ scale: 1.01, y: -2, transition: { duration: 0.2, ease: 'easeOut' } },
+  rest: { scale: 1, y: 0, transition: MOTION_TRANSITION.feedback },
+  hover: { scale: 1.006, y: -1, transition: MOTION_TRANSITION.feedback },
 }
 
-/** Sidebar item hover */
 export const sidebarItemHover = {
-  rest: { x: 0,   transition: { duration: 0.15 } },
-  hover:{ x: 2,   transition: { duration: 0.15 } },
+  rest: { x: 0, transition: MOTION_TRANSITION.feedback },
+  hover: { x: 1, transition: MOTION_TRANSITION.feedback },
 }
 
-/** Gold shimmer for live indicators */
-export const goldPulse = {
-  animate: {
-    opacity: [1, 0.45, 1],
-    transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' },
-  },
-}
+export { MOTION_EASING, MOTION_TRANSITION }

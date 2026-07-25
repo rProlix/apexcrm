@@ -239,9 +239,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <DashboardShell
+      tenantId={tenant.id}
       tenantName={config.tenant.name}
       userEmail={profile?.email ?? user.email ?? ''}
-      userRole={userRole}
+      userRole={userRole as AnyRole}
       modules={navModules}
       isPlatformAdmin={isPlatformAdmin}
       commandCenter={commandCenter}

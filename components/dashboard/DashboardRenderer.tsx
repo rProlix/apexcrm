@@ -1,8 +1,4 @@
-'use client'
-
-import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { staggerContainer, fadeUp, cardHover } from '@/lib/motion'
 import { PremiumLineChart } from '@/components/charts/PremiumLineChart'
 import { UsageCostWidget } from '@/components/widgets/UsageCostWidget'
 import { UsageChartWidget } from '@/components/widgets/UsageChartWidget'
@@ -97,27 +93,16 @@ function WidgetShell({
   wide?: boolean
 }) {
   return (
-    <motion.div
-      variants={fadeUp}
-      initial="rest"
-      whileHover="hover"
-      className={cn(wide && 'col-span-full sm:col-span-2')}
-    >
-      <motion.div
-        variants={cardHover}
+    <div className={cn(wide && 'col-span-full sm:col-span-2')}>
+      <div
         className={cn(
-          'relative overflow-hidden rounded-2xl p-5 h-full',
-          'premium-panel premium-border noise-overlay group',
-          'transition-shadow duration-300 hover:shadow-panel-lg',
-          'bg-gradient-to-br from-[#0b0b0f] to-[#1a1a22]',
-          '[box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.06)]'
+          'relative h-full overflow-hidden rounded-2xl p-5',
+          'premium-panel premium-border transition-colors duration-200 hover:border-white/[0.13]'
         )}
       >
         {children}
-        {/* Corner glow */}
-        <div className="pointer-events-none absolute -bottom-8 -right-8 h-32 w-32 rounded-full bg-gold-500/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   )
 }
 
@@ -151,32 +136,22 @@ export function DashboardRenderer({ layout, widgetDataMap, renderWidget }: Dashb
 
   if (visibleSections.length === 0) {
     return (
-      <motion.div
-        variants={fadeUp}
-        initial="hidden"
-        animate="visible"
-        className="rounded-2xl premium-panel premium-border p-16 text-center"
-      >
+      <div className="rounded-2xl premium-panel premium-border p-16 text-center">
         <p className="text-sm font-semibold text-white mb-1">Your dashboard is empty</p>
         <p className="text-xs text-white/35">
           Use the suggestions below to add your first widgets.
         </p>
-      </motion.div>
+      </div>
     )
   }
 
   return (
-    <motion.div
-      variants={staggerContainer(0.1)}
-      initial="hidden"
-      animate="visible"
-      className="space-y-10"
-    >
+    <div className="space-y-10">
       {layout.sections.map((section) => {
         if (section.widgets.length === 0) return null
 
         return (
-          <motion.section key={section.id} variants={fadeUp}>
+          <section key={section.id}>
             {/* Section header */}
             <div className="flex items-center gap-3 mb-5">
               <h2 className="text-xs font-semibold text-white/35 uppercase tracking-widest">
@@ -189,12 +164,7 @@ export function DashboardRenderer({ layout, widgetDataMap, renderWidget }: Dashb
             </div>
 
             {/* Widget grid */}
-            <motion.div
-              variants={staggerContainer(0.06)}
-              initial="hidden"
-              animate="visible"
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-            >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {section.widgets.map((widgetConfig) => {
                 const data = widgetDataMap[widgetConfig.key]
                 const isWide = widgetConfig.type === 'chart' || widgetConfig.type === 'usage'
@@ -210,10 +180,10 @@ export function DashboardRenderer({ layout, widgetDataMap, renderWidget }: Dashb
                   <div key={widgetConfig.id}>{content}</div>
                 )
               })}
-            </motion.div>
-          </motion.section>
+            </div>
+          </section>
         )
       })}
-    </motion.div>
+    </div>
   )
 }

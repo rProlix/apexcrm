@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AlertTriangle,
@@ -16,12 +17,14 @@ import {
   UserRound,
   Wrench,
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/browser'
 import { formatDriverName } from '@/lib/van-damage/history'
 import { formatInspectionTimestamp } from '@/lib/van-damage/inspection-period'
 import { SignedDamageImage } from './SignedDamageImage'
 import { StatusBadge } from './StatusBadge'
 import { InspectionPeriodBadge } from './InspectionPeriodBadge'
+import { useOperationsRefresh } from '@/components/command-center/OperationsRealtimeProvider'
+import { QuickPeekTrigger } from '@/components/command-center/QuickPeek'
+import { MOTION_TRANSITION } from '@/lib/design-system/motion'
 
 type JsonRecord = Record<string, unknown>
 
@@ -119,31 +122,9 @@ export function FleetNeedsAttentionBoard({
   const [pending, startTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const supabase = createClient()
-    let refreshTimer: ReturnType<typeof setTimeout> | null = null
-    const refresh = () => {
-      if (refreshTimer) clearTimeout(refreshTimer)
-      refreshTimer = setTimeout(() => startTransition(() => router.refresh()), 250)
-    }
-    const channel = supabase
-      .channel(`fleet-attention-${tenantId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'van_damage_attention_alerts',
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        refresh
-      )
-      .subscribe()
-    return () => {
-      if (refreshTimer) clearTimeout(refreshTimer)
-      void supabase.removeChannel(channel)
-    }
-  }, [router, tenantId])
+  useOperationsRefresh(['van_damage_attention_alerts'], () =>
+    startTransition(() => router.refresh())
+  )
 
   const uniqueAttention = useMemo(() => {
     const unique = new Map<string, FleetAttentionRow>()
@@ -314,29 +295,47 @@ export function FleetNeedsAttentionBoard({
           </div>
         )}
         <div className="mt-5 grid gap-4 xl:grid-cols-2">
-          {displayedAttention.map((item) => (
-            <SevereVanCard
-              key={`${item.tenant_id}:${item.van_id}`}
-              item={item}
-              businessId={tenantId}
-              timeZone={timeZone}
-              canManage={canManage}
-              pending={pending}
-              runAction={runAction}
-              maintenance={maintenanceByVan.get(item.van_id)}
-            />
-          ))}
-          {maintenanceOnlyAttention.map((summary) => {
-            const vehicle = vehicles.find((candidate) => candidate.id === summary.vanId)
-            return vehicle ? (
-              <MaintenanceAttentionCard
-                key={summary.vanId}
-                vehicle={vehicle}
-                summary={summary}
-                businessId={tenantId}
-              />
-            ) : null
-          })}
+          <AnimatePresence initial={false} mode="popLayout">
+            {displayedAttention.map((item) => (
+              <motion.div
+                layout
+                key={`${item.tenant_id}:${item.van_id}`}
+                initial={false}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.99 }}
+                transition={MOTION_TRANSITION.layout}
+              >
+                <SevereVanCard
+                  item={item}
+                  businessId={tenantId}
+                  timeZone={timeZone}
+                  canManage={canManage}
+                  pending={pending}
+                  runAction={runAction}
+                  maintenance={maintenanceByVan.get(item.van_id)}
+                />
+              </motion.div>
+            ))}
+            {maintenanceOnlyAttention.map((summary) => {
+              const vehicle = vehicles.find((candidate) => candidate.id === summary.vanId)
+              return vehicle ? (
+                <motion.div
+                  layout
+                  key={summary.vanId}
+                  initial={false}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.99 }}
+                  transition={MOTION_TRANSITION.layout}
+                >
+                  <MaintenanceAttentionCard
+                    vehicle={vehicle}
+                    summary={summary}
+                    businessId={tenantId}
+                  />
+                </motion.div>
+              ) : null
+            })}
+          </AnimatePresence>
         </div>
         {uniqueAttention.length > 0 && (
           <p className="mt-4 text-xs text-white/30">
@@ -522,6 +521,7 @@ function SevereVanCard({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 border-t border-white/8 px-4 py-3">
+        <QuickPeekTrigger type="vehicle" id={item.van_id} className="min-h-9 px-3 py-2 text-xs" />
         <Link
           href={`/dashboard/vehicles/${item.van_id}?businessId=${encodeURIComponent(businessId)}`}
           className="focus-ring rounded-lg border border-white/10 px-3 py-2 text-xs text-white/60 hover:bg-white/5"

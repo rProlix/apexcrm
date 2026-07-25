@@ -9,6 +9,7 @@ import {
   type InspectionDateGroup,
 } from '@/lib/van-damage/inspection-period'
 import type { InspectionSearchRow } from '@/lib/van-damage/inspection-search'
+import { QuickPeekTrigger } from '@/components/command-center/QuickPeek'
 
 const groupOrder: InspectionDateGroup[] = ['Today', 'Yesterday', 'Earlier this week', 'Older']
 const processingStatuses = new Set(['queued', 'processing', 'analyzing'])
@@ -197,7 +198,12 @@ export function RecentInspectionsList({
                           )}
                         </div>
 
-                        <div className="sm:col-start-2 lg:col-start-auto">
+                        <div className="flex flex-col gap-2 sm:col-start-2 sm:flex-row lg:col-start-auto lg:flex-col">
+                          <QuickPeekTrigger
+                            type="inspection"
+                            id={inspection.id}
+                            className="w-full lg:w-auto"
+                          />
                           <Link
                             href={href}
                             className="ui-button ui-button-secondary w-full lg:w-auto"

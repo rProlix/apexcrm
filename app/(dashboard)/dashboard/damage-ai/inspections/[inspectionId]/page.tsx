@@ -17,6 +17,11 @@ import type { Json } from '@/lib/supabase/types'
 import { requireCommandCenterContext } from '@/lib/command-center/context'
 import { loadUniversalNotesResult } from '@/lib/command-center/notes'
 import { UniversalNotesPanel } from '@/components/command-center/UniversalNotesPanel'
+import {
+  ContextualActionRail,
+  type ContextualAction,
+} from '@/components/command-center/ContextualActionRail'
+import { Car, ImageIcon, ShieldAlert, Wrench } from 'lucide-react'
 
 export const metadata = { title: 'Van Damage Inspection — NexoraNow' }
 
@@ -636,62 +641,104 @@ export default async function InspectionPage({
   ])
   const commandContext = await requireCommandCenterContext('use_modules')
   const notes = await loadUniversalNotesResult(commandContext, 'inspection', inspectionId)
+  const contextualActions: ContextualAction[] = [
+    {
+      label: 'Review findings',
+      description: 'Move to the evidence-backed findings list.',
+      href: '#damage-findings',
+      icon: ImageIcon,
+      primary: true,
+    },
+    ...(items.some((item) => ['high', 'critical', 'level_3'].includes(item.severity ?? ''))
+      ? [
+          {
+            label: 'View Level 3 damage',
+            description: 'Review the critical findings in this inspection.',
+            href: '#critical-findings',
+            icon: ShieldAlert,
+          } satisfies ContextualAction,
+        ]
+      : []),
+    ...(resolvedVehicle && commandContext.activeModuleSet.has('vehicles')
+      ? [
+          {
+            label: 'Open van',
+            description: 'Keep the vehicle history and responsibility context.',
+            href: `/dashboard/vehicles/${resolvedVehicle.id}`,
+            icon: Car,
+          } satisfies ContextualAction,
+        ]
+      : []),
+    ...(commandContext.activeModuleSet.has('maintenance')
+      ? [
+          {
+            label: 'Open maintenance',
+            description: 'Review linked or available maintenance work.',
+            href: `/dashboard/vehicles/maintenance?inspectionId=${inspectionId}`,
+            icon: Wrench,
+          } satisfies ContextualAction,
+        ]
+      : []),
+  ]
 
   return (
     <div className="space-y-6">
-      <InspectionExperience
-        businessId={scope.businessId}
-        returnHref={
-          query.returnTo?.startsWith('/dashboard/damage-ai?') ? query.returnTo : undefined
-        }
-        tenantName={tenantResult.data?.name || 'NexoraNow workspace'}
-        timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
-        canManage={['owner', 'admin'].includes(scope.ctx.role)}
-        canViewMetadata={scope.ctx.role === 'owner'}
-        uploaderName={uploaderName}
-        inspectionTimestamp={inspection.slack_upload_at ?? inspection.created_at}
-        inspection={{
-          id: inspection.id,
-          title: inspection.title,
-          status: inspection.status,
-          review_status: inspection.review_status,
-          source: inspection.source,
-          image_count: inspection.image_count,
-          damage_count: inspection.damage_count,
-          ai_summary: inspection.ai_summary,
-          ai_confidence: inspection.ai_confidence,
-          van_id: resolvedVehicle?.id ?? inspection.van_id,
-          metadata: safeInspectionMetadata(inspection.metadata),
-          created_at: inspection.created_at,
-          updated_at: inspection.updated_at,
-          completed_at: inspection.completed_at,
-          reviewed_at: inspection.reviewed_at,
-        }}
-        vehicle={resolvedVehicle}
-        vehicleResolution={{
-          state: vehicleResolution.state,
-          source: vehicleResolution.source,
-        }}
-        vehicleImage={vehicleImage}
-        vehicleStats={{
-          activeLevel3Count,
-          activeMaintenanceCount,
-          lastInspectionAt: relatedResult.data?.[0]?.created_at ?? inspection.created_at,
-        }}
-        images={images}
-        items={items}
-        aiRun={aiRun}
-        job={job}
-        ownerMetadata={ownerMetadata}
-        related={relatedResult.data ?? []}
-        slack={{
-          workspace: integrationResult.data?.slack_team_name ?? null,
-          channel: channelResult.data?.slack_channel_name
-            ? `#${channelResult.data.slack_channel_name}`
-            : null,
-          url: slackUrl,
-        }}
-      />
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_17rem]">
+        <InspectionExperience
+          businessId={scope.businessId}
+          returnHref={
+            query.returnTo?.startsWith('/dashboard/damage-ai?') ? query.returnTo : undefined
+          }
+          tenantName={tenantResult.data?.name || 'NexoraNow workspace'}
+          timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
+          canManage={['owner', 'admin'].includes(scope.ctx.role)}
+          canViewMetadata={scope.ctx.role === 'owner'}
+          uploaderName={uploaderName}
+          inspectionTimestamp={inspection.slack_upload_at ?? inspection.created_at}
+          inspection={{
+            id: inspection.id,
+            title: inspection.title,
+            status: inspection.status,
+            review_status: inspection.review_status,
+            source: inspection.source,
+            image_count: inspection.image_count,
+            damage_count: inspection.damage_count,
+            ai_summary: inspection.ai_summary,
+            ai_confidence: inspection.ai_confidence,
+            van_id: resolvedVehicle?.id ?? inspection.van_id,
+            metadata: safeInspectionMetadata(inspection.metadata),
+            created_at: inspection.created_at,
+            updated_at: inspection.updated_at,
+            completed_at: inspection.completed_at,
+            reviewed_at: inspection.reviewed_at,
+          }}
+          vehicle={resolvedVehicle}
+          vehicleResolution={{
+            state: vehicleResolution.state,
+            source: vehicleResolution.source,
+          }}
+          vehicleImage={vehicleImage}
+          vehicleStats={{
+            activeLevel3Count,
+            activeMaintenanceCount,
+            lastInspectionAt: relatedResult.data?.[0]?.created_at ?? inspection.created_at,
+          }}
+          images={images}
+          items={items}
+          aiRun={aiRun}
+          job={job}
+          ownerMetadata={ownerMetadata}
+          related={relatedResult.data ?? []}
+          slack={{
+            workspace: integrationResult.data?.slack_team_name ?? null,
+            channel: channelResult.data?.slack_channel_name
+              ? `#${channelResult.data.slack_channel_name}`
+              : null,
+            url: slackUrl,
+          }}
+        />
+        <ContextualActionRail title="Inspection actions" actions={contextualActions} />
+      </div>
       <UniversalNotesPanel
         entityType="inspection"
         entityId={inspectionId}

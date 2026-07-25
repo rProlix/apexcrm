@@ -252,6 +252,8 @@ export function InspectionExperience(props: InspectionExperienceProps) {
   const [areaFilter, setAreaFilter] = useState('all')
   const [mapView, setMapView] = useState<TransitView>('passenger')
   const [mapAnnouncement, setMapAnnouncement] = useState('')
+  const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null)
+  const [activeSection, setActiveSection] = useState('inspection-summary')
   const [sortBy, setSortBy] = useState<'severity' | 'confidence' | 'newest'>('severity')
   const [bookmarked, setBookmarked] = useState(false)
   const [favorite, setFavorite] = useState(false)
@@ -383,6 +385,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
   )
 
   const focusFindingOnMap = useCallback((item: DamageItem, scroll = true) => {
+    setSelectedFindingId(item.id)
     const regionId = resolveItemTransitRegion(item)
     if (regionId) {
       setMapView(getTransitViewForRegion(regionId))
@@ -397,9 +400,10 @@ export function InspectionExperience(props: InspectionExperienceProps) {
       `${window.location.pathname}${window.location.search}#finding-${item.id}`
     )
     if (scroll)
-      document
-        .getElementById('vehicle-damage-map')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      document.getElementById('vehicle-damage-map')?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'center',
+      })
   }, [])
 
   useEffect(() => {
@@ -427,6 +431,39 @@ export function InspectionExperience(props: InspectionExperienceProps) {
     window.addEventListener('van-damage:select-finding', selectFinding)
     return () => window.removeEventListener('van-damage:select-finding', selectFinding)
   }, [focusFindingOnMap, items])
+
+  useEffect(() => {
+    const ids = [
+      'inspection-summary',
+      'vehicle-profile',
+      ...(level3Items.length ? ['critical-findings'] : []),
+      'vehicle-damage-map',
+      'inspection-images',
+      'damage-findings',
+      'inspection-timeline',
+      ...(props.canViewMetadata ? ['inspection-metadata'] : []),
+    ]
+    const sections = ids
+      .map((id) => document.getElementById(id))
+      .filter((section): section is HTMLElement => Boolean(section))
+    if (!sections.length || !('IntersectionObserver' in window)) return
+    const visible = new Map<string, IntersectionObserverEntry>()
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.set(entry.target.id, entry)
+          else visible.delete(entry.target.id)
+        }
+        const current = [...visible.values()].sort(
+          (a, b) => Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top)
+        )[0]
+        if (current) setActiveSection(current.target.id)
+      },
+      { rootMargin: '-18% 0px -68% 0px', threshold: [0, 0.15, 0.5] }
+    )
+    for (const section of sections) observer.observe(section)
+    return () => observer.disconnect()
+  }, [level3Items.length, props.canViewMetadata])
 
   useEffect(() => {
     if (!processing) return
@@ -809,7 +846,13 @@ export function InspectionExperience(props: InspectionExperienceProps) {
             <a
               key={href}
               href={href}
-              className="focus-ring min-h-10 rounded-xl px-3 py-2 text-xs font-medium text-white/55 hover:bg-white/5 hover:text-white"
+              aria-current={activeSection === href.slice(1) ? 'location' : undefined}
+              onClick={() => setActiveSection(href.slice(1))}
+              className={`focus-ring min-h-10 rounded-xl px-3 py-2 text-xs font-medium transition-colors ${
+                activeSection === href.slice(1)
+                  ? 'bg-brand/[0.09] text-brand'
+                  : 'text-white/55 hover:bg-white/5 hover:text-white'
+              }`}
             >
               {label}
             </a>
@@ -842,7 +885,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
         <section
           id="critical-findings"
           aria-labelledby="critical-findings-title"
-          className="scroll-mt-20 overflow-hidden rounded-2xl border border-red-400/25 bg-red-400/[.055]"
+          className="ui-critical-reveal scroll-mt-20 overflow-hidden rounded-2xl border border-red-400/25 bg-red-400/[.055]"
         >
           <div className="border-b border-red-400/15 px-5 py-4 md:px-6">
             <div className="flex items-center gap-2">
@@ -1089,7 +1132,9 @@ export function InspectionExperience(props: InspectionExperienceProps) {
                   <article
                     id={`finding-${item.id}`}
                     key={item.id}
-                    className="grid gap-4 px-5 py-5 md:grid-cols-[44px_1fr_auto] md:px-6"
+                    className={`grid scroll-mt-24 gap-4 px-5 py-5 transition-colors md:grid-cols-[44px_1fr_auto] md:px-6 ${
+                      selectedFindingId === item.id ? 'bg-brand/[0.055]' : ''
+                    }`}
                   >
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[.03] text-sm font-semibold text-white/45">
                       {String(index + 1).padStart(2, '0')}

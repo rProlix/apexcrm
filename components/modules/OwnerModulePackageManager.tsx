@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   Archive,
   Check,
@@ -19,12 +20,14 @@ import type { OwnerModulePackage, PackageApplication } from '@/lib/module-packag
 import type { ModuleKey } from '@/modules/shared/moduleTypes'
 import { EmptyState } from '@/components/ui/StatePanel'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { MOTION_TRANSITION } from '@/lib/design-system/motion'
 
 interface TenantOption {
   id: string
   name: string
   slug: string
   status: string
+  moduleKeys: ModuleKey[]
 }
 
 interface ModuleOption {
@@ -63,6 +66,7 @@ export function OwnerModulePackageManager({
   applications: PackageApplication[]
 }) {
   const router = useRouter()
+  const reduceMotion = useReducedMotion()
   const [packages, setPackages] = useState(initialPackages)
   const [draft, setDraft] = useState<PackageDraft | null>(null)
   const [selectedTenantId, setSelectedTenantId] = useState(tenants[0]?.id ?? '')
@@ -209,6 +213,20 @@ export function OwnerModulePackageManager({
 
   const previewPackage = packages.find((pkg) => pkg.id === previewPackageId) ?? null
   const selectedTenant = tenants.find((tenant) => tenant.id === selectedTenantId) ?? null
+  const packageDiff = useMemo(() => {
+    if (!previewPackage || !selectedTenant) {
+      return { add: [] as ModuleKey[], remove: [] as ModuleKey[], unchanged: [] as ModuleKey[] }
+    }
+    const before = new Set(selectedTenant.moduleKeys)
+    const after = new Set(previewPackage.moduleKeys)
+    return {
+      add: previewPackage.moduleKeys.filter((key) => !before.has(key)),
+      remove: selectedTenant.moduleKeys.filter((key) => !after.has(key)),
+      unchanged: modules
+        .map((module) => module.key)
+        .filter((key) => before.has(key) === after.has(key)),
+    }
+  }, [modules, previewPackage, selectedTenant])
 
   return (
     <div className="space-y-6">
@@ -294,224 +312,250 @@ export function OwnerModulePackageManager({
         )}
       </section>
 
-      {draft && (
-        <section className="ui-surface border-[color:var(--tenant-accent)] p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-2xs font-semibold uppercase tracking-widest text-gold-400/70">
-                Package builder
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-white">
-                {draft.id ? 'Edit package' : 'Create package'}
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => setDraft(null)}
-              className="rounded-lg p-2 text-white/35 hover:bg-white/5 hover:text-white"
-              aria-label="Close package builder"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            <Field label="Package name">
-              <input
-                value={draft.name}
-                onChange={(event) => {
-                  const name = event.target.value
-                  setDraft((current) =>
-                    current
-                      ? {
-                          ...current,
-                          name,
-                          slug: current.id ? current.slug : slugifyPackageName(name),
-                        }
-                      : current
-                  )
-                }}
-                maxLength={80}
-                className={inputClass}
-                placeholder="Fleet Enterprise"
-              />
-            </Field>
-            <Field label="Slug">
-              <input
-                value={draft.slug}
-                onChange={(event) => updateDraft('slug', event.target.value.toLowerCase())}
-                maxLength={80}
-                className={inputClass}
-                placeholder="fleet-enterprise"
-              />
-            </Field>
-            <Field label="Description" className="lg:col-span-2">
-              <textarea
-                value={draft.description}
-                onChange={(event) => updateDraft('description', event.target.value)}
-                maxLength={500}
-                rows={3}
-                className={cn(inputClass, 'resize-y')}
-                placeholder="Describe the businesses and workflow this package serves."
-              />
-            </Field>
-            <Field label="Customer-facing benefits" className="lg:col-span-2">
-              <input
-                value={draft.benefits}
-                onChange={(event) => updateDraft('benefits', event.target.value)}
-                className={inputClass}
-                placeholder="Fleet, Van Damage AI, Reports, Staff activity"
-              />
-              <p className="mt-1.5 text-xs text-white/25">Separate benefits with commas.</p>
-            </Field>
-          </div>
-
-          <div className="mt-5">
-            <p className="text-xs font-semibold uppercase tracking-widest text-white/35">
-              Modules enabled by this package
-            </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              {modules.map((module) => {
-                const selected = draft.moduleKeys.includes(module.key)
-                return (
-                  <button
-                    key={module.key}
-                    type="button"
-                    onClick={() => toggleModule(module.key)}
-                    className={cn(
-                      'flex items-start gap-3 rounded-xl border p-3 text-left transition-colors',
-                      selected
-                        ? 'border-gold-500/35 bg-gold-500/8'
-                        : 'border-white/8 bg-black/10 hover:border-white/15'
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border',
-                        selected
-                          ? 'border-gold-400 bg-gold-400 text-graphite-950'
-                          : 'border-white/15 text-transparent'
-                      )}
-                    >
-                      <Check className="h-3 w-3" />
-                    </span>
-                    <span>
-                      <span className="block text-sm font-medium text-white/75">
-                        {module.label}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-white/30">
-                        {module.description}
-                      </span>
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="mt-5 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setDraft(null)}
-              className="ui-button ui-button-secondary"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={savePackage}
-              disabled={busyKey === 'save'}
-              className="ui-button ui-button-primary"
-            >
-              {busyKey === 'save' && <Loader2 className="h-4 w-4 animate-spin" />}
-              Save package
-            </button>
-          </div>
-        </section>
-      )}
-
-      <section className="grid gap-4 lg:grid-cols-2">
-        {visiblePackages.map((pkg) => (
-          <article
-            key={pkg.id}
-            className={cn(
-              'ui-surface p-5',
-              pkg.status === 'archived' ? 'border-white/6 opacity-60' : 'border-white/10'
-            )}
+      <AnimatePresence initial={false}>
+        {draft && (
+          <motion.section
+            key="package-builder"
+            layout
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+            transition={MOTION_TRANSITION.layout}
+            className="ui-surface border-[color:var(--tenant-accent)] p-5"
           >
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-base font-semibold text-white">{pkg.name}</h2>
-                  {pkg.status === 'archived' && <StatusBadge status="archived" label="Archived" />}
-                </div>
-                <p className="mt-1 font-mono text-2xs text-white/25">{pkg.slug}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-2xs font-semibold uppercase tracking-widest text-gold-400/70">
+                  Package builder
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-white">
+                  {draft.id ? 'Edit package' : 'Create package'}
+                </h2>
               </div>
-              {pkg.status === 'active' && (
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => editPackage(pkg)}
-                    className="rounded-lg p-2 text-white/35 hover:bg-white/5 hover:text-white"
-                    aria-label={`Edit ${pkg.name}`}
-                  >
-                    <Edit3 className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => archivePackage(pkg)}
-                    disabled={busyKey === `archive:${pkg.id}`}
-                    className="rounded-lg p-2 text-white/35 hover:bg-red-500/10 hover:text-red-300"
-                    aria-label={`Archive ${pkg.name}`}
-                  >
-                    {busyKey === `archive:${pkg.id}` ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Archive className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <p className="mt-4 text-sm leading-relaxed text-white/45">{pkg.description}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {pkg.benefits.map((benefit) => (
-                <span
-                  key={benefit}
-                  className="rounded-lg border border-white/8 bg-white/[0.025] px-2.5 py-1 text-xs text-white/50"
-                >
-                  {benefit}
-                </span>
-              ))}
-            </div>
-            <div className="mt-5 border-t border-white/6 pt-4">
-              <p className="text-2xs font-semibold uppercase tracking-widest text-white/25">
-                {pkg.moduleKeys.length} enabled modules
-              </p>
-              <p className="mt-2 text-xs text-white/40">
-                {pkg.moduleKeys
-                  .map((key) => modules.find((module) => module.key === key)?.label ?? key)
-                  .join(' · ')}
-              </p>
-            </div>
-            {pkg.status === 'active' && (
               <button
                 type="button"
-                onClick={() => setPreviewPackageId(pkg.id)}
-                disabled={!selectedTenantId || busyKey === `apply:${pkg.id}`}
-                className="ui-button ui-button-secondary mt-5 w-full"
+                onClick={() => setDraft(null)}
+                className="rounded-lg p-2 text-white/35 hover:bg-white/5 hover:text-white"
+                aria-label="Close package builder"
               >
-                {busyKey === `apply:${pkg.id}` ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <PackageCheck className="h-4 w-4" />
-                )}
-                Review and apply
+                <X className="h-4 w-4" />
               </button>
-            )}
-          </article>
-        ))}
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <Field label="Package name">
+                <input
+                  value={draft.name}
+                  onChange={(event) => {
+                    const name = event.target.value
+                    setDraft((current) =>
+                      current
+                        ? {
+                            ...current,
+                            name,
+                            slug: current.id ? current.slug : slugifyPackageName(name),
+                          }
+                        : current
+                    )
+                  }}
+                  maxLength={80}
+                  className={inputClass}
+                  placeholder="Fleet Enterprise"
+                />
+              </Field>
+              <Field label="Slug">
+                <input
+                  value={draft.slug}
+                  onChange={(event) => updateDraft('slug', event.target.value.toLowerCase())}
+                  maxLength={80}
+                  className={inputClass}
+                  placeholder="fleet-enterprise"
+                />
+              </Field>
+              <Field label="Description" className="lg:col-span-2">
+                <textarea
+                  value={draft.description}
+                  onChange={(event) => updateDraft('description', event.target.value)}
+                  maxLength={500}
+                  rows={3}
+                  className={cn(inputClass, 'resize-y')}
+                  placeholder="Describe the businesses and workflow this package serves."
+                />
+              </Field>
+              <Field label="Customer-facing benefits" className="lg:col-span-2">
+                <input
+                  value={draft.benefits}
+                  onChange={(event) => updateDraft('benefits', event.target.value)}
+                  className={inputClass}
+                  placeholder="Fleet, Van Damage AI, Reports, Staff activity"
+                />
+                <p className="mt-1.5 text-xs text-white/25">Separate benefits with commas.</p>
+              </Field>
+            </div>
+
+            <div className="mt-5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-white/35">
+                Modules enabled by this package
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {modules.map((module) => {
+                  const selected = draft.moduleKeys.includes(module.key)
+                  return (
+                    <button
+                      key={module.key}
+                      type="button"
+                      onClick={() => toggleModule(module.key)}
+                      className={cn(
+                        'flex items-start gap-3 rounded-xl border p-3 text-left transition-colors',
+                        selected
+                          ? 'border-gold-500/35 bg-gold-500/8'
+                          : 'border-white/8 bg-black/10 hover:border-white/15'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border',
+                          selected
+                            ? 'border-gold-400 bg-gold-400 text-graphite-950'
+                            : 'border-white/15 text-transparent'
+                        )}
+                      >
+                        <Check className="h-3 w-3" />
+                      </span>
+                      <span>
+                        <span className="block text-sm font-medium text-white/75">
+                          {module.label}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-white/30">
+                          {module.description}
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="mt-3 rounded-xl border border-white/[0.075] bg-black/10 px-4 py-3">
+                <p className="text-xs font-medium text-white/55">Dependency model</p>
+                <p className="mt-1 text-xs leading-5 text-white/32">
+                  The current module registry declares no explicit cross-module dependency graph.
+                  Package selection stays independent; server access gates remain authoritative.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDraft(null)}
+                className="ui-button ui-button-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={savePackage}
+                disabled={busyKey === 'save'}
+                className="ui-button ui-button-primary"
+              >
+                {busyKey === 'save' && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save package
+              </button>
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <AnimatePresence initial={false} mode="popLayout">
+          {visiblePackages.map((pkg) => (
+            <motion.article
+              key={pkg.id}
+              layout
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.99 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.99 }}
+              transition={MOTION_TRANSITION.layout}
+              className={cn(
+                'ui-surface p-5',
+                pkg.status === 'archived' ? 'border-white/6 opacity-60' : 'border-white/10'
+              )}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-base font-semibold text-white">{pkg.name}</h2>
+                    {pkg.status === 'archived' && (
+                      <StatusBadge status="archived" label="Archived" />
+                    )}
+                  </div>
+                  <p className="mt-1 font-mono text-2xs text-white/25">{pkg.slug}</p>
+                </div>
+                {pkg.status === 'active' && (
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => editPackage(pkg)}
+                      className="rounded-lg p-2 text-white/35 hover:bg-white/5 hover:text-white"
+                      aria-label={`Edit ${pkg.name}`}
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => archivePackage(pkg)}
+                      disabled={busyKey === `archive:${pkg.id}`}
+                      className="rounded-lg p-2 text-white/35 hover:bg-red-500/10 hover:text-red-300"
+                      aria-label={`Archive ${pkg.name}`}
+                    >
+                      {busyKey === `archive:${pkg.id}` ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Archive className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <p className="mt-4 text-sm leading-relaxed text-white/45">{pkg.description}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {pkg.benefits.map((benefit) => (
+                  <span
+                    key={benefit}
+                    className="rounded-lg border border-white/8 bg-white/[0.025] px-2.5 py-1 text-xs text-white/50"
+                  >
+                    {benefit}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-5 border-t border-white/6 pt-4">
+                <p className="text-2xs font-semibold uppercase tracking-widest text-white/25">
+                  {pkg.moduleKeys.length} enabled modules
+                </p>
+                <p className="mt-2 text-xs text-white/40">
+                  {pkg.moduleKeys
+                    .map((key) => modules.find((module) => module.key === key)?.label ?? key)
+                    .join(' · ')}
+                </p>
+              </div>
+              {pkg.status === 'active' && (
+                <button
+                  type="button"
+                  onClick={() => setPreviewPackageId(pkg.id)}
+                  disabled={!selectedTenantId || busyKey === `apply:${pkg.id}`}
+                  className="ui-button ui-button-secondary mt-5 w-full"
+                >
+                  {busyKey === `apply:${pkg.id}` ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <PackageCheck className="h-4 w-4" />
+                  )}
+                  Review and apply
+                </button>
+              )}
+            </motion.article>
+          ))}
+        </AnimatePresence>
         {visiblePackages.length === 0 && (
           <div className="lg:col-span-2">
             <EmptyState
@@ -522,92 +566,122 @@ export function OwnerModulePackageManager({
         )}
       </section>
 
-      {previewPackage && selectedTenant && (
-        <section
-          className="ui-surface border-[color:var(--tenant-accent)] p-5"
-          aria-labelledby="package-application-preview"
-        >
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-            <div>
-              <p className="ui-eyebrow">Application preview</p>
-              <h2
-                id="package-application-preview"
-                className="mt-1 text-lg font-semibold text-white"
+      <AnimatePresence initial={false}>
+        {previewPackage && selectedTenant && (
+          <motion.section
+            key={previewPackage.id}
+            layout
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+            transition={MOTION_TRANSITION.layout}
+            className="ui-surface border-[color:var(--tenant-accent)] p-5"
+            aria-labelledby="package-application-preview"
+          >
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+              <div>
+                <p className="ui-eyebrow">Application preview</p>
+                <h2
+                  id="package-application-preview"
+                  className="mt-1 text-lg font-semibold text-white"
+                >
+                  {previewPackage.name} → {selectedTenant.name}
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
+                  This controlled change enables the package modules and disables all other
+                  registered modules for this business. Existing module data and configuration are
+                  preserved.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewPackageId(null)}
+                className="ui-button ui-button-ghost"
+                aria-label="Close application preview"
               >
-                {previewPackage.name} → {selectedTenant.name}
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-                This controlled change enables the package modules and disables all other registered
-                modules for this business. Existing module data and configuration are preserved.
-              </p>
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setPreviewPackageId(null)}
-              className="ui-button ui-button-ghost"
-              aria-label="Close application preview"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <div className="ui-surface-muted p-4">
-              <h3 className="text-sm font-semibold text-emerald-200">
-                Enable ({previewPackage.moduleKeys.length})
-              </h3>
-              <ul className="mt-3 space-y-2 text-sm text-[var(--text-primary)]">
-                {previewPackage.moduleKeys.map((key) => (
-                  <li key={key} className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-300" />
-                    {modules.find((module) => module.key === key)?.label ?? key}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="ui-surface-muted p-4">
-              <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
-                Disable ({modules.length - previewPackage.moduleKeys.length})
-              </h3>
-              <ul className="mt-3 space-y-2 text-sm text-[var(--text-secondary)]">
-                {modules
-                  .filter((module) => !previewPackage.moduleKeys.includes(module.key))
-                  .map((module) => (
-                    <li key={module.key} className="flex items-center gap-2">
-                      <X className="h-4 w-4 text-[var(--text-tertiary)]" />
-                      {module.label}
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <div className="ui-surface-muted p-4">
+                <h3 className="text-sm font-semibold text-emerald-200">
+                  Add ({packageDiff.add.length})
+                </h3>
+                <ul className="mt-3 space-y-2 text-sm text-[var(--text-primary)]">
+                  {packageDiff.add.map((key) => (
+                    <li key={key} className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-emerald-300" />
+                      {modules.find((module) => module.key === key)?.label ?? key}
                     </li>
                   ))}
-              </ul>
+                  {packageDiff.add.length === 0 && (
+                    <li className="text-xs text-[var(--text-tertiary)]">
+                      No modules will be added.
+                    </li>
+                  )}
+                </ul>
+              </div>
+              <div className="ui-surface-muted p-4">
+                <h3 className="text-sm font-semibold text-red-200">
+                  Remove ({packageDiff.remove.length})
+                </h3>
+                <ul className="mt-3 space-y-2 text-sm text-[var(--text-secondary)]">
+                  {packageDiff.remove.map((key) => (
+                    <li key={key} className="flex items-center gap-2">
+                      <X className="h-4 w-4 text-[var(--text-tertiary)]" />
+                      {modules.find((module) => module.key === key)?.label ?? key}
+                    </li>
+                  ))}
+                  {packageDiff.remove.length === 0 && (
+                    <li className="text-xs text-[var(--text-tertiary)]">
+                      No modules will be removed.
+                    </li>
+                  )}
+                </ul>
+              </div>
+              <div className="ui-surface-muted p-4">
+                <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
+                  Unchanged ({packageDiff.unchanged.length})
+                </h3>
+                <ul className="mt-3 max-h-44 space-y-2 overflow-y-auto text-sm text-[var(--text-secondary)]">
+                  {packageDiff.unchanged.map((key) => (
+                    <li key={key} className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-white/25" />
+                      {modules.find((module) => module.key === key)?.label ?? key}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-          </div>
-          <p className="mt-4 text-xs text-amber-100">
-            Confirm that users in {selectedTenant.name} are ready for this navigation and workflow
-            change.
-          </p>
-          <div className="mt-5 flex flex-wrap justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setPreviewPackageId(null)}
-              className="ui-button ui-button-secondary"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => void applyPackage(previewPackage)}
-              disabled={busyKey === `apply:${previewPackage.id}`}
-              className="ui-button ui-button-primary"
-            >
-              {busyKey === `apply:${previewPackage.id}` ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <PackageCheck className="h-4 w-4" />
-              )}
-              Confirm application
-            </button>
-          </div>
-        </section>
-      )}
+            <p className="mt-4 text-xs text-amber-100">
+              Confirm that users in {selectedTenant.name} are ready for this navigation and workflow
+              change.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPreviewPackageId(null)}
+                className="ui-button ui-button-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void applyPackage(previewPackage)}
+                disabled={busyKey === `apply:${previewPackage.id}`}
+                className="ui-button ui-button-primary"
+              >
+                {busyKey === `apply:${previewPackage.id}` ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <PackageCheck className="h-4 w-4" />
+                )}
+                Confirm application
+              </button>
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
 
       <section className="ui-surface p-5">
         <div className="flex items-center gap-2">

@@ -17,6 +17,7 @@ import { requireCommandCenterContext } from '@/lib/command-center/context'
 import { recordCommandAudit } from '@/lib/command-center/audit'
 import { AiAssistantPanel } from './AiAssistantPanel'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { DashboardRealtimeRefresh } from './DashboardRealtimeRefresh'
 
 export async function CommandCenterDashboard() {
   const context = await requireCommandCenterContext('view_dashboard')
@@ -39,6 +40,7 @@ export async function CommandCenterDashboard() {
 
   return (
     <div className="space-y-6">
+      <DashboardRealtimeRefresh />
       <section className="ui-surface p-5">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
           <div className="flex items-start gap-3">

@@ -7,18 +7,25 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import {
-  CalendarDays, List, Plus, TrendingUp, Clock, CheckCircle2, ArrowRight,
-} from 'lucide-react'
-import { CalendarView }      from '@/components/appointments/CalendarView'
-import { AppointmentList }   from '@/components/appointments/AppointmentList'
-import { AppointmentModal }  from '@/components/appointments/AppointmentModal'
-import type { Appointment }  from '@/lib/appointments/types'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { CalendarDays, List, Plus, TrendingUp, Clock, CheckCircle2, ArrowRight } from 'lucide-react'
+import { CalendarView } from '@/components/appointments/CalendarView'
+import { AppointmentList } from '@/components/appointments/AppointmentList'
+import { AppointmentModal } from '@/components/appointments/AppointmentModal'
+import type { Appointment } from '@/lib/appointments/types'
 
 type ViewTab = 'calendar' | 'list'
 
-function StatCard({ label, value, icon: Icon, color }: {
-  label: string; value: number | string; icon: React.ElementType; color: string
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  color,
+}: {
+  label: string
+  value: number | string
+  icon: React.ElementType
+  color: string
 }) {
   return (
     <motion.div
@@ -38,17 +45,19 @@ function StatCard({ label, value, icon: Icon, color }: {
 }
 
 export default function AppointmentsPage() {
-  const [tab,          setTab]          = useState<ViewTab>('calendar')
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [tab, setTab] = useState<ViewTab>('calendar')
   const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [loading,      setLoading]      = useState(true)
-  const [modalOpen,    setModalOpen]    = useState(false)
-  const [editing,      setEditing]      = useState<Appointment | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<Appointment | null>(null)
   const [defaultStart, setDefaultStart] = useState<string | undefined>()
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res  = await fetch('/api/appointments?limit=500')
+      const res = await fetch('/api/appointments?limit=500')
       const data = await res.json()
       setAppointments(data.appointments ?? [])
     } catch {
@@ -58,7 +67,23 @@ export default function AppointmentsPage() {
     }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
+
+  useEffect(() => {
+    const command = searchParams.get('command')
+    const appointmentId = searchParams.get('appointmentId')
+    if (command === 'new') {
+      openNew()
+      router.replace('/appointments', { scroll: false })
+      return
+    }
+    if (!loading && appointmentId) {
+      const appointment = appointments.find((item) => item.id === appointmentId)
+      if (appointment) openEdit(appointment)
+    }
+  }, [appointments, loading, router, searchParams])
 
   function openNew(start?: string) {
     setEditing(null)
@@ -72,13 +97,13 @@ export default function AppointmentsPage() {
   }
 
   async function handleSave(data: Partial<Appointment> & { customer_id?: string }) {
-    const url    = editing ? `/api/appointments/${editing.id}` : '/api/appointments'
+    const url = editing ? `/api/appointments/${editing.id}` : '/api/appointments'
     const method = editing ? 'PATCH' : 'POST'
 
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(data),
+      body: JSON.stringify(data),
     })
     const json = await res.json()
     if (!res.ok) throw new Error(json.error ?? 'Failed to save')
@@ -92,9 +117,9 @@ export default function AppointmentsPage() {
 
   async function handleConfirm(appt: Appointment) {
     await fetch(`/api/appointments/${appt.id}`, {
-      method:  'PATCH',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ status: 'confirmed' }),
+      body: JSON.stringify({ status: 'confirmed' }),
     })
     await load()
     setModalOpen(false)
@@ -102,18 +127,18 @@ export default function AppointmentsPage() {
 
   async function handleComplete(appt: Appointment) {
     await fetch(`/api/appointments/${appt.id}`, {
-      method:  'PATCH',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ status: 'completed' }),
+      body: JSON.stringify({ status: 'completed' }),
     })
     await load()
     setModalOpen(false)
   }
 
-  const now      = new Date().toISOString()
+  const now = new Date().toISOString()
   const upcoming = appointments.filter((a) => a.starts_at > now && a.status !== 'canceled')
-  const pending  = appointments.filter((a) => a.status === 'pending')
-  const done     = appointments.filter((a) => a.status === 'completed')
+  const pending = appointments.filter((a) => a.status === 'pending')
+  const done = appointments.filter((a) => a.status === 'completed')
 
   return (
     <div className="space-y-6">
@@ -138,10 +163,30 @@ export default function AppointmentsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total"     value={appointments.length} icon={CalendarDays}  color="bg-gold-400/10    text-gold-400"    />
-        <StatCard label="Upcoming"  value={upcoming.length}     icon={TrendingUp}    color="bg-blue-400/10   text-blue-400"    />
-        <StatCard label="Pending"   value={pending.length}      icon={Clock}         color="bg-amber-400/10  text-amber-400"   />
-        <StatCard label="Completed" value={done.length}         icon={CheckCircle2}  color="bg-emerald-400/10 text-emerald-400" />
+        <StatCard
+          label="Total"
+          value={appointments.length}
+          icon={CalendarDays}
+          color="bg-gold-400/10    text-gold-400"
+        />
+        <StatCard
+          label="Upcoming"
+          value={upcoming.length}
+          icon={TrendingUp}
+          color="bg-blue-400/10   text-blue-400"
+        />
+        <StatCard
+          label="Pending"
+          value={pending.length}
+          icon={Clock}
+          color="bg-amber-400/10  text-amber-400"
+        />
+        <StatCard
+          label="Completed"
+          value={done.length}
+          icon={CheckCircle2}
+          color="bg-emerald-400/10 text-emerald-400"
+        />
       </div>
 
       {/* Quick-access: Manage Availability (always visible) */}
@@ -171,10 +216,12 @@ export default function AppointmentsPage() {
 
       {/* Tab switcher */}
       <div className="flex items-center gap-1 bg-graphite-800 border border-surface-border rounded-xl p-1 w-fit">
-        {([
-          { id: 'calendar', label: 'Calendar', icon: CalendarDays },
-          { id: 'list',     label: 'List',     icon: List         },
-        ] as const).map(({ id, label, icon: Icon }) => (
+        {(
+          [
+            { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+            { id: 'list', label: 'List', icon: List },
+          ] as const
+        ).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
@@ -206,16 +253,21 @@ export default function AppointmentsPage() {
             </div>
           </motion.div>
         ) : tab === 'calendar' ? (
-          <motion.div key="calendar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <CalendarView
-              appointments={appointments}
-              onSelect={openEdit}
-              onNew={openNew}
-              isAdmin
-            />
+          <motion.div
+            key="calendar"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <CalendarView appointments={appointments} onSelect={openEdit} onNew={openNew} isAdmin />
           </motion.div>
         ) : (
-          <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div
+            key="list"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
             <AppointmentList
               appointments={appointments}
               onSelect={openEdit}
@@ -232,7 +284,10 @@ export default function AppointmentsPage() {
         appointment={editing}
         defaultStart={defaultStart}
         isAdmin
-        onClose={() => { setModalOpen(false); setEditing(null) }}
+        onClose={() => {
+          setModalOpen(false)
+          setEditing(null)
+        }}
         onSave={handleSave}
         onDelete={handleDelete}
         onConfirm={handleConfirm}

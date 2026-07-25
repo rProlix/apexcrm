@@ -1,12 +1,10 @@
-import Link from 'next/link'
-import { AlertTriangle, ArrowUpRight, Inbox, Search } from 'lucide-react'
+import { AlertTriangle, Inbox, Search } from 'lucide-react'
 import { syncAndLoadActionInbox, type ActionInboxQuery } from '@/lib/command-center/actions'
 import { isTenantAdmin, requireCommandCenterContext } from '@/lib/command-center/context'
-import { formatInTenantTime } from '@/lib/command-center/time'
-import { ActionStatusControls } from '@/components/command-center/ActionStatusControls'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { EmptyState, ErrorState } from '@/components/ui/StatePanel'
+import { ActionInboxWorkspace } from '@/components/command-center/ActionInboxWorkspace'
 
 export const dynamic = 'force-dynamic'
 
@@ -168,57 +166,14 @@ export default async function ActionInboxPage({
             compact
           />
         )}
-        {items.map((item) => (
-          <article
-            key={item.id}
-            className={`rounded-2xl border bg-graphite-900/65 p-5 shadow-panel ${
-              item.priority === 'urgent'
-                ? 'border-red-400/20'
-                : item.priority === 'high'
-                  ? 'border-orange-400/15'
-                  : 'border-white/[0.075]'
-            }`}
-          >
-            <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusBadge status={item.priority} />
-                  <span className="rounded-lg border border-white/8 bg-white/[0.035] px-2 py-1 text-xs capitalize text-white/50">
-                    {item.moduleKey.replace('_', ' ')}
-                  </span>
-                  <StatusBadge status={item.status} />
-                </div>
-                <h2 className="mt-3 text-base font-semibold text-white">{item.title}</h2>
-                <p className="mt-1 text-sm leading-6 text-white/50">{item.description}</p>
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-white/30">
-                  {item.sourceRecordLabel && <span>{item.sourceRecordLabel}</span>}
-                  <span>Updated {formatInTenantTime(item.latestActivityAt, context.timeZone)}</span>
-                  {item.dueAt && (
-                    <span>Due {formatInTenantTime(item.dueAt, context.timeZone)}</span>
-                  )}
-                  <span>
-                    {item.assignedUserId
-                      ? 'Assigned to a staff member'
-                      : item.assignedRole
-                        ? `Assigned to ${item.assignedRole}`
-                        : 'Unassigned'}
-                  </span>
-                </div>
-              </div>
-              <Link href={item.href} className="ui-button-primary shrink-0 text-xs">
-                Open record <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-            {['open', 'in_progress', 'snoozed'].includes(item.status) && (
-              <div className="mt-4 border-t border-white/5 pt-4">
-                <ActionStatusControls
-                  actionItemId={item.id}
-                  canDismiss={isTenantAdmin(context.role)}
-                />
-              </div>
-            )}
-          </article>
-        ))}
+        {items.length > 0 && (
+          <ActionInboxWorkspace
+            items={items}
+            canDismiss={isTenantAdmin(context.role)}
+            timeZone={context.timeZone}
+            initialFocusId={stringParam(params.focus)}
+          />
+        )}
       </div>
 
       <div className="flex items-start gap-2 rounded-xl border border-white/8 p-3 text-xs text-white/35">

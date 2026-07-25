@@ -11,6 +11,7 @@ import { OwnerModulePackageManager } from '@/components/modules/OwnerModulePacka
 import { PageHeader } from '@/components/ui/PageHeader'
 import { EmptyState, ErrorState } from '@/components/ui/StatePanel'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { getDefaultModuleState } from '@/lib/modules/defaultModules'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Module Packages — Owner' }
@@ -18,14 +19,33 @@ export const metadata = { title: 'Module Packages — Owner' }
 export default async function OwnerModulePackagesPage() {
   await requireOwner()
   const db = getSupabaseServerClient()
-  const [{ data: tenants, error: tenantError }, packagesResult, applicationsResult] =
-    await Promise.all([
-      db.from('tenants').select('id, name, slug, status').order('name', { ascending: true }),
-      settle(listOwnerModulePackages({ includeArchived: true })),
-      settle(listRecentPackageApplications()),
-    ])
+  const [
+    { data: tenants, error: tenantError },
+    { data: tenantModules, error: tenantModuleError },
+    packagesResult,
+    applicationsResult,
+  ] = await Promise.all([
+    db.from('tenants').select('id, name, slug, status').order('name', { ascending: true }),
+    db.from('tenant_modules').select('tenant_id, module_key, enabled'),
+    settle(listOwnerModulePackages({ includeArchived: true })),
+    settle(listRecentPackageApplications()),
+  ])
 
-  const loadFailed = Boolean(tenantError || packagesResult.error || applicationsResult.error)
+  const loadFailed = Boolean(
+    tenantError || tenantModuleError || packagesResult.error || applicationsResult.error
+  )
+  const storedModuleState = new Map<string, boolean>()
+  for (const row of tenantModules ?? []) {
+    if (!(row.module_key in MODULE_REGISTRY)) continue
+    storedModuleState.set(`${row.tenant_id}:${row.module_key}`, row.enabled)
+  }
+  const tenantOptions = (tenants ?? []).map((tenant) => ({
+    ...tenant,
+    moduleKeys: (Object.keys(MODULE_REGISTRY) as ModuleKey[]).filter((key) => {
+      const stored = storedModuleState.get(`${tenant.id}:${key}`)
+      return stored ?? getDefaultModuleState(key)
+    }),
+  }))
   const modules = (Object.keys(MODULE_REGISTRY) as ModuleKey[])
     .map((key) => ({
       key,
@@ -50,7 +70,7 @@ export default async function OwnerModulePackagesPage() {
           label="Active packages"
           value={(packagesResult.data ?? []).filter((p) => p.status === 'active').length}
         />
-        <Stat label="Businesses" value={(tenants ?? []).length} />
+        <Stat label="Businesses" value={tenantOptions.length} />
         <Stat label="Recent applications" value={(applicationsResult.data ?? []).length} />
       </div>
 
@@ -59,7 +79,7 @@ export default async function OwnerModulePackagesPage() {
           title="Package manager unavailable"
           description="Confirm the owner module package migration has been applied, then try again."
         />
-      ) : (tenants ?? []).length === 0 ? (
+      ) : tenantOptions.length === 0 ? (
         <EmptyState
           title="No businesses available"
           description="Create a business before applying module packages."
@@ -67,7 +87,7 @@ export default async function OwnerModulePackagesPage() {
       ) : (
         <OwnerModulePackageManager
           packages={packagesResult.data ?? []}
-          tenants={tenants ?? []}
+          tenants={tenantOptions}
           modules={modules}
           applications={applicationsResult.data ?? []}
         />

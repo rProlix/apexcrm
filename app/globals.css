@@ -53,9 +53,15 @@
   --shadow-overlay: 0 24px 80px rgba(0, 0, 0, 0.48), 0 2px 10px rgba(0, 0, 0, 0.25);
   --shadow-md: var(--shadow-surface);
 
-  --transition-fast: 120ms cubic-bezier(0.2, 0, 0, 1);
-  --transition-base: 180ms cubic-bezier(0.2, 0, 0, 1);
-  --transition-slow: 280ms cubic-bezier(0.2, 0, 0, 1);
+  --motion-feedback: 120ms;
+  --motion-state: 180ms;
+  --motion-overlay: 240ms;
+  --motion-layout: 280ms;
+  --motion-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-exit: cubic-bezier(0.4, 0, 1, 1);
+  --transition-fast: var(--motion-feedback) var(--motion-enter);
+  --transition-base: var(--motion-state) var(--motion-enter);
+  --transition-slow: var(--motion-layout) var(--motion-enter);
 
   --z-base: 0;
   --z-sticky: 20;
@@ -174,14 +180,6 @@ summary {
     z-index: 0;
   }
 
-  /* Gold text gradient */
-  .text-gold-gradient {
-    background: linear-gradient(135deg, #c9a84c 0%, #e8c34a 50%, #b8911e 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
   /* Subtle section divider */
   .divider {
     border: none;
@@ -251,6 +249,23 @@ summary {
     @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-400/[0.08] px-4 py-2 text-sm font-medium text-red-200 transition duration-150 hover:bg-red-400/[0.12] disabled:cursor-not-allowed disabled:opacity-50;
   }
 
+  .ui-button-primary,
+  .ui-button-secondary,
+  .ui-button-ghost,
+  .ui-button-danger {
+    transform: translateY(0) scale(1);
+    transition-property: color, background-color, border-color, box-shadow, filter, transform;
+    transition-duration: var(--motion-feedback);
+    transition-timing-function: var(--motion-enter);
+  }
+
+  .ui-button-primary:active,
+  .ui-button-secondary:active,
+  .ui-button-ghost:active,
+  .ui-button-danger:active {
+    transform: translateY(1px) scale(0.98);
+  }
+
   .ui-input {
     @apply min-h-11 w-full rounded-xl border border-white/10 bg-graphite-950/70 px-3.5 py-2.5 text-sm text-white outline-none transition duration-150 placeholder:text-white/[0.28] hover:border-white/15 focus:border-brand/50 focus:ring-2 focus:ring-brand/15 disabled:cursor-not-allowed disabled:opacity-50;
   }
@@ -261,6 +276,30 @@ summary {
 
   .ui-help {
     @apply mt-1.5 text-xs leading-5 text-white/40;
+  }
+
+  .ui-body {
+    @apply text-base leading-6 text-white/75;
+  }
+
+  .ui-secondary {
+    @apply text-sm leading-6 text-white/55;
+  }
+
+  .ui-metric-value {
+    @apply text-2xl font-semibold tracking-[-0.02em] text-white tabular-nums;
+  }
+
+  .ui-metric-label {
+    @apply text-xs font-medium text-white/45;
+  }
+
+  .ui-error {
+    @apply mt-1.5 text-xs leading-5 text-red-300;
+  }
+
+  .ui-dialog-title {
+    @apply text-lg font-semibold tracking-[-0.015em] text-white;
   }
 
   .ui-toolbar {
@@ -311,11 +350,120 @@ summary {
     padding-bottom: env(safe-area-inset-bottom);
   }
 
+  .ui-overlay-backdrop {
+    background: rgb(2 5 10 / 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .ui-overlay-enter {
+    animation: ui-overlay-enter var(--motion-overlay) var(--motion-enter) both;
+  }
+
+  .ui-overlay-enter[data-input='keyboard'] {
+    animation: none;
+  }
+
+  .ui-drawer-enter {
+    transform-origin: right var(--quick-peek-origin-y, 50%);
+    animation: ui-drawer-enter var(--motion-overlay) var(--motion-enter) both;
+  }
+
+  .ui-live-change {
+    animation: ui-live-change 720ms var(--motion-enter) both;
+  }
+
+  .ui-popover-enter {
+    transform-origin: top right;
+  }
+
+  details[open] > .ui-popover-enter {
+    animation: ui-popover-enter var(--motion-state) var(--motion-enter) both;
+  }
+
+  .ui-critical-reveal {
+    animation: ui-critical-reveal 620ms var(--motion-enter) both;
+  }
+
   /* Store module — form input */
   .store-input {
     @apply w-full rounded-xl bg-white/5 border border-white/10 px-3.5 py-2.5 text-sm text-white placeholder-white/20
            focus:outline-none focus:border-amber-400/50 focus:ring-1 focus:ring-amber-400/30
            transition-colors duration-150;
+  }
+}
+
+@keyframes ui-overlay-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ui-live-change {
+  0% {
+    box-shadow: inset 0 0 0 1px rgb(var(--tenant-accent-rgb) / 0);
+  }
+  38% {
+    box-shadow: inset 0 0 0 1px rgb(var(--tenant-accent-rgb) / 0.38);
+  }
+  100% {
+    box-shadow: inset 0 0 0 1px rgb(var(--tenant-accent-rgb) / 0);
+  }
+}
+
+@keyframes ui-popover-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ui-critical-reveal {
+  from {
+    opacity: 0.72;
+    box-shadow: inset 0 0 0 1px rgb(248 113 113 / 0.38);
+  }
+  to {
+    opacity: 1;
+    box-shadow: inset 0 0 0 1px rgb(248 113 113 / 0);
+  }
+}
+
+@keyframes ui-drawer-enter {
+  from {
+    opacity: 0;
+    transform: translateX(18px) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@media (max-width: 639px) {
+  .ui-drawer-enter {
+    transform-origin: 50% 100%;
+    animation-name: ui-sheet-enter;
+  }
+
+  @keyframes ui-sheet-enter {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }
 
@@ -330,12 +478,30 @@ summary {
     scroll-behavior: auto;
   }
 
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
+  .ui-overlay-enter,
+  .ui-drawer-enter,
+  .ui-live-change,
+  .ui-popover-enter,
+  .ui-critical-reveal,
+  .animate-fade-in,
+  .animate-pulse-gold {
+    animation: none !important;
+  }
+
+  .ui-button-primary,
+  .ui-button-secondary,
+  .ui-button-ghost,
+  .ui-button-danger {
+    transform: none !important;
+    transition-property: color, background-color, border-color, box-shadow !important;
+  }
+}
+
+@media (hover: none) {
+  .ui-button-primary:hover,
+  .ui-button-secondary:hover,
+  .ui-button-ghost:hover,
+  .ui-button-danger:hover {
+    transform: none;
   }
 }

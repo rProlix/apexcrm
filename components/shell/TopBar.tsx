@@ -1,21 +1,32 @@
 'use client'
 
-import { motion } from 'framer-motion'
-import { Bell, Building2, ChevronDown, LogOut, Menu, Search, Settings } from 'lucide-react'
+import { Bell, Building2, ChevronDown, LogOut, Menu, Settings } from 'lucide-react'
 import Link from 'next/link'
+import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { initials } from '@/lib/utils'
-import { fadeIn } from '@/lib/motion'
+import type { AnyRole } from '@/lib/auth/types'
+import type { NavModule } from '@/modules/shared/moduleTypes'
+import { GlobalCommandCenter } from '@/components/command-center/GlobalCommandCenter'
+import { LiveOperationsPulse } from '@/components/command-center/OperationsRealtimeProvider'
 
 interface TopBarProps {
   tenantName: string
   userEmail?: string
-  userRole?: string
+  userRole: AnyRole
+  modules: NavModule[]
+  isPlatformAdmin: boolean
+  commandCenter: {
+    inbox: boolean
+    activity: boolean
+    reports: boolean
+    setup: boolean
+    notifications: boolean
+  }
   /** Called when the mobile hamburger is tapped */
   onMenuClick?: () => void
   unreadNotifications?: number
   notificationsEnabled?: boolean
-  actionSearchEnabled?: boolean
   openActionCount?: number
 }
 
@@ -23,19 +34,40 @@ export function TopBar({
   tenantName,
   userEmail,
   userRole,
+  modules,
+  isPlatformAdmin,
+  commandCenter,
   onMenuClick,
   unreadNotifications = 0,
   notificationsEnabled = false,
-  actionSearchEnabled = false,
   openActionCount = 0,
 }: TopBarProps) {
   const name = userEmail?.split('@')[0] ?? 'User'
+  const profileMenuRef = useRef<HTMLDetailsElement>(null)
+
+  useEffect(() => {
+    const closeMenu = (restoreFocus: boolean) => {
+      const menu = profileMenuRef.current
+      if (!menu?.open) return
+      menu.open = false
+      if (restoreFocus) menu.querySelector<HTMLElement>('summary')?.focus()
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMenu(true)
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) closeMenu(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('pointerdown', onPointerDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('pointerdown', onPointerDown)
+    }
+  }, [])
 
   return (
-    <motion.header
-      variants={fadeIn}
-      initial="hidden"
-      animate="visible"
+    <header
       className={cn(
         // Mobile: spans full width. Desktop: offset by sidebar width.
         'fixed left-0 right-0 top-0 z-20 h-16 md:left-64',
@@ -66,28 +98,21 @@ export function TopBar({
           </div>
         </div>
 
-        {actionSearchEnabled && (
-          <Link
-            href="/actions"
-            className={cn(
-              'ml-2 hidden min-h-9 items-center gap-2 rounded-xl border border-white/8 bg-white/[0.025] px-3 text-white/40 lg:flex',
-              'text-sm hover:border-brand/25 hover:bg-white/[0.04] hover:text-white/65',
-              'transition-colors duration-150 focus-ring'
-            )}
-          >
-            <Search className="h-3.5 w-3.5" strokeWidth={2} />
-            <span className="text-xs">Search actions</span>
-            {openActionCount > 0 && (
-              <span className="rounded-md bg-brand/[0.12] px-1.5 text-2xs font-semibold leading-5 text-brand">
-                {openActionCount > 99 ? '99+' : openActionCount}
-              </span>
-            )}
-          </Link>
-        )}
+        <div className="ml-2">
+          <GlobalCommandCenter
+            modules={modules}
+            role={userRole}
+            isPlatformAdmin={isPlatformAdmin}
+            commandCenter={commandCenter}
+            openActionCount={openActionCount}
+          />
+        </div>
       </div>
 
       {/* Right: notifications + user */}
       <div className="flex items-center gap-2">
+        <LiveOperationsPulse className="hidden xl:flex" />
+
         {/* Notifications */}
         {notificationsEnabled && (
           <Link
@@ -111,7 +136,7 @@ export function TopBar({
         {/* Divider */}
         <div className="mx-1 hidden h-6 w-px bg-white/8 sm:block" />
 
-        <details className="group relative">
+        <details ref={profileMenuRef} className="group relative">
           <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-xl px-1.5 text-white/80 transition-colors hover:bg-white/[0.04] focus-ring [&::-webkit-details-marker]:hidden">
             <div className="brand-accent-surface flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border">
               <span className="text-xs font-bold">{initials(name)}</span>
@@ -124,7 +149,7 @@ export function TopBar({
             </div>
             <ChevronDown className="hidden h-3.5 w-3.5 text-white/30 transition-transform group-open:rotate-180 sm:block" />
           </summary>
-          <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-white/10 bg-graphite-800 p-2 shadow-panel-lg">
+          <div className="ui-popover-enter absolute right-0 top-12 z-50 w-56 rounded-2xl border border-white/10 bg-graphite-800 p-2 shadow-panel-lg">
             <div className="border-b border-white/[0.07] px-3 py-2.5">
               <p className="truncate text-xs font-medium text-white/75">{userEmail}</p>
               <p className="mt-0.5 truncate text-2xs text-white/35">{tenantName}</p>
@@ -143,6 +168,6 @@ export function TopBar({
           </div>
         </details>
       </div>
-    </motion.header>
+    </header>
   )
 }

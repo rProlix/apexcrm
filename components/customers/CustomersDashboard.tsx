@@ -11,14 +11,15 @@ import type { TenantCustomer } from '@/lib/customers/getTenantCustomers'
 
 interface Props {
   initialCustomers: TenantCustomer[]
-  totalCount:       number
-  activeCount:      number
-  tenantId:         string
-  userRole:         string
+  totalCount: number
+  activeCount: number
+  tenantId: string
+  userRole: string
+  autoOpenInvite?: boolean
 }
 
 const FADE_UP = {
-  hidden:  { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: 16 },
   visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.4 } }),
 }
 
@@ -28,10 +29,11 @@ export function CustomersDashboard({
   activeCount,
   tenantId,
   userRole,
+  autoOpenInvite = false,
 }: Props) {
-  const [customers,    setCustomers]    = useState<TenantCustomer[]>(initialCustomers)
-  const [isSearching,  setIsSearching]  = useState(false)
-  const [showInvite,   setShowInvite]   = useState(false)
+  const [customers, setCustomers] = useState<TenantCustomer[]>(initialCustomers)
+  const [isSearching, setIsSearching] = useState(false)
+  const [showInvite, setShowInvite] = useState(autoOpenInvite)
 
   const handleSearchResults = useCallback((results: TenantCustomer[]) => {
     setCustomers(results)
@@ -46,14 +48,38 @@ export function CustomersDashboard({
   const canManage = userRole === 'owner' || userRole === 'admin'
 
   const stats = [
-    { icon: Users,       label: 'Total Customers', value: totalCount,  color: 'text-cyan-400',    bg: 'bg-cyan-400/10'    },
-    { icon: UserCheck,   label: 'Active',           value: activeCount, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-    { icon: ShoppingBag, label: 'With Orders',      value: initialCustomers.filter(c => c.has_account).length, color: 'text-amber-400', bg: 'bg-amber-400/10' },
-    { icon: TrendingUp,  label: 'This Month',       value: initialCustomers.filter(c => {
-      const d = new Date(c.created_at)
-      const now = new Date()
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-    }).length, color: 'text-gold-400', bg: 'bg-gold-400/10' },
+    {
+      icon: Users,
+      label: 'Total Customers',
+      value: totalCount,
+      color: 'text-cyan-400',
+      bg: 'bg-cyan-400/10',
+    },
+    {
+      icon: UserCheck,
+      label: 'Active',
+      value: activeCount,
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-400/10',
+    },
+    {
+      icon: ShoppingBag,
+      label: 'With Orders',
+      value: initialCustomers.filter((c) => c.has_account).length,
+      color: 'text-amber-400',
+      bg: 'bg-amber-400/10',
+    },
+    {
+      icon: TrendingUp,
+      label: 'This Month',
+      value: initialCustomers.filter((c) => {
+        const d = new Date(c.created_at)
+        const now = new Date()
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+      }).length,
+      color: 'text-gold-400',
+      bg: 'bg-gold-400/10',
+    },
   ]
 
   return (
@@ -102,7 +128,9 @@ export function CustomersDashboard({
             variants={FADE_UP}
             className="premium-panel premium-border rounded-2xl p-5"
           >
-            <div className={`inline-flex h-9 w-9 rounded-xl ${stat.bg} items-center justify-center mb-3`}>
+            <div
+              className={`inline-flex h-9 w-9 rounded-xl ${stat.bg} items-center justify-center mb-3`}
+            >
               <stat.icon className={`w-4 h-4 ${stat.color}`} />
             </div>
             <p className="text-2xl font-bold text-white">{stat.value.toLocaleString()}</p>
@@ -135,10 +163,7 @@ export function CustomersDashboard({
       </motion.div>
 
       {showInvite && (
-        <InviteCustomerModal
-          tenantId={tenantId}
-          onClose={() => setShowInvite(false)}
-        />
+        <InviteCustomerModal tenantId={tenantId} onClose={() => setShowInvite(false)} />
       )}
     </div>
   )
