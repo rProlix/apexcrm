@@ -40,8 +40,28 @@ test('reduced-motion CSS disables signature movement without destroying all tran
   const css = await readFile(path.join(process.cwd(), 'app/globals.css'), 'utf8')
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
   assert.match(css, /\.ui-overlay-enter,[\s\S]*animation: none !important/)
+  assert.match(css, /\.ui-navigation-progress-bar,[\s\S]*animation: none !important/)
+  assert.match(css, /\.ui-mobile-sidebar\s*\{[\s\S]*transition-duration: 0ms !important/)
   assert.doesNotMatch(css, /0\.01ms/)
   assert.doesNotMatch(css, /\*\s*\{[\s\S]*animation-duration:\s*0/)
+})
+
+test('route loading uses accessible app boundaries and never invents percentage progress', async () => {
+  const [skeleton, rootLoading, dashboardLoading, navigationFeedback] = await Promise.all([
+    readFile(path.join(process.cwd(), 'components/ui/Skeleton.tsx'), 'utf8'),
+    readFile(path.join(process.cwd(), 'app/loading.tsx'), 'utf8'),
+    readFile(path.join(process.cwd(), 'app/(dashboard)/loading.tsx'), 'utf8'),
+    readFile(path.join(process.cwd(), 'components/shell/NavigationFeedback.tsx'), 'utf8'),
+  ])
+
+  assert.match(skeleton, /role="status"/)
+  assert.match(skeleton, /aria-busy="true"/)
+  assert.match(rootLoading, /ApplicationLoadingScreen/)
+  assert.match(dashboardLoading, /PageSkeleton/)
+  assert.match(navigationFeedback, /role="progressbar"/)
+  assert.match(navigationFeedback, /removeEventListener/)
+  assert.match(navigationFeedback, /clearTimeout/)
+  assert.doesNotMatch([skeleton, navigationFeedback].join('\n'), /\b\d{1,3}%\b/)
 })
 
 test('shared motion utilities contain no infinite decorative loops', async () => {

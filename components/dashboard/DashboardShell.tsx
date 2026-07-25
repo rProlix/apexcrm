@@ -1,10 +1,11 @@
 'use client'
 
 import { MotionConfig } from 'framer-motion'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { Sidebar } from '@/components/shell/Sidebar'
 import { TopBar } from '@/components/shell/TopBar'
 import { BottomNav } from '@/components/shell/BottomNav'
+import { NavigationFeedback } from '@/components/shell/NavigationFeedback'
 import type { NavModule } from '@/modules/shared/moduleTypes'
 import type { SafeTenantAccent } from '@/lib/design-system/tenantAccent'
 import type { AnyRole } from '@/lib/auth/types'
@@ -79,14 +80,16 @@ export function DashboardShell({
               openActionCount={openActionCount}
             />
 
-            {sidebarOpen && (
-              <button
-                type="button"
-                aria-label="Close navigation"
-                className="ui-overlay-backdrop fixed inset-0 z-30 h-full w-full cursor-default md:hidden"
-                onClick={() => setSidebarOpen(false)}
-              />
-            )}
+            <button
+              type="button"
+              aria-label="Close navigation"
+              aria-hidden={!sidebarOpen}
+              tabIndex={sidebarOpen ? 0 : -1}
+              className={`ui-mobile-backdrop ui-overlay-backdrop fixed inset-0 z-30 h-full w-full cursor-default md:hidden ${
+                sidebarOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+              }`}
+              onClick={() => setSidebarOpen(false)}
+            />
 
             <TopBar
               tenantName={tenantName}
@@ -108,6 +111,10 @@ export function DashboardShell({
               notificationsEnabled={commandCenter?.notifications ?? false}
               onMenuClick={() => setSidebarOpen(true)}
             />
+
+            <Suspense fallback={null}>
+              <NavigationFeedback />
+            </Suspense>
 
             <main className="min-h-dvh pt-16 md:pl-64">
               <div className="ui-page px-[var(--space-page-x)] py-[var(--space-page-y)] pb-24 md:pb-9">

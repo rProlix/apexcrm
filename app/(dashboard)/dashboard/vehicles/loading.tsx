@@ -1,5 +1,5 @@
 import { PageSkeleton } from '@/components/ui/Skeleton'
 
 export default function VehiclesLoading() {
-  return <PageSkeleton />
+  return <PageSkeleton label="Loading fleet" />
 }

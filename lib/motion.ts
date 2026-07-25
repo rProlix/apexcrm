@@ -40,9 +40,4 @@ export const cardHover = {
   hover: { scale: 1.006, y: -1, transition: MOTION_TRANSITION.feedback },
 }
 
-export const sidebarItemHover = {
-  rest: { x: 0, transition: MOTION_TRANSITION.feedback },
-  hover: { x: 1, transition: MOTION_TRANSITION.feedback },
-}
-
 export { MOTION_EASING, MOTION_TRANSITION }

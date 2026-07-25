@@ -331,9 +331,71 @@ summary {
   }
 
   .ui-skeleton {
-    @apply animate-pulse rounded-lg bg-white/[0.055];
-    background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.035), transparent);
-    background-size: 200% 100%;
+    @apply relative overflow-hidden rounded-lg bg-white/[0.055];
+  }
+
+  .ui-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.055), transparent);
+    transform: translateX(-110%);
+    animation: ui-skeleton-scan 900ms linear infinite;
+    will-change: transform;
+  }
+
+  .ui-loading-sequence > *:not(.sr-only):not(.ui-loading-card-grid),
+  .ui-loading-card-grid > * {
+    animation: ui-loading-enter var(--motion-state) var(--motion-enter) both;
+  }
+
+  .ui-loading-sequence > *:nth-child(4) {
+    animation-delay: 80ms;
+  }
+
+  .ui-loading-card-grid > *:nth-child(2) {
+    animation-delay: 35ms;
+  }
+
+  .ui-loading-card-grid > *:nth-child(3) {
+    animation-delay: 70ms;
+  }
+
+  .ui-loading-card-grid > *:nth-child(4) {
+    animation-delay: 105ms;
+  }
+
+  .ui-navigation-progress {
+    position: fixed;
+    top: 63px;
+    right: 0;
+    left: 0;
+    z-index: calc(var(--z-sticky) + 1);
+    height: 2px;
+    overflow: hidden;
+    pointer-events: none;
+    background: rgb(var(--tenant-accent-rgb) / 0.08);
+  }
+
+  .ui-navigation-progress-bar {
+    display: block;
+    width: 36%;
+    height: 100%;
+    background: var(--tenant-accent);
+    transform: translateX(-110%);
+    animation: ui-navigation-progress 780ms linear infinite;
+    will-change: transform;
+  }
+
+  .ui-mobile-backdrop {
+    transition-property: opacity;
+    transition-duration: var(--motion-state);
+    transition-timing-function: var(--motion-enter);
+  }
+
+  .ui-sidebar-item {
+    transform: translateX(0);
+    transition: transform var(--motion-feedback) var(--motion-enter);
   }
 
   .brand-accent-surface {
@@ -404,6 +466,29 @@ summary {
   }
 }
 
+@keyframes ui-loading-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-skeleton-scan {
+  to {
+    transform: translateX(110%);
+  }
+}
+
+@keyframes ui-navigation-progress {
+  to {
+    transform: translateX(310%);
+  }
+}
+
 @keyframes ui-live-change {
   0% {
     box-shadow: inset 0 0 0 1px rgb(var(--tenant-accent-rgb) / 0);
@@ -467,6 +552,18 @@ summary {
   }
 }
 
+@media (min-width: 768px) {
+  .ui-navigation-progress {
+    left: 16rem;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ui-sidebar-item:hover {
+    transform: translateX(1px);
+  }
+}
+
 /* ─── Selection color ───────────────────────────────────────────── */
 ::selection {
   background: rgb(var(--tenant-accent-rgb) / 0.28);
@@ -483,9 +580,28 @@ summary {
   .ui-live-change,
   .ui-popover-enter,
   .ui-critical-reveal,
+  .ui-loading-sequence > *:not(.sr-only):not(.ui-loading-card-grid),
+  .ui-loading-card-grid > *,
+  .ui-skeleton::after,
+  .ui-navigation-progress-bar,
   .animate-fade-in,
   .animate-pulse-gold {
     animation: none !important;
+  }
+
+  .ui-navigation-progress-bar {
+    width: 100%;
+    transform: none;
+    opacity: 0.55;
+  }
+
+  .ui-mobile-sidebar {
+    transition-duration: 0ms !important;
+  }
+
+  .ui-sidebar-item {
+    transform: none !important;
+    transition: none !important;
   }
 
   .ui-button-primary,

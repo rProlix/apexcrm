@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { motion } from 'framer-motion'
 import {
   LayoutDashboard,
   Settings,
@@ -33,10 +32,10 @@ import {
   ListChecks,
   Bell,
   Boxes,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { sidebarItemHover } from '@/lib/motion'
 import { LiveBadge } from '@/components/ui/LiveBadge'
 import type { NavModule } from '@/modules/shared/moduleTypes'
 import type { CommandCenterNavConfig } from '@/components/dashboard/DashboardShell'
@@ -154,7 +153,7 @@ export function Sidebar({
         'flex flex-col border-r border-surface-border',
         'bg-graphite-900/97 shadow-[12px_0_40px_rgba(0,0,0,0.12)] backdrop-blur-xl',
         // CSS-only transition so Framer Motion cannot override translateX
-        'transition-transform duration-300 ease-in-out',
+        'ui-mobile-sidebar transition-transform duration-[240ms] ease-[cubic-bezier(0.32,0.72,0,1)]',
         isOpen ? 'translate-x-0' : '-translate-x-full',
         // Desktop: always visible, ignore isOpen
         'md:translate-x-0'
@@ -184,15 +183,7 @@ export function Sidebar({
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-white/[0.05] hover:text-white md:hidden"
           aria-label="Close sidebar"
         >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="h-4 w-4" strokeWidth={2} />
         </button>
       </div>
 
@@ -370,10 +361,8 @@ export function Sidebar({
             </span>
           </div>
         )}
-        <motion.a
+        <a
           href="/logout"
-          initial="rest"
-          whileHover="hover"
           className={cn(
             'flex min-h-10 w-full items-center gap-3 rounded-xl px-3 py-2.5',
             'text-white/45 transition-colors duration-150 hover:bg-red-500/[0.08] hover:text-red-300',
@@ -382,7 +371,7 @@ export function Sidebar({
         >
           <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.75} />
           Sign out
-        </motion.a>
+        </a>
       </div>
     </aside>
   )
@@ -395,7 +384,7 @@ interface SidebarItemProps extends NavItem {
 
 function SidebarItem({ label, href, icon: Icon, active, onNavigate, badge }: SidebarItemProps) {
   return (
-    <motion.div initial="rest" whileHover="hover" variants={sidebarItemHover}>
+    <div className="ui-sidebar-item">
       <Link
         href={href}
         onClick={onNavigate}
@@ -424,6 +413,6 @@ function SidebarItem({ label, href, icon: Icon, active, onNavigate, badge }: Sid
           />
         )}
       </Link>
-    </motion.div>
+    </div>
   )
 }

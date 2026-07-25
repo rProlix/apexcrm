@@ -11,17 +11,23 @@ npm install
 # 2. Copy environment file and fill in your Supabase credentials
 cp .env.example .env.local
 
-# 3. Apply Supabase migrations
-npx supabase db push
+# 3. Link the Supabase project
+npx supabase link --project-ref your-project-ref
 
-# 4. Seed the database
-npx supabase db execute --file supabase/seed.sql
+# 4. Review local and remote migration history
+npx supabase migration list --linked
 
-# 5. Start dev server
+# 5. Apply migrations and the safe repository seed after history is aligned
+npx supabase db push --include-seed
+
+# 6. Start the dev server
 npm run dev
 ```
 
 App runs at `http://localhost:3000`.
+
+Do not use `--include-all` until older migration-history entries have been reconciled against the
+deployed schema.
 
 ## Van Damage AI (Phase 2)
 
