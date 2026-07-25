@@ -246,15 +246,15 @@ export default async function InspectionPage({
         const row = asRecord(data?.[0])
         return text(row.id) ? { id: text(row.id)!, vanId: text(row.van_id) } : null
       },
-      async loadVehiclesByNumber(tenantId, vanNumber, limit) {
+      async loadVehiclesByNumber(tenantId, _vanNumber, limit) {
         const { data } = await db
           .from('vehicles')
           .select(
             'id,tenant_id,name,van_number,make,model,year,color,plate_number,vin,status,metadata'
           )
           .eq('tenant_id', tenantId)
-          .eq('van_number', vanNumber)
-          .limit(limit)
+          .not('van_number', 'is', null)
+          .limit(Math.max(limit, 1000))
         return (data ?? []).map(
           (vehicle) => ({ ...vehicle, metadata: asRecord(vehicle.metadata) }) as InspectionVehicle
         )

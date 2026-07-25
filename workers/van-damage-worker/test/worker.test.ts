@@ -7,7 +7,7 @@ import { processMessageBody } from '../src/process-job.js'
 import type { WorkerConfig } from '../src/config.js'
 import { buildClaimJobArgs, WORKER_SCHEMA_CONTRACT_VERSION } from '../src/supabase-worker.js'
 import { vanDamageJobSchema } from '../../../lib/van-damage/contracts.js'
-import { extractVanNumber } from '../src/van-number-parser.js'
+import { extractVanNumber, normalizeVanNumber } from '../src/van-number-parser.js'
 
 test('damage parser validates the strict Gemini response', () => {
   const result = parseDamageAnalysis(
@@ -116,6 +116,20 @@ test('van number parser resolves explicit, hashtag, and number-only Slack text',
   ]
   for (const [text, expected] of examples) {
     assert.equal(extractVanNumber(text), expected, text)
+  }
+})
+
+test('van number normalization treats prefixed and bare values as one van', () => {
+  const examples: Array<[string, string | null]> = [
+    ['44', '44'],
+    ['van 44', '44'],
+    ['Van #44', '44'],
+    ['vehicle number 44', '44'],
+    ['truck no. 44', '44'],
+    ['unit num 44', '44'],
+  ]
+  for (const [value, expected] of examples) {
+    assert.equal(normalizeVanNumber(value), expected, value)
   }
 })
 

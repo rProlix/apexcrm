@@ -13,6 +13,18 @@ export type InspectionVehicle = {
   metadata: Record<string, unknown>
 }
 
+const RAW_VAN_PREFIX_PATTERN =
+  /^\s*(?:van|vehicle|truck|unit)(?:\s+(?:number|no\.?|num\.?))?\s*#?\s*/i
+
+export function normalizeInspectionVanNumber(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null
+  const compact = value.replace(/\s+/g, ' ').trim()
+  if (!compact) return null
+  const withoutPrefix = compact.replace(RAW_VAN_PREFIX_PATTERN, '').trim()
+  const withoutHash = withoutPrefix.replace(/^#\s*/, '').trim()
+  return withoutHash || null
+}
+
 export type VehicleResolution =
   | {
       state: 'resolved'
@@ -47,7 +59,7 @@ export type VehicleResolutionLoaders = {
   loadVehiclesByNumber: (
     tenantId: string,
     vanNumber: string,
-    limit: 2
+    limit: number
   ) => Promise<InspectionVehicle[]>
 }
 
@@ -56,7 +68,7 @@ function stringValue(value: unknown) {
 }
 
 export function extractLegacyVanNumber(metadata: Record<string, unknown>) {
-  return (
+  return normalizeInspectionVanNumber(
     stringValue(metadata.vanNumber) ??
     stringValue(metadata.van_number) ??
     stringValue(metadata.vehicleNumber) ??
@@ -109,7 +121,9 @@ export async function resolveInspectionVehicle(
 
   const legacyVanNumber = extractLegacyVanNumber(input.metadata)
   if (legacyVanNumber) {
-    const matches = await loaders.loadVehiclesByNumber(input.tenantId, legacyVanNumber, 2)
+    const matches = (await loaders.loadVehiclesByNumber(input.tenantId, legacyVanNumber, 20))
+      .filter((vehicle) => normalizeInspectionVanNumber(vehicle.van_number) === legacyVanNumber)
+      .slice(0, 2)
     if (matches.length === 1) {
       return {
         state: 'resolved',

@@ -5,8 +5,16 @@ const ONLY_VAN_NUMBER_PATTERN = /^\s*([0-9][0-9A-Za-z-]*)\s*$/
 const LEADING_CONTEXTUAL_VAN_NUMBER_PATTERN =
   /^\s*([0-9][0-9A-Za-z-]*)\s+(?:has|needs?|is|was|with|won't|will\s+not|requires?|reports?)\b/i
 
-function normalizeVanNumber(value: string): string {
-  return value.trim()
+const RAW_VAN_PREFIX_PATTERN =
+  /^\s*(?:van|vehicle|truck|unit)(?:\s+(?:number|no\.?|num\.?))?\s*#?\s*/i
+
+export function normalizeVanNumber(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null
+  const compact = value.replace(/\s+/g, ' ').trim()
+  if (!compact) return null
+  const withoutPrefix = compact.replace(RAW_VAN_PREFIX_PATTERN, '').trim()
+  const withoutHash = withoutPrefix.replace(/^#\s*/, '').trim()
+  return withoutHash || null
 }
 
 export function extractVanNumber(text: string): string | null {

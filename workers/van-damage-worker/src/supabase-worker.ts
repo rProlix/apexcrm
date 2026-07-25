@@ -3,6 +3,7 @@ import type { Json } from '../../../lib/supabase/types.js'
 import type { VanDamageJobV1, GeminiDamageAnalysis } from '../../../lib/van-damage/contracts.js'
 import type { EncryptedSecret } from '../../../lib/server/crypto/encrypt-token.js'
 import type { WorkerConfig } from './config.js'
+import { normalizeVanNumber } from './van-number-parser.js'
 
 export const WORKER_SCHEMA_CONTRACT_VERSION = '2026-07-04-v1'
 
@@ -91,24 +92,40 @@ export class SupabaseWorker {
     businessId: string
     vanNumber: string
   }): Promise<WorkerVanProfile> {
+    const canonicalVanNumber = normalizeVanNumber(input.vanNumber)
+    if (!canonicalVanNumber) throw new Error('A valid van number is required')
     const { data: existing, error: existingError } = await this.db.from('vehicles')
       .select('id, tenant_id, name, van_number, status, metadata')
       .eq('tenant_id', input.tenantId)
-      .eq('van_number', input.vanNumber)
+      .eq('van_number', canonicalVanNumber)
       .limit(1)
       .maybeSingle()
     if (existingError) throw new Error(existingError.message)
     if (existing) return existing as WorkerVanProfile
 
+    const { data: candidates, error: candidateError } = await this.db.from('vehicles')
+      .select('id, tenant_id, name, van_number, status, metadata')
+      .eq('tenant_id', input.tenantId)
+      .not('van_number', 'is', null)
+      .limit(1000)
+    if (candidateError) throw new Error(candidateError.message)
+    const canonicalMatches = ((candidates ?? []) as WorkerVanProfile[])
+      .filter((candidate) => normalizeVanNumber(candidate.van_number) === canonicalVanNumber)
+    if (canonicalMatches.length === 1) return canonicalMatches[0]
+    if (canonicalMatches.length > 1) {
+      throw new Error(`Multiple van profiles match canonical van number ${canonicalVanNumber}`)
+    }
+
     const insert: Record<string, unknown> = {
       tenant_id: input.tenantId,
-      name: `Van ${input.vanNumber}`,
-      van_number: input.vanNumber,
+      name: `Van ${canonicalVanNumber}`,
+      van_number: canonicalVanNumber,
       status: 'active',
       metadata: {
         source: 'slack_auto_created',
         businessId: input.businessId,
-        vanNumber: input.vanNumber,
+        vanNumber: canonicalVanNumber,
+        rawVanNumber: input.vanNumber,
       },
     }
     if (await this.hasVehicleColumn('business_id')) insert.business_id = input.businessId
@@ -119,7 +136,7 @@ export class SupabaseWorker {
     const { data: afterRace, error: afterRaceError } = await this.db.from('vehicles')
       .select('id, tenant_id, name, van_number, status, metadata')
       .eq('tenant_id', input.tenantId)
-      .eq('van_number', input.vanNumber)
+      .eq('van_number', canonicalVanNumber)
       .limit(1)
       .maybeSingle()
     if (afterRaceError) throw new Error(afterRaceError.message)
@@ -128,6 +145,7 @@ export class SupabaseWorker {
   }
 
   async attachInspectionToVan(job: VanDamageJobV1, van: WorkerVanProfile, vanNumber: string) {
+    const canonicalVanNumber = normalizeVanNumber(vanNumber) ?? vanNumber
     const { data: current, error: currentError } = await this.db.from('van_damage_inspections')
       .select('metadata')
       .eq('id', job.inspectionId)
@@ -137,7 +155,8 @@ export class SupabaseWorker {
     if (currentError) throw new Error(currentError.message)
     const metadata = {
       ...((current?.metadata ?? {}) as Record<string, unknown>),
-      vanNumber,
+      vanNumber: canonicalVanNumber,
+      rawVanNumber: vanNumber,
       vanId: van.id,
       vanNumberSource: 'slack_message_text',
     }

@@ -100,6 +100,203 @@ body {
   overflow-x: clip;
 }
 
+/* ─── Initial product launch sequence ───────────────────────────── */
+.app-launch-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  overflow: hidden;
+  background: #080b11;
+  isolation: isolate;
+  opacity: 1;
+  transform: translateZ(0);
+  transition:
+    opacity 360ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 360ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.app-launch-screen[data-phase='leaving'] {
+  opacity: 0;
+  transform: scale(1.012);
+  pointer-events: none;
+}
+
+.app-launch-ambient {
+  position: absolute;
+  width: min(52rem, 110vw);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle,
+    rgb(var(--tenant-accent-rgb) / 0.13) 0%,
+    rgb(var(--tenant-accent-rgb) / 0.035) 35%,
+    transparent 68%
+  );
+  opacity: 0;
+  transform: scale(0.9);
+  animation: app-launch-ambient 1100ms cubic-bezier(0.23, 1, 0.32, 1) 80ms both;
+}
+
+.app-launch-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.022) 1px, transparent 1px);
+  background-position: center;
+  background-size: 72px 72px;
+  -webkit-mask-image: radial-gradient(circle at center, black, transparent 68%);
+  mask-image: radial-gradient(circle at center, black, transparent 68%);
+  opacity: 0;
+  animation: app-launch-grid 760ms cubic-bezier(0.23, 1, 0.32, 1) 120ms both;
+}
+
+.app-launch-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(21rem, calc(100vw - 3rem));
+  flex-direction: column;
+  align-items: center;
+}
+
+.app-launch-mark {
+  position: relative;
+  display: grid;
+  width: 4.25rem;
+  height: 4.25rem;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgb(var(--tenant-accent-rgb) / 0.28);
+  border-radius: 1.125rem;
+  background:
+    linear-gradient(145deg, rgb(var(--tenant-accent-rgb) / 0.18), transparent 58%),
+    #121722;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 22px 60px rgb(0 0 0 / 0.38),
+    0 0 44px rgb(var(--tenant-accent-rgb) / 0.08);
+  opacity: 0;
+  transform: translateY(10px) scale(0.94);
+  animation: app-launch-mark 540ms cubic-bezier(0.23, 1, 0.32, 1) 100ms both;
+}
+
+.app-launch-mark-letter {
+  color: var(--tenant-accent);
+  font-size: 1.75rem;
+  font-weight: 750;
+  letter-spacing: -0.08em;
+  line-height: 1;
+  transform: translateX(-0.04em);
+}
+
+.app-launch-mark-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    112deg,
+    transparent 28%,
+    rgb(255 255 255 / 0.16) 47%,
+    transparent 66%
+  );
+  transform: translateX(-125%);
+  animation: app-launch-sheen 520ms cubic-bezier(0.77, 0, 0.175, 1) 520ms both;
+}
+
+.app-launch-wordmark {
+  display: flex;
+  margin-top: 1.35rem;
+  color: rgb(255 255 255 / 0.94);
+  font-size: 1.4rem;
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(7px);
+  animation: app-launch-copy 420ms cubic-bezier(0.23, 1, 0.32, 1) 330ms both;
+}
+
+.app-launch-wordmark-accent {
+  color: var(--tenant-accent);
+}
+
+.app-launch-progress {
+  width: 100%;
+  height: 1px;
+  margin-top: 2.25rem;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.07);
+  opacity: 0;
+  animation: app-launch-copy 240ms cubic-bezier(0.23, 1, 0.32, 1) 480ms both;
+}
+
+.app-launch-progress > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--tenant-accent-rgb) / 0.45),
+    var(--tenant-accent)
+  );
+  box-shadow: 0 0 14px rgb(var(--tenant-accent-rgb) / 0.34);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: app-launch-progress 780ms cubic-bezier(0.77, 0, 0.175, 1) 500ms both;
+}
+
+.app-launch-status {
+  margin-top: 0.85rem;
+  color: rgb(255 255 255 / 0.38);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  animation: app-launch-copy 300ms cubic-bezier(0.23, 1, 0.32, 1) 560ms both;
+}
+
+@keyframes app-launch-mark {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes app-launch-copy {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes app-launch-sheen {
+  to {
+    transform: translateX(125%);
+  }
+}
+
+@keyframes app-launch-progress {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes app-launch-ambient {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes app-launch-grid {
+  to {
+    opacity: 0.42;
+  }
+}
+
 button,
 a,
 input,
@@ -610,6 +807,52 @@ summary {
   .ui-button-danger {
     transform: none !important;
     transition-property: color, background-color, border-color, box-shadow !important;
+  }
+
+  .app-launch-screen {
+    transform: none;
+    transition: opacity 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .app-launch-screen[data-phase='leaving'] {
+    transform: none;
+  }
+
+  .app-launch-ambient,
+  .app-launch-grid,
+  .app-launch-mark-sheen,
+  .app-launch-progress > span {
+    animation: none;
+  }
+
+  .app-launch-ambient {
+    opacity: 0.65;
+    transform: none;
+  }
+
+  .app-launch-grid {
+    opacity: 0.2;
+  }
+
+  .app-launch-mark,
+  .app-launch-wordmark,
+  .app-launch-progress,
+  .app-launch-status {
+    animation: app-launch-reduced-fade 140ms cubic-bezier(0.23, 1, 0.32, 1) both;
+    transform: none;
+  }
+
+  .app-launch-progress > span {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes app-launch-reduced-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 

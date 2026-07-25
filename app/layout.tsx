@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import '@/app/globals.css'
+import { AppLaunchScreen } from '@/components/ui/AppLaunchScreen'
 
 // Fail fast in development: log whether the required Supabase env vars are
 // present so the developer sees a clear warning in the server console instead
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.variable}>
       <body className="bg-graphite-950 text-white antialiased">
+        <AppLaunchScreen />
         {children}
       </body>
     </html>

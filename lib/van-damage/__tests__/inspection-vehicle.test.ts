@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  normalizeInspectionVanNumber,
   resolveInspectionVehicle,
   selectVehicleProfileImage,
   type InspectionVehicle,
@@ -46,7 +47,10 @@ function loaders(input: {
       calls.push({ operation: 'number', tenantId })
       return (
         input.vehicles?.filter(
-          (candidate) => candidate.tenant_id === tenantId && candidate.van_number === vanNumber
+          (candidate) =>
+            candidate.tenant_id === tenantId &&
+            normalizeInspectionVanNumber(candidate.van_number) ===
+              normalizeInspectionVanNumber(vanNumber)
         ) ?? []
       ).slice(0, 2)
     },
@@ -70,6 +74,30 @@ test('canonical inspection van ID wins and remains tenant scoped', async () => {
   assert.equal(result.source, 'inspection_van_id')
   assert.equal(result.vehicle?.tenant_id, 'tenant-a')
   assert.deepEqual(mock.calls, [{ operation: 'id', tenantId: 'tenant-a' }])
+})
+
+test('legacy van-number fallback canonicalizes van prefixes before matching', async () => {
+  const existingBare = loaders({
+    vehicles: [vehicle('van-44', 'tenant-a', '44')],
+  })
+  const bareResult = await resolveInspectionVehicle(
+    { ...base, metadata: { vanNumber: 'van 44' } },
+    existingBare.value
+  )
+  assert.equal(bareResult.state, 'resolved')
+  assert.equal(bareResult.vehicle?.id, 'van-44')
+  assert.equal(bareResult.legacyVanNumber, '44')
+
+  const existingPrefixed = loaders({
+    vehicles: [vehicle('prefixed-44', 'tenant-a', 'van 44')],
+  })
+  const prefixedResult = await resolveInspectionVehicle(
+    { ...base, metadata: { vanNumber: '44' } },
+    existingPrefixed.value
+  )
+  assert.equal(prefixedResult.state, 'resolved')
+  assert.equal(prefixedResult.vehicle?.id, 'prefixed-44')
+  assert.equal(prefixedResult.legacyVanNumber, '44')
 })
 
 test('upload session resolves a legacy inspection before van-number fallback', async () => {

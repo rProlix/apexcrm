@@ -3,7 +3,7 @@ import { sanitizeSlackEvent } from '@/lib/server/slack/events'
 import { persistSlackMaintenanceAttachments } from '@/lib/server/maintenance/attachments'
 import { getVanDamageServiceClient } from '@/lib/server/van-damage/supabase'
 import { slackTsToIso } from '@/lib/van-damage/history'
-import { extractVanNumber } from '@/workers/van-damage-worker/src/van-number-parser'
+import { extractVanNumber, normalizeVanNumber } from '@/workers/van-damage-worker/src/van-number-parser'
 import { maintenanceTitle, triageMaintenanceReport } from '@/lib/maintenance/triage'
 import type { Json } from '@/lib/supabase/types'
 
@@ -67,11 +67,12 @@ export async function ingestMaintenanceSlackEvent(input: {
   if (vanNumber) {
     const { data: vans } = await db
       .from('vehicles')
-      .select('id')
+      .select('id, van_number')
       .eq('tenant_id', input.integration.tenant_id)
-      .ilike('van_number', vanNumber)
-      .limit(2)
-    if (vans?.length === 1) vanId = vans[0].id
+      .not('van_number', 'is', null)
+      .limit(1000)
+    const matches = (vans ?? []).filter((van) => normalizeVanNumber(van.van_number) === vanNumber)
+    if (matches.length === 1) vanId = matches[0].id
   }
 
   const triage = triageMaintenanceReport(input.event.text)
