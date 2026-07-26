@@ -157,7 +157,7 @@ export default async function DashboardPage() {
   const registryMeta = getActiveWidgetRegistryMeta(activeWidgetKeys)
 
   return (
-    <div className="ui-page">
+    <div className="ui-page space-y-8">
       <PageHeader
         eyebrow={config.tenant.name}
         title="Operational command center"
@@ -283,7 +283,7 @@ async function OwnerDashboard({
   ]
 
   return (
-    <div className="ui-page">
+    <div className="ui-page space-y-8">
       <PageHeader
         eyebrow="Owner workspace"
         title="Platform overview"

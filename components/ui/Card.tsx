@@ -8,7 +8,7 @@ export function Card({ glass, className, children, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-2xl border p-5 sm:p-6',
+        'ui-card rounded-2xl border p-5 sm:p-6',
         glass ? 'glass-surface' : 'border-white/[0.075] bg-graphite-900/70 shadow-panel',
         className
       )}

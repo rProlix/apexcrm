@@ -149,9 +149,9 @@ export function Sidebar({
     <aside
       className={cn(
         // Base — fixed rail, always above overlay
-        'fixed bottom-0 left-0 top-0 z-40 w-64',
+        'crm-sidebar fixed bottom-0 left-0 top-0 z-40 w-64',
         'flex flex-col border-r border-surface-border',
-        'bg-graphite-900/97 shadow-[12px_0_40px_rgba(0,0,0,0.12)] backdrop-blur-xl',
+        'bg-graphite-900/97 backdrop-blur-xl',
         // CSS-only transition so Framer Motion cannot override translateX
         'ui-mobile-sidebar transition-transform duration-[240ms] ease-[cubic-bezier(0.32,0.72,0,1)]',
         isOpen ? 'translate-x-0' : '-translate-x-full',
@@ -160,7 +160,7 @@ export function Sidebar({
       )}
     >
       {/* Logo / tenant name */}
-      <div className="flex min-h-16 items-center gap-3 border-b border-white/[0.065] px-4">
+      <div className="crm-sidebar-brand flex min-h-16 items-center gap-3 border-b border-white/[0.065] px-4">
         <div
           className="brand-accent-surface flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border bg-cover bg-center"
           style={tenantLogoUrl ? { backgroundImage: `url("${tenantLogoUrl}")` } : undefined}
@@ -188,7 +188,7 @@ export function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4" aria-label="Primary navigation">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Primary navigation">
         {/* Core pages — filtered by role */}
         {coreNav.filter(canSee).map((item) => (
           <SidebarItem
@@ -202,8 +202,8 @@ export function Sidebar({
         {/* Module links — staff + admin + owner */}
         {modules.length > 0 && (
           <>
-            <div className="pt-4 pb-1 px-2">
-              <span className="text-xs font-medium text-white/[0.32]">Modules</span>
+            <div className="px-2 pb-1 pt-5">
+              <span className="crm-nav-label">Modules</span>
             </div>
             {modules.map((mod) => (
               <div key={mod.key}>
@@ -307,8 +307,8 @@ export function Sidebar({
         {/* Admin section — admin only (staff management) */}
         {isAdmin && !isOwner && (
           <>
-            <div className="pt-4 pb-1 px-2">
-              <span className="text-2xs font-semibold text-white/25 uppercase tracking-widest">
+            <div className="px-2 pb-1 pt-5">
+              <span className="crm-nav-label">
                 Management
               </span>
             </div>
@@ -326,8 +326,8 @@ export function Sidebar({
         {/* Platform section — owner only */}
         {isOwner && (
           <>
-            <div className="pt-4 pb-1 px-2">
-              <span className="text-2xs font-semibold text-white/25 uppercase tracking-widest">
+            <div className="px-2 pb-1 pt-5">
+              <span className="crm-nav-label">
                 Platform
               </span>
             </div>
@@ -344,7 +344,7 @@ export function Sidebar({
       </nav>
 
       {/* Role badge + footer */}
-      <div className="px-3 py-4 border-t border-surface-border space-y-1">
+      <div className="crm-sidebar-footer space-y-1 border-t border-surface-border px-3 py-4">
         {userRole && (
           <div className="px-3 py-1.5 mb-1">
             <span
@@ -390,9 +390,9 @@ function SidebarItem({ label, href, icon: Icon, active, onNavigate, badge }: Sid
         onClick={onNavigate}
         className={cn(
           'relative flex min-h-10 items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium',
-          'transition-colors duration-150 focus-ring',
+          'crm-nav-item transition-colors duration-150 focus-ring',
           active
-            ? 'border-brand/20 bg-brand/[0.09] text-white'
+            ? 'crm-nav-item-active border-brand/20 bg-brand/[0.09] text-white'
             : 'text-white/[0.52] hover:bg-white/[0.04] hover:text-white'
         )}
       >

@@ -59,7 +59,7 @@ export function DashboardShell({
       >
         <QuickPeekProvider>
           <div
-            className="min-h-dvh bg-graphite-950"
+            className="crm-shell min-h-dvh bg-graphite-950"
             style={
               {
                 '--tenant-accent': tenantAccent.accent,
@@ -68,6 +68,11 @@ export function DashboardShell({
               } as React.CSSProperties
             }
           >
+            <div className="crm-shell-ambient" aria-hidden="true">
+              <span className="crm-shell-glow crm-shell-glow-primary" />
+              <span className="crm-shell-glow crm-shell-glow-secondary" />
+              <span className="crm-shell-grid" />
+            </div>
             <Sidebar
               tenantName={tenantName}
               tenantLogoUrl={tenantLogoUrl}
@@ -116,8 +121,8 @@ export function DashboardShell({
               <NavigationFeedback />
             </Suspense>
 
-            <main className="min-h-dvh pt-16 md:pl-64">
-              <div className="ui-page px-[var(--space-page-x)] py-[var(--space-page-y)] pb-24 md:pb-9">
+            <main className="crm-content min-h-dvh pt-16 md:pl-64">
+              <div className="ui-page px-[var(--space-page-x)] py-[var(--space-page-y)] pb-24 md:pb-10">
                 {children}
               </div>
             </main>

@@ -74,7 +74,7 @@ export function BottomNav({
   return (
     <nav
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-40 md:hidden',
+        'crm-bottom-nav fixed bottom-0 left-0 right-0 z-40 md:hidden',
         'flex min-h-16 items-center justify-around',
         'border-t border-white/[0.07] bg-graphite-900/95 backdrop-blur-xl',
         'safe-area-bottom'

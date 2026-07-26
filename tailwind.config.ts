@@ -11,13 +11,13 @@ const config: Config = {
     extend: {
       colors: {
         graphite: {
-          950: '#080b11',
-          900: '#0d1119',
-          800: '#121722',
-          700: '#19202c',
+          950: '#06090e',
+          900: '#0b0f17',
+          800: '#101620',
+          700: '#171e2a',
           600: '#222b39',
-          500: '#303a49',
-          400: '#475367',
+          500: '#364152',
+          400: '#526078',
         },
         gold: {
           50: '#fdf8ec',
@@ -58,12 +58,14 @@ const config: Config = {
       boxShadow: {
         'glow-gold': '0 0 20px rgba(201,168,76,0.12)',
         'glow-gold-lg': '0 0 36px rgba(201,168,76,0.16)',
-        panel: '0 1px 2px rgba(0,0,0,0.22), 0 12px 32px rgba(0,0,0,0.12)',
-        'panel-lg': '0 20px 60px rgba(0,0,0,0.42), 0 2px 8px rgba(0,0,0,0.25)',
+        panel:
+          'inset 0 1px 0 rgba(255,255,255,0.025), 0 1px 2px rgba(0,0,0,0.28), 0 18px 44px rgba(0,0,0,0.14)',
+        'panel-lg':
+          'inset 0 1px 0 rgba(255,255,255,0.04), 0 28px 80px rgba(0,0,0,0.5), 0 2px 10px rgba(0,0,0,0.28)',
       },
       backgroundImage: {
         'gold-gradient': 'linear-gradient(135deg, #c9a84c 0%, #e8c34a 50%, #b8911e 100%)',
-        'surface-gradient': 'linear-gradient(180deg, #121722 0%, #0d1119 100%)',
+        'surface-gradient': 'linear-gradient(180deg, #101620 0%, #0b0f17 100%)',
         'glass-gradient':
           'linear-gradient(135deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.018) 100%)',
       },

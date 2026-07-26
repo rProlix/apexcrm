@@ -70,7 +70,7 @@ export function TopBar({
     <header
       className={cn(
         // Mobile: spans full width. Desktop: offset by sidebar width.
-        'fixed left-0 right-0 top-0 z-20 h-16 md:left-64',
+        'crm-topbar fixed left-0 right-0 top-0 z-20 h-16 md:left-64',
         'flex items-center justify-between px-4 md:px-6',
         'border-b border-white/[0.065] bg-graphite-900/88 backdrop-blur-xl'
       )}
@@ -91,10 +91,14 @@ export function TopBar({
         </button>
 
         <div className="hidden min-w-0 items-center gap-2 md:flex">
-          <Building2 className="h-4 w-4 shrink-0 text-white/30" aria-hidden="true" />
+          <div className="brand-accent-surface flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border">
+            <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
+          </div>
           <div className="min-w-0">
             <p className="truncate text-xs font-medium text-white/[0.72]">{tenantName}</p>
-            <p className="text-2xs capitalize text-white/[0.32]">{userRole ?? 'workspace'}</p>
+            <p className="text-2xs capitalize text-white/[0.32]">
+              {userRole ?? 'workspace'} workspace
+            </p>
           </div>
         </div>
 
@@ -149,7 +153,7 @@ export function TopBar({
             </div>
             <ChevronDown className="hidden h-3.5 w-3.5 text-white/30 transition-transform group-open:rotate-180 sm:block" />
           </summary>
-          <div className="ui-popover-enter absolute right-0 top-12 z-50 w-56 rounded-2xl border border-white/10 bg-graphite-800 p-2 shadow-panel-lg">
+          <div className="ui-popover-enter crm-popover absolute right-0 top-12 z-50 w-60 rounded-2xl border border-white/10 bg-graphite-800 p-2 shadow-panel-lg">
             <div className="border-b border-white/[0.07] px-3 py-2.5">
               <p className="truncate text-xs font-medium text-white/75">{userEmail}</p>
               <p className="mt-0.5 truncate text-2xs text-white/35">{tenantName}</p>

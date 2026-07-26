@@ -24,13 +24,13 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        'flex flex-col gap-5 border-b border-white/[0.07] pb-6 lg:flex-row lg:items-start lg:justify-between',
+        'ui-page-header relative flex flex-col gap-5 border-b border-white/[0.07] pb-7 lg:flex-row lg:items-start lg:justify-between',
         className
       )}
     >
       <div className="flex min-w-0 items-start gap-4">
         {Icon && (
-          <div className="brand-accent-surface flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border">
+          <div className="brand-accent-surface ui-page-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border">
             <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
           </div>
         )}
