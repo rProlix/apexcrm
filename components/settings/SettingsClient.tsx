@@ -274,7 +274,7 @@ export function SettingsClient({
               {activeTab === 'seo'           && <SeoTab           tenantId={tenantId} siteSettings={siteSettings} />}
               {activeTab === 'team'          && <TeamTab          tenantId={tenantId} initialMembers={initialMembers} currentUserId={currentUserId} currentUserRole={currentUserRole} />}
               {activeTab === 'subscription'  && <SubscriptionTab  subscription={subscription} />}
-              {activeTab === 'modules'       && <ModulesTab       modules={modules} />}
+              {activeTab === 'modules'       && <ModulesTab       tenantId={tenantId} modules={modules} currentUserRole={currentUserRole} />}
               {activeTab === 'email'         && <EmailSettingsLink />}
               {activeTab === 'notifications' && <NotificationsTab />}
               {activeTab === 'security'      && <SecurityTab      />}
@@ -1153,12 +1153,22 @@ const MODULE_ICONS_MAP: Record<string, React.ElementType> = {
   store:        Tag,
 }
 
-function ModulesTab({ modules }: { modules: TenantModule[] }) {
+function ModulesTab({
+  tenantId,
+  modules,
+  currentUserRole,
+}: {
+  tenantId: string
+  modules: TenantModule[]
+  currentUserRole: string
+}) {
+  const visibleModules = modules.filter((mod) => mod.enabled || currentUserRole === 'owner')
   const [moduleStates, setModuleStates] = useState(
-    Object.fromEntries(modules.map((m) => [m.module_key, m.enabled]))
+    Object.fromEntries(visibleModules.map((m) => [m.module_key, m.enabled]))
   )
   const [saving, setSaving] = useState<string | null>(null)
   const [error,  setError]  = useState<string | null>(null)
+  const canToggle = currentUserRole === 'owner'
 
   async function handleToggle(key: string, enabled: boolean) {
     setSaving(key); setError(null)
@@ -1166,7 +1176,7 @@ function ModulesTab({ modules }: { modules: TenantModule[] }) {
       const res  = await fetch('/api/admin/toggle-module', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ module_key: key, enabled }),
+        body:    JSON.stringify({ tenant_id: tenantId, module_key: key, enabled }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Failed to update module')
@@ -1181,7 +1191,16 @@ function ModulesTab({ modules }: { modules: TenantModule[] }) {
   return (
     <div className="space-y-6">
       <div className={sectionCls}>
-        <SectionHead icon={Layers} color="text-blue-400" title="Module Management" subtitle="Enable or disable features for your workspace. Contact support to unlock additional modules." />
+        <SectionHead
+          icon={Layers}
+          color="text-blue-400"
+          title="Module Management"
+          subtitle={
+            canToggle
+              ? 'Enable or disable features for your workspace. Contact support to unlock additional modules.'
+              : 'Only modules enabled by the platform owner appear here.'
+          }
+        />
 
         {error && (
           <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400 flex items-center gap-2">
@@ -1190,7 +1209,7 @@ function ModulesTab({ modules }: { modules: TenantModule[] }) {
         )}
 
         <div className="space-y-2">
-          {modules.map((mod) => {
+          {visibleModules.map((mod) => {
             const Icon = MODULE_ICONS_MAP[mod.module_key] ?? Layers
             const enabled = moduleStates[mod.module_key] ?? mod.enabled
             return (
@@ -1212,6 +1231,10 @@ function ModulesTab({ modules }: { modules: TenantModule[] }) {
                 </div>
                 {saving === mod.module_key ? (
                   <RefreshCw className="h-4 w-4 text-white/30 animate-spin" />
+                ) : !canToggle ? (
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-white/45">
+                    Owner managed
+                  </span>
                 ) : (
                   <Toggle
                     value={enabled}
@@ -1223,6 +1246,15 @@ function ModulesTab({ modules }: { modules: TenantModule[] }) {
             )
           })}
         </div>
+
+        {!visibleModules.length && (
+          <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-center">
+            <p className="text-sm font-medium text-white/65">No modules are enabled for this business yet.</p>
+            <p className="mt-1 text-xs text-white/35">
+              The platform owner needs to enable modules before they appear here.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -37,39 +37,44 @@ export async function GET() {
       .select('module_key, enabled, is_locked, locked_reason, source, config')
       .eq('tenant_id', profile.tenant_id)
 
-    const moduleMap = new Map(
-      ((rows ?? []) as Array<{
-        module_key: string; enabled: boolean; is_locked: boolean;
-        locked_reason: string | null; source: string; config: Record<string, unknown>
-      }>).map((r) => [r.module_key, r])
-    )
+    const modules = ((rows ?? []) as Array<{
+      module_key: string
+      enabled: boolean
+      is_locked: boolean
+      locked_reason: string | null
+      source: string
+      config: Record<string, unknown>
+    }>)
+      .map((db) => {
+        const catalog = MODULE_CATALOG[db.module_key as CRMModuleKey]
+        if (!catalog) return null
+        return {
+          key: db.module_key as CRMModuleKey,
+          label:         catalog.label,
+          description:   catalog.description,
+          icon:          catalog.icon,
+          is_premium:    catalog.isPremium,
+          min_plan:      catalog.minPlan,
+          enabled:       db.enabled,
+          is_locked:     db.is_locked,
+          locked_reason: db.locked_reason,
+          source:        db.source,
+          config:        db.config ?? {},
+        }
+      })
+      .filter((module): module is NonNullable<typeof module> => module !== null)
 
-    // Merge DB state with catalog
-    const modules = (Object.keys(MODULE_CATALOG) as CRMModuleKey[]).map((key) => {
-      const db      = moduleMap.get(key)
-      const catalog = MODULE_CATALOG[key]
-      return {
-        key,
-        label:         catalog.label,
-        description:   catalog.description,
-        icon:          catalog.icon,
-        is_premium:    catalog.isPremium,
-        min_plan:      catalog.minPlan,
-        enabled:       db?.enabled ?? false,
-        is_locked:     db?.is_locked ?? false,
-        locked_reason: db?.locked_reason ?? null,
-        source:        db?.source ?? 'plan',
-        config:        db?.config ?? {},
-      }
-    })
+    const visibleModules = profile.role === 'owner'
+      ? modules
+      : modules.filter((module) => module.enabled)
 
     return NextResponse.json({
       success: true,
       tenantId: profile.tenant_id,
       userRole: profile.role,
-      modules,
-      enabled:  modules.filter((m) => m.enabled).map((m) => m.key),
-      locked:   modules.filter((m) => m.is_locked).map((m) => m.key),
+      modules: visibleModules,
+      enabled:  visibleModules.filter((m) => m.enabled).map((m) => m.key),
+      locked:   visibleModules.filter((m) => m.is_locked).map((m) => m.key),
     })
   } catch (err) {
     console.error('[/api/tenant/modules GET] error:', err)
@@ -105,8 +110,8 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: false, error: 'No workspace found.' }, { status: 404 })
     }
 
-    if (!['owner', 'admin'].includes(profile.role)) {
-      return NextResponse.json({ success: false, error: 'Only admins can manage modules.' }, { status: 403 })
+    if (profile.role !== 'owner') {
+      return NextResponse.json({ success: false, error: 'Only the platform owner can manage modules.' }, { status: 403 })
     }
 
     const body = await request.json() as { module_key: string; enabled: boolean }
@@ -116,13 +121,19 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: false, error: 'Invalid request body.' }, { status: 400 })
     }
 
-    // Check if module is locked
     const { data: mod } = await admin
       .from('tenant_modules')
       .select('is_locked, locked_reason')
       .eq('tenant_id', profile.tenant_id)
       .eq('module_key', module_key)
       .maybeSingle()
+
+    if (!mod) {
+      return NextResponse.json({
+        success: false,
+        error: 'This module is not enabled for the business.',
+      }, { status: 404 })
+    }
 
     if (mod?.is_locked && enabled) {
       return NextResponse.json({

@@ -28,14 +28,24 @@ export async function toggleModule(
     return { success: false, error: 'User not found' }
   }
 
-  // Only admin and platform owner can toggle modules
-  if (userRecord.role !== 'admin' && userRecord.role !== 'owner') {
+  // Only the platform owner can change module access from dashboard surfaces.
+  if (userRecord.role !== 'owner') {
     return { success: false, error: 'Insufficient permissions' }
   }
 
-  // Admin can only toggle modules for their own tenant
-  if (userRecord.role === 'admin' && userRecord.tenant_id !== tenantId) {
+  if (userRecord.tenant_id && userRecord.tenant_id !== tenantId) {
     return { success: false, error: 'Access denied' }
+  }
+
+  const { data: existingModule } = await admin
+    .from('tenant_modules')
+    .select('module_key')
+    .eq('tenant_id', tenantId)
+    .eq('module_key', moduleKey)
+    .maybeSingle()
+
+  if (!existingModule) {
+    return { success: false, error: 'This module is not enabled for the business.' }
   }
 
   const result = await setModuleEnabled(tenantId, moduleKey, enabled)

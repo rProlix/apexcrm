@@ -38,17 +38,32 @@ export default async function ModulesPage() {
   const config = await loadTenantConfig(tenant.id)
   if (!config) return null
 
-  // Check if current user can toggle modules (admin or owner only)
+  // Only the platform owner can manage module access. Business admins can only
+  // see modules that have already been enabled for their workspace.
   const sessionClient = await createSessionServerClient()
   const { data: { user } } = await sessionClient.auth.getUser()
   const admin = getSupabaseServerClient()
   const { data: userRecord } = user
     ? await admin.from('users').select('role').eq('auth_user_id', user.id).maybeSingle()
     : { data: null }
-  const canToggle = userRecord?.role === 'admin' || userRecord?.role === 'owner'
+  const canToggle = userRecord?.role === 'owner'
 
-  const allModules = Object.values(MODULE_REGISTRY)
-  const enabledCount = config.enabledModuleKeys.length
+  const visibleModules = config.modules
+    .filter((module) => module.enabled)
+    .map((tenantModule) => ({
+      definition: MODULE_REGISTRY[tenantModule.module_key as keyof typeof MODULE_REGISTRY],
+      tenantModule,
+    }))
+    .filter(
+      (
+        item
+      ): item is {
+        definition: (typeof MODULE_REGISTRY)[keyof typeof MODULE_REGISTRY]
+        tenantModule: (typeof config.modules)[number]
+      } => Boolean(item.definition)
+    )
+    .sort((a, b) => a.definition.order - b.definition.order)
+  const enabledCount = visibleModules.length
 
   return (
     <div className="space-y-8 max-w-3xl">
@@ -64,17 +79,16 @@ export default async function ModulesPage() {
         <div className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl border border-gold-500/20 bg-gold-500/8">
           <span className="h-2 w-2 rounded-full bg-gold-400 animate-pulse" />
           <span className="text-xs font-semibold text-gold-400">
-            {enabledCount} of {allModules.length} active
+            {enabledCount} active
           </span>
         </div>
       </div>
 
       {/* Module list */}
       <div className="space-y-2">
-        {allModules.map((mod) => {
-          const tenantMod = config.modules.find((m) => m.module_key === mod.key)
-          const enabled   = tenantMod?.enabled ?? false
-          const Icon      = mod.icon
+        {visibleModules.map(({ definition: mod, tenantModule }) => {
+          const enabled = tenantModule.enabled
+          const Icon = mod.icon
 
           return (
             <div
@@ -114,11 +128,9 @@ export default async function ModulesPage() {
                     enabled={enabled}
                   />
                 ) : (
-                  <div
-                    className={`h-6 w-11 rounded-full border-2 border-transparent opacity-40 cursor-not-allowed ${
-                      enabled ? 'bg-gold-500' : 'bg-graphite-600'
-                    }`}
-                  />
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-white/45">
+                    Owner managed
+                  </span>
                 )}
               </div>
             </div>
@@ -126,9 +138,18 @@ export default async function ModulesPage() {
         })}
       </div>
 
-      {!canToggle && (
+      {!visibleModules.length && (
+        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-5 py-8 text-center">
+          <p className="text-sm font-medium text-white/65">No modules are enabled for this business yet.</p>
+          <p className="mt-1 text-xs text-white/35">
+            Module access is controlled by the platform owner.
+          </p>
+        </div>
+      )}
+
+      {!canToggle && visibleModules.length > 0 && (
         <p className="text-xs text-white/25 text-center pt-2">
-          Contact your workspace admin to enable or disable modules.
+          Module access is controlled by the platform owner.
         </p>
       )}
     </div>
