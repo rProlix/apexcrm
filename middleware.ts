@@ -73,6 +73,7 @@ export async function middleware(req: NextRequest) {
     console.log('[middleware] Unauthenticated access to protected path — redirecting to /login')
     const loginUrl = req.nextUrl.clone()
     loginUrl.pathname = '/login'
+    loginUrl.searchParams.set('next', `${pathname}${req.nextUrl.search}`)
     return NextResponse.redirect(loginUrl)
   }
 

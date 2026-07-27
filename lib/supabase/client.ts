@@ -3,6 +3,7 @@
 import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/lib/supabase/types'
 import { getSupabaseEnv } from '@/lib/env'
+import { getCookieDomain } from '@/lib/auth/cookieDomain'
 
 /**
  * Returns '.nexoranow.com' when the current page is on the production root
@@ -13,15 +14,9 @@ import { getSupabaseEnv } from '@/lib/env'
  * Returns undefined on localhost and Vercel preview URLs so we never set a
  * cross-origin domain attribute that the browser would silently reject.
  */
-function getCookieDomain(): string | undefined {
+function getBrowserCookieDomain(): string | undefined {
   if (typeof window === 'undefined') return undefined
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN
-  if (!rootDomain) return undefined
-  const hostname = window.location.hostname
-  if (hostname === rootDomain || hostname.endsWith(`.${rootDomain}`)) {
-    return `.${rootDomain}`
-  }
-  return undefined
+  return getCookieDomain(window.location.hostname)
 }
 
 /**
@@ -33,7 +28,7 @@ function getCookieDomain(): string | undefined {
  */
 export function getSupabaseBrowserClient() {
   const { url, key: anon } = getSupabaseEnv()
-  const cookieDomain       = getCookieDomain()
+  const cookieDomain       = getBrowserCookieDomain()
 
   return createBrowserClient<Database>(url, anon, {
     ...(cookieDomain ? {

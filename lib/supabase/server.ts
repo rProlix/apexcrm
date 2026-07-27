@@ -3,6 +3,7 @@ import { cookies, headers } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
 import { getSupabaseEnv } from '@/lib/env'
+import { getCookieDomain } from '@/lib/auth/cookieDomain'
 
 /**
  * Returns service-role key at call time (never at module scope).
@@ -46,11 +47,8 @@ export async function createSessionServerClient() {
   const { url, key: anon } = getSupabaseEnv()
   const [cookieStore, headersList] = await Promise.all([cookies(), headers()])
 
-  const rootDomain   = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? ''
   const hostname     = headersList.get('host')?.split(':')[0] ?? ''
-  const cookieDomain = rootDomain && (
-    hostname === rootDomain || hostname.endsWith(`.${rootDomain}`)
-  ) ? `.${rootDomain}` : undefined
+  const cookieDomain = getCookieDomain(hostname)
 
   return createServerClient<Database>(url, anon, {
     ...(cookieDomain ? {

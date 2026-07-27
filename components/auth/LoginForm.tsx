@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { loginSchema } from '@/lib/validation/auth'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
@@ -58,7 +57,11 @@ function Field({
   )
 }
 
-export function LoginForm() {
+type LoginFormProps = {
+  nextPath?: string
+}
+
+export function LoginForm({ nextPath = '/dashboard' }: LoginFormProps) {
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [loading,  setLoading]  = useState(false)
@@ -83,27 +86,28 @@ export function LoginForm() {
 
     setLoading(true)
 
-    const supabase = getSupabaseBrowserClient()
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email:    parsed.data.email,
-      password: parsed.data.password,
+    const response = await fetch('/api/auth/login', {
+      method:      'POST',
+      credentials: 'same-origin',
+      headers:     { 'Content-Type': 'application/json' },
+      body:        JSON.stringify({
+        email:    parsed.data.email,
+        password: parsed.data.password,
+      }),
     })
 
-    if (authError) {
-      setError(
-        authError.message === 'Invalid login credentials'
-          ? 'Incorrect email or password. Please try again.'
-          : authError.message
-      )
+    if (!response.ok) {
+      const result = await response.json().catch(() => null) as { error?: string } | null
+      setError(result?.error ?? 'Unable to sign in. Please try again.')
       setLoading(false)
       return
     }
 
     // Hard redirect — forces a full page load so the browser sends the
-    // newly set auth cookies in the very first request to /dashboard.
+    // newly set auth cookies in the very first request to the dashboard.
     // router.push() does a soft client-side nav which can race against
     // cookie storage, causing the server component to see no session.
-    window.location.href = '/dashboard'
+    window.location.href = nextPath
   }
 
   return (

@@ -12,6 +12,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import type { Database } from '@/lib/supabase/types'
 import { getSupabaseEnv } from '@/lib/env'
+import { getCookieDomain } from '@/lib/auth/cookieDomain'
 
 /**
  * Creates a Supabase client that is safe to use in Next.js middleware
@@ -41,11 +42,8 @@ export function createMiddlewareSupabaseClient(
     return null
   }
 
-  const rootDomain   = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? ''
   const hostname     = request.headers.get('host')?.split(':')[0] ?? ''
-  const cookieDomain = rootDomain && (
-    hostname === rootDomain || hostname.endsWith(`.${rootDomain}`)
-  ) ? `.${rootDomain}` : undefined
+  const cookieDomain = getCookieDomain(hostname)
 
   return createServerClient<Database>(url, anon, {
     ...(cookieDomain ? {
