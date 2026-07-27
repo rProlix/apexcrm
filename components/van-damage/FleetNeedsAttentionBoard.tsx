@@ -26,6 +26,7 @@ import { InspectionPeriodBadge } from './InspectionPeriodBadge'
 import { useOperationsRefresh } from '@/components/command-center/OperationsRealtimeProvider'
 import { QuickPeekTrigger } from '@/components/command-center/QuickPeek'
 import { MOTION_TRANSITION } from '@/lib/design-system/motion'
+import { cn } from '@/lib/utils'
 import {
   compareFleetDamageCards,
   type FleetDamageCard,
@@ -105,6 +106,7 @@ export type FleetMaintenanceSummary = {
 
 type AttentionFilter = 'all' | 'unacknowledged' | 'needs_review' | 'repair_scheduled' | 'in_repair'
 type AttentionSort = 'priority' | 'oldest' | 'recent'
+type FleetOverviewFilter = 'all' | 'available' | 'in_service' | 'needs_attention'
 
 export function FleetNeedsAttentionBoard({
   tenantId,
@@ -136,6 +138,7 @@ export function FleetNeedsAttentionBoard({
   const router = useRouter()
   const [filter, setFilter] = useState<AttentionFilter>('all')
   const [sort, setSort] = useState<AttentionSort>('priority')
+  const [fleetOverview, setFleetOverview] = useState<FleetOverviewFilter>('all')
   const [pending, startTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
 
@@ -190,6 +193,9 @@ export function FleetNeedsAttentionBoard({
   const inServiceVehicles = vehicles.filter(
     (vehicle) => vehicle.status !== 'active' && !attentionVanIds.has(vehicle.id)
   )
+  const showNeedsAttention = fleetOverview === 'all' || fleetOverview === 'needs_attention'
+  const showAvailable = fleetOverview === 'all' || fleetOverview === 'available'
+  const showInService = fleetOverview === 'all' || fleetOverview === 'in_service'
 
   async function runAction(
     item: FleetAttentionRow,
@@ -229,24 +235,32 @@ export function FleetNeedsAttentionBoard({
           value={vehicles.length}
           icon={Car}
           tone="text-indigo-300 bg-indigo-400/10"
+          active={fleetOverview === 'all'}
+          onClick={() => setFleetOverview('all')}
         />
         <FleetMetric
           label="Available"
           value={activeVehicles.length}
           icon={CheckCircle2}
           tone="text-emerald-300 bg-emerald-400/10"
+          active={fleetOverview === 'available'}
+          onClick={() => setFleetOverview('available')}
         />
         <FleetMetric
           label="In service"
           value={inServiceVehicles.length}
           icon={Wrench}
           tone="text-amber-300 bg-amber-400/10"
+          active={fleetOverview === 'in_service'}
+          onClick={() => setFleetOverview('in_service')}
         />
         <FleetMetric
           label="Needs Attention"
           value={attentionVanIds.size}
           icon={AlertTriangle}
           tone="text-red-200 bg-red-400/10"
+          active={fleetOverview === 'needs_attention'}
+          onClick={() => setFleetOverview('needs_attention')}
         />
       </div>
 
@@ -257,136 +271,144 @@ export function FleetNeedsAttentionBoard({
         query={fleetQuery}
       />
 
-      <section
-        className="rounded-2xl border border-red-400/20 bg-[var(--surface-panel)] p-4 shadow-[inset_3px_0_0_rgba(248,113,113,.7)] md:p-6"
-        aria-labelledby="needs-attention-heading"
-      >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[.18em] text-red-200/65">
-              Fleet safety overlay
-            </p>
-            <h2 id="needs-attention-heading" className="mt-1 text-xl font-semibold text-white">
-              Needs Attention{' '}
-              <span className="text-white/35">({attentionVanIds.size} unique vans)</span>
-            </h2>
-            <p className="mt-1 text-xs text-white/40">
-              Active Level 3 damage and qualifying urgent, out-of-service, or overdue maintenance.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <select
-              value={filter}
-              onChange={(event) => setFilter(event.target.value as AttentionFilter)}
-              aria-label="Filter Needs Attention vans"
-              className="ui-input px-3 py-2 text-xs"
-            >
-              <option value="all">All severe vans</option>
-              <option value="unacknowledged">Unacknowledged</option>
-              <option value="needs_review">Needs review</option>
-              <option value="repair_scheduled">Repair scheduled</option>
-              <option value="in_repair">In repair</option>
-            </select>
-            <select
-              value={sort}
-              onChange={(event) => setSort(event.target.value as AttentionSort)}
-              aria-label="Sort Needs Attention vans"
-              className="ui-input px-3 py-2 text-xs"
-            >
-              <option value="priority">Priority</option>
-              <option value="oldest">Oldest unresolved</option>
-              <option value="recent">Recently observed</option>
-            </select>
-          </div>
-        </div>
-
-        {(attentionError || actionError) && (
-          <div
-            role="alert"
-            className="mt-4 rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-100"
-          >
-            {actionError || attentionError}
-          </div>
-        )}
-        {!attentionError && !displayedAttention.length && !maintenanceOnlyAttention.length && (
-          <div className="mt-5 rounded-xl border border-dashed border-white/10 p-10 text-center">
-            <ShieldAlert className="mx-auto h-9 w-9 text-emerald-300/50" />
-            <p className="mt-3 text-sm text-white/55">
-              {uniqueAttention.length
-                ? 'No vans match this attention filter.'
-                : 'No vans currently have severe damage or qualifying maintenance attention.'}
-            </p>
-          </div>
-        )}
-        <div className="mt-5 grid gap-4 xl:grid-cols-2">
-          <AnimatePresence initial={false} mode="popLayout">
-            {displayedAttention.map((item) => (
-              <motion.div
-                layout
-                key={`${item.tenant_id}:${item.van_id}`}
-                initial={false}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.99 }}
-                transition={MOTION_TRANSITION.layout}
+      {showNeedsAttention ? (
+        <section
+          className="rounded-2xl border border-red-400/20 bg-[var(--surface-panel)] p-4 shadow-[inset_3px_0_0_rgba(248,113,113,.7)] md:p-6"
+          aria-labelledby="needs-attention-heading"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[.18em] text-red-200/65">
+                Fleet safety overlay
+              </p>
+              <h2 id="needs-attention-heading" className="mt-1 text-xl font-semibold text-white">
+                Needs Attention{' '}
+                <span className="text-white/35">({attentionVanIds.size} unique vans)</span>
+              </h2>
+              <p className="mt-1 text-xs text-white/40">
+                Active Level 3 damage and qualifying urgent, out-of-service, or overdue maintenance.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={filter}
+                onChange={(event) => setFilter(event.target.value as AttentionFilter)}
+                aria-label="Filter Needs Attention vans"
+                className="ui-input px-3 py-2 text-xs"
               >
-                <SevereVanCard
-                  item={item}
-                  businessId={tenantId}
-                  timeZone={timeZone}
-                  canManage={canManage}
-                  pending={pending}
-                  runAction={runAction}
-                  maintenance={maintenanceByVan.get(item.van_id)}
-                />
-              </motion.div>
-            ))}
-            {maintenanceOnlyAttention.map((summary) => {
-              const vehicle = vehicles.find((candidate) => candidate.id === summary.vanId)
-              return vehicle ? (
+                <option value="all">All severe vans</option>
+                <option value="unacknowledged">Unacknowledged</option>
+                <option value="needs_review">Needs review</option>
+                <option value="repair_scheduled">Repair scheduled</option>
+                <option value="in_repair">In repair</option>
+              </select>
+              <select
+                value={sort}
+                onChange={(event) => setSort(event.target.value as AttentionSort)}
+                aria-label="Sort Needs Attention vans"
+                className="ui-input px-3 py-2 text-xs"
+              >
+                <option value="priority">Priority</option>
+                <option value="oldest">Oldest unresolved</option>
+                <option value="recent">Recently observed</option>
+              </select>
+            </div>
+          </div>
+
+          {(attentionError || actionError) && (
+            <div
+              role="alert"
+              className="mt-4 rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-100"
+            >
+              {actionError || attentionError}
+            </div>
+          )}
+          {!attentionError && !displayedAttention.length && !maintenanceOnlyAttention.length && (
+            <div className="mt-5 rounded-xl border border-dashed border-white/10 p-10 text-center">
+              <ShieldAlert className="mx-auto h-9 w-9 text-emerald-300/50" />
+              <p className="mt-3 text-sm text-white/55">
+                {uniqueAttention.length
+                  ? 'No vans match this attention filter.'
+                  : 'No vans currently have severe damage or qualifying maintenance attention.'}
+              </p>
+            </div>
+          )}
+          <div className="mt-5 grid gap-4 xl:grid-cols-2">
+            <AnimatePresence initial={false} mode="popLayout">
+              {displayedAttention.map((item) => (
                 <motion.div
                   layout
-                  key={summary.vanId}
+                  key={`${item.tenant_id}:${item.van_id}`}
                   initial={false}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.99 }}
                   transition={MOTION_TRANSITION.layout}
                 >
-                  <MaintenanceAttentionCard
-                    vehicle={vehicle}
-                    summary={summary}
+                  <SevereVanCard
+                    item={item}
                     businessId={tenantId}
+                    timeZone={timeZone}
+                    canManage={canManage}
+                    pending={pending}
+                    runAction={runAction}
+                    maintenance={maintenanceByVan.get(item.van_id)}
                   />
                 </motion.div>
-              ) : null
-            })}
-          </AnimatePresence>
-        </div>
-        {uniqueAttention.length > 0 && (
-          <p className="mt-4 text-xs text-white/30">
-            Reporter information identifies who submitted the inspection images and does not
-            determine who caused the damage.
-          </p>
-        )}
-      </section>
+              ))}
+              {maintenanceOnlyAttention.map((summary) => {
+                const vehicle = vehicles.find((candidate) => candidate.id === summary.vanId)
+                return vehicle ? (
+                  <motion.div
+                    layout
+                    key={summary.vanId}
+                    initial={false}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.99 }}
+                    transition={MOTION_TRANSITION.layout}
+                  >
+                    <MaintenanceAttentionCard
+                      vehicle={vehicle}
+                      summary={summary}
+                      businessId={tenantId}
+                    />
+                  </motion.div>
+                ) : null
+              })}
+            </AnimatePresence>
+          </div>
+          {uniqueAttention.length > 0 && (
+            <p className="mt-4 text-xs text-white/30">
+              Reporter information identifies who submitted the inspection images and does not
+              determine who caused the damage.
+            </p>
+          )}
+        </section>
+      ) : null}
 
-      <section className="grid gap-5 xl:grid-cols-2">
-        <FleetColumn
-          title="Available"
-          description="Operationally active vans without an active severe-damage overlay."
-          vehicles={activeVehicles}
-          businessId={tenantId}
-          empty="No available vans."
-          maintenanceByVan={maintenanceByVan}
-        />
-        <FleetColumn
-          title="In service / other"
-          description="Operational states remain independent from damage attention."
-          vehicles={inServiceVehicles}
-          businessId={tenantId}
-          empty="No vans currently in another operational state."
-          maintenanceByVan={maintenanceByVan}
-        />
-      </section>
+      {showAvailable || showInService ? (
+        <section className="grid gap-5 xl:grid-cols-2">
+          {showAvailable ? (
+            <FleetColumn
+              title="Available"
+              description="Operationally active vans without an active severe-damage overlay."
+              vehicles={activeVehicles}
+              businessId={tenantId}
+              empty="No available vans."
+              maintenanceByVan={maintenanceByVan}
+            />
+          ) : null}
+          {showInService ? (
+            <FleetColumn
+              title="In service / other"
+              description="Operational states remain independent from damage attention."
+              vehicles={inServiceVehicles}
+              businessId={tenantId}
+              empty="No vans currently in another operational state."
+              maintenanceByVan={maintenanceByVan}
+            />
+          ) : null}
+        </section>
+      ) : null}
     </div>
   )
 }
@@ -1051,21 +1073,41 @@ function FleetMetric({
   value,
   icon: Icon,
   tone,
+  active,
+  onClick,
 }: {
   label: string
   value: number
   icon: typeof Car
   tone: string
+  active: boolean
+  onClick: () => void
 }) {
   const [text, background] = tone.split(' ')
   return (
-    <div className="rounded-xl border border-graphite-600 bg-graphite-800 p-4">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'w-full rounded-xl border border-graphite-600 bg-graphite-800 p-4 text-left transition focus-ring',
+        'hover:border-white/15 hover:bg-white/[0.04]',
+        active && 'border-gold-400/35 bg-white/[0.045] shadow-[0_0_0_1px_rgba(244,200,109,0.16)]'
+      )}
+    >
       <div className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${background}`}>
         <Icon className={`h-4 w-4 ${text}`} />
       </div>
-      <p className="mt-3 text-2xl font-bold text-white">{value}</p>
-      <p className="mt-0.5 text-xs text-white/40">{label}</p>
-    </div>
+      <div className="mt-3 flex items-end justify-between gap-3">
+        <div>
+          <p className="text-2xl font-bold text-white">{value}</p>
+          <p className="mt-0.5 text-xs text-white/40">{label}</p>
+        </div>
+        <span className={cn('text-[10px] font-medium uppercase tracking-[0.18em] text-white/30', active && 'text-gold-200/80')}>
+          {active ? 'Showing' : 'View'}
+        </span>
+      </div>
+    </button>
   )
 }
 
