@@ -32,6 +32,7 @@ import {
   ListChecks,
   Bell,
   Boxes,
+  ClipboardCheck,
   X,
   type LucideIcon,
 } from 'lucide-react'
@@ -262,6 +263,42 @@ export function Sidebar({
                     })}
                   </div>
                 )}
+                {mod.key === 'damage_ai' && isActive('/dashboard/damage-ai') && (
+                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-brand/20 pl-3">
+                    {[
+                      {
+                        label: 'Inspections',
+                        href: '/dashboard/damage-ai',
+                        icon: ScanLine,
+                        exact: true,
+                      },
+                      {
+                        label: 'Inspection compliance',
+                        href: '/dashboard/damage-ai/compliance',
+                        icon: ClipboardCheck,
+                        exact: false,
+                      },
+                    ].map(({ label, href, icon: Icon, exact }) => {
+                      const subActive = exact ? pathname === href : pathname.startsWith(href)
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={handleLinkClick}
+                          className={cn(
+                            'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+                            subActive
+                              ? 'bg-brand/10 text-brand'
+                              : 'text-white/35 hover:bg-graphite-700/50 hover:text-white/70'
+                          )}
+                        >
+                          <Icon className="h-3 w-3 shrink-0" strokeWidth={1.75} />
+                          {label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
                 {mod.key === 'vehicles' && isActive(mod.href) && (
                   <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gold-500/20 pl-3">
                     {[
@@ -308,9 +345,7 @@ export function Sidebar({
         {isAdmin && !isOwner && (
           <>
             <div className="px-2 pb-1 pt-5">
-              <span className="crm-nav-label">
-                Management
-              </span>
+              <span className="crm-nav-label">Management</span>
             </div>
             {adminOnlyNav.map((item) => (
               <SidebarItem
@@ -327,9 +362,7 @@ export function Sidebar({
         {isOwner && (
           <>
             <div className="px-2 pb-1 pt-5">
-              <span className="crm-nav-label">
-                Platform
-              </span>
+              <span className="crm-nav-label">Platform</span>
             </div>
             {platformNav.map((item) => (
               <SidebarItem

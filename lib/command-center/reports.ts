@@ -2,6 +2,7 @@ import { hasPermission } from '@/lib/auth/permissions'
 import type { AnyRole } from '@/lib/auth/types'
 import { getTenantDateRange } from './time'
 import type { CommandCenterContext } from './context'
+import { loadInspectionCompliance } from '@/lib/server/van-damage/compliance'
 
 export type ReportFormat = 'pdf' | 'csv'
 
@@ -212,6 +213,153 @@ export const REPORT_REGISTRY: Record<string, ReportDefinition> = {
         ],
         rows,
         emptyMessage: 'No unresolved Level 3 damage actions were found.',
+      }
+    },
+  }),
+  inspection_daily_compliance: report({
+    key: 'inspection_daily_compliance',
+    moduleKey: 'damage_ai',
+    displayName: 'Daily Inspection Compliance',
+    description:
+      'Expected SOD and EOD slots, including missing submissions and image completeness.',
+    columns: [],
+    emptyMessage: 'No required inspection slots were scheduled in this period.',
+    customLoad: async (context, range) => {
+      const result = await loadInspectionCompliance(context, {
+        from: range.dateFrom,
+        to: range.dateTo,
+      })
+      return {
+        summary: [
+          { label: 'Required slots', value: result.metrics.required },
+          { label: 'Compliance rate', value: `${result.metrics.complianceRate}%` },
+          { label: 'Completion rate', value: `${result.metrics.completionRate}%` },
+          { label: 'Image completeness', value: `${result.metrics.imageCompletenessRate}%` },
+        ],
+        columns: [
+          { key: 'date', label: 'Date' },
+          { key: 'van', label: 'Van' },
+          { key: 'slot', label: 'Expected' },
+          { key: 'status', label: 'Status' },
+          { key: 'submitted', label: 'Submitted' },
+          { key: 'images', label: 'Images' },
+          { key: 'expected_driver', label: 'Expected inspector' },
+          { key: 'uploader', label: 'Uploader' },
+        ],
+        rows: result.slots.map((slot) => ({
+          date: slot.date,
+          van: slot.vanLabel,
+          slot: slot.slotType,
+          status: slot.status.replaceAll('_', ' '),
+          submitted: slot.submittedAt
+            ? formatDate(slot.submittedAt, context.timeZone)
+            : 'Not received',
+          images: `${slot.receivedViews.length}/${slot.requiredViews.length}`,
+          expected_driver: slot.expectedDriver,
+          uploader: slot.actualUploader,
+        })),
+        emptyMessage: 'No required inspection slots were scheduled in this period.',
+      }
+    },
+  }),
+  damage_before_after_evidence: report({
+    key: 'damage_before_after_evidence',
+    moduleKey: 'damage_ai',
+    displayName: 'Before/After Evidence',
+    description: 'Comparison outcomes using stable private evidence references.',
+    columns: [],
+    emptyMessage: 'No inspection comparisons were completed in this period.',
+    customLoad: async (context, range) => {
+      const { data, error } = await (context.db as any)
+        .from('van_damage_comparison_runs')
+        .select(
+          'id,van_id,status,overall_confidence,current_inspection_id,prior_inspection_id,created_at'
+        )
+        .eq('tenant_id', context.tenantId)
+        .gte('created_at', range.startIso)
+        .lt('created_at', range.endIso)
+        .order('created_at', { ascending: false })
+      if (error) throw new Error(error.code)
+      const rows = (data ?? []).map((row: Record<string, unknown>) => ({
+        created_at: formatDate(row.created_at, context.timeZone),
+        van: `Vehicle ${text(row.van_id).slice(0, 8)}`,
+        status: text(row.status).replaceAll('_', ' '),
+        confidence:
+          row.overall_confidence == null
+            ? 'Not available'
+            : `${Math.round(number(row.overall_confidence) * 100)}%`,
+        current: `Inspection ${text(row.current_inspection_id).slice(0, 8)}`,
+        prior: row.prior_inspection_id
+          ? `Inspection ${text(row.prior_inspection_id).slice(0, 8)}`
+          : 'No comparable prior',
+      }))
+      return {
+        summary: [
+          { label: 'Comparisons', value: rows.length },
+          {
+            label: 'Needs review',
+            value: rows.filter((row: ReportRow) => /review/i.test(text(row.status))).length,
+          },
+        ],
+        columns: [
+          { key: 'created_at', label: 'Compared' },
+          { key: 'van', label: 'Van' },
+          { key: 'status', label: 'Status' },
+          { key: 'confidence', label: 'Confidence' },
+          { key: 'current', label: 'Current evidence' },
+          { key: 'prior', label: 'Prior evidence' },
+        ],
+        rows,
+        emptyMessage: 'No inspection comparisons were completed in this period.',
+      }
+    },
+  }),
+  repair_verification_results: report({
+    key: 'repair_verification_results',
+    moduleKey: 'damage_ai',
+    displayName: 'Repair Verification Results',
+    description: 'Advisory assessment and final human repair decisions.',
+    columns: [],
+    emptyMessage: 'No repair verifications were recorded in this period.',
+    customLoad: async (context, range) => {
+      const { data, error } = await (context.db as any)
+        .from('van_damage_repair_verifications')
+        .select('id,damage_case_id,status,ai_classification,human_decision,reviewed_at,created_at')
+        .eq('tenant_id', context.tenantId)
+        .gte('created_at', range.startIso)
+        .lt('created_at', range.endIso)
+        .order('created_at', { ascending: false })
+      if (error) throw new Error(error.code)
+      const rows = (data ?? []).map((row: Record<string, unknown>) => ({
+        created_at: formatDate(row.created_at, context.timeZone),
+        damage_case: `Case ${text(row.damage_case_id).slice(0, 8)}`,
+        status: text(row.status).replaceAll('_', ' '),
+        assessment: text(row.ai_classification).replaceAll('_', ' ') || 'Pending',
+        human_decision: text(row.human_decision).replaceAll('_', ' ') || 'Human review pending',
+        reviewed_at: row.reviewed_at
+          ? formatDate(row.reviewed_at, context.timeZone)
+          : 'Not reviewed',
+      }))
+      return {
+        summary: [
+          { label: 'Verifications', value: rows.length },
+          {
+            label: 'Human confirmed',
+            value: rows.filter(
+              (row: ReportRow) => text(row.human_decision) !== 'Human review pending'
+            ).length,
+          },
+        ],
+        columns: [
+          { key: 'created_at', label: 'Created' },
+          { key: 'damage_case', label: 'Damage case' },
+          { key: 'status', label: 'Status' },
+          { key: 'assessment', label: 'AI assessment' },
+          { key: 'human_decision', label: 'Human decision' },
+          { key: 'reviewed_at', label: 'Reviewed' },
+        ],
+        rows,
+        emptyMessage: 'No repair verifications were recorded in this period.',
       }
     },
   }),

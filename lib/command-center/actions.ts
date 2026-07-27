@@ -13,6 +13,7 @@ import type { ActionCandidate, ActionItem, CommandActionStatus, CommandPriority 
 import { emitNotificationEvent } from './notifications'
 import { canRoleSeeAction, filterAndSortActionItems, type ActionFilterQuery } from './actionPolicy'
 import { damageEvidenceMetadata, damageEvidenceFromMetadata } from './evidence'
+import { loadInspectionCompliance } from '@/lib/server/van-damage/compliance'
 
 const OPEN_STATUSES: CommandActionStatus[] = ['open', 'in_progress', 'snoozed']
 const MAINTENANCE_ACTIVE_STATUSES = [
@@ -177,7 +178,10 @@ export async function updateActionItemStatus(input: {
 
 async function loadAllActionSources(context: CommandCenterContext): Promise<SourceResult[]> {
   const loaders: Array<Promise<SourceResult>> = []
-  if (context.activeModuleSet.has('damage_ai')) loaders.push(loadDamageActions(context))
+  if (context.activeModuleSet.has('damage_ai')) {
+    loaders.push(loadDamageActions(context))
+    loaders.push(loadInspectionWorkflowActions(context))
+  }
   if (context.activeModuleSet.has('maintenance')) loaders.push(loadMaintenanceActions(context))
   if (context.activeModuleSet.has('damage_ai') || context.activeModuleSet.has('maintenance')) {
     loaders.push(loadSlackActions(context))
@@ -191,6 +195,114 @@ async function loadAllActionSources(context: CommandCenterContext): Promise<Sour
   if (context.activeModuleSet.has('website')) loaders.push(loadWebsiteActions(context))
   if (context.activeModuleSet.has('rewards')) loaders.push(loadRewardActions(context))
   return Promise.all(loaders)
+}
+
+async function loadInspectionWorkflowActions(context: CommandCenterContext): Promise<SourceResult> {
+  const trackedActionTypes = [
+    'inspection_missing',
+    'inspection_images_missing',
+    'inspection_consecutive_misses',
+    'comparison_needs_review',
+    'repair_verification_ready',
+    'repair_more_images_requested',
+  ]
+  try {
+    const localDate = new Intl.DateTimeFormat('en-CA', {
+      timeZone: context.timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date())
+    const [compliance, comparisonResult, verificationResult] = await Promise.all([
+      loadInspectionCompliance(context, { from: localDate, to: localDate }),
+      (context.db as any)
+        .from('van_damage_comparison_runs')
+        .select('id,current_inspection_id,status,updated_at')
+        .eq('tenant_id', context.tenantId)
+        .eq('status', 'needs_review')
+        .limit(200),
+      (context.db as any)
+        .from('van_damage_repair_verifications')
+        .select('id,damage_case_id,status,updated_at')
+        .eq('tenant_id', context.tenantId)
+        .in('status', ['ai_review_complete', 'human_review_required', 'insufficient_images'])
+        .limit(200),
+    ])
+    if (comparisonResult.error || verificationResult.error) {
+      throw new Error(comparisonResult.error?.code ?? verificationResult.error?.code)
+    }
+    const candidates: ActionCandidate[] = []
+    for (const slot of compliance.slots) {
+      if (!['missing', 'images_missing'].includes(slot.status) && slot.missedStreak < 2) continue
+      const actionType =
+        slot.missedStreak >= 2
+          ? 'inspection_consecutive_misses'
+          : slot.status === 'images_missing'
+            ? 'inspection_images_missing'
+            : 'inspection_missing'
+      candidates.push({
+        moduleKey: 'damage_ai',
+        sourceRecordType: 'inspection_slot',
+        sourceRecordId: slot.key,
+        sourceRecordLabel: `${slot.vanLabel} ${slot.slotType}`,
+        actionType,
+        title:
+          slot.missedStreak >= 2
+            ? `${slot.vanLabel} has missed ${slot.missedStreak} consecutive ${slot.slotType} inspections`
+            : slot.status === 'images_missing'
+              ? `${slot.vanLabel} ${slot.slotType} is missing required images`
+              : `${slot.vanLabel} ${slot.slotType} inspection is missing`,
+        description:
+          slot.status === 'images_missing'
+            ? `Missing views: ${slot.missingViews.join(', ')}.`
+            : `The required slot was due ${slot.dueAt}.`,
+        priority: slot.missedStreak >= 3 ? 'urgent' : slot.missedStreak >= 2 ? 'high' : 'normal',
+        assignedRole: 'admin',
+        latestActivityAt: slot.graceEndsAt,
+        href: `/dashboard/damage-ai/compliance?date=${slot.date}&status=${slot.status}`,
+      })
+    }
+    for (const row of comparisonResult.data ?? []) {
+      candidates.push({
+        moduleKey: 'damage_ai',
+        sourceRecordType: 'comparison',
+        sourceRecordId: row.id,
+        sourceRecordLabel: 'Before/after comparison',
+        actionType: 'comparison_needs_review',
+        title: 'A damage comparison needs human review',
+        description: 'Review the paired private evidence before confirming any new damage.',
+        priority: 'high',
+        assignedRole: 'admin',
+        latestActivityAt: row.updated_at,
+        href: `/dashboard/damage-ai/inspections/${row.current_inspection_id}#before-after-comparison`,
+      })
+    }
+    for (const row of verificationResult.data ?? []) {
+      candidates.push({
+        moduleKey: 'damage_ai',
+        sourceRecordType: 'repair_verification',
+        sourceRecordId: row.id,
+        sourceRecordLabel: `Repair verification ${row.id.slice(0, 8)}`,
+        actionType:
+          row.status === 'insufficient_images'
+            ? 'repair_more_images_requested'
+            : 'repair_verification_ready',
+        title:
+          row.status === 'insufficient_images'
+            ? 'Repair verification needs more images'
+            : 'Repair evidence is ready for human review',
+        description:
+          'Automated assessment cannot finalize a repair. An authorized reviewer must decide.',
+        priority: 'high',
+        assignedRole: 'admin',
+        latestActivityAt: row.updated_at,
+        href: `/actions?source=repair_verification&sourceId=${row.id}`,
+      })
+    }
+    return { candidates, trackedActionTypes }
+  } catch (error) {
+    return sourceFailure('Inspection workflow actions', error)
+  }
 }
 
 async function loadDamageActions(context: CommandCenterContext): Promise<SourceResult> {
@@ -237,9 +349,13 @@ async function loadDamageActions(context: CommandCenterContext): Promise<SourceR
     for (const run of runs ?? []) {
       if (!latestRun.has(run.inspection_id)) latestRun.set(run.inspection_id, run)
     }
-    const imageByInspection = new Map<string, typeof images extends Array<infer I> | null ? I : never>()
+    const imageByInspection = new Map<
+      string,
+      typeof images extends Array<infer I> | null ? I : never
+    >()
     for (const image of images ?? []) {
-      if (!imageByInspection.has(image.inspection_id)) imageByInspection.set(image.inspection_id, image)
+      if (!imageByInspection.has(image.inspection_id))
+        imageByInspection.set(image.inspection_id, image)
     }
 
     const candidates: ActionCandidate[] = []

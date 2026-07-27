@@ -22,6 +22,9 @@ import {
   type ContextualAction,
 } from '@/components/command-center/ContextualActionRail'
 import { Car, ImageIcon, ShieldAlert, Wrench } from 'lucide-react'
+import { findComparablePriorInspection } from '@/lib/van-damage/comparison'
+import { BeforeAfterComparison } from '@/components/van-damage/BeforeAfterComparison'
+import { RepairVerificationPanel } from '@/components/van-damage/RepairVerificationPanel'
 
 export const metadata = { title: 'Van Damage Inspection — NexoraNow' }
 
@@ -593,6 +596,161 @@ export default async function InspectionPage({
         }
       : null
 
+  let comparison: {
+    currentDate: string
+    priorDate: string
+    confidence: number
+    pairs: Array<{
+      canonicalView: string
+      currentImageId: string
+      priorImageId: string
+      comparability: string
+    }>
+  } | null = null
+  if (resolvedVehicle && images.length) {
+    const priorInspectionsResult = await looseDb
+      .from('van_damage_inspections')
+      .select('id,tenant_id,van_id,status,review_status,created_at,metadata')
+      .eq('tenant_id', scope.tenantId)
+      .eq('business_id', scope.businessId)
+      .eq('van_id', resolvedVehicle.id)
+      .neq('id', inspectionId)
+      .order('created_at', { ascending: false })
+      .limit(25)
+    const priorRows = (priorInspectionsResult.data ?? []).map(asRecord)
+    const priorIds = priorRows.map((row) => text(row.id)).filter((id): id is string => Boolean(id))
+    const priorImagesResult = priorIds.length
+      ? await looseDb
+          .from('van_damage_images')
+          .select('id,inspection_id,image_role,status,metadata')
+          .eq('tenant_id', scope.tenantId)
+          .eq('business_id', scope.businessId)
+          .in('inspection_id', priorIds)
+          .limit(1000)
+      : { data: [] }
+    const priorImagesByInspection = new Map<string, Array<Record<string, unknown>>>()
+    for (const raw of priorImagesResult.data ?? []) {
+      const image = asRecord(raw)
+      const targetId = text(image.inspection_id)
+      if (targetId)
+        priorImagesByInspection.set(targetId, [
+          ...(priorImagesByInspection.get(targetId) ?? []),
+          image,
+        ])
+    }
+    const resolved = findComparablePriorInspection({
+      tenantId: scope.tenantId,
+      vanId: resolvedVehicle.id,
+      currentInspectionId: inspectionId,
+      currentTimestamp: inspection.slack_upload_at ?? inspection.created_at,
+      currentImages: images.map((image) => ({
+        id: image.id,
+        view: (image.image_role ?? 'unknown') as
+          | 'front'
+          | 'rear'
+          | 'driver_side'
+          | 'passenger_side'
+          | 'interior'
+          | 'odometer'
+          | 'dashboard'
+          | 'unknown',
+        quality: 'acceptable' as const,
+      })),
+      candidates: priorRows.map((row) => {
+        const priorId = text(row.id)!
+        const metadata = asRecord(row.metadata)
+        return {
+          id: priorId,
+          tenantId: text(row.tenant_id)!,
+          vanId: text(row.van_id),
+          inspectedAt: text(row.created_at)!,
+          inspectionType: text(metadata.inspectionType) ?? 'UNKNOWN',
+          status: text(row.status)!,
+          reviewStatus: text(row.review_status)!,
+          wrongVan: metadata.vehicleMismatch === true,
+          invalidDuplicate: metadata.invalidDuplicate === true,
+          images: (priorImagesByInspection.get(priorId) ?? []).map((image) => ({
+            id: text(image.id)!,
+            view: (text(image.image_role) ?? 'unknown') as
+              | 'front'
+              | 'rear'
+              | 'driver_side'
+              | 'passenger_side'
+              | 'interior'
+              | 'odometer'
+              | 'dashboard'
+              | 'unknown',
+            quality:
+              text(asRecord(image.metadata).qualityStatus) === 'low_quality'
+                ? ('low_quality' as const)
+                : ('acceptable' as const),
+          })),
+        }
+      }),
+    })
+    if (resolved) {
+      comparison = {
+        currentDate: inspection.slack_upload_at ?? inspection.created_at,
+        priorDate: resolved.inspection.inspectedAt,
+        confidence: resolved.pairs.some((pair) => pair.comparability === 'highly_comparable')
+          ? 0.92
+          : 0.78,
+        pairs: resolved.pairs,
+      }
+    }
+  }
+  const linkedDamageCaseIds = [
+    ...new Set(items.map((item) => item.damage_case_id).filter((id): id is string => Boolean(id))),
+  ]
+  let repairVerification: {
+    id: string
+    status: string
+    aiClassification: string | null
+    aiConfidence: number | null
+    aiExplanation: string | null
+    humanDecision: string | null
+    humanReviewNote: string | null
+    originalImageId: string | null
+    postRepairImageId: string | null
+  } | null = null
+  if (linkedDamageCaseIds.length) {
+    const verificationResult = await looseDb
+      .from('van_damage_repair_verifications')
+      .select(
+        'id,status,ai_classification,ai_confidence,ai_explanation,human_decision,human_review_note,original_evidence_image_id'
+      )
+      .eq('tenant_id', scope.tenantId)
+      .eq('business_id', scope.businessId)
+      .in('damage_case_id', linkedDamageCaseIds)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    const row = asRecord(verificationResult.data?.[0])
+    const verificationId = text(row.id)
+    if (verificationId) {
+      const verificationImages = await looseDb
+        .from('van_damage_repair_verification_images')
+        .select('image_id,is_replaced,created_at')
+        .eq('tenant_id', scope.tenantId)
+        .eq('repair_verification_id', verificationId)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      const latestImage = (verificationImages.data ?? [])
+        .map(asRecord)
+        .find((image) => image.is_replaced !== true)
+      repairVerification = {
+        id: verificationId,
+        status: text(row.status) ?? 'ready_for_verification',
+        aiClassification: text(row.ai_classification),
+        aiConfidence: typeof row.ai_confidence === 'number' ? row.ai_confidence : null,
+        aiExplanation: text(row.ai_explanation),
+        humanDecision: text(row.human_decision),
+        humanReviewNote: text(row.human_review_note),
+        originalImageId: text(row.original_evidence_image_id),
+        postRepairImageId: text(latestImage?.image_id),
+      }
+    }
+  }
+
   await Promise.all([
     auditInspectionEvent(db, {
       tenantId: scope.tenantId,
@@ -684,59 +842,77 @@ export default async function InspectionPage({
   return (
     <div className="space-y-6">
       <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_17rem]">
-        <InspectionExperience
-          businessId={scope.businessId}
-          returnHref={
-            query.returnTo?.startsWith('/dashboard/damage-ai?') ? query.returnTo : undefined
-          }
-          tenantName={tenantResult.data?.name || 'NexoraNow workspace'}
-          timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
-          canManage={['owner', 'admin'].includes(scope.ctx.role)}
-          canViewMetadata={scope.ctx.role === 'owner'}
-          uploaderName={uploaderName}
-          inspectionTimestamp={inspection.slack_upload_at ?? inspection.created_at}
-          inspection={{
-            id: inspection.id,
-            title: inspection.title,
-            status: inspection.status,
-            review_status: inspection.review_status,
-            source: inspection.source,
-            image_count: inspection.image_count,
-            damage_count: inspection.damage_count,
-            ai_summary: inspection.ai_summary,
-            ai_confidence: inspection.ai_confidence,
-            van_id: resolvedVehicle?.id ?? inspection.van_id,
-            metadata: safeInspectionMetadata(inspection.metadata),
-            created_at: inspection.created_at,
-            updated_at: inspection.updated_at,
-            completed_at: inspection.completed_at,
-            reviewed_at: inspection.reviewed_at,
-          }}
-          vehicle={resolvedVehicle}
-          vehicleResolution={{
-            state: vehicleResolution.state,
-            source: vehicleResolution.source,
-          }}
-          vehicleImage={vehicleImage}
-          vehicleStats={{
-            activeLevel3Count,
-            activeMaintenanceCount,
-            lastInspectionAt: relatedResult.data?.[0]?.created_at ?? inspection.created_at,
-          }}
-          images={images}
-          items={items}
-          aiRun={aiRun}
-          job={job}
-          ownerMetadata={ownerMetadata}
-          related={relatedResult.data ?? []}
-          slack={{
-            workspace: integrationResult.data?.slack_team_name ?? null,
-            channel: channelResult.data?.slack_channel_name
-              ? `#${channelResult.data.slack_channel_name}`
-              : null,
-            url: slackUrl,
-          }}
-        />
+        <div className="min-w-0 space-y-6">
+          <InspectionExperience
+            businessId={scope.businessId}
+            returnHref={
+              query.returnTo?.startsWith('/dashboard/damage-ai?') ? query.returnTo : undefined
+            }
+            tenantName={tenantResult.data?.name || 'NexoraNow workspace'}
+            timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
+            canManage={['owner', 'admin'].includes(scope.ctx.role)}
+            canViewMetadata={scope.ctx.role === 'owner'}
+            uploaderName={uploaderName}
+            inspectionTimestamp={inspection.slack_upload_at ?? inspection.created_at}
+            inspection={{
+              id: inspection.id,
+              title: inspection.title,
+              status: inspection.status,
+              review_status: inspection.review_status,
+              source: inspection.source,
+              image_count: inspection.image_count,
+              damage_count: inspection.damage_count,
+              ai_summary: inspection.ai_summary,
+              ai_confidence: inspection.ai_confidence,
+              van_id: resolvedVehicle?.id ?? inspection.van_id,
+              metadata: safeInspectionMetadata(inspection.metadata),
+              created_at: inspection.created_at,
+              updated_at: inspection.updated_at,
+              completed_at: inspection.completed_at,
+              reviewed_at: inspection.reviewed_at,
+            }}
+            vehicle={resolvedVehicle}
+            vehicleResolution={{
+              state: vehicleResolution.state,
+              source: vehicleResolution.source,
+            }}
+            vehicleImage={vehicleImage}
+            vehicleStats={{
+              activeLevel3Count,
+              activeMaintenanceCount,
+              lastInspectionAt: relatedResult.data?.[0]?.created_at ?? inspection.created_at,
+            }}
+            images={images}
+            items={items}
+            aiRun={aiRun}
+            job={job}
+            ownerMetadata={ownerMetadata}
+            related={relatedResult.data ?? []}
+            slack={{
+              workspace: integrationResult.data?.slack_team_name ?? null,
+              channel: channelResult.data?.slack_channel_name
+                ? `#${channelResult.data.slack_channel_name}`
+                : null,
+              url: slackUrl,
+            }}
+          />
+          {comparison && (
+            <BeforeAfterComparison
+              businessId={scope.businessId}
+              currentDate={comparison.currentDate}
+              priorDate={comparison.priorDate}
+              confidence={comparison.confidence}
+              pairs={comparison.pairs}
+            />
+          )}
+          {repairVerification && (
+            <RepairVerificationPanel
+              businessId={scope.businessId}
+              verification={repairVerification}
+              canReview={['owner', 'admin', 'manager'].includes(scope.ctx.role)}
+            />
+          )}
+        </div>
         <ContextualActionRail title="Inspection actions" actions={contextualActions} />
       </div>
       <UniversalNotesPanel
