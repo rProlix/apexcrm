@@ -78,3 +78,22 @@ test('shared motion utilities contain no infinite decorative loops', async () =>
     /repeat\s*:\s*Infinity|animation-iteration-count\s*:\s*infinite/
   )
 })
+
+test('premium shell atmosphere is pointer-safe, render-safe, and reduced-motion aware', async () => {
+  const [atmosphere, shell, css] = await Promise.all([
+    readFile(path.join(process.cwd(), 'components/shell/ShellAtmosphere.tsx'), 'utf8'),
+    readFile(path.join(process.cwd(), 'components/dashboard/DashboardShell.tsx'), 'utf8'),
+    readFile(path.join(process.cwd(), 'app/globals.css'), 'utf8'),
+  ])
+
+  assert.match(shell, /<ShellAtmosphere \/>/)
+  assert.match(atmosphere, /useMotionValue/)
+  assert.match(atmosphere, /useSpring/)
+  assert.match(atmosphere, /useReducedMotion/)
+  assert.match(atmosphere, /\(hover: hover\) and \(pointer: fine\)/)
+  assert.match(atmosphere, /cancelAnimationFrame/)
+  assert.match(atmosphere, /removeEventListener/)
+  assert.doesNotMatch(atmosphere, /useState/)
+  assert.match(css, /\.crm-pointer-light[\s\S]*will-change: transform, opacity/)
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.crm-pointer-light/)
+})

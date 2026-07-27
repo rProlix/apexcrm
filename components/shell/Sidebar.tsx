@@ -396,10 +396,12 @@ function SidebarItem({ label, href, icon: Icon, active, onNavigate, badge }: Sid
             : 'text-white/[0.52] hover:bg-white/[0.04] hover:text-white'
         )}
       >
-        <Icon
-          className={cn('h-4 w-4 shrink-0', active ? 'text-brand' : 'text-white/[0.38]')}
-          strokeWidth={1.75}
-        />
+        <span className={cn('crm-nav-icon', active && 'crm-nav-icon-active')} aria-hidden="true">
+          <Icon
+            className={cn('h-4 w-4 shrink-0', active ? 'text-brand' : 'text-white/[0.38]')}
+            strokeWidth={1.75}
+          />
+        </span>
         <span className="truncate">{label}</span>
         {typeof badge === 'number' && badge > 0 && (
           <span className="ml-auto min-w-5 rounded-md bg-white/[0.07] px-1.5 text-center text-2xs font-semibold leading-5 text-white/65">
@@ -408,7 +410,7 @@ function SidebarItem({ label, href, icon: Icon, active, onNavigate, badge }: Sid
         )}
         {active && (
           <span
-            className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-brand"
+            className="crm-nav-active-rail absolute inset-y-2 left-0 w-0.5 rounded-full bg-brand"
             aria-hidden="true"
           />
         )}

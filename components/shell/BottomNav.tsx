@@ -94,7 +94,12 @@ export function BottomNav({
               active ? 'bg-brand/[0.08] text-brand' : 'text-white/[0.42] hover:text-white/70'
             )}
           >
-            <Icon className="h-5 w-5" strokeWidth={1.75} />
+            <span
+              className={cn('crm-bottom-nav-icon', active && 'crm-bottom-nav-icon-active')}
+              aria-hidden="true"
+            >
+              <Icon className="h-5 w-5" strokeWidth={1.75} />
+            </span>
             <span className="text-2xs font-medium">{item.label}</span>
             {'badge' in item && typeof item.badge === 'number' && item.badge > 0 && (
               <span className="absolute right-0.5 top-0 min-w-4 rounded-md bg-red-400 px-1 text-center text-[9px] font-bold leading-4 text-graphite-950">

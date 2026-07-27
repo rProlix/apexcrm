@@ -83,7 +83,7 @@ export function TopBar({
           className={cn(
             'flex h-10 w-10 items-center justify-center rounded-xl md:hidden',
             'text-white/50 hover:bg-white/[0.05] hover:text-white',
-            'transition-colors duration-150 focus-ring'
+            'ui-chrome-button transition-colors duration-150 focus-ring'
           )}
           aria-label="Open navigation"
         >
@@ -125,7 +125,7 @@ export function TopBar({
             className={cn(
               'relative flex h-10 w-10 items-center justify-center rounded-xl',
               'text-white/[0.42] hover:bg-white/[0.05] hover:text-white',
-              'transition-colors duration-150 focus-ring'
+              'ui-chrome-button transition-colors duration-150 focus-ring'
             )}
           >
             <Bell className="h-4 w-4" strokeWidth={1.75} />
@@ -141,7 +141,7 @@ export function TopBar({
         <div className="mx-1 hidden h-6 w-px bg-white/8 sm:block" />
 
         <details ref={profileMenuRef} className="group relative">
-          <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-xl px-1.5 text-white/80 transition-colors hover:bg-white/[0.04] focus-ring [&::-webkit-details-marker]:hidden">
+          <summary className="ui-chrome-button flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-xl px-1.5 text-white/80 transition-colors hover:bg-white/[0.04] focus-ring [&::-webkit-details-marker]:hidden">
             <div className="brand-accent-surface flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border">
               <span className="text-xs font-bold">{initials(name)}</span>
             </div>

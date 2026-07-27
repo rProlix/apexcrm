@@ -28,6 +28,7 @@ export function PageHeader({
         className
       )}
     >
+      <span className="ui-page-header-motif" aria-hidden="true" />
       <div className="flex min-w-0 items-start gap-4">
         {Icon && (
           <div className="brand-accent-surface ui-page-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border">

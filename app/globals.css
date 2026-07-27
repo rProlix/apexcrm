@@ -737,6 +737,24 @@ summary {
     opacity: 0.5;
   }
 
+  .crm-pointer-light {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: min(38rem, 72vw);
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background: radial-gradient(
+      circle,
+      rgb(var(--tenant-accent-rgb) / 0.075) 0%,
+      rgb(var(--tenant-accent-rgb) / 0.028) 34%,
+      transparent 70%
+    );
+    contain: paint;
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+
   .crm-content {
     position: relative;
   }
@@ -791,6 +809,36 @@ summary {
     box-shadow: inset 0 1px 0 transparent;
   }
 
+  .crm-nav-icon {
+    display: grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: 0.55rem;
+    background: transparent;
+    transition:
+      color var(--motion-feedback) var(--motion-enter),
+      background-color var(--motion-feedback) var(--motion-enter),
+      border-color var(--motion-feedback) var(--motion-enter),
+      transform var(--motion-feedback) var(--motion-enter);
+  }
+
+  .crm-nav-icon-active {
+    border-color: rgb(var(--tenant-accent-rgb) / 0.18);
+    background:
+      linear-gradient(145deg, rgb(var(--tenant-accent-rgb) / 0.15), transparent),
+      rgb(var(--tenant-accent-rgb) / 0.055);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.045);
+  }
+
+  .crm-nav-active-rail {
+    box-shadow:
+      1px 0 0 rgb(var(--tenant-accent-rgb) / 0.25),
+      0 0 12px rgb(var(--tenant-accent-rgb) / 0.2);
+  }
+
   .crm-nav-item-active {
     background:
       linear-gradient(90deg, rgb(var(--tenant-accent-rgb) / 0.12), rgb(var(--tenant-accent-rgb) / 0.045));
@@ -818,6 +866,27 @@ summary {
     box-shadow: 0 -18px 52px rgb(0 0 0 / 0.3);
   }
 
+  .crm-bottom-nav-icon {
+    display: grid;
+    width: 2rem;
+    height: 1.65rem;
+    place-items: center;
+    border-radius: 0.55rem;
+    transition:
+      background-color var(--motion-feedback) var(--motion-enter),
+      transform var(--motion-feedback) var(--motion-enter);
+  }
+
+  .crm-bottom-nav-icon-active {
+    background: rgb(var(--tenant-accent-rgb) / 0.12);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  }
+
+  .ui-chrome-button {
+    border: 1px solid transparent;
+    box-shadow: inset 0 1px 0 transparent;
+  }
+
   .crm-popover {
     background:
       linear-gradient(145deg, rgb(255 255 255 / 0.05), transparent 38%),
@@ -827,6 +896,32 @@ summary {
 
   .ui-page-header {
     margin-bottom: 0;
+    isolation: isolate;
+  }
+
+  .ui-page-header > *:not(.ui-page-header-motif) {
+    position: relative;
+    z-index: 1;
+  }
+
+  .ui-page-header-motif {
+    position: absolute;
+    top: -1rem;
+    right: clamp(0rem, 2vw, 1.5rem);
+    width: clamp(8rem, 16vw, 13rem);
+    height: 6.5rem;
+    background:
+      repeating-radial-gradient(
+        ellipse at 100% 0%,
+        transparent 0 13px,
+        rgb(var(--tenant-accent-rgb) / 0.09) 14px,
+        transparent 15px 25px
+      ),
+      linear-gradient(135deg, transparent 45%, rgb(255 255 255 / 0.025));
+    -webkit-mask-image: linear-gradient(115deg, transparent, black 48%, transparent 94%);
+    mask-image: linear-gradient(115deg, transparent, black 48%, transparent 94%);
+    pointer-events: none;
+    opacity: 0.72;
   }
 
   .ui-page-header::after {
@@ -864,6 +959,30 @@ summary {
     height: 1px;
     background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.24), transparent);
     pointer-events: none;
+  }
+
+  .ui-card::after,
+  .ui-surface::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+      24rem circle at 12% -16%,
+      rgb(255 255 255 / 0.045),
+      transparent 58%
+    );
+    opacity: 0.52;
+    pointer-events: none;
+    transition: opacity var(--motion-state) var(--motion-enter);
+  }
+
+  :where(a.ui-surface, button.ui-surface, .ui-surface.group, .ui-card.group, .ui-interactive-surface) {
+    transform: translateY(0);
+    transition:
+      transform var(--motion-feedback) var(--motion-enter),
+      border-color var(--motion-state) var(--motion-enter),
+      box-shadow var(--motion-state) var(--motion-enter);
   }
 
   .brand-accent-surface {
@@ -998,6 +1117,46 @@ summary {
   .ui-sidebar-item:hover {
     transform: translateX(1px);
   }
+
+  .crm-nav-item:hover .crm-nav-icon {
+    border-color: rgb(255 255 255 / 0.065);
+    background: rgb(255 255 255 / 0.035);
+    transform: scale(1.035);
+  }
+
+  .crm-nav-item:hover .crm-nav-icon-active {
+    border-color: rgb(var(--tenant-accent-rgb) / 0.24);
+    background: rgb(var(--tenant-accent-rgb) / 0.1);
+  }
+
+  .ui-chrome-button:hover {
+    border-color: rgb(255 255 255 / 0.075);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.035);
+  }
+
+  :where(
+      a.ui-surface,
+      button.ui-surface,
+      .ui-surface.group,
+      .ui-card.group,
+      .ui-interactive-surface
+    ):hover {
+    transform: translateY(-1px);
+    border-color: rgb(224 232 244 / 0.13);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.04),
+      0 20px 48px rgb(0 0 0 / 0.2);
+  }
+
+  :where(
+      a.ui-surface,
+      button.ui-surface,
+      .ui-surface.group,
+      .ui-card.group,
+      .ui-interactive-surface
+    ):hover::after {
+    opacity: 0.85;
+  }
 }
 
 /* ─── Selection color ───────────────────────────────────────────── */
@@ -1039,6 +1198,18 @@ summary {
   .ui-sidebar-item {
     transform: none !important;
     transition: none !important;
+  }
+
+  .crm-pointer-light {
+    display: none;
+  }
+
+  .crm-nav-icon,
+  .crm-bottom-nav-icon,
+  .ui-chrome-button,
+  :where(a.ui-surface, button.ui-surface, .ui-surface.group, .ui-card.group, .ui-interactive-surface) {
+    transform: none !important;
+    transition-property: color, background-color, border-color, box-shadow !important;
   }
 
   .crm-content .ui-page > * {

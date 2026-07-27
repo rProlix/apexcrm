@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/shell/Sidebar'
 import { TopBar } from '@/components/shell/TopBar'
 import { BottomNav } from '@/components/shell/BottomNav'
 import { NavigationFeedback } from '@/components/shell/NavigationFeedback'
+import { ShellAtmosphere } from '@/components/shell/ShellAtmosphere'
 import type { NavModule } from '@/modules/shared/moduleTypes'
 import type { SafeTenantAccent } from '@/lib/design-system/tenantAccent'
 import type { AnyRole } from '@/lib/auth/types'
@@ -72,6 +73,7 @@ export function DashboardShell({
               <span className="crm-shell-glow crm-shell-glow-primary" />
               <span className="crm-shell-glow crm-shell-glow-secondary" />
               <span className="crm-shell-grid" />
+              <ShellAtmosphere />
             </div>
             <Sidebar
               tenantName={tenantName}
