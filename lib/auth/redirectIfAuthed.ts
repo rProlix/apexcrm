@@ -8,11 +8,15 @@ import { createSessionServerClient } from '@/lib/supabase/server'
  * @param destination  Where to send the authenticated user (default: /dashboard)
  */
 export async function redirectIfAuthed(destination = '/dashboard') {
+  let isAuthed = false
+
   try {
     const supabase = await createSessionServerClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (user) redirect(destination)
+    isAuthed = Boolean(user)
   } catch {
     // Supabase unavailable — stay on the login/signup page
   }
+
+  if (isAuthed) redirect(destination)
 }

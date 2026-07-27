@@ -5,13 +5,17 @@ import { createSessionServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
 export default async function HomePage() {
+  let isAuthed = false
+
   try {
     const supabase = await createSessionServerClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (user) redirect('/dashboard')
+    isAuthed = Boolean(user)
   } catch {
     // Supabase unavailable — show landing page without auth check
   }
+
+  if (isAuthed) redirect('/dashboard')
 
   return (
     <main className="min-h-dvh bg-graphite-950 flex flex-col items-center justify-center px-6">
