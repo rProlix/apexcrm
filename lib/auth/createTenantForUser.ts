@@ -3,6 +3,12 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { slugifyBusinessName } from '@/lib/validation/auth'
 import type { Json } from '@/lib/supabase/types'
+import { headers } from 'next/headers'
+import {
+  validateLegalAgreement,
+  type LegalAgreement,
+} from '@/lib/legal/consent'
+import { recordLegalConsent } from '@/lib/legal/recordConsent'
 
 export interface CreateTenantResult {
   tenantId:   string
@@ -23,13 +29,18 @@ export async function createTenantForUser({
   email,
   businessName,
   slug,
+  legalAgreement,
 }: {
   authUserId:   string
   email:        string
   businessName: string
   slug?:        string
+  legalAgreement: LegalAgreement
 }): Promise<CreateTenantResult> {
   const supabase = getSupabaseServerClient() as any
+  const legalValidation = validateLegalAgreement(legalAgreement, 'business_admin')
+  if (!legalValidation.ok) throw new Error(legalValidation.error)
+  const requestHeaders = await headers()
 
   // Verify the auth user actually exists in Supabase Auth
   const { data: authData, error: authError } =
@@ -52,6 +63,19 @@ export async function createTenantForUser({
       .select('slug')
       .eq('id', existing.tenant_id)
       .single()
+    await recordLegalConsent({
+      authUserId,
+      tenantId: existing.tenant_id,
+      subjectEmail: email,
+      accountType: 'business_admin',
+      agreement: legalValidation.agreement,
+      source: 'legacy_business_signup',
+      headers: requestHeaders,
+      metadata: {
+        authority_to_bind_business: true,
+        business_name: businessName,
+      },
+    })
     return { tenantId: existing.tenant_id, userId: existing.id, tenantSlug: existingTenant?.slug ?? '' }
   }
 
@@ -180,6 +204,20 @@ export async function createTenantForUser({
 
   // ── Seed demo data so the dashboard is never empty ───────────────────────
   await seedDemoData(supabase, tenant.id, businessName.trim())
+
+  await recordLegalConsent({
+    authUserId,
+    tenantId: tenant.id,
+    subjectEmail: email,
+    accountType: 'business_admin',
+    agreement: legalValidation.agreement,
+    source: 'legacy_business_signup',
+    headers: requestHeaders,
+    metadata: {
+      authority_to_bind_business: true,
+      business_name: businessName,
+    },
+  })
 
   return { tenantId: tenant.id, userId: userRecord.id, tenantSlug: finalSlug }
 }

@@ -15,6 +15,11 @@
 
 import { useState, FormEvent } from 'react'
 import Link from 'next/link'
+import {
+  createLegalAgreement,
+  LEGAL_AGREEMENT_REQUIRED_MESSAGE,
+} from '@/lib/legal/consent'
+import { getPlatformLegalUrl } from '@/lib/legal/policies'
 
 interface Props {
   tenantId:  string
@@ -50,12 +55,19 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
   const [error,     setError]     = useState<string | null>(null)
   const [message,   setMessage]   = useState<string | null>(null)
   const [debugInfo, setDebugInfo] = useState<string | null>(null)
+  const [acceptedLegal, setAcceptedLegal] = useState(false)
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
     setMessage(null)
     setDebugInfo(null)
+
+    if (!acceptedLegal) {
+      setError(LEGAL_AGREEMENT_REQUIRED_MESSAGE)
+      return
+    }
+
     setPending(true)
 
     try {
@@ -72,6 +84,7 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
           full_name: fullName,
           tenant_id: tenantId,
           next,
+          legalAgreement: createLegalAgreement(),
         }),
       })
 
@@ -206,9 +219,54 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
         />
       </div>
 
+      <label
+        htmlFor="customer-legal-agreement"
+        style={{
+          display:      'flex',
+          alignItems:   'flex-start',
+          gap:          '0.625rem',
+          padding:      '0.875rem',
+          borderRadius: '0.75rem',
+          border:       '1px solid var(--color-border)',
+          background:   'color-mix(in srgb, var(--color-surface) 92%, var(--color-primary) 8%)',
+          cursor:       'pointer',
+        }}
+      >
+        <input
+          id="customer-legal-agreement"
+          type="checkbox"
+          checked={acceptedLegal}
+          onChange={(event) => setAcceptedLegal(event.target.checked)}
+          style={{ width: 16, height: 16, marginTop: 2, flexShrink: 0, accentColor: 'var(--color-primary)' }}
+        />
+        <span style={{ color: 'var(--color-muted)', fontSize: '0.75rem', lineHeight: 1.55 }}>
+          I agree to the{' '}
+          <a href={getPlatformLegalUrl('terms')} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+            Terms of Use
+          </a>{' '}
+          and{' '}
+          <a href={getPlatformLegalUrl('acceptable-use')} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+            Acceptable Use Policy
+          </a>
+          , and acknowledge the{' '}
+          <a href={getPlatformLegalUrl('privacy')} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+            Privacy Policy
+          </a>
+          ,{' '}
+          <a href={getPlatformLegalUrl('cookie-policy')} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+            Cookie Policy
+          </a>
+          , and{' '}
+          <a href={getPlatformLegalUrl('ai-notice')} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+            AI Notice
+          </a>
+          .
+        </span>
+      </label>
+
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || !acceptedLegal}
         style={{
           width:        '100%',
           padding:      '0.875rem',
@@ -218,9 +276,9 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
           color:        '#fff',
           fontSize:     '1rem',
           fontWeight:   700,
-          cursor:       pending ? 'not-allowed' : 'pointer',
+          cursor:       pending || !acceptedLegal ? 'not-allowed' : 'pointer',
           transition:   'opacity 0.15s',
-          opacity:      pending ? 0.7 : 1,
+          opacity:      pending || !acceptedLegal ? 0.58 : 1,
         }}
       >
         {pending ? 'Creating account…' : 'Create Account'}

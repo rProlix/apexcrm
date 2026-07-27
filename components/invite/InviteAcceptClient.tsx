@@ -8,6 +8,11 @@ import {
   CheckCircle2, AlertCircle, CalendarDays, ShoppingBag, Star, CreditCard, User,
   Eye, EyeOff, Loader2, LogIn,
 } from 'lucide-react'
+import {
+  createLegalAgreement,
+  LEGAL_AGREEMENT_REQUIRED_MESSAGE,
+} from '@/lib/legal/consent'
+import { getPlatformLegalUrl } from '@/lib/legal/policies'
 
 interface EnabledModules {
   appointments?: boolean
@@ -58,6 +63,7 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
   const [confirmPass,  setConfirmPass]  = useState('')
   const [showPass,     setShowPass]     = useState(false)
   const [formError,    setFormError]    = useState<string | null>(null)
+  const [acceptedLegal, setAcceptedLegal] = useState(false)
 
   // Validate token on mount
   useEffect(() => {
@@ -101,6 +107,7 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
       if (!password) { setFormError('Password is required.'); return }
       if (password.length < 6) { setFormError('Password must be at least 6 characters.'); return }
       if (password !== confirmPass) { setFormError('Passwords do not match.'); return }
+      if (!acceptedLegal) { setFormError(LEGAL_AGREEMENT_REQUIRED_MESSAGE); return }
     }
 
     setFormError(null)
@@ -115,6 +122,7 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
           password:  phase === 'form' ? password : undefined,
           fullName:  fullName.trim() || undefined,
           phone:     phone.trim() || undefined,
+          legalAgreement: phase === 'form' ? createLegalAgreement() : undefined,
         }),
       })
       const data = await res.json()
@@ -144,7 +152,7 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
       setFormError('Network error. Please check your connection and try again.')
       setPhase(currentUserEmail ? 'valid' : 'form')
     }
-  }, [invite, phase, password, confirmPass, token, fullName, phone, currentUserEmail, router])
+  }, [invite, phase, password, confirmPass, acceptedLegal, token, fullName, phone, currentUserEmail, router])
 
   // ── Loading ────────────────────────────────────────────────────────────────
 
@@ -373,9 +381,50 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
             />
           </div>
 
+          <label
+            htmlFor="invite-legal-agreement"
+            className={`
+              flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-colors
+              ${acceptedLegal
+                ? 'border-gold-500/40 bg-gold-500/[0.07]'
+                : 'border-white/10 bg-white/[0.025] hover:border-white/20'}
+            `}
+          >
+            <input
+              id="invite-legal-agreement"
+              type="checkbox"
+              checked={acceptedLegal}
+              onChange={(event) => setAcceptedLegal(event.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[#c9a84c] focus:ring-2 focus:ring-gold-400/50"
+            />
+            <span className="text-xs leading-5 text-white/50">
+              I agree to the{' '}
+              <a href={getPlatformLegalUrl('terms')} target="_blank" rel="noreferrer" className="font-medium text-gold-400 hover:text-gold-300">
+                Terms of Use
+              </a>{' '}
+              and{' '}
+              <a href={getPlatformLegalUrl('acceptable-use')} target="_blank" rel="noreferrer" className="font-medium text-gold-400 hover:text-gold-300">
+                Acceptable Use Policy
+              </a>
+              , and acknowledge the{' '}
+              <a href={getPlatformLegalUrl('privacy')} target="_blank" rel="noreferrer" className="font-medium text-gold-400 hover:text-gold-300">
+                Privacy Policy
+              </a>
+              ,{' '}
+              <a href={getPlatformLegalUrl('cookie-policy')} target="_blank" rel="noreferrer" className="font-medium text-gold-400 hover:text-gold-300">
+                Cookie Policy
+              </a>
+              , and{' '}
+              <a href={getPlatformLegalUrl('ai-notice')} target="_blank" rel="noreferrer" className="font-medium text-gold-400 hover:text-gold-300">
+                AI Notice
+              </a>
+              .
+            </span>
+          </label>
+
           <button
             onClick={handleAccept}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !acceptedLegal}
             className="w-full h-12 rounded-xl font-semibold text-sm bg-gold-gradient text-graphite-900 hover:shadow-glow-gold disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
           >
             {isSubmitting

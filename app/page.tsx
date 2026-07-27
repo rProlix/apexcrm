@@ -65,6 +65,13 @@ export default async function HomePage() {
         <p className="mt-3 text-2xs text-white/20 uppercase tracking-widest">
           Example tenants
         </p>
+
+        <div className="mt-10 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-white/30">
+          <Link href="/legal/terms" className="transition-colors hover:text-white/65">Terms</Link>
+          <Link href="/legal/privacy" className="transition-colors hover:text-white/65">Privacy</Link>
+          <Link href="/legal/acceptable-use" className="transition-colors hover:text-white/65">Acceptable Use</Link>
+          <Link href="/legal/ai-notice" className="transition-colors hover:text-white/65">AI Notice</Link>
+        </div>
       </div>
     </main>
   )

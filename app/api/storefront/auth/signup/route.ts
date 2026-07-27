@@ -13,6 +13,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getRequestOrigin, sanitizeNextPath } from '@/lib/auth/redirects'
+import { validateLegalAgreement } from '@/lib/legal/consent'
+import { recordLegalConsent } from '@/lib/legal/recordConsent'
 
 function err(message: string, status = 400, extra?: Record<string, unknown>) {
   return NextResponse.json({ ok: false, error: message, ...extra }, { status })
@@ -32,9 +34,13 @@ export async function POST(request: NextRequest) {
   const fullName = typeof body.full_name === 'string' ? body.full_name.trim()           : ''
   const tenantId = typeof body.tenant_id === 'string' ? body.tenant_id                 : ''
   const next     = sanitizeNextPath(typeof body.next === 'string' ? body.next : null, '/account')
+  const legalValidation = validateLegalAgreement(body.legalAgreement, 'customer')
 
   if (!email || !password || !fullName || !tenantId) {
     return err('All fields are required.', 400)
+  }
+  if (!legalValidation.ok) {
+    return err(legalValidation.error, 400)
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return err('Please enter a valid email address.', 400)
@@ -96,6 +102,7 @@ export async function POST(request: NextRequest) {
         account_type:    'customer',
         signup_origin:   'storefront',
         storefront_host: new URL(request.url).host,
+        legal_acceptance: legalValidation.agreement,
       },
     },
   })
@@ -208,6 +215,19 @@ export async function POST(request: NextRequest) {
     console.error('[storefront-signup] customer_accounts upsert error:', linkError.message)
     return err('Account link failed. Please try again, or contact the business.', 500)
   }
+
+  await recordLegalConsent({
+    authUserId: signupData.user.id,
+    tenantId,
+    subjectEmail: email,
+    accountType: 'customer',
+    agreement: legalValidation.agreement,
+    source: 'storefront_signup',
+    request,
+    metadata: {
+      storefront_host: new URL(request.url).host,
+    },
+  })
 
   // ── Response ───────────────────────────────────────────────────────────────
   if (signupData.session) {

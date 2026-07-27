@@ -7,8 +7,12 @@ import { signupSchema, slugifyBusinessName } from '@/lib/validation/auth'
 import { createTenantForUser } from '@/lib/auth/createTenantForUser'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
+import {
+  createLegalAgreement,
+  LEGAL_AGREEMENT_REQUIRED_MESSAGE,
+} from '@/lib/legal/consent'
 
-type SignupField = 'businessName' | 'slug' | 'email' | 'password' | 'confirmPassword'
+type SignupField = 'businessName' | 'slug' | 'email' | 'password' | 'confirmPassword' | 'acceptedLegal'
 type FieldErrors = Partial<Record<SignupField, string>>
 
 interface FieldProps {
@@ -73,6 +77,7 @@ export function SignupForm() {
   const [error,            setError]            = useState<string | null>(null)
   const [fields,           setFields]           = useState<FieldErrors>({})
   const [emailSent,        setEmailSent]        = useState(false)
+  const [acceptedLegal,    setAcceptedLegal]    = useState(false)
 
   // Derive slug preview from business name when user hasn't typed a custom slug
   const slugPreview = slug.trim() || (businessName ? slugifyBusinessName(businessName) : '')
@@ -88,6 +93,7 @@ export function SignupForm() {
       email,
       password,
       confirmPassword,
+      acceptedLegal,
     })
 
     if (!parsed.success) {
@@ -103,6 +109,7 @@ export function SignupForm() {
     setLoading(true)
 
     const supabase = getSupabaseBrowserClient()
+    const legalAgreement = createLegalAgreement()
 
     // Step 1: Create the Supabase Auth user.
     // We set role + businessName in user_metadata here so the JWT is correct
@@ -124,6 +131,7 @@ export function SignupForm() {
         data: {
           role:         'admin',
           businessName: parsed.data.businessName,
+          legal_acceptance: legalAgreement,
         },
         emailRedirectTo,
       },
@@ -155,6 +163,7 @@ export function SignupForm() {
         email:        parsed.data.email,
         businessName: parsed.data.businessName,
         slug:         parsed.data.slug || undefined,
+        legalAgreement,
       })
       tenantSlug = result.tenantSlug
     } catch (err) {
@@ -222,6 +231,56 @@ export function SignupForm() {
           error={fields.businessName}
           disabled={loading}
         />
+
+        <label
+          htmlFor="signup-legal-agreement"
+          className={cn(
+            'flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors',
+            acceptedLegal
+              ? 'border-gold-500/45 bg-gold-500/[0.07]'
+              : 'border-graphite-600 bg-graphite-800/35 hover:border-graphite-500'
+          )}
+        >
+          <input
+            id="signup-legal-agreement"
+            type="checkbox"
+            checked={acceptedLegal}
+            onChange={(event) => setAcceptedLegal(event.target.checked)}
+            disabled={loading}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[#c9a84c] focus:ring-2 focus:ring-gold-400/50"
+          />
+          <span className="text-xs leading-5 text-white/55">
+            I have authority to bind this business. I agree to the{' '}
+            <Link href="/legal/terms" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+              Terms of Use
+            </Link>{' '}
+            and{' '}
+            <Link href="/legal/acceptable-use" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+              Acceptable Use Policy
+            </Link>
+            , including the{' '}
+            <Link href="/legal/data-processing-addendum" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+              Data Processing Addendum
+            </Link>
+            , and acknowledge the{' '}
+            <Link href="/legal/privacy" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+              Privacy Policy
+            </Link>
+            ,{' '}
+            <Link href="/legal/cookie-policy" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+              Cookie Policy
+            </Link>
+            , and{' '}
+            <Link href="/legal/ai-notice" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+              AI Notice
+            </Link>
+            .
+          </span>
+        </label>
+
+        {fields.acceptedLegal && (
+          <p className="text-xs text-red-400">{LEGAL_AGREEMENT_REQUIRED_MESSAGE}</p>
+        )}
 
         <div className="space-y-1.5">
           <label
@@ -310,18 +369,13 @@ export function SignupForm() {
         <Button
           type="submit"
           loading={loading}
+          disabled={loading || !acceptedLegal}
           className="w-full mt-2"
           size="lg"
         >
           {loading ? 'Creating your workspace…' : 'Create workspace'}
         </Button>
 
-        <p className="text-center text-xs text-white/25 pt-1">
-          By signing up you agree to our{' '}
-          <span className="text-white/40">Terms of Service</span>
-          {' & '}
-          <span className="text-white/40">Privacy Policy</span>.
-        </p>
       </form>
 
       <div className="mt-6 pt-6 border-t border-white/[0.06] text-center space-y-3">

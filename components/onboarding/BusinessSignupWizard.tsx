@@ -3,11 +3,15 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
-import { signupSchema, slugifyBusinessName } from '@/lib/validation/auth'
+import { slugifyBusinessName } from '@/lib/validation/auth'
 import { PlanComparisonCards } from '@/components/plans/PlanComparisonCards'
 import { cn } from '@/lib/utils'
 import type { CRMPlanKey, CRMModuleKey } from '@/lib/plans/planCatalog'
 import { MODULE_CATALOG, PLAN_CATALOG } from '@/lib/plans/planCatalog'
+import {
+  createLegalAgreement,
+  LEGAL_AGREEMENT_REQUIRED_MESSAGE,
+} from '@/lib/legal/consent'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -61,6 +65,7 @@ interface WizardState {
   recommendedModules:  CRMModuleKey[]
   plans:               PlanCard[]
   billingInterval:     'monthly' | 'yearly'
+  acceptedLegal:       boolean
 }
 
 interface PlanCard {
@@ -106,19 +111,19 @@ const BUSINESS_CATEGORIES = [
 
 const BUDGET_OPTIONS = [
   { label: 'Under $30/mo',   value: '2500' },
-  { label: '$30–$80/mo',     value: '5000' },
-  { label: '$80–$150/mo',    value: '10000' },
-  { label: '$150–$500/mo',   value: '30000' },
+  { label: '$30-$80/mo',     value: '5000' },
+  { label: '$80-$150/mo',    value: '10000' },
+  { label: '$150-$500/mo',   value: '30000' },
   { label: '$500+/mo',       value: '60000' },
   { label: "I'm not sure",   value: '0' },
 ]
 
 const EMPLOYEE_OPTIONS = [
   { label: 'Just me',  value: '1' },
-  { label: '2–3',      value: '2' },
-  { label: '4–10',     value: '5' },
-  { label: '11–25',    value: '15' },
-  { label: '26–50',    value: '35' },
+  { label: '2-3',      value: '2' },
+  { label: '4-10',     value: '5' },
+  { label: '11-25',    value: '15' },
+  { label: '26-50',    value: '35' },
   { label: '50+',      value: '75' },
 ]
 
@@ -138,6 +143,7 @@ const INITIAL: WizardState = {
   recommendedPlanKey: null, selectedPlanKey: 'starter',
   recommendationReason: '', recommendedModules: [], plans: [],
   billingInterval: 'monthly',
+  acceptedLegal: false,
 }
 
 const TOTAL_STEPS = 7
@@ -251,9 +257,16 @@ export function BusinessSignupWizard() {
 
   async function handleSubmit() {
     setError(null)
+
+    if (!state.acceptedLegal) {
+      setError(LEGAL_AGREEMENT_REQUIRED_MESSAGE)
+      return
+    }
+
     setLoading(true)
 
     const supabase = getSupabaseBrowserClient()
+    const legalAgreement = createLegalAgreement()
 
     // Step 1: Create auth user
     // emailRedirectTo must point to the main CRM domain (nexoranow.com) because
@@ -270,6 +283,7 @@ export function BusinessSignupWizard() {
           role:         'admin',
           businessName: state.businessName,
           full_name:    state.fullName,
+          legal_acceptance: legalAgreement,
         },
         emailRedirectTo,
       },
@@ -336,6 +350,7 @@ export function BusinessSignupWizard() {
           recommendedPlanKey:         state.recommendedPlanKey,
           recommendedModules:         state.recommendedModules,
           recommendationReason:       state.recommendationReason,
+          legalAgreement,
         }),
       })
 
@@ -389,7 +404,7 @@ export function BusinessSignupWizard() {
           <span className="text-graphite-900 font-bold text-base">A</span>
         </div>
         <h1 className="text-xl font-bold text-white">Create your workspace</h1>
-        <p className="text-sm text-white/40 mt-1">Free 14-day trial — no credit card required</p>
+        <p className="text-sm text-white/40 mt-1">Free 14-day trial. No credit card required.</p>
       </div>
 
       {/* Progress bar */}
@@ -415,7 +430,13 @@ export function BusinessSignupWizard() {
           {step === 4 && <Step4WhatYouNeed state={state} update={update} />}
           {step === 5 && <Step5BusinessSize state={state} update={update} />}
           {step === 6 && <Step6PlanSelection state={state} update={update} />}
-          {step === 7 && <Step7Confirm state={state} subdomainPreview={subdomainPreview} />}
+          {step === 7 && (
+            <Step7Confirm
+              state={state}
+              update={update}
+              subdomainPreview={subdomainPreview}
+            />
+          )}
 
           {/* Error */}
           {error && (
@@ -458,7 +479,7 @@ export function BusinessSignupWizard() {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={loading || !state.acceptedLegal}
                 className="flex-1 h-11 rounded-xl bg-gold-gradient text-graphite-900 text-sm font-semibold hover:shadow-glow-gold transition-shadow disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? (
@@ -602,7 +623,7 @@ function Step2BusinessBasics({
 
       <Field id="existingWebsite" label="Existing website URL" value={state.existingWebsiteUrl}
         onChange={(v) => update({ existingWebsiteUrl: v })} placeholder="https://mybusiness.com"
-        hint="Optional — we can help you migrate or integrate." />
+        hint="Optional. We can help you migrate or integrate." />
     </div>
   )
 }
@@ -766,9 +787,9 @@ function Step5BusinessSize({ state, update }: { state: WizardState; update: (p: 
         <div className="flex flex-wrap gap-2">
           {[
             { label: 'Under 50',  value: '25' },
-            { label: '50–200',    value: '100' },
-            { label: '200–500',   value: '350' },
-            { label: '500–1,000', value: '750' },
+            { label: '50-200',    value: '100' },
+            { label: '200-500',   value: '350' },
+            { label: '500-1,000', value: '750' },
             { label: '1,000+',    value: '1500' },
           ].map((opt) => (
             <button
@@ -841,7 +862,7 @@ function Step6PlanSelection({ state, update }: { state: WizardState; update: (p:
 
       {state.selectedPlanKey === 'enterprise' && (
         <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 px-4 py-3">
-          <p className="text-sm text-blue-300 font-medium mb-1">Enterprise — Custom Setup</p>
+          <p className="text-sm text-blue-300 font-medium mb-1">Enterprise: Custom Setup</p>
           <p className="text-xs text-white/50 leading-relaxed">
             Your account will be created with core modules enabled. Our team will contact you within 24 hours
             to configure custom limits, integrations, and pricing for your business.
@@ -871,7 +892,15 @@ function Step6PlanSelection({ state, update }: { state: WizardState; update: (p:
   )
 }
 
-function Step7Confirm({ state, subdomainPreview }: { state: WizardState; subdomainPreview: string }) {
+function Step7Confirm({
+  state,
+  update,
+  subdomainPreview,
+}: {
+  state: WizardState
+  update: (p: Partial<WizardState>) => void
+  subdomainPreview: string
+}) {
   const plan = PLAN_CATALOG[state.selectedPlanKey]
   const enabledCount = plan.included_modules.length
 
@@ -889,7 +918,7 @@ function Step7Confirm({ state, subdomainPreview }: { state: WizardState; subdoma
         <SummaryRow label="Workspace URL" value={`${subdomainPreview}.crm.app`} icon="🔗" />
         <SummaryRow
           label="Plan"
-          value={`${plan.name} — ${plan.is_custom ? 'Custom pricing' : `$${Math.floor(plan.price_monthly_cents / 100)}/mo`}`}
+          value={`${plan.name}: ${plan.is_custom ? 'Custom pricing' : `$${Math.floor(plan.price_monthly_cents / 100)}/mo`}`}
           icon="💼"
         />
         <SummaryRow label="Modules enabled" value={`${enabledCount} modules`} icon="✅" />
@@ -912,9 +941,53 @@ function Step7Confirm({ state, subdomainPreview }: { state: WizardState; subdoma
         </div>
       </div>
 
-      <p className="text-xs text-white/30 text-center">
-        By creating your workspace you agree to our Terms of Service & Privacy Policy.
-        Your 14-day free trial starts today.
+      <label
+        htmlFor="business-legal-agreement"
+        className={cn(
+          'flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors',
+          state.acceptedLegal
+            ? 'border-gold-500/45 bg-gold-500/[0.07]'
+            : 'border-graphite-600 bg-graphite-800/35 hover:border-graphite-500'
+        )}
+      >
+        <input
+          id="business-legal-agreement"
+          type="checkbox"
+          checked={state.acceptedLegal}
+          onChange={(event) => update({ acceptedLegal: event.target.checked })}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-graphite-500 bg-graphite-900 text-gold-500 accent-[#c9a84c] focus:ring-2 focus:ring-gold-400/50 focus:ring-offset-2 focus:ring-offset-graphite-900"
+        />
+        <span className="text-xs leading-5 text-white/55">
+          I have authority to bind this business. I agree to the{' '}
+          <Link href="/legal/terms" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+            Terms of Use
+          </Link>{' '}
+          and{' '}
+          <Link href="/legal/acceptable-use" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+            Acceptable Use Policy
+          </Link>
+          , including the{' '}
+          <Link href="/legal/data-processing-addendum" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+            Data Processing Addendum
+          </Link>
+          , and acknowledge the{' '}
+          <Link href="/legal/privacy" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+            Privacy Policy
+          </Link>
+          ,{' '}
+          <Link href="/legal/cookie-policy" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+            Cookie Policy
+          </Link>
+          , and{' '}
+          <Link href="/legal/ai-notice" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+            AI Transparency Notice
+          </Link>
+          .
+        </span>
+      </label>
+
+      <p className="text-center text-xs text-white/30">
+        Your 14-day free trial starts when the workspace is created.
       </p>
     </div>
   )

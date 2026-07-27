@@ -38,6 +38,9 @@ export const signupSchema = z
       .regex(/[A-Z]/, 'Must include at least one uppercase letter')
       .regex(/[0-9]/, 'Must include at least one number'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
+    acceptedLegal: z.literal(true, {
+      errorMap: () => ({ message: 'You must accept the legal terms before creating an account' }),
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',

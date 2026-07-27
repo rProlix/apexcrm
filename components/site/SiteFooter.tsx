@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import type { PublishedSiteConfig } from '@/lib/website/types'
+import { getPlatformLegalUrl } from '@/lib/legal/policies'
 
 interface Props {
   config: PublishedSiteConfig
@@ -97,6 +98,17 @@ export function SiteFooter({ config }: Props) {
           <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', margin: 0 }}>
             {copyright}
           </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.875rem', fontSize: '0.75rem' }}>
+            <a href={getPlatformLegalUrl('terms')} style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>
+              Platform Terms
+            </a>
+            <a href={getPlatformLegalUrl('privacy')} style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>
+              Privacy
+            </a>
+            <a href={getPlatformLegalUrl('cookie-policy')} style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>
+              Cookies
+            </a>
+          </div>
         </div>
       </div>
     </footer>

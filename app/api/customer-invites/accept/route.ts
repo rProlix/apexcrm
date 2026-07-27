@@ -6,6 +6,11 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
 import { hashToken } from '@/lib/invites/inviteHelpers'
+import {
+  validateLegalAgreement,
+  type LegalAgreement,
+} from '@/lib/legal/consent'
+import { recordLegalConsent } from '@/lib/legal/recordConsent'
 
 function err(code: string, message: string, status = 400) {
   return NextResponse.json({ ok: false, code, error: message }, { status })
@@ -49,6 +54,7 @@ export async function POST(req: NextRequest) {
   const inviteEmail = (invite.email as string).toLowerCase()
 
   let authUserId: string
+  let legalAgreement: LegalAgreement | null = null
 
   // ── Flow 1: check for an existing session ────────────────────────────────
   const sessionClient = await createSessionServerClient()
@@ -79,6 +85,12 @@ export async function POST(req: NextRequest) {
     authUserId = sessionUser.id
   } else {
     // ── Flow 2: no session — create account or sign in ──────────────────────
+    const legalValidation = validateLegalAgreement(body.legalAgreement, 'customer')
+    if (!legalValidation.ok) {
+      return err('LEGAL_AGREEMENT_REQUIRED', legalValidation.error, 400)
+    }
+    legalAgreement = legalValidation.agreement
+
     if (!password) {
       return err('PASSWORD_REQUIRED', 'A password is required to create your account.', 400)
     }
@@ -95,6 +107,7 @@ export async function POST(req: NextRequest) {
         full_name:  fullName ?? invite.full_name ?? '',
         role:       'customer',
         tenant_id:  tenantId,
+        legal_acceptance: legalAgreement,
       },
     })
 
@@ -225,6 +238,21 @@ export async function POST(req: NextRequest) {
       console.error('[POST /api/customer-invites/accept] upsert account:', upsertErr.message)
       return err('SERVER_ERROR', 'Failed to create portal account. Please try again.', 500)
     }
+  }
+
+  if (legalAgreement) {
+    await recordLegalConsent({
+      authUserId,
+      tenantId,
+      subjectEmail: inviteEmail,
+      accountType: 'customer',
+      agreement: legalAgreement,
+      source: 'customer_invite_signup',
+      request: req,
+      metadata: {
+        invite_id: invite.id,
+      },
+    })
   }
 
   // ── Mark invite accepted ────────────────────────────────────────────────────

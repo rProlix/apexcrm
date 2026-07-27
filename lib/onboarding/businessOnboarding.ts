@@ -19,6 +19,7 @@ import {
   type OnboardingAnswers,
 } from '@/lib/plans/planCatalog'
 import { MODULE_CATALOG } from '@/lib/plans/planCatalog'
+import type { LegalAgreement } from '@/lib/legal/consent'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ export interface OnboardingData {
   recommendedModules?:  CRMModuleKey[]
   lockedModules?:       CRMModuleKey[]
   recommendationReason?: string
+  legalAgreement: LegalAgreement
 }
 
 export interface OnboardingResult {

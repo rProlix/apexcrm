@@ -187,6 +187,40 @@ export interface Database {
         Update: Record<string, never>
         Relationships: []
       }
+      legal_consents: {
+        Row: {
+          id: string
+          auth_user_id: string
+          tenant_id: string | null
+          subject_email: string
+          account_type: 'business_admin' | 'business_user' | 'customer'
+          document_key: 'terms' | 'privacy' | 'acceptable-use' | 'ai-notice' | 'data-processing-addendum' | 'cookie-policy'
+          document_version: string
+          accepted_at: string
+          recorded_at: string
+          source: string
+          ip_address: string | null
+          user_agent: string | null
+          evidence: Json
+        }
+        Insert: {
+          id?: string
+          auth_user_id: string
+          tenant_id?: string | null
+          subject_email: string
+          account_type: 'business_admin' | 'business_user' | 'customer'
+          document_key: 'terms' | 'privacy' | 'acceptable-use' | 'ai-notice' | 'data-processing-addendum' | 'cookie-policy'
+          document_version: string
+          accepted_at: string
+          recorded_at?: string
+          source: string
+          ip_address?: string | null
+          user_agent?: string | null
+          evidence?: Json
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
       plans: {
         Row: {
           id: string
