@@ -5,7 +5,7 @@ import type { EncryptedSecret } from '../../../lib/server/crypto/encrypt-token.j
 import type { WorkerConfig } from './config.js'
 import { normalizeVanNumber } from './van-number-parser.js'
 
-export const WORKER_SCHEMA_CONTRACT_VERSION = '2026-07-04-v1'
+export const WORKER_SCHEMA_CONTRACT_VERSION = '2026-07-28-v2'
 
 export function buildClaimJobArgs(job: VanDamageJobV1, staleBefore: string) {
   return {
@@ -13,6 +13,7 @@ export function buildClaimJobArgs(job: VanDamageJobV1, staleBefore: string) {
     p_tenant_id: job.tenantId,
     p_business_id: job.businessId,
     p_inspection_id: job.inspectionId,
+    p_image_id: job.imageId,
     p_stale_before: staleBefore,
   }
 }
@@ -56,8 +57,11 @@ export class SupabaseWorker {
     })
   }
 
-  async claimJob(job: VanDamageJobV1, staleBefore: string): Promise<'claimed' | 'completed' | 'busy' | 'missing'> {
-    const { data, error } = await this.db.rpc('claim_van_damage_job', {
+  async claimJob(
+    job: VanDamageJobV1,
+    staleBefore: string
+  ): Promise<'claimed' | 'completed' | 'busy' | 'missing'> {
+    const { data, error } = await this.db.rpc('claim_van_damage_image_job', {
       ...buildClaimJobArgs(job, staleBefore),
     })
     if (error) throw new Error(error.message)
@@ -66,13 +70,32 @@ export class SupabaseWorker {
 
   async loadIntegrationForJob(job: VanDamageJobV1): Promise<WorkerJobContext> {
     const [integrationResult, inspectionResult, imagesResult] = await Promise.all([
-      this.db.from('van_slack_integrations').select('id, encrypted_bot_token')
-        .eq('id', job.integrationId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId)
-        .eq('slack_team_id', job.slackTeamId).eq('status', 'connected').is('deleted_at', null).single(),
-      this.db.from('van_damage_inspections').select('id, title, metadata')
-        .eq('id', job.inspectionId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId).single(),
-      this.db.from('van_damage_images').select('id, slack_file_id, slack_file_url, content_type, file_size_bytes, width, height, image_role, upload_order, original_file_index, metadata')
-        .eq('inspection_id', job.inspectionId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId)
+      this.db
+        .from('van_slack_integrations')
+        .select('id, encrypted_bot_token')
+        .eq('id', job.integrationId)
+        .eq('tenant_id', job.tenantId)
+        .eq('business_id', job.businessId)
+        .eq('slack_team_id', job.slackTeamId)
+        .eq('status', 'connected')
+        .is('deleted_at', null)
+        .single(),
+      this.db
+        .from('van_damage_inspections')
+        .select('id, title, metadata')
+        .eq('id', job.inspectionId)
+        .eq('tenant_id', job.tenantId)
+        .eq('business_id', job.businessId)
+        .single(),
+      this.db
+        .from('van_damage_images')
+        .select(
+          'id, slack_file_id, slack_file_url, content_type, file_size_bytes, width, height, image_role, upload_order, original_file_index, metadata'
+        )
+        .eq('id', job.imageId)
+        .eq('inspection_id', job.inspectionId)
+        .eq('tenant_id', job.tenantId)
+        .eq('business_id', job.businessId)
         .order('upload_order', { ascending: true, nullsFirst: false })
         .order('original_file_index', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true }),
@@ -94,7 +117,8 @@ export class SupabaseWorker {
   }): Promise<WorkerVanProfile> {
     const canonicalVanNumber = normalizeVanNumber(input.vanNumber)
     if (!canonicalVanNumber) throw new Error('A valid van number is required')
-    const { data: existing, error: existingError } = await this.db.from('vehicles')
+    const { data: existing, error: existingError } = await this.db
+      .from('vehicles')
       .select('id, tenant_id, name, van_number, status, metadata')
       .eq('tenant_id', input.tenantId)
       .eq('van_number', canonicalVanNumber)
@@ -103,14 +127,16 @@ export class SupabaseWorker {
     if (existingError) throw new Error(existingError.message)
     if (existing) return existing as WorkerVanProfile
 
-    const { data: candidates, error: candidateError } = await this.db.from('vehicles')
+    const { data: candidates, error: candidateError } = await this.db
+      .from('vehicles')
       .select('id, tenant_id, name, van_number, status, metadata')
       .eq('tenant_id', input.tenantId)
       .not('van_number', 'is', null)
       .limit(1000)
     if (candidateError) throw new Error(candidateError.message)
-    const canonicalMatches = ((candidates ?? []) as WorkerVanProfile[])
-      .filter((candidate) => normalizeVanNumber(candidate.van_number) === canonicalVanNumber)
+    const canonicalMatches = ((candidates ?? []) as WorkerVanProfile[]).filter(
+      (candidate) => normalizeVanNumber(candidate.van_number) === canonicalVanNumber
+    )
     if (canonicalMatches.length === 1) return canonicalMatches[0]
     if (canonicalMatches.length > 1) {
       throw new Error(`Multiple van profiles match canonical van number ${canonicalVanNumber}`)
@@ -130,10 +156,15 @@ export class SupabaseWorker {
     }
     if (await this.hasVehicleColumn('business_id')) insert.business_id = input.businessId
 
-    const { data: created, error: createError } = await this.db.from('vehicles').insert(insert).select('id, tenant_id, name, van_number, status, metadata').single()
+    const { data: created, error: createError } = await this.db
+      .from('vehicles')
+      .insert(insert)
+      .select('id, tenant_id, name, van_number, status, metadata')
+      .single()
     if (!createError && created) return created as WorkerVanProfile
 
-    const { data: afterRace, error: afterRaceError } = await this.db.from('vehicles')
+    const { data: afterRace, error: afterRaceError } = await this.db
+      .from('vehicles')
       .select('id, tenant_id, name, van_number, status, metadata')
       .eq('tenant_id', input.tenantId)
       .eq('van_number', canonicalVanNumber)
@@ -146,7 +177,8 @@ export class SupabaseWorker {
 
   async attachInspectionToVan(job: VanDamageJobV1, van: WorkerVanProfile, vanNumber: string) {
     const canonicalVanNumber = normalizeVanNumber(vanNumber) ?? vanNumber
-    const { data: current, error: currentError } = await this.db.from('van_damage_inspections')
+    const { data: current, error: currentError } = await this.db
+      .from('van_damage_inspections')
       .select('metadata')
       .eq('id', job.inspectionId)
       .eq('tenant_id', job.tenantId)
@@ -160,21 +192,21 @@ export class SupabaseWorker {
       vanId: van.id,
       vanNumberSource: 'slack_message_text',
     }
-    const { error } = await this.db.from('van_damage_inspections').update({
-      van_id: van.id,
-      metadata,
-    }).eq('id', job.inspectionId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId)
-    if (error) throw new Error(error.message)
-  }
-
-  async markInspectionAnalyzing(job: VanDamageJobV1, model: string) {
-    const { error } = await this.db.from('van_damage_inspections').update({ status: 'analyzing', ai_model: model })
-      .eq('id', job.inspectionId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId)
+    const { error } = await this.db
+      .from('van_damage_inspections')
+      .update({
+        van_id: van.id,
+        metadata,
+      })
+      .eq('id', job.inspectionId)
+      .eq('tenant_id', job.tenantId)
+      .eq('business_id', job.businessId)
     if (error) throw new Error(error.message)
   }
 
   async markInspectionNeedsReview(job: VanDamageJobV1, reason: string) {
-    const { data: current, error: currentError } = await this.db.from('van_damage_inspections')
+    const { data: current, error: currentError } = await this.db
+      .from('van_damage_inspections')
       .select('metadata')
       .eq('id', job.inspectionId)
       .eq('tenant_id', job.tenantId)
@@ -186,52 +218,97 @@ export class SupabaseWorker {
       reviewReason: reason,
       missingVanNumber: true,
     }
-    const { error } = await this.db.from('van_damage_inspections').update({
-      status: 'needs_review',
-      error_message: reason.slice(0, 2_000),
-      metadata,
-    }).eq('id', job.inspectionId).eq('tenant_id', job.tenantId).eq('business_id', job.businessId)
+    const { error } = await this.db
+      .from('van_damage_inspections')
+      .update({
+        status: 'needs_review',
+        error_message: reason.slice(0, 2_000),
+        metadata,
+      })
+      .eq('id', job.inspectionId)
+      .eq('tenant_id', job.tenantId)
+      .eq('business_id', job.businessId)
     if (error) throw new Error(error.message)
   }
 
-  async upsertImageS3Info(job: VanDamageJobV1, imageId: string, values: {
-    bucket: string; key: string; etag: string | null; contentType: string
-    size: number; width: number | null; height: number | null
-  }) {
-    const { error } = await this.db.from('van_damage_images').update({
-      s3_bucket: values.bucket, s3_key: values.key, s3_etag: values.etag,
-      content_type: values.contentType, file_size_bytes: values.size,
-      width: values.width, height: values.height, status: 'uploaded',
-    }).eq('id', imageId).eq('inspection_id', job.inspectionId)
-      .eq('tenant_id', job.tenantId).eq('business_id', job.businessId)
-    if (error) throw new Error(error.message)
-  }
-
-  async createAiRun(job: VanDamageJobV1, model: string, promptVersion: string, inputSummary: Json) {
-    const { data, error } = await this.db.from('van_damage_ai_runs').insert({
-      tenant_id: job.tenantId, business_id: job.businessId, inspection_id: job.inspectionId,
-      provider: 'gemini', model, status: 'started', prompt_version: promptVersion, input_summary: inputSummary,
-    }).select('id').single()
-    if (error) throw new Error(error.message)
-    return data.id as string
-  }
-
-  async saveAiRawResponse(job: VanDamageJobV1, aiRunId: string, rawText: string, parseError: string | null) {
-    const { error } = await this.db.from('van_damage_ai_runs').update({
-      raw_response: { text: rawText }, error_message: parseError,
-    }).eq('id', aiRunId)
+  async upsertImageS3Info(
+    job: VanDamageJobV1,
+    imageId: string,
+    values: {
+      bucket: string
+      key: string
+      etag: string | null
+      contentType: string
+      size: number
+      width: number | null
+      height: number | null
+    }
+  ) {
+    const { error } = await this.db
+      .from('van_damage_images')
+      .update({
+        s3_bucket: values.bucket,
+        s3_key: values.key,
+        s3_etag: values.etag,
+        content_type: values.contentType,
+        file_size_bytes: values.size,
+        width: values.width,
+        height: values.height,
+        status: 'uploaded',
+      })
+      .eq('id', imageId)
       .eq('inspection_id', job.inspectionId)
       .eq('tenant_id', job.tenantId)
       .eq('business_id', job.businessId)
     if (error) throw new Error(error.message)
   }
 
-  async replaceDamageItemsAndComplete(input: {
-    job: VanDamageJobV1; aiRunId: string; analysis: GeminiDamageAnalysis
-    imageIds: string[]
+  async createAiRun(job: VanDamageJobV1, model: string, promptVersion: string, inputSummary: Json) {
+    const { data, error } = await this.db
+      .from('van_damage_ai_runs')
+      .insert({
+        tenant_id: job.tenantId,
+        business_id: job.businessId,
+        inspection_id: job.inspectionId,
+        image_id: job.imageId,
+        provider: 'gemini',
+        model,
+        status: 'started',
+        prompt_version: promptVersion,
+        input_summary: inputSummary,
+      })
+      .select('id')
+      .single()
+    if (error) throw new Error(error.message)
+    return data.id as string
+  }
+
+  async saveAiRawResponse(
+    job: VanDamageJobV1,
+    aiRunId: string,
+    rawText: string,
+    parseError: string | null
+  ) {
+    const { error } = await this.db
+      .from('van_damage_ai_runs')
+      .update({
+        raw_response: { text: rawText },
+        error_message: parseError,
+      })
+      .eq('id', aiRunId)
+      .eq('inspection_id', job.inspectionId)
+      .eq('image_id', job.imageId)
+      .eq('tenant_id', job.tenantId)
+      .eq('business_id', job.businessId)
+    if (error) throw new Error(error.message)
+  }
+
+  async completeImageAnalysis(input: {
+    job: VanDamageJobV1
+    aiRunId: string
+    analysis: GeminiDamageAnalysis
   }) {
     const items = input.analysis.items.map((item) => ({
-      imageId: input.imageIds[item.imageIndex] ?? null,
       damageType: item.damageType === 'dirt_debris' ? 'unknown' : item.damageType,
       vehicleArea: item.vehicleArea,
       severity: item.severity,
@@ -241,17 +318,24 @@ export class SupabaseWorker {
       estimatedCostMin: item.estimatedCostMin,
       estimatedCostMax: item.estimatedCostMax,
       boundingBox: item.boundingBox,
-      metadata: { imageIndex: item.imageIndex, originalDamageType: item.damageType },
+      metadata: {
+        providerImageIndex: item.imageIndex,
+        originalDamageType: item.damageType,
+        sourceImageId: input.job.imageId,
+      },
     }))
-    const { error } = await this.db.rpc('complete_van_damage_job', {
+    const { data, error } = await this.db.rpc('complete_van_damage_image_job', {
       p_job_id: input.job.jobId,
+      p_tenant_id: input.job.tenantId,
       p_inspection_id: input.job.inspectionId,
+      p_image_id: input.job.imageId,
       p_ai_run_id: input.aiRunId,
       p_analysis: input.analysis as unknown as Json,
       p_items: items as unknown as Json,
       p_needs_review: input.analysis.needsHumanReview,
     })
     if (error) throw new Error(error.message)
+    return data as Record<string, unknown>
   }
 
   async updateVanProfileAfterInspection(input: {
@@ -262,7 +346,8 @@ export class SupabaseWorker {
     damageCount: number
     imageCount: number
   }) {
-    const { data: van, error: vanError } = await this.db.from('vehicles')
+    const { data: van, error: vanError } = await this.db
+      .from('vehicles')
       .select('metadata')
       .eq('id', input.vanId)
       .eq('tenant_id', input.tenantId)
@@ -297,7 +382,9 @@ export class SupabaseWorker {
       if (await this.hasVehicleColumn(column)) update[column] = value
     }
 
-    const { error } = await this.db.from('vehicles').update(update)
+    const { error } = await this.db
+      .from('vehicles')
+      .update(update)
       .eq('id', input.vanId)
       .eq('tenant_id', input.tenantId)
     if (error) throw new Error(error.message)
@@ -313,30 +400,79 @@ export class SupabaseWorker {
     return exists
   }
 
-  async markJobFailed(job: VanDamageJobV1, errorMessage: string) {
-    const message = errorMessage.slice(0, 2_000)
-    await Promise.all([
-      this.db.from('van_damage_jobs').update({ status: 'failed', last_error: message }).eq('id', job.jobId)
-        .eq('tenant_id', job.tenantId).eq('business_id', job.businessId),
-      this.db.from('van_damage_inspections').update({ status: 'failed', error_message: message }).eq('id', job.inspectionId)
-        .eq('tenant_id', job.tenantId).eq('business_id', job.businessId),
-    ])
+  async markImageFailed(
+    job: VanDamageJobV1,
+    category: string,
+    errorMessage: string,
+    terminal: boolean
+  ) {
+    const { data, error } = await this.db.rpc('fail_van_damage_image_job', {
+      p_job_id: job.jobId,
+      p_tenant_id: job.tenantId,
+      p_inspection_id: job.inspectionId,
+      p_image_id: job.imageId,
+      p_failure_category: category,
+      p_failure_message: errorMessage.slice(0, 500),
+      p_terminal: terminal,
+    })
+    if (error) throw new Error(error.message)
+    return data as Record<string, unknown>
   }
 
   async checkSchemaCompatibility() {
-    const { data: contract, error: contractError } = await this.db.rpc('van_damage_worker_schema_contract')
-    if (contractError) throw new Error(`Worker schema contract unavailable: ${contractError.message}`)
+    const { data: contract, error: contractError } = await this.db.rpc(
+      'van_damage_worker_schema_contract'
+    )
+    if (contractError)
+      throw new Error(`Worker schema contract unavailable: ${contractError.message}`)
     if (!contract || contract.version !== WORKER_SCHEMA_CONTRACT_VERSION) {
-      throw new Error(`Unsupported worker schema contract: ${String(contract?.version ?? 'missing')}`)
+      throw new Error(
+        `Unsupported worker schema contract: ${String(contract?.version ?? 'missing')}`
+      )
     }
 
     const probes = [
-      this.db.from('van_slack_integrations').select('id, tenant_id, business_id, slack_team_id, encrypted_bot_token, status, deleted_at', { head: true }).limit(1),
-      this.db.from('van_damage_jobs').select('id, tenant_id, business_id, inspection_id, status, attempt_count, updated_at', { head: true }).limit(1),
-      this.db.from('van_damage_inspections').select('id, tenant_id, business_id, title, status, ai_model, error_message', { head: true }).limit(1),
-      this.db.from('van_damage_images').select('id, tenant_id, business_id, inspection_id, slack_file_id, slack_file_url, content_type, status', { head: true }).limit(1),
-      this.db.from('van_damage_ai_runs').select('id, tenant_id, business_id, inspection_id, status, raw_response', { head: true }).limit(1),
-      this.db.from('van_damage_items').select('id, tenant_id, business_id, inspection_id, image_id', { head: true }).limit(1),
+      this.db
+        .from('van_slack_integrations')
+        .select(
+          'id, tenant_id, business_id, slack_team_id, encrypted_bot_token, status, deleted_at',
+          { head: true }
+        )
+        .limit(1),
+      this.db
+        .from('van_damage_jobs')
+        .select(
+          'id, tenant_id, business_id, inspection_id, image_id, status, attempt_count, updated_at',
+          { head: true }
+        )
+        .limit(1),
+      this.db
+        .from('van_damage_inspections')
+        .select('id, tenant_id, business_id, title, status, ai_model, error_message', {
+          head: true,
+        })
+        .limit(1),
+      this.db
+        .from('van_damage_images')
+        .select(
+          'id, tenant_id, business_id, inspection_id, slack_file_id, slack_file_url, content_type, status',
+          { head: true }
+        )
+        .limit(1),
+      this.db
+        .from('van_damage_image_analyses')
+        .select('id, tenant_id, business_id, inspection_id, image_id, status, valid_confidence', {
+          head: true,
+        })
+        .limit(1),
+      this.db
+        .from('van_damage_ai_runs')
+        .select('id, tenant_id, business_id, inspection_id, status, raw_response', { head: true })
+        .limit(1),
+      this.db
+        .from('van_damage_items')
+        .select('id, tenant_id, business_id, inspection_id, image_id', { head: true })
+        .limit(1),
     ]
     const results = await Promise.all(probes)
     const failed = results.find((result) => result.error)

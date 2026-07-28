@@ -194,7 +194,13 @@ export interface Database {
           tenant_id: string | null
           subject_email: string
           account_type: 'business_admin' | 'business_user' | 'customer'
-          document_key: 'terms' | 'privacy' | 'acceptable-use' | 'ai-notice' | 'data-processing-addendum' | 'cookie-policy'
+          document_key:
+            | 'terms'
+            | 'privacy'
+            | 'acceptable-use'
+            | 'ai-notice'
+            | 'data-processing-addendum'
+            | 'cookie-policy'
           document_version: string
           accepted_at: string
           recorded_at: string
@@ -209,7 +215,13 @@ export interface Database {
           tenant_id?: string | null
           subject_email: string
           account_type: 'business_admin' | 'business_user' | 'customer'
-          document_key: 'terms' | 'privacy' | 'acceptable-use' | 'ai-notice' | 'data-processing-addendum' | 'cookie-policy'
+          document_key:
+            | 'terms'
+            | 'privacy'
+            | 'acceptable-use'
+            | 'ai-notice'
+            | 'data-processing-addendum'
+            | 'cookie-policy'
           document_version: string
           accepted_at: string
           recorded_at?: string
@@ -2340,6 +2352,11 @@ export interface Database {
           ai_summary: string | null
           ai_confidence: number | null
           ai_model: string | null
+          analysis_aggregate_status: string
+          analyzed_image_count: number
+          failed_image_count: number
+          needs_review_image_count: number
+          skipped_image_count: number
           review_status: string
           reviewed_by: string | null
           reviewed_at: string | null
@@ -2367,6 +2384,11 @@ export interface Database {
           ai_summary?: string | null
           ai_confidence?: number | null
           ai_model?: string | null
+          analysis_aggregate_status?: string
+          analyzed_image_count?: number
+          failed_image_count?: number
+          needs_review_image_count?: number
+          skipped_image_count?: number
           review_status?: string
           reviewed_by?: string | null
           reviewed_at?: string | null
@@ -2471,12 +2493,17 @@ export interface Database {
           tenant_id: string
           business_id: string
           inspection_id: string | null
+          image_id: string | null
+          analysis_version: string
+          idempotency_key: string | null
           slack_event_id: string | null
           sqs_message_id: string | null
           job_type: string
           status: string
           attempt_count: number
           last_error: string | null
+          failure_category: string | null
+          last_attempt_at: string | null
           payload: Json
           created_at: string
           updated_at: string
@@ -2488,12 +2515,17 @@ export interface Database {
           tenant_id: string
           business_id: string
           inspection_id?: string | null
+          image_id?: string | null
+          analysis_version?: string
+          idempotency_key?: string | null
           slack_event_id?: string | null
           sqs_message_id?: string | null
           job_type?: string
           status?: string
           attempt_count?: number
           last_error?: string | null
+          failure_category?: string | null
+          last_attempt_at?: string | null
           payload?: Json
           created_at?: string
           updated_at?: string
@@ -2509,6 +2541,7 @@ export interface Database {
           tenant_id: string
           business_id: string
           inspection_id: string
+          image_id: string | null
           provider: string
           model: string | null
           status: string
@@ -2525,6 +2558,7 @@ export interface Database {
           tenant_id: string
           business_id: string
           inspection_id: string
+          image_id?: string | null
           provider?: string
           model?: string | null
           status?: string
@@ -2535,6 +2569,58 @@ export interface Database {
           error_message?: string | null
           created_at?: string
           completed_at?: string | null
+        }
+        Update: Record<string, Json | undefined>
+        Relationships: []
+      }
+      van_damage_image_analyses: {
+        Row: {
+          id: string
+          tenant_id: string
+          business_id: string
+          inspection_id: string
+          image_id: string
+          job_id: string | null
+          ai_run_id: string | null
+          analysis_version: string
+          status: string
+          valid_confidence: number | null
+          damage_count: number
+          needs_human_review: boolean
+          failure_category: string | null
+          failure_message: string | null
+          attempt_count: number
+          summary: string | null
+          last_attempt_at: string | null
+          metadata: Json
+          started_at: string | null
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          business_id: string
+          inspection_id: string
+          image_id: string
+          job_id?: string | null
+          ai_run_id?: string | null
+          analysis_version?: string
+          status?: string
+          valid_confidence?: number | null
+          damage_count?: number
+          needs_human_review?: boolean
+          failure_category?: string | null
+          failure_message?: string | null
+          attempt_count?: number
+          summary?: string | null
+          last_attempt_at?: string | null
+          metadata?: Json
+          started_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Update: Record<string, Json | undefined>
         Relationships: []
@@ -2791,6 +2877,33 @@ export interface Database {
           existing_sqs_message_id: string | null
         }>
       }
+      ingest_van_damage_slack_event_v2: {
+        Args: {
+          p_integration_id: string
+          p_slack_event_id: string
+          p_slack_event_type: string
+          p_slack_channel_id: string
+          p_slack_user_id: string | null
+          p_raw_event: Json
+          p_slack_message_ts: string
+          p_slack_thread_ts: string | null
+          p_title: string
+          p_files: Json
+          p_driver_profile?: Json
+          p_upload_source_key?: string | null
+          p_analysis_version?: string
+        }
+        Returns: Array<{
+          event_row_id: string
+          inspection_row_id: string
+          job_row_id: string
+          image_row_id: string
+          slack_file_id: string
+          upload_session_row_id: string | null
+          was_created: boolean
+          existing_sqs_message_id: string | null
+        }>
+      }
       ingest_fleet_maintenance_slack_message: {
         Args: {
           p_integration_id: string
@@ -2849,6 +2962,46 @@ export interface Database {
           p_stale_before: string
         }
         Returns: string
+      }
+      claim_van_damage_image_job: {
+        Args: {
+          p_job_id: string
+          p_tenant_id: string
+          p_business_id: string
+          p_inspection_id: string
+          p_image_id: string
+          p_stale_before: string
+        }
+        Returns: string
+      }
+      recalculate_van_damage_inspection_analysis: {
+        Args: { p_tenant_id: string; p_inspection_id: string }
+        Returns: Json
+      }
+      complete_van_damage_image_job: {
+        Args: {
+          p_job_id: string
+          p_tenant_id: string
+          p_inspection_id: string
+          p_image_id: string
+          p_ai_run_id: string
+          p_analysis: Json
+          p_items: Json
+          p_needs_review: boolean
+        }
+        Returns: Json
+      }
+      fail_van_damage_image_job: {
+        Args: {
+          p_job_id: string
+          p_tenant_id: string
+          p_inspection_id: string
+          p_image_id: string
+          p_failure_category: string
+          p_failure_message: string
+          p_terminal?: boolean
+        }
+        Returns: Json
       }
       complete_van_damage_job: {
         Args: {

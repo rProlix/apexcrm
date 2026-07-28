@@ -149,7 +149,10 @@ test('completed duplicate jobs are successful no-ops', async () => {
     slackThreadTs: null,
     slackEventId: 'Ev1',
     slackMessageText: 'van #64',
+    imageId: randomUUID(),
+    slackFileId: 'F1',
     slackFileIds: ['F1'],
+    analysisVersion: 'van-damage-v2',
     createdAt: new Date().toISOString(),
   })
   const config = {
@@ -174,12 +177,11 @@ test('completed duplicate jobs are successful no-ops', async () => {
   const persistence = {
     claimJob: async () => 'completed' as const,
     loadIntegrationForJob: unused,
-    markInspectionAnalyzing: unused,
     upsertImageS3Info: unused,
     createAiRun: unused,
     saveAiRawResponse: unused,
-    replaceDamageItemsAndComplete: unused,
-    markJobFailed: unused,
+    completeImageAnalysis: unused,
+    markImageFailed: unused,
     getOrCreateVanByNumber: unused,
     attachInspectionToVan: unused,
     markInspectionNeedsReview: unused,
@@ -209,7 +211,10 @@ test('Supabase job claims include the full tenant/business/inspection scope', ()
     slackThreadTs: null,
     slackEventId: 'Ev1',
     slackMessageText: '64',
+    imageId: randomUUID(),
+    slackFileId: 'F1',
     slackFileIds: ['F1'],
+    analysisVersion: 'van-damage-v2',
     createdAt: new Date().toISOString(),
   })
   assert.deepEqual(buildClaimJobArgs(job, '2026-07-04T00:00:00.000Z'), {
@@ -217,9 +222,10 @@ test('Supabase job claims include the full tenant/business/inspection scope', ()
     p_tenant_id: tenantId,
     p_business_id: tenantId,
     p_inspection_id: job.inspectionId,
+    p_image_id: job.imageId,
     p_stale_before: '2026-07-04T00:00:00.000Z',
   })
-  assert.equal(WORKER_SCHEMA_CONTRACT_VERSION, '2026-07-04-v1')
+  assert.equal(WORKER_SCHEMA_CONTRACT_VERSION, '2026-07-28-v2')
 })
 
 test('invalid messages remain available for SQS redrive', async () => {

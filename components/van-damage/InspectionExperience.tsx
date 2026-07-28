@@ -134,6 +134,11 @@ type Inspection = {
   damage_count: number
   ai_summary: string | null
   ai_confidence: number | null
+  analysis_aggregate_status: string
+  analyzed_image_count: number
+  failed_image_count: number
+  needs_review_image_count: number
+  skipped_image_count: number
   van_id: string | null
   metadata: RecordValue
   created_at: string
@@ -259,10 +264,9 @@ export function InspectionExperience(props: InspectionExperienceProps) {
   const [favorite, setFavorite] = useState(false)
   const parsed = asRecord(aiRun?.parsed_response)
   const rating = typeof parsed.damageRating === 'number' ? parsed.damageRating : null
-  const confidence =
-    typeof parsed.overallConfidence === 'number'
-      ? parsed.overallConfidence
-      : inspection.ai_confidence
+  // Inspection confidence is the authoritative aggregate across completed image
+  // analyses. A latest per-image AI run must never replace it.
+  const confidence = inspection.ai_confidence
   const maxSeverity = items.reduce(
     (best, item) =>
       severityRank[item.severity ?? 'unknown'] > severityRank[best]
@@ -879,6 +883,57 @@ export function InspectionExperience(props: InspectionExperienceProps) {
         ))}
       </section>
 
+      <section
+        aria-label="Image processing summary"
+        className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6"
+      >
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-[.14em] text-white/35">
+              Image processing
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-white">
+              {inspection.analyzed_image_count} of {inspection.image_count} images analyzed
+            </h2>
+            <p className="mt-1 text-xs capitalize text-white/45">
+              {humanize(inspection.analysis_aggregate_status)}
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {[
+              [
+                'Queued',
+                images.filter((image) =>
+                  ['queued', 'uploaded'].includes(image.analysis_status ?? image.status)
+                ).length,
+              ],
+              [
+                'Processing',
+                images.filter((image) => image.analysis_status === 'processing').length,
+              ],
+              ['Analyzed', inspection.analyzed_image_count],
+              ['Review', inspection.needs_review_image_count],
+              ['Failed', inspection.failed_image_count],
+              ['Skipped', inspection.skipped_image_count],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                className="min-w-20 rounded-xl border border-white/8 bg-black/10 px-3 py-2"
+              >
+                <p className="text-lg font-semibold text-white">{value}</p>
+                <p className="text-[10px] text-white/35">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        {confidence == null && !processing && (
+          <p className="mt-4 rounded-xl border border-amber-300/15 bg-amber-300/[.06] px-3 py-2 text-xs text-amber-100/80">
+            No valid confidence is available. Missing, failed, and skipped analyses are not counted
+            as zero confidence.
+          </p>
+        )}
+      </section>
+
       {level3Items.length > 0 && (
         <WorkflowActions
           {...props}
@@ -1039,7 +1094,13 @@ export function InspectionExperience(props: InspectionExperienceProps) {
           </CollapsedInspectionPanel>
 
           <section className="rounded-2xl border border-white/10 bg-graphite-800 p-5 md:p-6">
-            <DamageImageGallery images={images} items={items} businessId={props.businessId} />
+            <DamageImageGallery
+              images={images}
+              items={items}
+              businessId={props.businessId}
+              inspectionId={inspection.id}
+              canRetry={props.canManage}
+            />
           </section>
 
           <section
@@ -1591,7 +1652,9 @@ function WorkflowActions(
             </label>
           </div>
           <button
-            disabled={pending || !props.selectedRegion || !correctionItemId || !correctionReason.trim()}
+            disabled={
+              pending || !props.selectedRegion || !correctionItemId || !correctionReason.trim()
+            }
             onClick={applyRegionCorrection}
             className="focus-ring rounded-xl border border-gold-400/20 px-3 py-2 text-xs text-gold-200 disabled:opacity-45"
           >
@@ -1657,7 +1720,12 @@ function ConfidenceRing({ value }: { value: number | null }) {
   const percent = value == null ? 0 : Math.round(value * 100)
   const color = percent >= 80 ? '#34d399' : percent >= 55 ? '#fbbf24' : '#f87171'
   return (
-    <div className="relative h-16 w-16 shrink-0" title={`${percent}% AI confidence`}>
+    <div
+      className="relative h-16 w-16 shrink-0"
+      title={
+        value == null ? 'Analysis confidence is not available' : `${percent}% analysis confidence`
+      }
+    >
       <svg viewBox="0 0 64 64" className="-rotate-90" aria-hidden="true">
         <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="5" />
         <circle
@@ -1671,7 +1739,7 @@ function ConfidenceRing({ value }: { value: number | null }) {
           pathLength="100"
           strokeDasharray="100"
           strokeDashoffset={100 - percent}
-          className="transition-all duration-1000"
+          className="transition-[stroke-dashoffset] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]"
         />
       </svg>
       <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-white">

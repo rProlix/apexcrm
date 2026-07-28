@@ -7,6 +7,11 @@ export type DamageImage = {
   height: number | null
   image_role: string | null
   status: string
+  analysis_status?: string
+  analysis_confidence?: number | null
+  analysis_attempt_count?: number
+  analysis_failure_message?: string | null
+  findings_count?: number
   created_at: string
   updated_at: string
 }

@@ -19,7 +19,9 @@ test('AES-GCM token encryption round-trips and rejects tampering', () => {
   const encrypted = encryptSecret('example-secret-1234')
   assert.equal(decryptSecret(encrypted), 'example-secret-1234')
   assert.equal(maskToken('example-secret-1234'), '••••1234')
-  assert.throws(() => decryptSecret({ ...encrypted, ciphertext: `${encrypted.ciphertext.slice(0, -2)}AA` }))
+  assert.throws(() =>
+    decryptSecret({ ...encrypted, ciphertext: `${encrypted.ciphertext.slice(0, -2)}AA` })
+  )
 })
 
 test('Slack OAuth state binds tenant, user, nonce and expiry signature', () => {
@@ -36,17 +38,58 @@ test('Slack signature verifies raw body and rejects replay', () => {
   const timestamp = '1700000000'
   const secret = 'signing-secret'
   const signature = `v0=${createHmac('sha256', secret).update(`v0:${timestamp}:${body}`).digest('hex')}`
-  assert.equal(verifySlackSignature({ body, timestamp, signature, signingSecret: secret, nowSeconds: 1700000010 }), true)
-  assert.equal(verifySlackSignature({ body: `${body} `, timestamp, signature, signingSecret: secret, nowSeconds: 1700000010 }), false)
-  assert.equal(verifySlackSignature({ body, timestamp, signature, signingSecret: secret, nowSeconds: 1700001000 }), false)
+  assert.equal(
+    verifySlackSignature({
+      body,
+      timestamp,
+      signature,
+      signingSecret: secret,
+      nowSeconds: 1700000010,
+    }),
+    true
+  )
+  assert.equal(
+    verifySlackSignature({
+      body: `${body} `,
+      timestamp,
+      signature,
+      signingSecret: secret,
+      nowSeconds: 1700000010,
+    }),
+    false
+  )
+  assert.equal(
+    verifySlackSignature({
+      body,
+      timestamp,
+      signature,
+      signingSecret: secret,
+      nowSeconds: 1700001000,
+    }),
+    false
+  )
 })
 
 test('Slack event normalization accepts supported image messages and strips private URLs from audit', () => {
   const payload = {
-    type: 'event_callback', team_id: 'T1', event_id: 'Ev1', token: 'legacy-token',
+    type: 'event_callback',
+    team_id: 'T1',
+    event_id: 'Ev1',
+    token: 'legacy-token',
     event: {
-      type: 'message', channel: 'C1', user: 'U1', ts: '1.0001', text: 'Inspect this van',
-      files: [{ id: 'F1', name: 'van.jpg', mimetype: 'image/jpeg', url_private_download: 'https://private.example/file' }],
+      type: 'message',
+      channel: 'C1',
+      user: 'U1',
+      ts: '1.0001',
+      text: 'Inspect this van',
+      files: [
+        {
+          id: 'F1',
+          name: 'van.jpg',
+          mimetype: 'image/jpeg',
+          url_private_download: 'https://private.example/file',
+        },
+      ],
     },
   }
   const normalized = normalizeSlackImageEvent(payload)
@@ -59,12 +102,29 @@ test('Slack event normalization accepts supported image messages and strips priv
 test('SQS contract enforces tenant/business alias and contains no secret fields', () => {
   const tenantId = randomUUID()
   const payload = vanDamageJobSchema.parse({
-    version: 'v1', jobType: 'van_damage_slack_inspection', jobId: randomUUID(),
-    tenantId, businessId: tenantId, integrationId: randomUUID(), inspectionId: randomUUID(),
-    slackTeamId: 'T1', slackChannelId: 'C1', slackMessageTs: '1.0001', slackThreadTs: null,
-    slackEventId: 'Ev1', slackMessageText: 'van #64', slackFileIds: ['F1'], createdAt: new Date().toISOString(),
+    version: 'v1',
+    jobType: 'van_damage_slack_inspection',
+    jobId: randomUUID(),
+    tenantId,
+    businessId: tenantId,
+    integrationId: randomUUID(),
+    inspectionId: randomUUID(),
+    slackTeamId: 'T1',
+    slackChannelId: 'C1',
+    slackMessageTs: '1.0001',
+    slackThreadTs: null,
+    slackEventId: 'Ev1',
+    slackMessageText: 'van #64',
+    imageId: '00000000-0000-4000-8000-000000000010',
+    slackFileId: 'F1',
+    slackFileIds: ['F1'],
+    analysisVersion: 'van-damage-v2',
+    createdAt: new Date().toISOString(),
   })
   assert.equal(payload.slackMessageText, 'van #64')
   assert.equal(/token|secret|credential/i.test(JSON.stringify(payload)), false)
-  assert.equal(vanDamageJobSchema.safeParse({ ...payload, businessId: randomUUID() }).success, false)
+  assert.equal(
+    vanDamageJobSchema.safeParse({ ...payload, businessId: randomUUID() }).success,
+    false
+  )
 })

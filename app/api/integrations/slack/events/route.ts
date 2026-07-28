@@ -26,6 +26,8 @@ type SlackIngestRow = {
   event_row_id?: string
   inspection_row_id?: string
   job_row_id?: string
+  image_row_id?: string
+  slack_file_id?: string
   upload_session_row_id?: string
   was_created?: boolean
   existing_sqs_message_id?: string | null
@@ -98,28 +100,18 @@ async function ingestSlackEvent(input: {
     p_title: input.title,
     p_files: slackFilesForRpc(input.event),
   }
-  const phase3d = await input.db.rpc('ingest_van_damage_slack_event', {
+  const phase3d = await input.db.rpc('ingest_van_damage_slack_event_v2', {
     ...baseArgs,
     p_driver_profile: input.driver as Json,
     p_upload_source_key: input.uploadSourceKey,
+    p_analysis_version: 'van-damage-v2',
   })
   if (!phase3d.error)
     return { rows: phase3d.data as SlackIngestRow[] | null, error: null, usedPhase3dSchema: true }
-
-  const message = phase3d.error.message ?? ''
-  const migrationLikelyMissing =
-    /p_driver_profile|p_upload_source_key|function .*ingest_van_damage_slack_event|schema cache|Could not find/i.test(
-      message
-    )
-  if (!migrationLikelyMissing) {
-    return { rows: null, error: { message }, usedPhase3dSchema: true }
-  }
-
-  const legacy = await input.db.rpc('ingest_van_damage_slack_event', baseArgs)
   return {
-    rows: legacy.data as SlackIngestRow[] | null,
-    error: legacy.error ? { message: legacy.error.message } : null,
-    usedPhase3dSchema: false,
+    rows: null,
+    error: { message: phase3d.error.message ?? 'Multi-image ingestion is unavailable' },
+    usedPhase3dSchema: true,
   }
 }
 
@@ -276,90 +268,133 @@ export async function POST(request: NextRequest) {
   const ingestRows = ingestResult.rows
   const ingestError = ingestResult.error
   const ingest = ingestRows?.[0]
-  if (ingestError || !ingest?.job_row_id || !ingest.inspection_row_id) {
+  if (
+    ingestError ||
+    !ingest?.inspection_row_id ||
+    !ingest.upload_session_row_id ||
+    !ingestRows?.length ||
+    ingestRows.some((row) => !row.job_row_id || !row.image_row_id || !row.slack_file_id)
+  ) {
     return NextResponse.json({ error: 'Unable to persist Slack event' }, { status: 503 })
   }
-  if (ingest.existing_sqs_message_id) {
+  if (ingestRows.every((row) => Boolean(row.existing_sqs_message_id))) {
     return NextResponse.json({ ok: true, duplicate: true })
   }
   const slackMessageText = event.text.slice(0, 4_000)
-
-  const job: VanDamageJobV1 = {
+  const jobs: VanDamageJobV1[] = ingestRows.map((row) => ({
     version: 'v1',
     jobType: 'van_damage_slack_inspection',
-    jobId: ingest.job_row_id,
+    jobId: row.job_row_id!,
     tenantId: integration.tenant_id,
     businessId: integration.business_id,
     integrationId: integration.id,
-    inspectionId: ingest.inspection_row_id,
+    inspectionId: ingest.inspection_row_id!,
+    imageId: row.image_row_id!,
+    slackFileId: row.slack_file_id!,
+    analysisVersion: 'van-damage-v2',
     slackTeamId: event.teamId,
     slackChannelId: event.channelId,
     slackMessageTs: event.messageTs,
     slackThreadTs: event.threadTs,
     slackEventId: event.eventId,
     slackMessageText,
-    slackFileIds: event.files.map((file) => file.id),
-    uploadSessionId: ingest.upload_session_row_id,
+    slackFileIds: [row.slack_file_id!],
+    uploadSessionId: ingest.upload_session_row_id!,
     uploadSourceKey,
     slackUploadIso: slackTsToIso(event.messageTs),
     slackDriver: jobDriver,
     createdAt: new Date().toISOString(),
-  }
-
-  const [jobUpdate, inspectionUpdate] = await Promise.all([
-    db
-      .from('van_damage_jobs')
-      .update({ payload: job as unknown as Json, last_error: null })
-      .eq('id', job.jobId),
+  }))
+  const persistenceResults = await Promise.allSettled([
+    ...jobs.map((job) =>
+      db
+        .from('van_damage_jobs')
+        .update({ payload: job as unknown as Json, last_error: null })
+        .eq('id', job.jobId)
+        .eq('tenant_id', job.tenantId)
+        .eq('inspection_id', job.inspectionId)
+        .eq('image_id', job.imageId)
+    ),
     db
       .from('van_damage_inspections')
       .update({
         metadata: {
           slackEventId: event.eventId,
           slackMessageText,
-          ...(ingestResult.usedPhase3dSchema
-            ? {
-                driver: jobDriver,
-                uploadSourceKey: job.uploadSourceKey,
-                slackUploadIso: job.slackUploadIso,
-              }
-            : {
-                phase3dMigrationPending: true,
-              }),
+          driver: jobDriver,
+          uploadSourceKey,
+          slackUploadIso: slackTsToIso(event.messageTs),
+          validImageCount: jobs.length,
+          imageJobsCreated: jobs.length,
         } as Json,
       })
-      .eq('id', job.inspectionId)
-      .eq('tenant_id', job.tenantId)
-      .eq('business_id', job.businessId),
+      .eq('id', ingest.inspection_row_id)
+      .eq('tenant_id', integration.tenant_id)
+      .eq('business_id', integration.business_id),
   ])
-  if (jobUpdate.error || inspectionUpdate.error) {
+  if (
+    persistenceResults.some((result) => result.status === 'rejected' || Boolean(result.value.error))
+  ) {
     return NextResponse.json({ error: 'Unable to persist Slack job payload' }, { status: 503 })
   }
-  try {
-    const messageId = await sendVanDamageJob(job)
-    await Promise.all([
-      db
-        .from('van_damage_jobs')
-        .update({ sqs_message_id: messageId, status: 'queued', last_error: null })
-        .eq('id', job.jobId),
-      db
-        .from('van_damage_slack_events')
-        .update({ status: 'enqueued', error_message: null })
-        .eq('slack_event_id', event.eventId),
-    ])
-    return NextResponse.json({ ok: true, duplicate: !ingest.was_created })
-  } catch (error) {
-    const message = error instanceof Error ? error.message.slice(0, 500) : 'SQS enqueue failed'
-    await Promise.all([
-      db
-        .from('van_damage_jobs')
-        .update({ status: 'queued', last_error: message })
-        .eq('id', job.jobId),
-      db
-        .from('van_damage_slack_events')
-        .update({ status: 'enqueue_failed', error_message: message })
-        .eq('slack_event_id', event.eventId),
-    ])
+  const pendingJobs = jobs.filter(
+    (job) => !ingestRows.find((row) => row.job_row_id === job.jobId)?.existing_sqs_message_id
+  )
+  const enqueueResults: Array<
+    { job: VanDamageJobV1; messageId: string } | { job: VanDamageJobV1; error: string }
+  > = []
+  for (let index = 0; index < pendingJobs.length; index += 4) {
+    const settled = await Promise.allSettled(
+      pendingJobs.slice(index, index + 4).map(async (job) => ({
+        job,
+        messageId: await sendVanDamageJob(job),
+      }))
+    )
+    settled.forEach((result, offset) => {
+      const job = pendingJobs[index + offset]
+      enqueueResults.push(
+        result.status === 'fulfilled'
+          ? result.value
+          : {
+              job,
+              error:
+                result.reason instanceof Error
+                  ? result.reason.message.slice(0, 500)
+                  : 'Queue temporarily unavailable',
+            }
+      )
+    })
+  }
+  await Promise.allSettled(
+    enqueueResults.map((result) =>
+      'messageId' in result
+        ? db
+            .from('van_damage_jobs')
+            .update({ sqs_message_id: result.messageId, status: 'queued', last_error: null })
+            .eq('id', result.job.jobId)
+            .eq('image_id', result.job.imageId)
+        : db
+            .from('van_damage_jobs')
+            .update({ status: 'queued', last_error: result.error })
+            .eq('id', result.job.jobId)
+            .eq('image_id', result.job.imageId)
+    )
+  )
+  const failedCount = enqueueResults.filter((result) => 'error' in result).length
+  await db
+    .from('van_damage_slack_events')
+    .update({
+      status: failedCount ? 'enqueue_partial' : 'enqueued',
+      error_message: failedCount ? `${failedCount} image jobs could not be queued` : null,
+    })
+    .eq('slack_event_id', event.eventId)
+  if (failedCount) {
     return NextResponse.json({ error: 'Queue temporarily unavailable' }, { status: 503 })
   }
+  return NextResponse.json({
+    ok: true,
+    duplicate: !ingest.was_created,
+    imageCount: jobs.length,
+    jobsQueued: pendingJobs.length,
+  })
 }

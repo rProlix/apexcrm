@@ -4,7 +4,9 @@ import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs'
 import { vanDamageJobSchema } from '../../../lib/van-damage/contracts.js'
 
 if (process.env.NODE_ENV === 'production' && process.env.ALLOW_WORKER_TEST_ENQUEUE !== 'true') {
-  throw new Error('Refusing to enqueue a test job in production without ALLOW_WORKER_TEST_ENQUEUE=true')
+  throw new Error(
+    'Refusing to enqueue a test job in production without ALLOW_WORKER_TEST_ENQUEUE=true'
+  )
 }
 
 const queueUrl = process.env.VAN_DAMAGE_SQS_QUEUE_URL
@@ -26,12 +28,17 @@ const message = vanDamageJobSchema.parse({
   slackThreadTs: null,
   slackEventId: `Ev_TEST_${Date.now()}`,
   slackMessageText: process.env.TEST_SLACK_MESSAGE_TEXT ?? 'van #64',
+  imageId: process.env.TEST_IMAGE_ID ?? '00000000-0000-4000-8000-000000000010',
+  slackFileId: process.env.TEST_SLACK_FILE_ID ?? 'F_TEST',
   slackFileIds: [process.env.TEST_SLACK_FILE_ID ?? 'F_TEST'],
+  analysisVersion: 'van-damage-v2',
   createdAt: new Date().toISOString(),
 })
 
-const result = await new SQSClient({ region }).send(new SendMessageCommand({
-  QueueUrl: queueUrl,
-  MessageBody: JSON.stringify(message),
-}))
+const result = await new SQSClient({ region }).send(
+  new SendMessageCommand({
+    QueueUrl: queueUrl,
+    MessageBody: JSON.stringify(message),
+  })
+)
 console.log(JSON.stringify({ messageId: result.MessageId, jobId: message.jobId }, null, 2))

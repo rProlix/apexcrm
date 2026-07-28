@@ -83,6 +83,11 @@ type InspectionRow = {
   damage_count: number
   ai_summary: string | null
   ai_confidence: number | null
+  analysis_aggregate_status: string
+  analyzed_image_count: number
+  failed_image_count: number
+  needs_review_image_count: number
+  skipped_image_count: number
   review_status: string
   reviewed_at: string | null
   metadata: Record<string, unknown>
@@ -191,7 +196,7 @@ export default async function InspectionPage({
   const { data: inspectionRaw } = await looseDb
     .from('van_damage_inspections')
     .select(
-      'id,tenant_id,business_id,van_id,upload_session_id,slack_upload_at,source,slack_team_id,slack_channel_id,slack_message_ts,slack_thread_ts,slack_user_id,driver_snapshot,title,status,image_count,damage_count,ai_summary,ai_confidence,review_status,reviewed_at,metadata,created_at,updated_at,completed_at'
+      'id,tenant_id,business_id,van_id,upload_session_id,slack_upload_at,source,slack_team_id,slack_channel_id,slack_message_ts,slack_thread_ts,slack_user_id,driver_snapshot,title,status,image_count,damage_count,ai_summary,ai_confidence,analysis_aggregate_status,analyzed_image_count,failed_image_count,needs_review_image_count,skipped_image_count,review_status,reviewed_at,metadata,created_at,updated_at,completed_at'
     )
     .eq('id', inspectionId)
     .eq('tenant_id', scope.tenantId)
@@ -321,6 +326,7 @@ export default async function InspectionPage({
     casesResult,
     activeCasesResult,
     maintenanceResult,
+    imageAnalysesResult,
   ] = await Promise.all([
     db
       .from('van_damage_images')
@@ -426,6 +432,15 @@ export default async function InspectionPage({
           .eq('van_id', resolvedVehicle.id)
           .limit(500)
       : Promise.resolve({ data: [] }),
+    looseDb
+      .from('van_damage_image_analyses')
+      .select(
+        'image_id,status,valid_confidence,damage_count,attempt_count,failure_message,last_attempt_at'
+      )
+      .eq('inspection_id', inspectionId)
+      .eq('tenant_id', scope.tenantId)
+      .eq('business_id', scope.businessId)
+      .limit(1000),
   ])
   const attributionByCase = new Map(
     ((casesResult.data ?? []) as Array<Record<string, unknown>>).map((row) => [String(row.id), row])
@@ -436,18 +451,34 @@ export default async function InspectionPage({
       ? `https://app.slack.com/client/${inspection.slack_team_id}/${inspection.slack_channel_id}/${inspection.slack_message_ts.replace('.', '')}`
       : null
 
-  const images = (imagesResult.data ?? []).map((image) => ({
-    id: image.id,
-    slack_file_id: image.slack_file_id,
-    content_type: image.content_type,
-    file_size_bytes: image.file_size_bytes,
-    width: image.width,
-    height: image.height,
-    image_role: image.image_role,
-    status: image.status,
-    created_at: image.created_at,
-    updated_at: image.updated_at,
-  }))
+  const analysisByImage = new Map(
+    (imageAnalysesResult.data ?? []).map((raw) => {
+      const analysis = asRecord(raw)
+      return [text(analysis.image_id), analysis]
+    })
+  )
+  const images = (imagesResult.data ?? []).map((image) => {
+    const analysis = analysisByImage.get(image.id)
+    return {
+      id: image.id,
+      slack_file_id: image.slack_file_id,
+      content_type: image.content_type,
+      file_size_bytes: image.file_size_bytes,
+      width: image.width,
+      height: image.height,
+      image_role: image.image_role,
+      status: image.status,
+      analysis_status: text(analysis?.status) ?? image.status,
+      analysis_confidence:
+        typeof analysis?.valid_confidence === 'number' ? analysis.valid_confidence : null,
+      analysis_attempt_count:
+        typeof analysis?.attempt_count === 'number' ? analysis.attempt_count : 0,
+      analysis_failure_message: text(analysis?.failure_message),
+      findings_count: typeof analysis?.damage_count === 'number' ? analysis.damage_count : 0,
+      created_at: image.created_at,
+      updated_at: image.updated_at,
+    }
+  })
   const items = (itemsResult.data ?? []).flatMap((raw) => {
     const item = asRecord(raw)
     const id = text(item.id)
@@ -864,6 +895,11 @@ export default async function InspectionPage({
               damage_count: inspection.damage_count,
               ai_summary: inspection.ai_summary,
               ai_confidence: inspection.ai_confidence,
+              analysis_aggregate_status: inspection.analysis_aggregate_status,
+              analyzed_image_count: inspection.analyzed_image_count,
+              failed_image_count: inspection.failed_image_count,
+              needs_review_image_count: inspection.needs_review_image_count,
+              skipped_image_count: inspection.skipped_image_count,
               van_id: resolvedVehicle?.id ?? inspection.van_id,
               metadata: safeInspectionMetadata(inspection.metadata),
               created_at: inspection.created_at,

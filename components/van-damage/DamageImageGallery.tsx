@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { AnimatePresence } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { AlertTriangle, Copy, Eye, EyeOff, ImageIcon, Maximize2 } from 'lucide-react'
 import { getSignedDamageImageUrl } from '@/lib/van-damage/image-url-cache'
 import type { DamageImage, DamageItem, ResolvedDamageImage } from './inspection-types'
@@ -15,11 +16,16 @@ export function DamageImageGallery({
   images,
   items,
   businessId,
+  inspectionId,
+  canRetry = false,
 }: {
   images: DamageImage[]
   items: DamageItem[]
   businessId: string
+  inspectionId?: string
+  canRetry?: boolean
 }) {
+  const router = useRouter()
   const [resolved, setResolved] = useState<ResolvedDamageImage[]>(
     images.map((image) => ({ ...image, url: null }))
   )
@@ -28,6 +34,25 @@ export function DamageImageGallery({
   const [visibleCount, setVisibleCount] = useState(18)
   const [lightboxOrigin, setLightboxOrigin] = useState<{ x: number; y: number } | null>(null)
   const [lastTrigger, setLastTrigger] = useState<HTMLElement | null>(null)
+  const [retryingImageId, setRetryingImageId] = useState<string | null>(null)
+
+  const retryImage = useCallback(
+    async (imageId?: string) => {
+      if (!inspectionId) return
+      setRetryingImageId(imageId ?? 'all')
+      try {
+        const response = await fetch(`/api/van-damage/inspections/${inspectionId}/retry-analysis`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(imageId ? { imageId } : {}),
+        })
+        if (response.ok) router.refresh()
+      } finally {
+        setRetryingImageId(null)
+      }
+    },
+    [inspectionId, router]
+  )
 
   useEffect(() => {
     setResolved((current) =>
@@ -119,18 +144,30 @@ export function DamageImageGallery({
             inspect
           </p>
         </div>
-        <button
-          onClick={() => setOverlays((value) => !value)}
-          aria-pressed={overlays}
-          className="focus-ring inline-flex items-center rounded-xl border border-white/10 px-3 py-2 text-xs text-white/60 hover:bg-white/5"
-        >
-          {overlays ? (
-            <Eye className="mr-2 h-4 w-4 text-amber-300" />
-          ) : (
-            <EyeOff className="mr-2 h-4 w-4" />
+        <div className="flex gap-2">
+          {canRetry && images.some((image) => image.analysis_status === 'failed') && (
+            <button
+              type="button"
+              disabled={retryingImageId != null}
+              onClick={() => void retryImage()}
+              className="focus-ring min-h-10 rounded-xl border border-amber-300/20 px-3 text-xs text-amber-100 active:scale-[.98] disabled:opacity-40"
+            >
+              {retryingImageId === 'all' ? 'Queueing…' : 'Retry failed images'}
+            </button>
           )}
-          {overlays ? 'Hide overlays' : 'Show overlays'}
-        </button>
+          <button
+            onClick={() => setOverlays((value) => !value)}
+            aria-pressed={overlays}
+            className="focus-ring inline-flex items-center rounded-xl border border-white/10 px-3 py-2 text-xs text-white/60 hover:bg-white/5"
+          >
+            {overlays ? (
+              <Eye className="mr-2 h-4 w-4 text-amber-300" />
+            ) : (
+              <EyeOff className="mr-2 h-4 w-4" />
+            )}
+            {overlays ? 'Hide overlays' : 'Show overlays'}
+          </button>
+        </div>
       </div>
       <div className="no-print mb-4 flex gap-2 overflow-x-auto pb-1">
         {resolved.map((image, index) => {
@@ -216,6 +253,34 @@ export function DamageImageGallery({
                     <Copy className="h-3 w-3" />
                   </button>
                 </span>
+              </div>
+              <div className="flex items-center justify-between border-t border-white/7 px-4 py-3">
+                <div>
+                  <p className="text-xs capitalize text-white/60">
+                    {(image.analysis_status ?? image.status).replaceAll('_', ' ')}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-white/35">
+                    {image.findings_count ?? imageItems.length} findings
+                    {image.analysis_confidence == null
+                      ? ' · confidence unavailable'
+                      : ` · ${Math.round(image.analysis_confidence * 100)}% confidence`}
+                  </p>
+                  {image.analysis_failure_message && (
+                    <p className="mt-1 text-[10px] text-red-200/70">
+                      {image.analysis_failure_message}
+                    </p>
+                  )}
+                </div>
+                {canRetry && image.analysis_status === 'failed' && (
+                  <button
+                    type="button"
+                    disabled={retryingImageId != null}
+                    onClick={() => void retryImage(image.id)}
+                    className="focus-ring min-h-9 rounded-lg border border-white/10 px-3 text-[10px] font-medium text-white/70 active:scale-[.97] disabled:opacity-40"
+                  >
+                    {retryingImageId === image.id ? 'Queueing…' : 'Retry'}
+                  </button>
+                )}
               </div>
             </div>
           )

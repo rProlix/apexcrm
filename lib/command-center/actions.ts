@@ -312,6 +312,9 @@ async function loadDamageActions(context: CommandCenterContext): Promise<SourceR
     'analysis_failed',
     'vehicle_image_missing',
     'inspection_vehicle_unresolved',
+    'multi_image_partial_failure',
+    'image_analysis_retry_required',
+    'no_analyzable_images',
   ]
   try {
     const [
@@ -322,7 +325,7 @@ async function loadDamageActions(context: CommandCenterContext): Promise<SourceR
       context.db
         .from('van_damage_inspections')
         .select(
-          'id, business_id, van_id, title, status, review_status, image_count, error_message, created_at, updated_at'
+          'id, business_id, van_id, title, status, review_status, image_count, analysis_aggregate_status, analyzed_image_count, failed_image_count, needs_review_image_count, skipped_image_count, error_message, created_at, updated_at'
         )
         .eq('tenant_id', context.tenantId)
         .order('created_at', { ascending: false })
@@ -392,6 +395,39 @@ async function loadDamageActions(context: CommandCenterContext): Promise<SourceR
           actionType: 'inspection_needs_review',
           title: `${label} needs review`,
           description: 'Automated inspection results need a person to verify them.',
+          priority: 'high',
+          assignedRole: 'admin',
+        })
+      }
+      if (
+        inspection.analysis_aggregate_status === 'complete_with_warnings' ||
+        (inspection.analyzed_image_count > 0 && inspection.failed_image_count > 0)
+      ) {
+        candidates.push({
+          ...base,
+          actionType: 'multi_image_partial_failure',
+          title: `${label} completed with image warnings`,
+          description: `${inspection.analyzed_image_count} images succeeded and ${inspection.failed_image_count} failed. Successful findings were preserved.`,
+          priority: 'high',
+          assignedRole: 'admin',
+        })
+      }
+      if (inspection.failed_image_count > 0) {
+        candidates.push({
+          ...base,
+          actionType: 'image_analysis_retry_required',
+          title: `Retry ${inspection.failed_image_count} failed image${inspection.failed_image_count === 1 ? '' : 's'}`,
+          description: 'Only failed image analyses will be queued again.',
+          priority: inspection.analyzed_image_count > 0 ? 'normal' : 'high',
+          assignedRole: 'admin',
+        })
+      }
+      if (inspection.analysis_aggregate_status === 'no_analyzable_images') {
+        candidates.push({
+          ...base,
+          actionType: 'no_analyzable_images',
+          title: `${label} has no analyzable images`,
+          description: 'Review the saved evidence and replace unsupported or unusable images.',
           priority: 'high',
           assignedRole: 'admin',
         })
