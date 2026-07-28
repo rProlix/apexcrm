@@ -68,3 +68,17 @@ test('migration enforces image-scoped idempotency and does not delete sibling fi
   )
   assert.match(migration, /pg_advisory_xact_lock/)
 })
+
+test('recovery persists queued image state before sending and reuses durable job identity', () => {
+  const recovery = readFileSync(
+    resolve(process.cwd(), 'scripts/repair-multi-image-inspections.ts'),
+    'utf8'
+  )
+  const durableLookup = recovery.indexOf(".eq('idempotency_key', idempotencyKey)")
+  const queuedAnalysis = recovery.indexOf(".from('van_damage_image_analyses').upsert")
+  const queueSend = recovery.indexOf('sendVanDamageJob(payload)')
+  assert.ok(durableLookup > 0)
+  assert.ok(queuedAnalysis > durableLookup)
+  assert.ok(queueSend > queuedAnalysis)
+  assert.match(recovery, /jobId: durableJob\.id/)
+})

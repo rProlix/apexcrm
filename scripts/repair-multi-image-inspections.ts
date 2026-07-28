@@ -95,12 +95,13 @@ async function main() {
       continue
     }
     for (const image of missing) {
-      const jobId = crypto.randomUUID()
-      const payload = vanDamageJobSchema.parse({
+      const proposedJobId = crypto.randomUUID()
+      const idempotencyKey = `${tenantId}:${image.id}:van-damage-v2`
+      const proposedPayload = vanDamageJobSchema.parse({
         ...template,
         version: 'v1',
         jobType: 'van_damage_slack_inspection',
-        jobId,
+        jobId: proposedJobId,
         tenantId,
         businessId: inspection.business_id,
         inspectionId: inspection.id,
@@ -111,25 +112,65 @@ async function main() {
         createdAt: new Date().toISOString(),
       })
       const { error: insertError } = await db.from('van_damage_jobs').insert({
-        id: jobId,
+        id: proposedJobId,
         tenant_id: tenantId,
         business_id: inspection.business_id,
         inspection_id: inspection.id,
         image_id: image.id,
-        slack_event_id: payload.slackEventId,
+        slack_event_id: proposedPayload.slackEventId,
         job_type: 'image_analysis',
         status: 'queued',
-        analysis_version: payload.analysisVersion,
-        idempotency_key: `${tenantId}:${image.id}:${payload.analysisVersion}`,
-        payload: payload as unknown as Json,
+        analysis_version: proposedPayload.analysisVersion,
+        idempotency_key: idempotencyKey,
+        payload: proposedPayload as unknown as Json,
       })
       if (insertError && insertError.code !== '23505') throw insertError
+      const { data: durableJob, error: durableJobError } = await db
+        .from('van_damage_jobs')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('idempotency_key', idempotencyKey)
+        .single()
+      if (durableJobError) throw durableJobError
+      const payload = vanDamageJobSchema.parse({
+        ...proposedPayload,
+        jobId: durableJob.id,
+      })
+      await db
+        .from('van_damage_jobs')
+        .update({
+          status: 'queued',
+          payload: payload as unknown as Json,
+          failure_category: null,
+          last_error: null,
+          completed_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('tenant_id', tenantId)
+        .eq('id', durableJob.id)
+      await db.from('van_damage_image_analyses').upsert(
+        {
+          tenant_id: tenantId,
+          business_id: inspection.business_id,
+          inspection_id: inspection.id,
+          image_id: image.id,
+          job_id: durableJob.id,
+          analysis_version: payload.analysisVersion,
+          status: 'queued',
+          valid_confidence: null,
+          failure_category: null,
+          failure_message: null,
+          completed_at: null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'tenant_id,image_id,analysis_version' }
+      )
       const messageId = await sendVanDamageJob(payload)
       await db
         .from('van_damage_jobs')
         .update({ sqs_message_id: messageId, updated_at: new Date().toISOString() })
         .eq('tenant_id', tenantId)
-        .eq('idempotency_key', `${tenantId}:${image.id}:${payload.analysisVersion}`)
+        .eq('idempotency_key', idempotencyKey)
       queuedTotal += 1
     }
     await db.from('activity_logs').insert({
