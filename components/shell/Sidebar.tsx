@@ -163,8 +163,21 @@ export function Sidebar({
       {/* Logo / tenant name */}
       <div className="crm-sidebar-brand flex min-h-16 items-center gap-3 border-b border-white/[0.065] px-4">
         <div
-          className="brand-accent-surface flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border bg-cover bg-center"
-          style={tenantLogoUrl ? { backgroundImage: `url("${tenantLogoUrl}")` } : undefined}
+          className={cn(
+            'brand-accent-surface flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border',
+            tenantLogoUrl && 'bg-white'
+          )}
+          style={
+            tenantLogoUrl
+              ? {
+                  backgroundColor: 'rgb(248 250 252 / 0.96)',
+                  backgroundImage: `url("${tenantLogoUrl}")`,
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: 'contain',
+                }
+              : undefined
+          }
           role={tenantLogoUrl ? 'img' : undefined}
           aria-label={tenantLogoUrl ? `${tenantName} logo` : undefined}
         >

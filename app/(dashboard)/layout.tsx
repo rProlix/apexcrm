@@ -249,6 +249,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
       unreadNotifications={unreadNotifications ?? 0}
       openActionCount={openActionCount}
       tenantLogoUrl={config.branding.logo_url}
+      tenantFaviconUrl={
+        typeof config.branding.favicon_url === 'string' ? config.branding.favicon_url : null
+      }
       tenantAccent={safeAccent}
     >
       {children}

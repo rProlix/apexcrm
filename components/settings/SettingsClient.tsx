@@ -11,13 +11,15 @@ import {
   AlertCircle, ExternalLink, Copy, Link, Info, Trash2,
   Plus, ChevronRight, Mail, Phone, MapPin, Hash,
   Webhook, Eye, EyeOff, Key, LogOut, X, RefreshCw,
-  Building, Tag, Zap,
+  Building, Tag, Zap, UploadCloud,
 } from 'lucide-react'
 import NextLink from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils'
 import type { SiteSettings } from '@/lib/website/types'
+import { getBrandInitials } from '@/lib/design-system/workspaceBranding'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -270,7 +272,7 @@ export function SettingsClient({
             >
               {activeTab === 'general'       && <GeneralTab       tenantId={tenantId} tenantName={tenantName} branding={branding} tenantStatus={tenantStatus} tenantSlug={tenantSlug} />}
               {activeTab === 'domain'        && <DomainTab        tenantId={tenantId} tenantSlug={tenantSlug} siteSettings={siteSettings} allDomains={initialDomains} />}
-              {activeTab === 'appearance'    && <AppearanceTab    tenantId={tenantId} branding={branding} siteSettings={siteSettings} />}
+              {activeTab === 'appearance'    && <AppearanceTab    tenantId={tenantId} tenantName={tenantName} branding={branding} siteSettings={siteSettings} />}
               {activeTab === 'seo'           && <SeoTab           tenantId={tenantId} siteSettings={siteSettings} />}
               {activeTab === 'team'          && <TeamTab          tenantId={tenantId} initialMembers={initialMembers} currentUserId={currentUserId} currentUserRole={currentUserRole} />}
               {activeTab === 'subscription'  && <SubscriptionTab  subscription={subscription} />}
@@ -610,14 +612,17 @@ function DomainTab({ tenantId, tenantSlug, siteSettings, allDomains: initialDoma
 
 // ── Appearance tab ────────────────────────────────────────────────────────────
 
-function AppearanceTab({ tenantId, branding, siteSettings }: {
-  tenantId: string; branding: Record<string, unknown>; siteSettings: SiteSettings | null
+function AppearanceTab({ tenantId, tenantName, branding, siteSettings }: {
+  tenantId: string; tenantName: string; branding: Record<string, unknown>; siteSettings: SiteSettings | null
 }) {
+  const router = useRouter()
   const [logoUrl,      setLogoUrl]      = useState(String(branding.logo_url ?? ''))
   const [faviconUrl,   setFaviconUrl]   = useState(String(branding.favicon_url ?? ''))
   const [primaryColor, setPrimaryColor] = useState(String(branding.primary_color ?? '#c9a84c'))
   const [accentColor,  setAccentColor]  = useState(String((branding as Record<string,string>).accent_color ?? '#a07830'))
   const [siteName,     setSiteName]     = useState(siteSettings?.site_name ?? '')
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoUploadError, setLogoUploadError] = useState<string | null>(null)
 
   const buildBrandingBody = useCallback(() => ({
     logo_url:      logoUrl || null,
@@ -638,6 +643,36 @@ function AppearanceTab({ tenantId, branding, siteSettings }: {
 
   async function handleSave() {
     await Promise.all([bSave(), sSave()])
+  }
+
+  async function handleLogoUpload(file: File | null) {
+    if (!file || logoUploading) return
+    setLogoUploadError(null)
+    if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
+      setLogoUploadError('Choose a PNG, JPEG, or WebP image.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoUploadError('Logo must be 5 MB or smaller.')
+      return
+    }
+
+    setLogoUploading(true)
+    try {
+      const form = new FormData()
+      form.set('file', file)
+      const response = await fetch('/api/settings/branding/logo', { method: 'POST', body: form })
+      const payload = (await response.json()) as { url?: string; error?: string }
+      if (!response.ok || !payload.url) {
+        throw new Error(payload.error ?? 'Logo upload failed.')
+      }
+      setLogoUrl(payload.url)
+      router.refresh()
+    } catch (error) {
+      setLogoUploadError(error instanceof Error ? error.message : 'Logo upload failed.')
+    } finally {
+      setLogoUploading(false)
+    }
   }
 
   const saving = bSaving || sSaving
@@ -664,14 +699,54 @@ function AppearanceTab({ tenantId, branding, siteSettings }: {
           <p className="text-xs text-white/30 mt-1">Shown in the browser tab and throughout your site.</p>
         </div>
         <div>
-          <label className={labelCls}>Logo URL</label>
-          <input className={inputCls} value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://cdn.example.com/logo.png" />
-          {logoUrl && (
-            <div className="mt-3 h-14 w-32 rounded-xl bg-graphite-700/50 border border-surface-border flex items-center justify-center overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logoUrl} alt="Logo preview" className="max-h-10 max-w-28 object-contain" onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')} />
+          <label className={labelCls}>Business Logo</label>
+          <div className="grid gap-4 rounded-2xl border border-white/[0.08] bg-graphite-900/55 p-4 sm:grid-cols-[9rem_1fr] sm:items-center">
+            <div className="flex h-24 w-36 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/[0.94] p-4 shadow-inner">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt={`${tenantName} logo preview`} className="max-h-16 max-w-28 object-contain" />
+              ) : (
+                <span className="text-xl font-bold tracking-[-0.04em] text-graphite-900">
+                  {getBrandInitials(tenantName)}
+                </span>
+              )}
             </div>
-          )}
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium text-white/80">Upload your primary logo</p>
+                <p className="mt-1 text-xs leading-5 text-white/40">
+                  Used in your CRM navigation and branded workspace loading animation. PNG, JPEG,
+                  or WebP up to 5 MB.
+                </p>
+              </div>
+              <label className={cn('ui-button-secondary w-fit cursor-pointer', logoUploading && 'pointer-events-none opacity-60')}>
+                <UploadCloud className="h-4 w-4" aria-hidden="true" />
+                {logoUploading ? 'Uploading logo' : logoUrl ? 'Replace logo' : 'Upload logo'}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="sr-only"
+                  disabled={logoUploading}
+                  onChange={(event) => {
+                    void handleLogoUpload(event.target.files?.[0] ?? null)
+                    event.currentTarget.value = ''
+                  }}
+                />
+              </label>
+              {logoUploadError && <p className="ui-error" role="alert">{logoUploadError}</p>}
+            </div>
+          </div>
+          <details className="mt-3">
+            <summary className="w-fit cursor-pointer text-xs font-medium text-white/40 hover:text-white/65">
+              Use an existing hosted logo URL
+            </summary>
+            <input
+              className={cn(inputCls, 'mt-2')}
+              value={logoUrl}
+              onChange={(e) => setLogoUrl(e.target.value)}
+              placeholder="https://cdn.example.com/logo.png"
+            />
+          </details>
         </div>
         <div>
           <label className={labelCls}>Favicon URL</label>
@@ -726,8 +801,15 @@ function AppearanceTab({ tenantId, branding, siteSettings }: {
         {/* Live preview strip */}
         <div className="rounded-xl border border-surface-border overflow-hidden">
           <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: primaryColor + '22', borderBottom: `1px solid ${primaryColor}33` }}>
-            <div className="h-5 w-5 rounded-md flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: primaryColor }}>A</div>
-            <span className="text-xs font-semibold" style={{ color: primaryColor }}>Brand preview</span>
+            <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-white/90 p-1">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="" className="h-full w-full object-contain" />
+              ) : (
+                <span className="text-[9px] font-bold text-graphite-900">{getBrandInitials(tenantName)}</span>
+              )}
+            </div>
+            <span className="text-xs font-semibold" style={{ color: primaryColor }}>{siteName || tenantName}</span>
             <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold text-white" style={{ backgroundColor: accentColor }}>Badge</span>
           </div>
           <div className="px-4 py-3 bg-graphite-900/80">

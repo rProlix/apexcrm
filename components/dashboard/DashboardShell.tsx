@@ -13,6 +13,8 @@ import type { SafeTenantAccent } from '@/lib/design-system/tenantAccent'
 import type { AnyRole } from '@/lib/auth/types'
 import { QuickPeekProvider } from '@/components/command-center/QuickPeek'
 import { OperationsRealtimeProvider } from '@/components/command-center/OperationsRealtimeProvider'
+import { AppLaunchScreen } from '@/components/ui/AppLaunchScreen'
+import { WorkspaceDocumentBranding } from '@/components/shell/WorkspaceDocumentBranding'
 
 interface DashboardShellProps {
   tenantId: string
@@ -25,6 +27,7 @@ interface DashboardShellProps {
   unreadNotifications?: number
   openActionCount?: number
   tenantLogoUrl?: string | null
+  tenantFaviconUrl?: string | null
   tenantAccent: SafeTenantAccent
   children: React.ReactNode
 }
@@ -48,6 +51,7 @@ export function DashboardShell({
   unreadNotifications = 0,
   openActionCount = 0,
   tenantLogoUrl,
+  tenantFaviconUrl,
   tenantAccent,
   children,
 }: DashboardShellProps) {
@@ -70,6 +74,11 @@ export function DashboardShell({
               } as React.CSSProperties
             }
           >
+            <WorkspaceDocumentBranding
+              tenantName={tenantName}
+              faviconUrl={tenantFaviconUrl ?? tenantLogoUrl}
+            />
+            <AppLaunchScreen tenantName={tenantName} logoUrl={tenantLogoUrl} />
             <div className="crm-shell-ambient" aria-hidden="true">
               <span className="crm-shell-glow crm-shell-glow-primary" />
               <span className="crm-shell-glow crm-shell-glow-secondary" />
@@ -117,6 +126,7 @@ export function DashboardShell({
                 }
               }
               openActionCount={openActionCount}
+              tenantLogoUrl={tenantLogoUrl}
               unreadNotifications={unreadNotifications}
               notificationsEnabled={commandCenter?.notifications ?? false}
               onMenuClick={() => setSidebarOpen(true)}

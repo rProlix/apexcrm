@@ -52,7 +52,18 @@ export async function PATCH(req: NextRequest) {
 
   // Merge branding JSONB fields
   const brandingPatch: Record<string, unknown> = {}
-  const brandingFields = ['primary_color', 'logo_url', 'favicon_url', 'accent', 'industry', 'tagline', 'support_email', 'support_phone', 'address']
+  const brandingFields = [
+    'primary_color',
+    'accent_color',
+    'logo_url',
+    'favicon_url',
+    'accent',
+    'industry',
+    'tagline',
+    'support_email',
+    'support_phone',
+    'address',
+  ]
   for (const key of brandingFields) {
     if (key in body) brandingPatch[key] = body[key]
   }

@@ -43,18 +43,16 @@ export function PageSkeleton({ cards = 4, label = 'Loading workspace' }: PageSke
   )
 }
 
-export function ApplicationLoadingScreen({ label = 'Loading ApexCRM' }: { label?: string }) {
+export function ApplicationLoadingScreen({ label = 'Loading workspace' }: { label?: string }) {
   return (
     <div className="min-h-dvh bg-graphite-950">
       <div className="flex min-h-16 items-center gap-3 border-b border-white/[0.065] bg-graphite-900/88 px-4 md:px-6">
         <div
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-brand/25 bg-brand/[0.1] text-sm font-bold text-brand"
+          className="ui-skeleton h-9 w-9 rounded-xl"
           aria-hidden="true"
-        >
-          A
-        </div>
+        />
         <div>
-          <p className="text-sm font-semibold tracking-[-0.01em] text-white/90">ApexCRM</p>
+          <div className="ui-skeleton mb-1.5 h-3 w-28 rounded" aria-hidden="true" />
           <p className="text-xs text-white/35">{label}</p>
         </div>
       </div>

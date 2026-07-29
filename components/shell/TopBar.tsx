@@ -28,6 +28,7 @@ interface TopBarProps {
   unreadNotifications?: number
   notificationsEnabled?: boolean
   openActionCount?: number
+  tenantLogoUrl?: string | null
 }
 
 export function TopBar({
@@ -41,6 +42,7 @@ export function TopBar({
   unreadNotifications = 0,
   notificationsEnabled = false,
   openActionCount = 0,
+  tenantLogoUrl,
 }: TopBarProps) {
   const name = userEmail?.split('@')[0] ?? 'User'
   const profileMenuRef = useRef<HTMLDetailsElement>(null)
@@ -91,8 +93,26 @@ export function TopBar({
         </button>
 
         <div className="hidden min-w-0 items-center gap-2 md:flex">
-          <div className="brand-accent-surface flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border">
-            <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
+          <div
+            className={cn(
+              'brand-accent-surface flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border',
+              tenantLogoUrl && 'bg-white'
+            )}
+            style={
+              tenantLogoUrl
+              ? {
+                  backgroundColor: 'rgb(248 250 252 / 0.96)',
+                  backgroundImage: `url("${tenantLogoUrl}")`,
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                    backgroundSize: 'contain',
+                  }
+                : undefined
+            }
+            role={tenantLogoUrl ? 'img' : undefined}
+            aria-label={tenantLogoUrl ? `${tenantName} logo` : undefined}
+          >
+            {!tenantLogoUrl && <Building2 className="h-3.5 w-3.5" aria-hidden="true" />}
           </div>
           <div className="min-w-0">
             <p className="truncate text-xs font-medium text-white/[0.72]">{tenantName}</p>
