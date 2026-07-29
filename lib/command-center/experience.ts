@@ -13,7 +13,7 @@ export type CommandRecordType =
 
 export interface CommandResult {
   id: string
-  kind: 'navigation' | 'record' | 'action'
+  kind: 'navigation' | 'record' | 'action' | 'assistant'
   label: string
   description: string
   moduleKey: string
@@ -21,6 +21,14 @@ export interface CommandResult {
   recordType?: CommandRecordType
   recordId?: string
   keywords?: string[]
+}
+
+export interface CommandAssistantResponse {
+  answer: string
+  intent: 'unreviewed_vans' | 'missing_inspections' | 'general'
+  results: CommandResult[]
+  sourceLinks: Array<{ label: string; href: string }>
+  generatedAt: string
 }
 
 export interface QuickPeekField {

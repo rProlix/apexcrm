@@ -5,6 +5,10 @@ import test from 'node:test'
 import { canRoleSeeAction, filterAndSortActionItems } from '@/lib/command-center/actionPolicy'
 import { filterActivityItems } from '@/lib/command-center/activityPolicy'
 import { getModuleAssistantQuestions } from '@/lib/command-center/assistantPolicy'
+import {
+  normalizeAssistantQuestion,
+  resolveCommandAssistantIntent,
+} from '@/lib/command-center/assistantIntent'
 import { getAvailableNotificationEvents } from '@/lib/command-center/notificationPolicy'
 import { canEditNote, isNoteEntityType, NOTE_ENTITY_TYPES } from '@/lib/command-center/notePolicy'
 import { getAvailableReports, renderReportCsv, renderReportPdf } from '@/lib/command-center/reports'
@@ -177,6 +181,37 @@ test('notification events and AI assistants are active-module aware', () => {
   )
 })
 
+test('natural-language companion recognizes review and missing-inspection requests', () => {
+  assert.deepEqual(
+    resolveCommandAssistantIntent('Find me vans that have not been reviewed yet', {
+      now: new Date('2026-07-28T18:00:00.000Z'),
+      timeZone: 'America/Los_Angeles',
+    }),
+    { type: 'unreviewed_vans' }
+  )
+  assert.deepEqual(
+    resolveCommandAssistantIntent('Show vans missing an inspection for yesterday', {
+      now: new Date('2026-07-28T18:00:00.000Z'),
+      timeZone: 'America/Los_Angeles',
+    }),
+    {
+      type: 'missing_inspections',
+      date: '2026-07-27',
+      dateLabel: 'yesterday',
+    }
+  )
+})
+
+test('companion input is bounded and unknown language safely uses grounded assistance', () => {
+  assert.equal(
+    resolveCommandAssistantIntent('Help me understand today’s operations', {
+      timeZone: 'America/Los_Angeles',
+    }).type,
+    'general'
+  )
+  assert.equal(normalizeAssistantQuestion(`  show   me ${'vans '.repeat(200)}`).length, 500)
+})
+
 test('report registry returns only active, role-permitted reports', () => {
   const adminReports = getAvailableReports(['store', 'payments'], 'admin')
   assert.ok(adminReports.some((report) => report.moduleKey === 'store'))
@@ -291,7 +326,10 @@ test('damage evidence metadata carries private image references without raw URLs
 test('command-center damage previews use signed image rendering', async () => {
   const [quickPeek, actionInbox, quickPeekLoader, actionLoader] = await Promise.all([
     readFile(path.join(process.cwd(), 'components/command-center/QuickPeek.tsx'), 'utf8'),
-    readFile(path.join(process.cwd(), 'components/command-center/ActionInboxWorkspace.tsx'), 'utf8'),
+    readFile(
+      path.join(process.cwd(), 'components/command-center/ActionInboxWorkspace.tsx'),
+      'utf8'
+    ),
     readFile(path.join(process.cwd(), 'lib/command-center/quickPeek.ts'), 'utf8'),
     readFile(path.join(process.cwd(), 'lib/command-center/actions.ts'), 'utf8'),
   ])

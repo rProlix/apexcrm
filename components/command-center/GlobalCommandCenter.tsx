@@ -9,6 +9,7 @@ import {
   FileSearch,
   Loader2,
   Search,
+  Sparkles,
   X,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -18,6 +19,7 @@ import {
   filterCommandResults,
   getCommandNavigation,
   normalizeCommandQuery,
+  type CommandAssistantResponse,
   type CommandResult,
 } from '@/lib/command-center/experience'
 import type { NavModule } from '@/modules/shared/moduleTypes'
@@ -56,11 +58,16 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
   const [recent, setRecent] = useState<CommandResult[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [assistantLoading, setAssistantLoading] = useState(false)
+  const [assistantResponse, setAssistantResponse] = useState<
+    (CommandAssistantResponse & { query: string }) | null
+  >(null)
   const [error, setError] = useState<string | null>(null)
   useBodyScrollLock(open)
 
   const navigation = useMemo(() => getCommandNavigation(props), [props])
   const normalized = normalizeCommandQuery(query)
+  const assistantQuestion = query.trim().replace(/\s+/g, ' ').slice(0, 500)
   const localResults = useMemo(
     () => filterCommandResults(navigation, normalized),
     [navigation, normalized]
@@ -72,6 +79,20 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
     }
     return [...localResults, ...remoteResults].slice(0, 36)
   }, [localResults, navigation, normalized, recent, remoteResults])
+  const assistantCommand: CommandResult | null =
+    !props.isPlatformAdmin &&
+    assistantQuestion.length >= 3 &&
+    assistantResponse?.query !== assistantQuestion
+      ? {
+          id: 'assistant:current-question',
+          kind: 'assistant',
+          label: 'Ask Nexora companion',
+          description: query.trim(),
+          moduleKey: 'core',
+          href: '#assistant',
+        }
+      : null
+  const displayedResults = assistantCommand ? [...results, assistantCommand] : results
 
   const openDialog = useCallback((source: OpenSource) => {
     setOpenSource(source)
@@ -79,6 +100,8 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
     setOpen(true)
     setQuery('')
     setRemoteResults([])
+    setAssistantResponse(null)
+    setAssistantLoading(false)
     setError(null)
     setActiveIndex(0)
   }, [])
@@ -87,6 +110,8 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
     setOpen(false)
     setQuery('')
     setRemoteResults([])
+    setAssistantResponse(null)
+    setAssistantLoading(false)
     setError(null)
     window.requestAnimationFrame(() => triggerRef.current?.focus())
   }, [])
@@ -165,8 +190,8 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
   }, [normalized, open, props.isPlatformAdmin])
 
   useEffect(() => {
-    setActiveIndex((index) => Math.min(index, Math.max(0, results.length - 1)))
-  }, [results.length])
+    setActiveIndex((index) => Math.min(index, Math.max(0, displayedResults.length - 1)))
+  }, [displayedResults.length])
 
   const remember = useCallback((result: CommandResult) => {
     setRecent((current) => {
@@ -176,8 +201,41 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
     })
   }, [])
 
+  const askAssistant = useCallback(async () => {
+    const question = assistantQuestion
+    if (question.length < 3 || assistantLoading) return
+    setAssistantLoading(true)
+    setError(null)
+    try {
+      const response = await fetch('/api/command-center/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: question }),
+      })
+      const payload = (await response.json()) as CommandAssistantResponse & { error?: string }
+      if (!response.ok || !payload.answer) {
+        throw new Error(payload.error || 'The operations companion is temporarily unavailable.')
+      }
+      setAssistantResponse({ ...payload, query: question })
+      setRemoteResults(payload.results ?? [])
+      setActiveIndex(0)
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'The operations companion is temporarily unavailable.'
+      )
+    } finally {
+      setAssistantLoading(false)
+    }
+  }, [assistantLoading, assistantQuestion])
+
   const execute = useCallback(
     (result: CommandResult, interactionOrigin?: HTMLElement | null) => {
+      if (result.kind === 'assistant') {
+        void askAssistant()
+        return
+      }
       remember(result)
       setOpen(false)
       if (result.recordType && result.recordId) {
@@ -194,7 +252,7 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
       }
       router.push(result.href)
     },
-    [remember, router]
+    [askAssistant, remember, router]
   )
 
   const onInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -204,15 +262,22 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
       closeDialog()
     } else if (event.key === 'ArrowDown') {
       event.preventDefault()
-      setActiveIndex((index) => (results.length ? (index + 1) % results.length : 0))
+      setActiveIndex((index) =>
+        displayedResults.length ? (index + 1) % displayedResults.length : 0
+      )
     } else if (event.key === 'ArrowUp') {
       event.preventDefault()
       setActiveIndex((index) =>
-        results.length ? (index - 1 + results.length) % results.length : 0
+        displayedResults.length
+          ? (index - 1 + displayedResults.length) % displayedResults.length
+          : 0
       )
-    } else if (event.key === 'Enter' && results[activeIndex]) {
+    } else if (event.key === 'Enter' && displayedResults[activeIndex]) {
       event.preventDefault()
-      execute(results[activeIndex], document.getElementById(commandOptionId(results[activeIndex])))
+      execute(
+        displayedResults[activeIndex],
+        document.getElementById(commandOptionId(displayedResults[activeIndex]))
+      )
     }
   }
 
@@ -228,7 +293,7 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
         aria-expanded={open}
       >
         <Search className="h-3.5 w-3.5" strokeWidth={2} />
-        <span className="flex-1 text-xs">Search or run a command</span>
+        <span className="flex-1 text-xs">Search or ask Nexora</span>
         {props.openActionCount ? (
           <span className="rounded-md bg-brand/[0.12] px-1.5 text-2xs font-semibold leading-5 text-brand">
             {props.openActionCount > 99 ? '99+' : props.openActionCount}
@@ -277,20 +342,23 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value)
+                  setAssistantResponse(null)
                   setActiveIndex(0)
                 }}
                 onKeyDown={onInputKeyDown}
-                placeholder="Search vans, inspections, maintenance, customers, and more"
+                placeholder="Search records or ask: which vans missed yesterday’s inspection?"
                 className="min-h-14 min-w-0 flex-1 bg-transparent text-base text-white outline-none placeholder:text-white/28"
                 role="combobox"
                 aria-expanded="true"
                 aria-controls="command-center-results"
                 aria-activedescendant={
-                  results[activeIndex] ? commandOptionId(results[activeIndex]) : undefined
+                  displayedResults[activeIndex]
+                    ? commandOptionId(displayedResults[activeIndex])
+                    : undefined
                 }
                 autoComplete="off"
               />
-              {loading && (
+              {(loading || assistantLoading) && (
                 <Loader2 className="h-4 w-4 animate-spin text-white/35" aria-label="Searching" />
               )}
               <button
@@ -311,7 +379,9 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
               <div className="flex items-center justify-between px-2 pb-2 pt-1">
                 <h2 id="command-center-title" className="text-xs font-medium text-white/38">
                   {normalized
-                    ? 'Matching commands and records'
+                    ? assistantResponse
+                      ? 'Nexora companion'
+                      : 'Search, or ask in plain language'
                     : recent.length
                       ? 'Recent and available'
                       : 'Available commands'}
@@ -324,9 +394,46 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
                       : 'Type to search records'}
                 </span>
               </div>
-              {results.length > 0 ? (
+              {assistantResponse && (
+                <div
+                  className="mx-2 mb-3 rounded-xl border border-violet-400/20 bg-violet-400/[0.06] p-4"
+                  role="status"
+                >
+                  <div className="flex items-center gap-2 text-xs font-semibold text-violet-200">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Nexora companion
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/70">
+                    {assistantResponse.answer}
+                  </p>
+                  {assistantResponse.sourceLinks.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {assistantResponse.sourceLinks.slice(0, 4).map((link) => (
+                        <button
+                          key={`${link.href}:${link.label}`}
+                          type="button"
+                          onClick={() =>
+                            execute({
+                              id: `assistant-source:${link.href}`,
+                              kind: 'navigation',
+                              label: link.label,
+                              description: 'Assistant source',
+                              moduleKey: 'core',
+                              href: link.href,
+                            })
+                          }
+                          className="focus-ring rounded-lg border border-violet-300/15 px-2.5 py-1.5 text-left text-xs text-violet-200/75 hover:bg-violet-300/10 hover:text-violet-100"
+                        >
+                          {link.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {displayedResults.length > 0 ? (
                 <div className="space-y-1">
-                  {results.map((result, index) => {
+                  {displayedResults.map((result, index) => {
                     const active = index === activeIndex
                     return (
                       <button
@@ -356,7 +463,9 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
                             <span className="absolute inset-0 rounded-xl border border-brand/18 bg-brand/[0.075]" />
                           ))}
                         <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.075] bg-white/[0.025]">
-                          {result.kind === 'record' ? (
+                          {result.kind === 'assistant' ? (
+                            <Sparkles className="h-3.5 w-3.5 text-violet-300" />
+                          ) : result.kind === 'record' ? (
                             <FileSearch className="h-3.5 w-3.5" />
                           ) : result.kind === 'action' ? (
                             <CornerDownLeft className="h-3.5 w-3.5" />
@@ -380,14 +489,16 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
                     )
                   })}
                 </div>
-              ) : loading ? (
+              ) : loading || assistantLoading ? (
                 <CommandSkeleton />
               ) : (
                 <div className="px-4 py-12 text-center">
                   <FileSearch className="mx-auto h-6 w-6 text-white/20" />
-                  <p className="mt-3 text-sm font-medium text-white/70">No authorized results</p>
+                  <p className="mt-3 text-sm font-medium text-white/70">
+                    Ask Nexora in plain language
+                  </p>
                   <p className="mt-1 text-xs text-white/35">
-                    Try a record name, van number, service, or action title.
+                    Try “show vans awaiting review” or “which inspections were missing yesterday?”
                   </p>
                 </div>
               )}
@@ -403,7 +514,7 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
 
             <footer className="flex min-h-11 items-center gap-4 border-t border-white/[0.075] px-4 text-[11px] text-white/28">
               <span>↑↓ Navigate</span>
-              <span>↵ Open</span>
+              <span>↵ Open or ask</span>
               <span>Esc Close</span>
             </footer>
           </div>

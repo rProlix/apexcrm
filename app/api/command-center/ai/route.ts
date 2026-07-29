@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requestModuleAiAssistant } from '@/lib/command-center/ai'
+import { requestCommandAssistant, requestModuleAiAssistant } from '@/lib/command-center/ai'
 import { CommandCenterAccessError } from '@/lib/command-center/context'
 
 export async function POST(request: NextRequest) {
@@ -7,9 +7,19 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       moduleKey?: unknown
       questionKey?: unknown
+      query?: unknown
+    }
+    if (typeof body.query === 'string') {
+      const result = await requestCommandAssistant({ query: body.query })
+      return NextResponse.json(result, {
+        headers: { 'Cache-Control': 'private, no-store' },
+      })
     }
     if (typeof body.moduleKey !== 'string' || typeof body.questionKey !== 'string') {
-      return NextResponse.json({ error: 'Choose a module question.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Ask a question or choose a module question.' },
+        { status: 400 }
+      )
     }
     const result = await requestModuleAiAssistant({
       moduleKey: body.moduleKey,

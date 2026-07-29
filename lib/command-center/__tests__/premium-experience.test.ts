@@ -105,6 +105,23 @@ test('remote search and Quick Peek are tenant scoped, module gated, and provider
   assert.doesNotMatch(`${search}\n${peek}`, /\b(ai_model|provider|raw_response|input_summary)\b/i)
 })
 
+test('natural-language companion is tenant scoped, module gated, and available from command search', async () => {
+  const [assistant, route, commandCenter] = await Promise.all([
+    source('lib/command-center/ai.ts'),
+    source('app/api/command-center/ai/route.ts'),
+    source('components/command-center/GlobalCommandCenter.tsx'),
+  ])
+  assert.match(assistant, /requireCommandCenterContext\('use_modules'\)/)
+  assert.match(assistant, /assertActiveModule\(context, 'damage_ai'\)/)
+  assert.ok((assistant.match(/\.eq\('tenant_id', context\.tenantId\)/g) ?? []).length >= 2)
+  assert.match(assistant, /loadInspectionCompliance\(context/)
+  assert.match(route, /requestCommandAssistant/)
+  assert.match(route, /typeof body\.query === 'string'/)
+  assert.match(commandCenter, /Ask Nexora companion/)
+  assert.match(commandCenter, /JSON\.stringify\(\{ query: question \}\)/)
+  assert.doesNotMatch(commandCenter, /\bgemini\b/i)
+})
+
 test('one global realtime channel serves active modules without exposing row payloads', async () => {
   const files = await readCodeFiles(path.join(process.cwd(), 'components'))
   const contents = await Promise.all(files.map((file) => readFile(file, 'utf8')))
