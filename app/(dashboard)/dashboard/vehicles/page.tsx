@@ -168,7 +168,7 @@ export default async function VehiclesPage({
     const profileImage = selectVehicleProfileImage(
       metadata,
       imageCandidatesByVan.get(vehicle.id) ?? [],
-      { allowAutomaticFirstUpload: false }
+      { allowAutomaticFirstUpload: true }
     )
     return {
       ...vehicle,

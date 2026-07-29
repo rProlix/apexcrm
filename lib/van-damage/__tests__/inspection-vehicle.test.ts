@@ -1,5 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import {
   normalizeInspectionVanNumber,
   resolveInspectionVehicle,
@@ -183,4 +185,33 @@ test('vehicle profile image precedence never chooses an unrelated random inspect
     ),
     { imageId: 'first', source: 'automatic_first_upload' }
   )
+})
+
+test('fleet profiles hydrate images and sessions through the canonical inspection vehicle link', async () => {
+  const [profilePage, fleetPage] = await Promise.all([
+    readFile(
+      path.join(
+        process.cwd(),
+        'app/(dashboard)/dashboard/vehicles/[vehicleId]/page.tsx'
+      ),
+      'utf8'
+    ),
+    readFile(path.join(process.cwd(), 'app/(dashboard)/dashboard/vehicles/page.tsx'), 'utf8'),
+  ])
+
+  assert.match(profilePage, /const inspectionIds = \(inspectionsResult\.data \?\? \[\]\)/)
+  assert.match(
+    profilePage,
+    /sessionScope\.or\(`van_id\.eq\.\$\{vehicleId\},inspection_id\.in\.\(\$\{inspectionIds\.join\(','\)\}\)`\)/
+  )
+  assert.match(profilePage, /\.in\('inspection_id', inspectionIds\)/)
+  assert.match(
+    profilePage,
+    /image\.inspection_id === session\.inspection_id \|\| image\.upload_session_id === session\.id/
+  )
+  assert.match(
+    profilePage,
+    /observation\.inspection_id === session\.inspection_id \|\|\s*observation\.upload_session_id === session\.id/
+  )
+  assert.match(fleetPage, /\{ allowAutomaticFirstUpload: true \}/)
 })
