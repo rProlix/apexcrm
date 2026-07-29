@@ -77,6 +77,18 @@
   --z-toast: 70;
 }
 
+@property --ui-spotlight-x {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 12%;
+}
+
+@property --ui-spotlight-y {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
 /* ─── Base reset ────────────────────────────────────────────────── */
 *,
 *::before,
@@ -446,10 +458,23 @@ summary {
   }
 
   .ui-button-primary {
-    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-brand/50 bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground transition duration-150 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply relative isolate inline-flex min-h-10 items-center justify-center gap-2 overflow-hidden rounded-xl border border-brand/50 bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground transition duration-150 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50;
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.25),
       0 9px 28px rgb(var(--tenant-accent-rgb) / 0.13);
+  }
+
+  .ui-button-primary::after {
+    content: '';
+    position: absolute;
+    inset: -35% auto -35% -55%;
+    z-index: 0;
+    width: 38%;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.34), transparent);
+    pointer-events: none;
+    mix-blend-mode: soft-light;
+    transform: skewX(-18deg) translate3d(-180%, 0, 0);
+    transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
   }
 
   .ui-button-secondary {
@@ -737,6 +762,22 @@ summary {
     opacity: 0.5;
   }
 
+  .crm-shell-horizon {
+    position: absolute;
+    right: -12vw;
+    bottom: -24vh;
+    left: 16rem;
+    height: 62vh;
+    background-image:
+      linear-gradient(rgb(var(--tenant-accent-rgb) / 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--tenant-accent-rgb) / 0.035) 1px, transparent 1px);
+    background-size: 76px 48px;
+    mask-image: linear-gradient(to top, black, transparent 72%);
+    opacity: 0.36;
+    transform: perspective(460px) rotateX(58deg) scaleX(1.12);
+    transform-origin: bottom center;
+  }
+
   .crm-pointer-light {
     position: absolute;
     top: 0;
@@ -852,6 +893,7 @@ summary {
   }
 
   .crm-topbar {
+    overflow: hidden;
     background:
       linear-gradient(90deg, rgb(var(--tenant-accent-rgb) / 0.018), transparent 35%),
       rgb(var(--surface-base) / 0.82);
@@ -859,6 +901,17 @@ summary {
     box-shadow:
       inset 0 -1px 0 rgb(0 0 0 / 0.2),
       0 14px 42px rgb(0 0 0 / 0.1);
+  }
+
+  .crm-topbar::after {
+    content: '';
+    position: absolute;
+    right: 8%;
+    bottom: -1px;
+    width: clamp(5rem, 18vw, 16rem);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgb(var(--tenant-accent-rgb) / 0.5), transparent);
+    pointer-events: none;
   }
 
   .crm-bottom-nav {
@@ -922,6 +975,20 @@ summary {
     mask-image: linear-gradient(115deg, transparent, black 48%, transparent 94%);
     pointer-events: none;
     opacity: 0.72;
+    filter: drop-shadow(0 0 18px rgb(var(--tenant-accent-rgb) / 0.08));
+  }
+
+  .ui-page-header-motif::after {
+    content: '';
+    position: absolute;
+    top: 1rem;
+    right: 0;
+    width: 72%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgb(var(--tenant-accent-rgb) / 0.35));
+    box-shadow:
+      0 1.5rem 0 rgb(var(--tenant-accent-rgb) / 0.09),
+      0 3rem 0 rgb(var(--tenant-accent-rgb) / 0.055);
   }
 
   .ui-page-header::after {
@@ -962,19 +1029,34 @@ summary {
   }
 
   .ui-card::after,
-  .ui-surface::after {
+  .ui-surface::after,
+  .premium-panel::after {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: radial-gradient(
-      24rem circle at 12% -16%,
-      rgb(255 255 255 / 0.045),
-      transparent 58%
-    );
-    opacity: 0.52;
+    background:
+      radial-gradient(
+        22rem circle at var(--ui-spotlight-x) var(--ui-spotlight-y),
+        rgb(var(--tenant-accent-rgb) / 0.105),
+        transparent 54%
+      ),
+      radial-gradient(24rem circle at 12% -16%, rgb(255 255 255 / 0.04), transparent 58%);
+    mix-blend-mode: screen;
+    opacity: 0.38;
     pointer-events: none;
     transition: opacity var(--motion-state) var(--motion-enter);
+  }
+
+  .ui-card,
+  .ui-surface,
+  .premium-panel {
+    position: relative;
+    isolation: isolate;
+  }
+
+  :where(.ui-card, .ui-surface, .premium-panel)[data-ui-spotlight-active='true']::after {
+    opacity: 0.9;
   }
 
   :where(a.ui-surface, button.ui-surface, .ui-surface.group, .ui-card.group, .ui-interactive-surface) {
@@ -996,6 +1078,18 @@ summary {
     box-shadow:
       inset 0 1px 2px rgb(0 0 0 / 0.18),
       0 1px 0 rgb(255 255 255 / 0.015);
+  }
+
+  .crm-content :where(input:not([type='checkbox']):not([type='radio']), select, textarea):focus {
+    box-shadow:
+      inset 0 1px 2px rgb(0 0 0 / 0.18),
+      0 0 0 3px rgb(var(--tenant-accent-rgb) / 0.08),
+      0 10px 28px rgb(var(--tenant-accent-rgb) / 0.055);
+  }
+
+  .ui-table tbody tr:focus-within {
+    background: linear-gradient(90deg, rgb(var(--tenant-accent-rgb) / 0.065), transparent 72%);
+    box-shadow: inset 2px 0 0 rgb(var(--tenant-accent-rgb) / 0.7);
   }
 }
 
@@ -1114,6 +1208,10 @@ summary {
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .ui-button-primary:hover::after {
+    transform: skewX(-18deg) translate3d(520%, 0, 0);
+  }
+
   .ui-sidebar-item:hover {
     transform: translateX(1px);
   }
@@ -1204,6 +1302,10 @@ summary {
     display: none;
   }
 
+  .crm-shell-horizon {
+    transform: none;
+  }
+
   .crm-nav-icon,
   .crm-bottom-nav-icon,
   .ui-chrome-button,
@@ -1223,6 +1325,10 @@ summary {
   .ui-button-danger {
     transform: none !important;
     transition-property: color, background-color, border-color, box-shadow !important;
+  }
+
+  .ui-button-primary::after {
+    display: none;
   }
 
   .app-launch-screen {

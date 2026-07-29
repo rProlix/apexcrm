@@ -80,13 +80,15 @@ test('shared motion utilities contain no infinite decorative loops', async () =>
 })
 
 test('premium shell atmosphere is pointer-safe, render-safe, and reduced-motion aware', async () => {
-  const [atmosphere, shell, css] = await Promise.all([
+  const [atmosphere, surfaceEffects, shell, css] = await Promise.all([
     readFile(path.join(process.cwd(), 'components/shell/ShellAtmosphere.tsx'), 'utf8'),
+    readFile(path.join(process.cwd(), 'components/shell/SurfaceEffects.tsx'), 'utf8'),
     readFile(path.join(process.cwd(), 'components/dashboard/DashboardShell.tsx'), 'utf8'),
     readFile(path.join(process.cwd(), 'app/globals.css'), 'utf8'),
   ])
 
   assert.match(shell, /<ShellAtmosphere \/>/)
+  assert.match(shell, /<SurfaceEffects \/>/)
   assert.match(atmosphere, /useMotionValue/)
   assert.match(atmosphere, /useSpring/)
   assert.match(atmosphere, /useReducedMotion/)
@@ -96,4 +98,12 @@ test('premium shell atmosphere is pointer-safe, render-safe, and reduced-motion 
   assert.doesNotMatch(atmosphere, /useState/)
   assert.match(css, /\.crm-pointer-light[\s\S]*will-change: transform, opacity/)
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.crm-pointer-light/)
+  assert.match(surfaceEffects, /useReducedMotion/)
+  assert.match(surfaceEffects, /\(hover: hover\) and \(pointer: fine\)/)
+  assert.match(surfaceEffects, /requestAnimationFrame/)
+  assert.match(surfaceEffects, /cancelAnimationFrame/)
+  assert.match(surfaceEffects, /removeEventListener/)
+  assert.doesNotMatch(surfaceEffects, /useState/)
+  assert.match(css, /@property --ui-spotlight-x[\s\S]*inherits: false/)
+  assert.match(css, /\[data-ui-spotlight-active='true'\]::after/)
 })
