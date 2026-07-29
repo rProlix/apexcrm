@@ -225,6 +225,19 @@ test('human-reviewed canonical location wins over the raw vehicle-area label', (
   )
 })
 
+test('precise AI panel locations resolve to the matching Transit map region', () => {
+  const cases = [
+    ['driver rear cargo panel', 'driver_rear_cargo_panel'],
+    ['passenger front fender', 'passenger_front_fender'],
+    ['driver rocker panel', 'driver_rocker_panel'],
+    ['passenger front door', 'passenger_front_door'],
+    ['upper grille', 'upper_grille'],
+  ] as const
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeTransitRegion(input), expected)
+  }
+})
+
 test('region accessibility text communicates severity, count, review, confirmation and selection without color', () => {
   assert.equal(
     buildTransitRegionAriaLabel({

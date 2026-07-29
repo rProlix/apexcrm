@@ -191,7 +191,7 @@ export default function DamageLightbox({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={MOTION_TRANSITION.feedback}
-              className="relative max-h-full max-w-full transition-transform duration-150"
+              className="relative h-full w-full transition-transform duration-150"
               style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }}
             >
               <DamageOverlayFrame

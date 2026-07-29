@@ -4,7 +4,7 @@ Phase 2 adds the production code and database foundation but does not deploy the
 
 ## Vercel environment
 
-Configure `AWS_REGION=us-east-2`, `VAN_DAMAGE_SQS_QUEUE_URL=https://sqs.us-east-2.amazonaws.com/696800758882/nexoranow-van-damage-jobs`, `VAN_DAMAGE_S3_BUCKET=nexoranow-van-images-prod`, `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET`, `SLACK_TOKEN_ENCRYPTION_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, and `GEMINI_MODEL=gemini-2.5-flash`. Existing `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY` remain required by ApexCRM. All Slack, Gemini, AWS, and service-role values are server-only.
+Configure `AWS_REGION=us-east-2`, `VAN_DAMAGE_SQS_QUEUE_URL=https://sqs.us-east-2.amazonaws.com/696800758882/nexoranow-van-damage-jobs`, `VAN_DAMAGE_S3_BUCKET=nexoranow-van-images-prod`, `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET`, `SLACK_TOKEN_ENCRYPTION_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, and `GEMINI_MODEL=gemini-3.6-flash`. Existing `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY` remain required by ApexCRM. All Slack, Gemini, AWS, and service-role values are server-only.
 
 The encryption key must be exactly 32 UTF-8 bytes or a base64 string decoding to exactly 32 bytes. Vercel may use `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and optional `AWS_SESSION_TOKEN` when no workload identity provider is available. Never commit any value.
 

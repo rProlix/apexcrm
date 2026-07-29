@@ -1,4 +1,7 @@
-import { geminiDamageAnalysisSchema, type GeminiDamageAnalysis } from '../../../lib/van-damage/contracts.js'
+import {
+  geminiDamageAnalysisSchema,
+  type GeminiDamageAnalysis,
+} from '../../../lib/van-damage/contracts.js'
 import { safeParseGeminiJson } from '../../../lib/ai/parseGeminiJson.js'
 
 type MutableRecord = Record<string, unknown>
@@ -32,23 +35,84 @@ function normalizeGeminiAnalysis(value: unknown): unknown {
   const analysis = value as MutableRecord
   if (!Array.isArray(analysis.items)) return value
 
+  const normalizedItems = analysis.items.map((item) => {
+    if (!item || typeof item !== 'object') return item
+    const record = item as MutableRecord
+    return {
+      ...record,
+      severity: calibratedSeverity(record.damageType, record.severity),
+      boundingBox: record.boundingBox == null ? null : normalizeBoundingBox(record.boundingBox),
+    }
+  })
+  const inferredRating = normalizedItems.reduce((rating, item) => {
+    if (!item || typeof item !== 'object') return rating
+    return Math.max(rating, ratingForDamageType((item as MutableRecord).damageType))
+  }, 0)
+  const reportedRating = finiteNumber(analysis.damageRating) ?? 0
+  const damageRating = Math.max(
+    0,
+    Math.min(3, Math.round(Math.max(reportedRating, inferredRating)))
+  )
+  const labels = ['no_damage', 'dirt_or_debris', 'light_scratches', 'dents_or_damage'] as const
+
   return {
     ...analysis,
-    items: analysis.items.map((item) => {
-      if (!item || typeof item !== 'object') return item
-      const record = item as MutableRecord
-      return {
-        ...record,
-        boundingBox: record.boundingBox == null ? null : normalizeBoundingBox(record.boundingBox),
-      }
-    }),
+    damageRating,
+    damageRatingLabel: labels[damageRating],
+    items: normalizedItems,
   }
 }
 
-export function parseDamageAnalysis(text: string): { data: GeminiDamageAnalysis | null; error: string | null } {
+function ratingForDamageType(value: unknown) {
+  if (
+    [
+      'dent',
+      'crack',
+      'broken_light',
+      'broken_mirror',
+      'bumper_damage',
+      'glass_damage',
+      'tire_wheel_damage',
+      'interior_damage',
+    ].includes(String(value))
+  )
+    return 3
+  if (['scratch', 'paint_damage'].includes(String(value))) return 2
+  if (value === 'dirt_debris') return 1
+  return 0
+}
+
+function calibratedSeverity(damageType: unknown, severity: unknown) {
+  const type = String(damageType)
+  if (
+    [
+      'dent',
+      'crack',
+      'broken_light',
+      'broken_mirror',
+      'bumper_damage',
+      'glass_damage',
+      'tire_wheel_damage',
+      'interior_damage',
+    ].includes(type)
+  ) {
+    return severity === 'critical' ? 'critical' : 'high'
+  }
+  if (type === 'dirt_debris') return 'low'
+  if (['scratch', 'paint_damage'].includes(type)) {
+    return severity === 'medium' ? 'medium' : 'low'
+  }
+  return severity
+}
+
+export function parseDamageAnalysis(text: string): {
+  data: GeminiDamageAnalysis | null
+  error: string | null
+} {
   const parsed = safeParseGeminiJson<unknown>(text)
   if (!parsed.data) return { data: null, error: parsed.error }
   const validated = geminiDamageAnalysisSchema.safeParse(normalizeGeminiAnalysis(parsed.data))
-  if (!validated.success) return { data: null, error: validated.error.issues.map((issue) => issue.message).join('; ') }
+  if (!validated.success)
+    return { data: null, error: validated.error.issues.map((issue) => issue.message).join('; ') }
   return { data: validated.data, error: null }
 }

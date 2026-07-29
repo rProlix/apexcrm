@@ -14,6 +14,7 @@ const metadataApiUrl = new URL(
   '../../../app/api/van-damage/inspections/[inspectionId]/metadata/route.ts',
   import.meta.url
 )
+const lightboxUrl = new URL('../../../components/van-damage/DamageLightbox.tsx', import.meta.url)
 
 test('inspection report prioritizes operational status, vehicle, critical findings, evidence, and timeline', async () => {
   const component = await readFile(componentUrl, 'utf8')
@@ -57,4 +58,10 @@ test('inspection client payload is provider-neutral and omits internal model ide
   assert.doesNotMatch(component.toLowerCase(), /gemini|google generative ai/)
   assert.doesNotMatch(component, /ai_model|prompt_version/)
   assert.match(component, /Automated analysis|AI damage summary|Analysis has not completed yet/)
+})
+
+test('fullscreen inspection image viewer gives the evidence frame explicit dimensions', async () => {
+  const source = await readFile(lightboxUrl, 'utf8')
+  assert.match(source, /className="relative h-full w-full transition-transform/)
+  assert.doesNotMatch(source, /className="relative max-h-full max-w-full transition-transform/)
 })

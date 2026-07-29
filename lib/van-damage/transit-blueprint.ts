@@ -682,6 +682,13 @@ const REGION_REWRITES: Array<[RegExp, string]> = [
   ],
   [/\b(left|driver).*mirror|mirror.*(left|driver)\b/, 'driver_mirror'],
   [/\b(right|passenger).*mirror|mirror.*(right|passenger)\b/, 'passenger_mirror'],
+  [/\b(left|driver).*front.*fender|front.*fender.*(left|driver)\b/, 'driver_front_fender'],
+  [
+    /\b(right|passenger).*front.*fender|front.*fender.*(right|passenger)\b/,
+    'passenger_front_fender',
+  ],
+  [/\b(left|driver).*front.*door|front.*door.*(left|driver)\b/, 'driver_front_door'],
+  [/\b(right|passenger).*front.*door|front.*door.*(right|passenger)\b/, 'passenger_front_door'],
   [
     /\b(left|driver).*(sliding|slider).*door|(sliding|slider).*door.*(left|driver)\b/,
     'driver_sliding_door',
@@ -689,6 +696,21 @@ const REGION_REWRITES: Array<[RegExp, string]> = [
   [/\b(sliding|slider).*door|passenger.*cargo.*door\b/, 'passenger_sliding_door'],
   [/\b(left|driver).*rear.*door|rear.*door.*(left|driver)\b/, 'driver_rear_door'],
   [/\b(right|passenger).*rear.*door|rear.*door.*(right|passenger)\b/, 'passenger_rear_door'],
+  [
+    /\b(left|driver).*rear.*(cargo|body).*panel|(rear.*(cargo|body).*panel).*(left|driver)\b/,
+    'driver_rear_cargo_panel',
+  ],
+  [
+    /\b(right|passenger).*rear.*(cargo|body).*panel|(rear.*(cargo|body).*panel).*(right|passenger)\b/,
+    'passenger_rear_cargo_panel',
+  ],
+  [/\b(left|driver).*rear.*quarter|rear.*quarter.*(left|driver)\b/, 'driver_rear_quarter'],
+  [
+    /\b(right|passenger).*rear.*quarter|rear.*quarter.*(right|passenger)\b/,
+    'passenger_rear_quarter',
+  ],
+  [/\b(left|driver).*rocker|rocker.*(left|driver)\b/, 'driver_rocker_panel'],
+  [/\b(right|passenger).*rocker|rocker.*(right|passenger)\b/, 'passenger_rocker_panel'],
   [/\b(left|driver).*tail.*light|tail.*light.*(left|driver)\b/, 'driver_taillight'],
   [/\b(right|passenger).*tail.*light|tail.*light.*(right|passenger)\b/, 'passenger_taillight'],
   [
@@ -708,6 +730,8 @@ const REGION_REWRITES: Array<[RegExp, string]> = [
     'passenger_rear_wheel',
   ],
   [/\bwindshield|windscreen\b/, 'windshield'],
+  [/\bupper.*grille|grille.*upper\b/, 'upper_grille'],
+  [/\blower.*grille|grille.*lower\b/, 'lower_grille'],
   [/\bhood|bonnet\b/, 'hood'],
   [/\bfront.*bumper|bumper.*front\b/, 'front_bumper'],
   [/\brear.*bumper|back.*bumper|bumper.*rear\b/, 'rear_bumper'],

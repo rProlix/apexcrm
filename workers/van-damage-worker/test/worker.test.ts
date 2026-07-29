@@ -5,6 +5,10 @@ import { parseDamageAnalysis } from '../src/damage-parser.js'
 import { buildOriginalKey, safeFileName } from '../src/s3-storage.js'
 import { processMessageBody } from '../src/process-job.js'
 import type { WorkerConfig } from '../src/config.js'
+import {
+  buildDamageInspectionPrompt,
+  getDamagePromptVersion,
+} from '../src/gemini-damage-analysis.js'
 import { buildClaimJobArgs, WORKER_SCHEMA_CONTRACT_VERSION } from '../src/supabase-worker.js'
 import { vanDamageJobSchema } from '../../../lib/van-damage/contracts.js'
 import { extractVanNumber, normalizeVanNumber } from '../src/van-number-parser.js'
@@ -80,6 +84,50 @@ test('damage parser normalizes Gemini 0-1000 bounding boxes', () => {
   assert.ok(box.height <= 0.18 + Number.EPSILON)
   assert.ok(box.x + box.width <= 1)
   assert.ok(box.y + box.height <= 1)
+})
+
+test('damage parser promotes dents to fleet level 3 and severe map styling', () => {
+  const result = parseDamageAnalysis(
+    JSON.stringify({
+      summary: 'Panel deformation',
+      overallConfidence: 0.83,
+      damageRating: 1,
+      damageRatingLabel: 'dirt_or_debris',
+      damageRatingReason: 'Visible deformation',
+      damageCount: 1,
+      vehicleCondition: 'fair',
+      items: [
+        {
+          imageIndex: 0,
+          damageType: 'dent',
+          vehicleArea: 'driver_rear_cargo_panel',
+          severity: 'medium',
+          confidence: 0.83,
+          description: 'Body line bends inward on the driver rear cargo panel',
+          repairRecommendation: 'Inspect and repair panel',
+          estimatedCostMin: null,
+          estimatedCostMax: null,
+          boundingBox: { x: 0.4, y: 0.25, width: 0.18, height: 0.2 },
+        },
+      ],
+      needsHumanReview: false,
+      warnings: [],
+    })
+  )
+  assert.equal(result.error, null)
+  assert.equal(result.data?.damageRating, 3)
+  assert.equal(result.data?.damageRatingLabel, 'dents_or_damage')
+  assert.equal(result.data?.items[0]?.severity, 'high')
+  assert.equal(result.data?.items[0]?.vehicleArea, 'driver_rear_cargo_panel')
+})
+
+test('inspection prompt requires dent evidence and precise Transit regions', () => {
+  const prompt = buildDamageInspectionPrompt('Van 44')
+  assert.match(prompt, /highlights\/reflections that bend consistently/)
+  assert.match(prompt, /Do not call ordinary reflections, shadows, dirt/)
+  assert.match(prompt, /driver_rear_cargo_panel/)
+  assert.match(prompt, /tight bounding box around the defect itself/)
+  assert.equal(getDamagePromptVersion(), 'van-damage-v2')
 })
 
 test('S3 original keys are deterministic and sanitize filenames', () => {

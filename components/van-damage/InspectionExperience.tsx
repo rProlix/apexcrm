@@ -255,7 +255,14 @@ export function InspectionExperience(props: InspectionExperienceProps) {
   const [query, setQuery] = useState('')
   const [severityFilter, setSeverityFilter] = useState('all')
   const [areaFilter, setAreaFilter] = useState('all')
-  const [mapView, setMapView] = useState<TransitView>('passenger')
+  const [mapView, setMapView] = useState<TransitView>(() => {
+    const primaryFinding = [...items].sort(
+      (a, b) =>
+        severityRank[b.severity ?? 'unknown'] - severityRank[a.severity ?? 'unknown'] ||
+        (b.confidence ?? -1) - (a.confidence ?? -1)
+    )[0]
+    return getTransitViewForRegion(primaryFinding ? resolveItemTransitRegion(primaryFinding) : null)
+  })
   const [mapAnnouncement, setMapAnnouncement] = useState('')
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null)
   const [activeSection, setActiveSection] = useState('inspection-summary')

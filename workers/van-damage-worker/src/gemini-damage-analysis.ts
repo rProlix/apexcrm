@@ -10,9 +10,11 @@ export type GeminiAnalysisResult = {
   parseError: string | null
 }
 
-const PROMPT_VERSION = 'van-damage-v1'
+const PROMPT_VERSION = 'van-damage-v2'
 
-export function getDamagePromptVersion() { return PROMPT_VERSION }
+export function getDamagePromptVersion() {
+  return PROMPT_VERSION
+}
 
 export function assertGeminiInitialized(config: WorkerConfig) {
   if (!config.geminiApiKey) throw new Error('AI analysis credential is not configured')
@@ -20,23 +22,66 @@ export function assertGeminiInitialized(config: WorkerConfig) {
   return 'AI analysis provider initialized'
 }
 
-function reviewResult(warning: string): GeminiAnalysisResult {
-  return {
-    analysis: {
-      summary: 'Automated analysis requires human review.',
-      overallConfidence: 0,
-      damageRating: 0,
-      damageRatingLabel: 'no_damage',
-      damageRatingReason: warning,
-      damageCount: 0,
-      vehicleCondition: 'unknown',
-      items: [],
-      needsHumanReview: true,
-      warnings: [warning],
-    },
-    rawText: '',
-    parseError: warning,
-  }
+export function buildDamageInspectionPrompt(context?: string | null) {
+  return `You are performing a careful exterior damage inspection of one commercial cargo-van photo.
+
+Inspect the entire visible vehicle methodically before answering:
+1. Establish the camera view and visible side: front, rear, driver/left, passenger/right, or roof.
+2. Inspect each visible physical panel separately.
+3. Look specifically for dents and deformation using multiple visual cues: bent panel edges, disrupted body lines, concave or convex contours, warped gaps, and highlights/reflections that bend consistently with the panel surface.
+4. Do not call ordinary reflections, shadows, dirt, decals, door gaps, body seams, or perspective distortion a dent.
+5. Inspect for scratches, scuffs, paint transfer, cracks, broken parts, and contamination.
+6. Report only defects that are actually visible. If a possible defect cannot be distinguished from reflection or shadow, report it with low confidence and set needsHumanReview instead of silently asserting damage.
+
+Assign the highest visible damage rating using this exact fleet scale:
+0 = no visible damage
+1 = dirt, mud, dust, grime, leaves, debris, removable marks, or other non-damage contamination
+2 = light scratches, scuffs, paint transfer, small cosmetic marks, or minor surface damage
+3 = any dent or panel deformation, crack, broken part, bumper/body damage, broken light/mirror/glass, or structural/functional damage
+
+Location accuracy is mandatory. Use the most specific physical region supported by the evidence. Never use a generic side or door when the exact panel and side are visible.
+Allowed vehicleArea values:
+front_bumper, front_bumper_driver, front_bumper_passenger, rear_bumper, rear_bumper_driver, rear_bumper_passenger,
+hood, windshield, roof_front, roof_center, roof_rear, driver_roof_edge, passenger_roof_edge,
+driver_front_fender, passenger_front_fender, driver_front_door, passenger_front_door,
+driver_sliding_door, passenger_sliding_door, driver_rear_door, passenger_rear_door,
+driver_rear_lower_door, passenger_rear_lower_door, rear_door_center_seam,
+driver_cargo_panel, passenger_cargo_panel, driver_rear_cargo_panel, passenger_rear_cargo_panel,
+driver_rear_quarter, passenger_rear_quarter, driver_rocker_panel, passenger_rocker_panel,
+driver_mirror, passenger_mirror, driver_front_wheel, passenger_front_wheel,
+driver_rear_wheel, passenger_rear_wheel, driver_headlight, passenger_headlight,
+driver_taillight, passenger_taillight, upper_grille, lower_grille, interior, unknown.
+
+Severity must align with the fleet scale: dirt/debris=low; scratches/scuffs=low or medium; every dent/deformation/crack/broken part=high; use critical only for clearly unsafe or functionally compromised damage.
+Create a separate item for each distinct defect. Use a tight bounding box around the defect itself, not the whole vehicle or panel. Bounding boxes are normalized 0..1 coordinates relative to the supplied photo.
+Set needsHumanReview only for uncertain visual evidence, uncertain location, or insufficient image quality—not merely because damage exists.
+
+Return JSON only, without markdown, with exactly this shape:
+{
+  "summary": "specific visible evidence",
+  "overallConfidence": 0.0,
+  "damageRating": 0,
+  "damageRatingLabel": "no_damage|dirt_or_debris|light_scratches|dents_or_damage",
+  "damageRatingReason": "specific visible evidence supporting the highest rating",
+  "damageCount": 0,
+  "vehicleCondition": "excellent|good|fair|poor|unknown",
+  "items": [{
+    "imageIndex": 0,
+    "damageType": "dirt_debris|dent|scratch|crack|broken_light|broken_mirror|paint_damage|bumper_damage|glass_damage|tire_wheel_damage|interior_damage|unknown",
+    "vehicleArea": "one allowed vehicleArea value",
+    "severity": "low|medium|high|critical|unknown",
+    "confidence": 0.0,
+    "description": "what is visibly wrong and the visual evidence",
+    "repairRecommendation": "specific next step",
+    "estimatedCostMin": null,
+    "estimatedCostMax": null,
+    "boundingBox": {"x":0.0,"y":0.0,"width":0.0,"height":0.0}
+  }],
+  "needsHumanReview": false,
+  "warnings": []
+}
+For rating 0, items must be empty. For rating 1, use dirt_debris. For rating 2, report each scratch/scuff. For rating 3, report every visible dent, deformation, crack, or broken component.
+Slack context: ${context?.slice(0, 4_000) || '(none)'}`
 }
 
 export async function analyzeVanDamage(input: {
@@ -46,49 +91,10 @@ export async function analyzeVanDamage(input: {
 }): Promise<GeminiAnalysisResult> {
   const rawBytes = input.images.reduce((sum, image) => sum + image.data.length, 0)
   if (rawBytes > input.config.maxGeminiRawBytes) {
-    return reviewResult(`Image set exceeds the automated analysis limit (${rawBytes} raw bytes)`)
+    throw new Error(`Image exceeds the automated analysis limit (${rawBytes} raw bytes)`)
   }
 
-  const prompt = `You are a commercial van damage inspector for a rental fleet.
-Analyze all supplied van images together and assign one overall damage rating using this exact scale:
-0 = no visible damage
-1 = dirt, mud, dust, grime, leaves, debris, removable marks, or other non-damage contamination
-2 = light scratches, scuffs, paint transfer, small cosmetic marks, or minor surface damage
-3 = dents, cracks, broken parts, bumper/body damage, broken lights/mirrors/glass, or structural/functional damage
-
-Always choose the highest applicable rating visible in the images. If both dirt and scratches are visible, choose 2. If scratches and dents are visible, choose 3.
-Do not use needsHumanReview merely because the rating is nonzero. Set needsHumanReview only when the image is too blurry/dark/occluded/cropped to assign a 0-3 rating with at least 0.55 confidence.
-Return JSON only, without markdown, with exactly this shape:
-{
-  "summary": "string",
-  "overallConfidence": 0.0,
-  "damageRating": 0,
-  "damageRatingLabel": "no_damage|dirt_or_debris|light_scratches|dents_or_damage",
-  "damageRatingReason": "string",
-  "damageCount": 0,
-  "vehicleCondition": "excellent|good|fair|poor|unknown",
-  "items": [{
-    "imageIndex": 0,
-    "damageType": "dirt_debris|dent|scratch|crack|broken_light|broken_mirror|paint_damage|bumper_damage|glass_damage|tire_wheel_damage|interior_damage|unknown",
-    "vehicleArea": "front_bumper|rear_bumper|driver_side|passenger_side|roof|hood|door|mirror|wheel|interior|unknown",
-    "severity": "low|medium|high|critical|unknown",
-    "confidence": 0.0,
-    "description": "string",
-    "repairRecommendation": "string",
-    "estimatedCostMin": null,
-    "estimatedCostMax": null,
-    "boundingBox": {"x":0.0,"y":0.0,"width":0.0,"height":0.0}
-  }],
-  "needsHumanReview": true,
-  "warnings": []
-}
-For rating 0, use an empty items array unless there is a specific ambiguous area to mention.
-For rating 1, create item(s) with damageType "dirt_debris" and severity "low" for visible dirt/debris.
-For rating 2, create item(s) for visible scratches/scuffs with severity "low" or "medium".
-For rating 3, create item(s) for dents/broken/damaged parts with severity "high" or "critical".
-Bounding boxes use normalized 0..1 coordinates and must remain inside the image.
-Use null for unknown costs or bounding boxes.
-Slack context: ${input.context?.slice(0, 4_000) || '(none)'}`
+  const prompt = buildDamageInspectionPrompt(input.context)
 
   const parts: Array<Record<string, unknown>> = [{ text: prompt }]
   for (const [index, image] of input.images.entries()) {
@@ -104,25 +110,28 @@ Slack context: ${input.context?.slice(0, 4_000) || '(none)'}`
       body: JSON.stringify({
         contents: [{ parts }],
         generationConfig: {
-          temperature: 0.1,
           responseMimeType: 'application/json',
           maxOutputTokens: 8192,
+          thinkingConfig: {
+            thinkingLevel: 'high',
+          },
         },
       }),
       signal: AbortSignal.timeout(90_000),
-    },
+    }
   )
   if (!response.ok) {
     await response.text().catch(() => '')
     throw new Error(`AI analysis request failed (${response.status})`)
   }
-  const body = await response.json() as {
+  const body = (await response.json()) as {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
     error?: { message?: string }
   }
   if (body.error) throw new Error('AI analysis request failed')
-  const rawText = body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ?? ''
+  const rawText =
+    body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ?? ''
   const parsed = parseDamageAnalysis(rawText)
-  if (!parsed.data) return { ...reviewResult(parsed.error ?? 'AI analysis returned an invalid response'), rawText }
+  if (!parsed.data) throw new Error(parsed.error ?? 'AI analysis returned an invalid response')
   return { analysis: parsed.data, rawText, parseError: null }
 }

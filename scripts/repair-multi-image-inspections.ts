@@ -21,9 +21,12 @@ async function main() {
   const from = args.get('--from')
   const to = args.get('--to')
   const execute = args.has('--execute')
+  const force = args.has('--force')
+  const inspectionId = args.get('--inspection')
+  const analysisVersion = args.get('--analysis-version') ?? 'van-damage-v2'
   if (!tenantId || !from || !to) {
     throw new Error(
-      'Usage: tsx scripts/repair-multi-image-inspections.ts --tenant UUID --from ISO --to ISO [--execute]'
+      'Usage: tsx scripts/repair-multi-image-inspections.ts --tenant UUID --from ISO --to ISO [--inspection UUID] [--analysis-version VERSION] [--force] [--execute]'
     )
   }
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -33,7 +36,7 @@ async function main() {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
-  const { data: inspections, error } = await db
+  let inspectionQuery = db
     .from('van_damage_inspections')
     .select('id,tenant_id,business_id,created_at,ai_confidence,image_count')
     .eq('tenant_id', tenantId)
@@ -41,6 +44,8 @@ async function main() {
     .lte('created_at', to)
     .gt('image_count', 1)
     .order('created_at', { ascending: true })
+  if (inspectionId) inspectionQuery = inspectionQuery.eq('id', inspectionId)
+  const { data: inspections, error } = await inspectionQuery
   if (error) throw error
 
   let missingTotal = 0
@@ -54,7 +59,7 @@ async function main() {
         .eq('inspection_id', inspection.id),
       db
         .from('van_damage_image_analyses')
-        .select('image_id,status')
+        .select('image_id,status,analysis_version')
         .eq('tenant_id', tenantId)
         .eq('inspection_id', inspection.id),
       db
@@ -67,10 +72,16 @@ async function main() {
     ])
     const valid = new Set(
       (analyses ?? [])
-        .filter((analysis) => ['completed', 'needs_review'].includes(analysis.status))
+        .filter(
+          (analysis) =>
+            analysis.analysis_version === analysisVersion &&
+            ['completed', 'needs_review'].includes(analysis.status)
+        )
         .map((analysis) => analysis.image_id)
     )
-    const missing = (images ?? []).filter((image) => image.slack_file_id && !valid.has(image.id))
+    const missing = (images ?? []).filter(
+      (image) => image.slack_file_id && (force || !valid.has(image.id))
+    )
     if (!missing.length) {
       if (execute)
         await db.rpc('recalculate_van_damage_inspection_analysis', {
@@ -86,6 +97,8 @@ async function main() {
         inspectionId: inspection.id,
         imageCount: inspection.image_count,
         missingImageCount: missing.length,
+        analysisVersion,
+        force,
       })
     )
     if (!execute) continue
@@ -96,7 +109,7 @@ async function main() {
     }
     for (const image of missing) {
       const proposedJobId = crypto.randomUUID()
-      const idempotencyKey = `${tenantId}:${image.id}:van-damage-v2`
+      const idempotencyKey = `${tenantId}:${image.id}:${analysisVersion}`
       const proposedPayload = vanDamageJobSchema.parse({
         ...template,
         version: 'v1',
@@ -108,7 +121,7 @@ async function main() {
         imageId: image.id,
         slackFileId: image.slack_file_id,
         slackFileIds: [image.slack_file_id],
-        analysisVersion: 'van-damage-v2',
+        analysisVersion,
         createdAt: new Date().toISOString(),
       })
       const { error: insertError } = await db.from('van_damage_jobs').insert({
@@ -179,7 +192,13 @@ async function main() {
       action: 'van_damage.multi_image_recovery_queued',
       entity_type: 'van_damage_inspection',
       entity_id: inspection.id,
-      metadata: { queued_image_count: missing.length, from, to },
+      metadata: {
+        queued_image_count: missing.length,
+        from,
+        to,
+        analysis_version: analysisVersion,
+        force,
+      },
     })
     await db.rpc('recalculate_van_damage_inspection_analysis', {
       p_tenant_id: tenantId,
