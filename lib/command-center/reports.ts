@@ -660,7 +660,9 @@ async function loadFleetWeeklyInspectionsReport(
 ): Promise<ReportData> {
   const { data, error } = await reportDb(context)
     .from('van_damage_inspections')
-    .select('id,van_id,title,status,review_status,image_count,damage_count,created_at')
+    .select(
+      'id,van_id,title,status,review_status,image_count,damage_count,created_at,completed_at,updated_at'
+    )
     .eq('tenant_id', context.tenantId)
     .eq('business_id', context.tenantId)
     .gte('created_at', range.startIso)
@@ -669,15 +671,21 @@ async function loadFleetWeeklyInspectionsReport(
     .limit(5000)
   if (error) throw new Error(error.code)
   const rawRows = ((data ?? []) as Array<Record<string, unknown>>)
+  const inspectionIds = rawRows.map((row) => text(row.id)).filter(Boolean)
+  const [imageCounts, damageCounts] = await Promise.all([
+    loadInspectionImageCounts(context, inspectionIds),
+    loadInspectionDamageCounts(context, inspectionIds),
+  ])
   const vehicles = await loadReportVehicles(context, rawRows.map((row) => text(row.van_id)))
   const rows = rawRows.map((row) => ({
     created_at: formatDate(row.created_at, context.timeZone),
     vehicle:
       vehicleLabel(vehicles, text(row.van_id)) || text(row.title) || 'Unassigned',
     status: text(row.review_status || row.status),
-    images: number(row.image_count),
-    damage: number(row.damage_count),
+    images: imageCounts.get(text(row.id)) ?? number(row.image_count),
+    damage: damageCounts.get(text(row.id)) ?? number(row.damage_count),
   }))
+  const latestUpdatedAt = latestTimestamp(rawRows, ['updated_at', 'completed_at', 'created_at'])
   return {
     summary: [
       { label: 'Inspections', value: rows.length },
@@ -685,6 +693,14 @@ async function loadFleetWeeklyInspectionsReport(
         label: 'Needs review',
         value: rawRows.filter((row) => /review|pending/i.test(text(row.review_status || row.status)))
           .length,
+      },
+      {
+        label: 'Images received',
+        value: rows.reduce((sum, row) => sum + number(row.images), 0),
+      },
+      {
+        label: 'Latest update',
+        value: latestUpdatedAt ? formatDate(latestUpdatedAt, context.timeZone) : 'No updates',
       },
     ],
     columns: [
@@ -704,50 +720,70 @@ async function loadFleetDamageByVanReport(
   range: { startIso: string; endIso: string }
 ): Promise<ReportData> {
   const { data, error } = await reportDb(context)
-    .from('van_damage_observations')
+    .from('van_damage_cases')
     .select(
-      'id,inspection_id,van_id,canonical_region,vehicle_area,normalized_damage_type,original_damage_type,severity,confidence,observed_at'
+      'id,van_id,canonical_region,normalized_damage_type,original_damage_type,effective_damage_type,current_severity,max_observed_severity,effective_severity,lifecycle_status,needs_review,observation_count,first_detected_inspection_id,latest_observed_inspection_id,first_detected_at,last_observed_at,updated_at'
     )
     .eq('tenant_id', context.tenantId)
     .eq('business_id', context.tenantId)
-    .gte('observed_at', range.startIso)
-    .lt('observed_at', range.endIso)
-    .order('observed_at', { ascending: false })
+    .gte('updated_at', range.startIso)
+    .lt('updated_at', range.endIso)
+    .order('updated_at', { ascending: false })
     .limit(5000)
   if (error) throw new Error(error.code)
   const rawRows = ((data ?? []) as Array<Record<string, unknown>>)
   const vehicles = await loadReportVehicles(context, rawRows.map((row) => text(row.van_id)))
   const rows = rawRows.map((row) => ({
-    created_at: formatDate(row.observed_at, context.timeZone),
+    created_at: formatDate(row.last_observed_at, context.timeZone),
     vehicle: vehicleLabel(vehicles, text(row.van_id)) || 'Unassigned',
-    inspection: `Inspection ${text(row.inspection_id).slice(0, 8)}`,
-    area: text(row.canonical_region || row.vehicle_area).replaceAll('_', ' ') || 'Unspecified',
+    inspection: `Inspection ${text(row.latest_observed_inspection_id || row.first_detected_inspection_id).slice(0, 8)}`,
+    area: text(row.canonical_region).replaceAll('_', ' ') || 'Unspecified',
     type:
-      text(row.normalized_damage_type || row.original_damage_type).replaceAll('_', ' ') ||
-      'Unspecified',
-    severity: text(row.severity).replaceAll('_', ' ') || 'Unspecified',
-    confidence: formatConfidence(row.confidence),
+      text(row.effective_damage_type || row.normalized_damage_type || row.original_damage_type)
+        .replaceAll('_', ' ') || 'Unspecified',
+    severity:
+      text(row.effective_severity || row.current_severity || row.max_observed_severity).replaceAll(
+        '_',
+        ' '
+      ) || 'Unspecified',
+    status: text(row.lifecycle_status).replaceAll('_', ' ') || 'active',
+    observations: number(row.observation_count),
   }))
+  const activeRows = rawRows.filter(
+    (row) => !/repaired|resolved|closed|dismissed/i.test(text(row.lifecycle_status))
+  )
+  const severeRows = activeRows.filter((row) =>
+    /3|severe|critical|level_3|high/i.test(
+      text(row.effective_severity || row.current_severity || row.max_observed_severity)
+    )
+  )
+  const latestUpdatedAt = latestTimestamp(rawRows, ['updated_at', 'last_observed_at'])
   return {
     summary: [
-      { label: 'Damage observations', value: rows.length },
+      { label: 'Current damage cases', value: rows.length },
+      { label: 'Active cases', value: activeRows.length },
       {
-        label: 'Severe observations',
-        value: rawRows.filter((row) => /3|severe|critical/i.test(text(row.severity))).length,
+        label: 'Active severe cases',
+        value: severeRows.length,
       },
       {
-        label: 'Vans with observations',
+        label: 'Vans with damage',
         value: new Set(rawRows.map((row) => text(row.van_id)).filter(Boolean)).size,
+      },
+      {
+        label: 'Latest update',
+        value: latestUpdatedAt ? formatDate(latestUpdatedAt, context.timeZone) : 'No updates',
       },
     ],
     columns: [
-      { key: 'created_at', label: 'Detected' },
+      { key: 'created_at', label: 'Last observed' },
       { key: 'vehicle', label: 'Vehicle' },
-      { key: 'inspection', label: 'Inspection' },
+      { key: 'inspection', label: 'Latest inspection' },
       { key: 'area', label: 'Vehicle area' },
       { key: 'type', label: 'Damage type' },
-      { key: 'severity', label: 'Severity' },
-      { key: 'confidence', label: 'Confidence' },
+      { key: 'severity', label: 'Current severity' },
+      { key: 'status', label: 'Current status' },
+      { key: 'observations', label: 'Observations' },
     ],
     rows,
     emptyMessage: 'No damage findings were recorded in this period.',
@@ -761,34 +797,60 @@ async function loadFleetMaintenanceCostReport(
   const { data, error } = await reportDb(context)
     .from('fleet_maintenance_items')
     .select(
-      'id,maintenance_number,title,status,van_id,estimated_cost,actual_cost,currency,reported_at'
+      'id,maintenance_number,title,status,van_id,estimated_cost,actual_cost,currency,reported_at,completed_at,latest_activity_at,updated_at'
     )
     .eq('tenant_id', context.tenantId)
     .eq('business_id', context.tenantId)
-    .gte('reported_at', range.startIso)
-    .lt('reported_at', range.endIso)
-    .order('reported_at', { ascending: false })
+    .gte('latest_activity_at', range.startIso)
+    .lt('latest_activity_at', range.endIso)
+    .order('latest_activity_at', { ascending: false })
     .limit(5000)
   if (error) throw new Error(error.code)
   const rawRows = ((data ?? []) as Array<Record<string, unknown>>)
   const vehicles = await loadReportVehicles(context, rawRows.map((row) => text(row.van_id)))
   const rows = rawRows.map((row) => ({
-    reported_at: formatDate(row.reported_at, context.timeZone),
+    reported_at: formatDate(row.latest_activity_at || row.reported_at, context.timeZone),
     item: `#${number(row.maintenance_number)} ${text(row.title)}`,
     status: text(row.status).replaceAll('_', ' '),
     vehicle: vehicleLabel(vehicles, text(row.van_id)) || 'Unassigned',
     estimated: formatDecimalMoney(row.estimated_cost, text(row.currency) || 'USD'),
     actual: formatDecimalMoney(row.actual_cost, text(row.currency) || 'USD'),
   }))
+  const activeStatuses = new Set([
+    'reported',
+    'needs_review',
+    'approved',
+    'scheduled',
+    'waiting_for_parts',
+    'in_progress',
+    'reopened',
+  ])
+  const latestUpdatedAt = latestTimestamp(rawRows, [
+    'updated_at',
+    'latest_activity_at',
+    'reported_at',
+  ])
   return {
     summary: [
       { label: 'Maintenance items', value: rows.length },
+      {
+        label: 'Active items',
+        value: rawRows.filter((row) => activeStatuses.has(text(row.status))).length,
+      },
+      {
+        label: 'Completed items',
+        value: rawRows.filter((row) => text(row.status) === 'completed').length,
+      },
       {
         label: 'Actual cost',
         value: formatDecimalMoney(
           rawRows.reduce((sum, row) => sum + number(row.actual_cost), 0),
           'USD'
         ),
+      },
+      {
+        label: 'Latest update',
+        value: latestUpdatedAt ? formatDate(latestUpdatedAt, context.timeZone) : 'No updates',
       },
     ],
     columns: [
@@ -821,13 +883,17 @@ async function loadFleetDriverUploadHistoryReport(
     .limit(5000)
   if (error) throw new Error(error.code)
   const rawRows = ((data ?? []) as Array<Record<string, unknown>>)
+  const sessionImageCounts = await loadSessionImageCounts(
+    context,
+    rawRows.map((row) => text(row.id)).filter(Boolean)
+  )
   const vehicles = await loadReportVehicles(context, rawRows.map((row) => text(row.van_id)))
   const rows = rawRows.map((row) => ({
     created_at: formatDate(row.upload_started_at, context.timeZone),
     driver: formatDriverName(asRecord(row.driver_snapshot)) || text(row.slack_user_id) || 'Unknown uploader',
     inspection: `Inspection ${text(row.inspection_id).slice(0, 8)}`,
     vehicle: vehicleLabel(vehicles, text(row.van_id)) || 'Unassigned',
-    images: number(row.image_count),
+    images: sessionImageCounts.get(text(row.id)) ?? number(row.image_count),
     status: text(row.status).replaceAll('_', ' '),
   }))
   return {
@@ -853,6 +919,70 @@ async function loadFleetDriverUploadHistoryReport(
     rows,
     emptyMessage: 'No attributed inspection uploads were found in this period.',
   }
+}
+
+async function loadInspectionImageCounts(
+  context: CommandCenterContext,
+  inspectionIds: string[]
+): Promise<Map<string, number>> {
+  if (!inspectionIds.length) return new Map()
+  const { data, error } = await reportDb(context)
+    .from('van_damage_images')
+    .select('inspection_id,status')
+    .eq('tenant_id', context.tenantId)
+    .eq('business_id', context.tenantId)
+    .in('inspection_id', inspectionIds)
+    .limit(10000)
+  if (error) throw new Error(error.code)
+  return countBy(
+    (data ?? []).filter((row) => !/failed|deleted|archived/i.test(text(row.status))),
+    'inspection_id'
+  )
+}
+
+async function loadInspectionDamageCounts(
+  context: CommandCenterContext,
+  inspectionIds: string[]
+): Promise<Map<string, number>> {
+  if (!inspectionIds.length) return new Map()
+  const { data, error } = await reportDb(context)
+    .from('van_damage_observations')
+    .select('inspection_id')
+    .eq('tenant_id', context.tenantId)
+    .eq('business_id', context.tenantId)
+    .in('inspection_id', inspectionIds)
+    .limit(10000)
+  if (error) throw new Error(error.code)
+  return countBy(data ?? [], 'inspection_id')
+}
+
+async function loadSessionImageCounts(
+  context: CommandCenterContext,
+  sessionIds: string[]
+): Promise<Map<string, number>> {
+  if (!sessionIds.length) return new Map()
+  const { data, error } = await reportDb(context)
+    .from('van_damage_images')
+    .select('upload_session_id,status')
+    .eq('tenant_id', context.tenantId)
+    .eq('business_id', context.tenantId)
+    .in('upload_session_id', sessionIds)
+    .limit(10000)
+  if (error) throw new Error(error.code)
+  return countBy(
+    (data ?? []).filter((row) => !/failed|deleted|archived/i.test(text(row.status))),
+    'upload_session_id'
+  )
+}
+
+function countBy(rows: Array<Record<string, unknown>>, key: string): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const row of rows) {
+    const value = text(row[key])
+    if (!value) continue
+    counts.set(value, (counts.get(value) ?? 0) + 1)
+  }
+  return counts
 }
 
 async function loadReportVehicles(
@@ -886,10 +1016,16 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {}
 }
 
-function formatConfidence(value: unknown): string {
-  if (value === null || value === undefined) return 'Not available'
-  const confidence = number(value)
-  return confidence <= 1 ? `${Math.round(confidence * 100)}%` : `${Math.round(confidence)}%`
+function latestTimestamp(rows: Array<Record<string, unknown>>, fields: string[]): string {
+  let latest = ''
+  for (const row of rows) {
+    for (const field of fields) {
+      const value = text(row[field])
+      if (!value) continue
+      if (!latest || Date.parse(value) > Date.parse(latest)) latest = value
+    }
+  }
+  return latest
 }
 
 interface UntypedReportQuery {
