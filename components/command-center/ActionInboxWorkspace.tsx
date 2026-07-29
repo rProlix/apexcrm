@@ -396,6 +396,7 @@ function ActionEvidencePreview({
       <SignedDamageImage
         imageId={imageId}
         businessId={businessId}
+        profile="thumbnail"
         alt={alt}
         sizes="(max-width: 1024px) 100vw, 18rem"
         eager={eager}

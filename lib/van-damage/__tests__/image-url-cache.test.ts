@@ -62,11 +62,39 @@ test('signed URL cache keys preserve tenant isolation', async () => {
   assert.equal(requests, 2)
 })
 
+test('signed URL cache keys preserve derivative profile isolation', async () => {
+  let requests = 0
+  const fetcher = async (input: RequestInfo | URL) => {
+    requests += 1
+    assert.match(String(input), /profile=(thumbnail|large)/)
+    return response(`https://private-s3.example/image?signature=${requests}`)
+  }
+  const thumbnail = await getSignedDamageImageUrl({
+    imageId: 'same-image',
+    businessId: 'tenant-1',
+    profile: 'thumbnail',
+    fetcher,
+    now: 1_000,
+  })
+  const large = await getSignedDamageImageUrl({
+    imageId: 'same-image',
+    businessId: 'tenant-1',
+    profile: 'large',
+    fetcher,
+    now: 1_000,
+  })
+  assert.notEqual(thumbnail.url, large.url)
+  assert.equal(requests, 2)
+  assert.equal(getSignedDamageImageCacheSize(), 2)
+})
+
 test('signed URL endpoint preserves authorization scope and private caching', async () => {
   const source = await readFile(new URL('../../../app/api/van-damage/images/[imageId]/signed-url/route.ts', import.meta.url), 'utf8')
   assert.match(source, /resolveVanDamageAccess/)
   assert.match(source, /\.eq\('tenant_id', access\.tenantId\)/)
   assert.match(source, /\.eq\('business_id', access\.businessId\)/)
+  assert.match(source, /profile/)
+  assert.match(source, /van_damage_image_assets/)
   assert.match(source, /'Cache-Control': `private,/)
   assert.doesNotMatch(source, /Cache-Control': `public/)
 })

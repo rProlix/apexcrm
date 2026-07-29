@@ -123,6 +123,7 @@ export function RecentInspectionsList({
                             <SignedDamageImage
                               imageId={inspection.latestImageId}
                               businessId={businessId}
+                              profile="thumbnail"
                               alt={`Inspection thumbnail for ${inspection.vanNumber ? `Van ${inspection.vanNumber}` : inspection.vanName}`}
                               eager={index < 2 && group === 'Today'}
                               sizes="120px"

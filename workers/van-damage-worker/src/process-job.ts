@@ -16,6 +16,7 @@ import { S3Storage } from './s3-storage.js'
 import { analyzeVanDamage, getDamagePromptVersion } from './gemini-damage-analysis.js'
 import { SupabaseWorker, type WorkerVanProfile } from './supabase-worker.js'
 import { extractVanNumber } from './van-number-parser.js'
+import { sha256Hex } from '../../../lib/van-damage/image-lifecycle.js'
 
 export type ProcessResult = 'success' | 'retry'
 export type JobRuntimeMetadata = {
@@ -28,6 +29,13 @@ type PersistencePort = Pick<
   SupabaseWorker,
   | 'claimJob'
   | 'loadIntegrationForJob'
+  | 'findReusableOriginal'
+  | 'markImageAsExactDuplicate'
+  | 'upsertOriginalAsset'
+  | 'upsertDerivativeAssets'
+  | 'findReusableDamageAnalysis'
+  | 'writeDamageAnalysisCache'
+  | 'recordAiUsage'
   | 'upsertImageS3Info'
   | 'createAiRun'
   | 'saveAiRawResponse'
@@ -38,7 +46,7 @@ type PersistencePort = Pick<
   | 'markInspectionNeedsReview'
   | 'updateVanProfileAfterInspection'
 >
-type StoragePort = Pick<S3Storage, 'uploadOriginal'>
+type StoragePort = Pick<S3Storage, 'uploadOriginal' | 'uploadDerivatives'>
 
 export async function processMessageBody(
   body: string,
@@ -167,29 +175,85 @@ export async function processMessageBody(
       slackFileId: file.id,
       bytes: data.length,
     })
-    logger.info('S3 upload started', { ...jobContext, slackFileId: file.id })
-    const uploaded = await storage.uploadOriginal({
+    const imageSha256 = sha256Hex(data)
+    const duplicate = await persistence.findReusableOriginal({
       tenantId: job.tenantId,
       businessId: job.businessId,
-      inspectionId: job.inspectionId,
-      slackFileId: file.id,
-      fileName: file.name,
-      contentType: file.mimetype,
-      body: data,
+      imageId: image.id,
+      sha256: imageSha256,
     })
-    logger.info('S3 upload completed', {
-      ...jobContext,
-      slackFileId: file.id,
-      bucket: uploaded.bucket,
-      key: uploaded.key,
-    })
-    await persistence.upsertImageS3Info(job, image.id, {
-      ...uploaded,
-      contentType: file.mimetype,
-      size: data.length,
-      width: file.width,
-      height: file.height,
-    })
+    if (duplicate) {
+      logger.info('Exact duplicate original detected', {
+        ...jobContext,
+        duplicateOfImageId: duplicate.imageId,
+      })
+      await persistence.markImageAsExactDuplicate(job, image.id, duplicate, imageSha256)
+    } else {
+      logger.info('S3 upload started', { ...jobContext, slackFileId: file.id })
+      const uploaded = await storage.uploadOriginal({
+        tenantId: job.tenantId,
+        businessId: job.businessId,
+        inspectionId: job.inspectionId,
+        imageId: image.id,
+        vehicleId: vanProfile?.id ?? null,
+        slackFileId: file.id,
+        fileName: file.name,
+        contentType: file.mimetype,
+        body: data,
+        sha256: imageSha256,
+      })
+      logger.info('S3 upload completed', {
+        ...jobContext,
+        slackFileId: file.id,
+        bucket: uploaded.bucket,
+        key: uploaded.key,
+      })
+      await persistence.upsertImageS3Info(job, image.id, {
+        ...uploaded,
+        contentType: file.mimetype,
+        size: data.length,
+        width: file.width,
+        height: file.height,
+      })
+      await persistence.upsertOriginalAsset({
+        job,
+        imageId: image.id,
+        vanId: vanProfile?.id ?? null,
+        ...uploaded,
+        contentType: file.mimetype,
+        size: data.length,
+        width: file.width,
+        height: file.height,
+        sha256: imageSha256,
+        source: 'slack',
+      })
+      try {
+        const derivatives = await storage.uploadDerivatives({
+          tenantId: job.tenantId,
+          businessId: job.businessId,
+          inspectionId: job.inspectionId,
+          imageId: image.id,
+          vehicleId: vanProfile?.id ?? null,
+          body: data,
+        })
+        await persistence.upsertDerivativeAssets({
+          job,
+          imageId: image.id,
+          vanId: vanProfile?.id ?? null,
+          sourceSha256: imageSha256,
+          derivatives,
+        })
+        logger.info('Image derivatives completed', {
+          ...jobContext,
+          derivativeCount: derivatives.length,
+        })
+      } catch (error) {
+        logger.warn('Image derivative generation failed without deleting original', {
+          ...jobContext,
+          failureCategory: classifyFailure(error),
+        })
+      }
+    }
     logger.info('Supabase update completed', {
       ...jobContext,
       operation: 'upsertImageS3Info',
@@ -213,6 +277,54 @@ export async function processMessageBody(
       }
     )
     logger.info('Supabase update completed', { ...jobContext, operation: 'createAiRun', aiRunId })
+    const cached = await persistence.findReusableDamageAnalysis({
+      tenantId: job.tenantId,
+      businessId: job.businessId,
+      imageSha256,
+      promptVersion: getDamagePromptVersion(),
+      modelCapabilityVersion: 'primary_vision_v1',
+    })
+    if (cached) {
+      await persistence.recordAiUsage({
+        job,
+        aiRunId,
+        cacheEntryId: cached.id,
+        cacheStatus: 'hit',
+        inputBytes: data.length,
+        inputWidth: file.width,
+        inputHeight: file.height,
+        estimatedCostAvoided: cached.estimatedCostAvoided,
+      })
+      await persistence.saveAiRawResponse(job, aiRunId, '', null)
+      const cachedAnalysis = {
+        ...cached.result,
+        needsHumanReview: cached.result.needsHumanReview || !vanNumber,
+        warnings: [
+          ...cached.result.warnings,
+          'Automated result reused from a matching private evidence analysis.',
+          ...(!vanNumber ? ['Vehicle identity requires review'] : []),
+        ],
+      }
+      const aggregate = await persistence.completeImageAnalysis({
+        job,
+        aiRunId,
+        analysis: cachedAnalysis,
+      })
+      logger.info('AI analysis cache hit completed', {
+        ...jobContext,
+        cacheEntryId: cached.id,
+        aggregateStatus: aggregate.status,
+      })
+      return 'success'
+    }
+    await persistence.recordAiUsage({
+      job,
+      aiRunId,
+      cacheStatus: 'miss',
+      inputBytes: data.length,
+      inputWidth: file.width,
+      inputHeight: file.height,
+    })
     const analysisStartedAt = Date.now()
     logger.info('AI analysis started', { ...jobContext, imageCount: 1 })
     const result = await analyze({
@@ -249,6 +361,25 @@ export async function processMessageBody(
         ...(!vanNumber ? ['Vehicle identity requires review'] : []),
       ],
     }
+    const cacheEntryId = await persistence.writeDamageAnalysisCache({
+      job,
+      imageSha256,
+      promptVersion: getDamagePromptVersion(),
+      modelCapabilityVersion: 'primary_vision_v1',
+      analysis,
+      estimatedCost: estimateDamageAnalysisCost(data.length),
+    })
+    await persistence.recordAiUsage({
+      job,
+      aiRunId,
+      cacheEntryId,
+      cacheStatus: 'write',
+      durationMs: Date.now() - analysisStartedAt,
+      inputBytes: data.length,
+      inputWidth: file.width,
+      inputHeight: file.height,
+      estimatedCost: estimateDamageAnalysisCost(data.length),
+    })
     const aggregate = await persistence.completeImageAnalysis({ job, aiRunId, analysis })
     logger.info('Supabase update completed', {
       ...jobContext,
@@ -300,6 +431,10 @@ export async function processMessageBody(
     )
     return terminal ? 'success' : 'retry'
   }
+}
+
+function estimateDamageAnalysisCost(inputBytes: number) {
+  return Math.max(0.002, Math.min(0.03, inputBytes / 1024 / 1024 * 0.003))
 }
 
 function stringFromMetadata(value: unknown): string {

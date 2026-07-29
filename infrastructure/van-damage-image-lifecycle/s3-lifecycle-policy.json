@@ -1,0 +1,82 @@
+{
+  "Rules": [
+    {
+      "ID": "van-damage-original-evidence-retention",
+      "Status": "Enabled",
+      "Filter": {
+        "And": {
+          "Prefix": "tenants/",
+          "Tags": [
+            {
+              "Key": "asset-type",
+              "Value": "original"
+            },
+            {
+              "Key": "evidence-class",
+              "Value": "original"
+            }
+          ]
+        }
+      },
+      "Transitions": [
+        {
+          "Days": 90,
+          "StorageClass": "STANDARD_IA"
+        },
+        {
+          "Days": 365,
+          "StorageClass": "GLACIER_IR"
+        }
+      ],
+      "NoncurrentVersionTransitions": [
+        {
+          "NoncurrentDays": 30,
+          "StorageClass": "STANDARD_IA"
+        }
+      ],
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+      }
+    },
+    {
+      "ID": "van-damage-derived-image-economy",
+      "Status": "Enabled",
+      "Filter": {
+        "And": {
+          "Prefix": "tenants/",
+          "Tags": [
+            {
+              "Key": "evidence-class",
+              "Value": "derivative"
+            }
+          ]
+        }
+      },
+      "Transitions": [
+        {
+          "Days": 180,
+          "StorageClass": "STANDARD_IA"
+        }
+      ],
+      "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 30
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+      }
+    },
+    {
+      "ID": "van-damage-temporary-workspace-expiration",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "temporary/van-damage/"
+      },
+      "Expiration": {
+        "Days": 7
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 1
+      }
+    }
+  ]
+}

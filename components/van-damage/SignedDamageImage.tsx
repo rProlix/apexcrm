@@ -8,11 +8,13 @@ import { getSignedDamageImageUrl, invalidateSignedDamageImageUrl } from '@/lib/v
 export function useSignedDamageImageUrl({
   imageId,
   businessId,
+  profile = 'medium',
   enabled = true,
   onUrl,
 }: {
   imageId: string
   businessId: string
+  profile?: 'thumbnail' | 'medium' | 'large' | 'original'
   enabled?: boolean
   onUrl?: (url: string) => void
 }) {
@@ -27,10 +29,10 @@ export function useSignedDamageImageUrl({
     if (!enabled) return
     const requestId = ++requestRef.current
     setLoading(true)
-    setError(null)
-    try {
-      if (forceRefresh) invalidateSignedDamageImageUrl(imageId, businessId)
-      const result = await getSignedDamageImageUrl({ imageId, businessId, forceRefresh })
+      setError(null)
+      try {
+        if (forceRefresh) invalidateSignedDamageImageUrl(imageId, businessId)
+      const result = await getSignedDamageImageUrl({ imageId, businessId, profile, forceRefresh })
       if (requestRef.current !== requestId) return
       setUrl(result.url)
       onUrlRef.current?.(result.url)
@@ -40,7 +42,7 @@ export function useSignedDamageImageUrl({
     } finally {
       if (requestRef.current === requestId) setLoading(false)
     }
-  }, [businessId, enabled, imageId])
+  }, [businessId, enabled, imageId, profile])
 
   useEffect(() => {
     if (enabled) void load()
@@ -55,6 +57,7 @@ export function useSignedDamageImageUrl({
 export function SignedDamageImage({
   imageId,
   businessId,
+  profile = 'medium',
   alt,
   eager = false,
   sizes = '(max-width: 640px) 100vw, 33vw',
@@ -63,6 +66,7 @@ export function SignedDamageImage({
 }: {
   imageId: string
   businessId: string
+  profile?: 'thumbnail' | 'medium' | 'large' | 'original'
   alt: string
   eager?: boolean
   sizes?: string
@@ -73,7 +77,7 @@ export function SignedDamageImage({
   const [visible, setVisible] = useState(eager)
   const [loaded, setLoaded] = useState(false)
   const [refreshAttempted, setRefreshAttempted] = useState(false)
-  const { url, error, retry } = useSignedDamageImageUrl({ imageId, businessId, enabled: visible, onUrl })
+  const { url, error, retry } = useSignedDamageImageUrl({ imageId, businessId, profile, enabled: visible, onUrl })
 
   useEffect(() => {
     if (visible || !containerRef.current || typeof IntersectionObserver === 'undefined') {

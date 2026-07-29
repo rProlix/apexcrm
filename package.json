@@ -19,7 +19,8 @@
     "worker:van:build": "npm --prefix workers/van-damage-worker run build",
     "worker:van:start": "npm --prefix workers/van-damage-worker run start",
     "worker:van:dev": "npm --prefix workers/van-damage-worker run dev",
-    "worker:van:health": "npm --prefix workers/van-damage-worker run health"
+    "worker:van:health": "npm --prefix workers/van-damage-worker run health",
+    "infra:van-lifecycle": "node scripts/apply-van-damage-s3-lifecycle.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1045.0",

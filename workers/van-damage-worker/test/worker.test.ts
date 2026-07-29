@@ -179,6 +179,20 @@ test('S3 original keys are deterministic and sanitize filenames', () => {
     key,
     'tenants/tenant/van-damage/business/inspections/inspection/original/F1-van-photo.jpg'
   )
+  const lifecycleKey = buildOriginalKey({
+    tenantId: 'tenant 1',
+    businessId: 'tenant 1',
+    inspectionId: 'inspection/1',
+    imageId: 'image/1',
+    vehicleId: '../van 44',
+    slackFileId: 'F1',
+    fileName: '../../van photo?.jpg',
+    contentType: 'image/jpeg',
+  })
+  assert.equal(
+    lifecycleKey,
+    'tenants/tenant-1/vehicles/van-44/inspections/inspection-1/images/image-1/original/F1-van-photo-.jpg'
+  )
 })
 
 test('van number parser resolves explicit, hashtag, and number-only Slack text', () => {
@@ -262,6 +276,13 @@ test('completed duplicate and permanently orphaned jobs are successful no-ops', 
     const persistence = {
       claimJob: async () => claim,
       loadIntegrationForJob: unused,
+      findReusableOriginal: unused,
+      markImageAsExactDuplicate: unused,
+      upsertOriginalAsset: unused,
+      upsertDerivativeAssets: unused,
+      findReusableDamageAnalysis: unused,
+      writeDamageAnalysisCache: unused,
+      recordAiUsage: unused,
       upsertImageS3Info: unused,
       createAiRun: unused,
       saveAiRawResponse: unused,
@@ -275,7 +296,7 @@ test('completed duplicate and permanently orphaned jobs are successful no-ops', 
     const result = await processMessageBody(body, {
       config,
       persistence,
-      storage: { uploadOriginal: unused },
+      storage: { uploadOriginal: unused, uploadDerivatives: unused },
     })
     assert.equal(result, 'success', claim)
   }
@@ -311,7 +332,7 @@ test('Supabase job claims include the full tenant/business/inspection scope', ()
     p_image_id: job.imageId,
     p_stale_before: '2026-07-04T00:00:00.000Z',
   })
-  assert.equal(WORKER_SCHEMA_CONTRACT_VERSION, '2026-07-28-v2')
+  assert.equal(WORKER_SCHEMA_CONTRACT_VERSION, '2026-07-29-v1')
 })
 
 test('invalid messages remain available for SQS redrive', async () => {

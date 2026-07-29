@@ -341,6 +341,7 @@ function QuickPeekMediaPreview({ media }: { media: QuickPeekMedia }) {
       <SignedDamageImage
         imageId={media.imageId}
         businessId={media.businessId}
+        profile="thumbnail"
         alt={media.alt}
         sizes="(max-width: 640px) 100vw, 28rem"
         eager

@@ -562,6 +562,7 @@ function FleetDamageCardView({
           <SignedDamageImage
             imageId={imageId}
             businessId={businessId}
+            profile="thumbnail"
             alt={`${card.van_number ? `Van ${card.van_number}` : card.name} profile image`}
             fillContainer
             sizes="(min-width: 1536px) 14vw, (min-width: 1024px) 25vw, 50vw"
