@@ -1,4 +1,5 @@
 import { buildPrecisionTransitRegions } from './transit-geometry'
+import { reconcileVehicleAreaWithImageRole } from './location-resolution'
 
 export const TRANSIT_BLUEPRINT_ID = 'ford_transit_2019' as const
 export const GENERIC_BLUEPRINT_ID = 'generic_vehicle' as const
@@ -758,8 +759,15 @@ export function normalizeTransitRegion(value: string | null | undefined) {
 export function resolveItemTransitRegion(item: {
   canonical_region?: string | null
   vehicle_area?: string | null
+  source_image_role?: string | null
+  region_reviewed_by_human?: boolean
 }) {
-  return normalizeTransitRegion(item.canonical_region) ?? normalizeTransitRegion(item.vehicle_area)
+  if (item.region_reviewed_by_human) return normalizeTransitRegion(item.canonical_region)
+  const candidate =
+    normalizeTransitRegion(item.canonical_region) ?? normalizeTransitRegion(item.vehicle_area)
+  if (!candidate) return null
+  const reconciled = reconcileVehicleAreaWithImageRole(candidate, item.source_image_role)
+  return normalizeTransitRegion(reconciled.vehicleArea)
 }
 
 export function getTransitRegionDefinition(
@@ -783,7 +791,12 @@ export function getTransitViewForRegion(regionId: string | null | undefined): Tr
 
 export function transitRegionMatches(
   selectedRegion: string,
-  item: { canonical_region?: string | null; vehicle_area?: string | null }
+  item: {
+    canonical_region?: string | null
+    vehicle_area?: string | null
+    source_image_role?: string | null
+    region_reviewed_by_human?: boolean
+  }
 ) {
   const itemRegion = resolveItemTransitRegion(item)
   if (!itemRegion) return false

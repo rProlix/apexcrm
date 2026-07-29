@@ -3,6 +3,7 @@ import {
   type GeminiDamageAnalysis,
 } from '../../../lib/van-damage/contracts.js'
 import { safeParseGeminiJson } from '../../../lib/ai/parseGeminiJson.js'
+import { reconcileVehicleAreaWithImageRole } from '../../../lib/van-damage/location-resolution.js'
 
 type MutableRecord = Record<string, unknown>
 
@@ -30,16 +31,29 @@ function normalizeBoundingBox(box: unknown): unknown {
   return { x: nx, y: ny, width: nwidth, height: nheight }
 }
 
-function normalizeGeminiAnalysis(value: unknown): unknown {
+function normalizeGeminiAnalysis(
+  value: unknown,
+  imageRoles: ReadonlyArray<string | null | undefined>
+): unknown {
   if (!value || typeof value !== 'object') return value
   const analysis = value as MutableRecord
   if (!Array.isArray(analysis.items)) return value
 
-  const normalizedItems = analysis.items.map((item) => {
+  let hasLocationConflict = false
+  const normalizedItems = analysis.items.map((item, itemIndex) => {
     if (!item || typeof item !== 'object') return item
     const record = item as MutableRecord
+    const reportedImageIndex = finiteNumber(record.imageIndex)
+    const imageIndex =
+      reportedImageIndex == null ? itemIndex : Math.max(0, Math.trunc(reportedImageIndex))
+    const location = reconcileVehicleAreaWithImageRole(
+      typeof record.vehicleArea === 'string' ? record.vehicleArea : null,
+      imageRoles[imageIndex]
+    )
+    hasLocationConflict ||= location.conflict
     return {
       ...record,
+      vehicleArea: location.vehicleArea,
       severity: calibratedSeverity(record.damageType, record.severity),
       boundingBox: record.boundingBox == null ? null : normalizeBoundingBox(record.boundingBox),
     }
@@ -60,6 +74,13 @@ function normalizeGeminiAnalysis(value: unknown): unknown {
     damageRating,
     damageRatingLabel: labels[damageRating],
     items: normalizedItems,
+    needsHumanReview: analysis.needsHumanReview === true || hasLocationConflict,
+    warnings: [
+      ...(Array.isArray(analysis.warnings) ? analysis.warnings : []),
+      ...(hasLocationConflict
+        ? ['A vehicle-side label conflicted with its source image role and requires review.']
+        : []),
+    ],
   }
 }
 
@@ -105,13 +126,18 @@ function calibratedSeverity(damageType: unknown, severity: unknown) {
   return severity
 }
 
-export function parseDamageAnalysis(text: string): {
+export function parseDamageAnalysis(
+  text: string,
+  imageRoles: ReadonlyArray<string | null | undefined> = []
+): {
   data: GeminiDamageAnalysis | null
   error: string | null
 } {
   const parsed = safeParseGeminiJson<unknown>(text)
   if (!parsed.data) return { data: null, error: parsed.error }
-  const validated = geminiDamageAnalysisSchema.safeParse(normalizeGeminiAnalysis(parsed.data))
+  const validated = geminiDamageAnalysisSchema.safeParse(
+    normalizeGeminiAnalysis(parsed.data, imageRoles)
+  )
   if (!validated.success)
     return { data: null, error: validated.error.issues.map((issue) => issue.message).join('; ') }
   return { data: validated.data, error: null }

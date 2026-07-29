@@ -225,6 +225,26 @@ test('human-reviewed canonical location wins over the raw vehicle-area label', (
   )
 })
 
+test('source image role prevents opposite-side map placement unless a human reviewed it', () => {
+  assert.equal(
+    resolveItemTransitRegion({
+      canonical_region: null,
+      vehicle_area: 'driver_front_door',
+      source_image_role: 'passenger_side',
+    }),
+    'passenger_front_door'
+  )
+  assert.equal(
+    resolveItemTransitRegion({
+      canonical_region: 'passenger_rear_quarter',
+      vehicle_area: 'driver_rear_quarter',
+      source_image_role: 'driver_side',
+      region_reviewed_by_human: true,
+    }),
+    'passenger_rear_quarter'
+  )
+})
+
 test('precise AI panel locations resolve to the matching Transit map region', () => {
   const cases = [
     ['driver rear cargo panel', 'driver_rear_cargo_panel'],

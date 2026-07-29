@@ -121,13 +121,49 @@ test('damage parser promotes dents to fleet level 3 and severe map styling', () 
   assert.equal(result.data?.items[0]?.vehicleArea, 'driver_rear_cargo_panel')
 })
 
+test('damage parser corrects an opposite-side location from the source image role', () => {
+  const result = parseDamageAnalysis(
+    JSON.stringify({
+      summary: 'Passenger door dent',
+      overallConfidence: 0.83,
+      damageRating: 3,
+      damageRatingLabel: 'dents_or_damage',
+      damageRatingReason: 'Visible door deformation',
+      damageCount: 1,
+      vehicleCondition: 'fair',
+      items: [
+        {
+          imageIndex: 0,
+          damageType: 'dent',
+          vehicleArea: 'driver_front_door',
+          severity: 'high',
+          confidence: 0.83,
+          description: 'Door deformation',
+          repairRecommendation: 'Inspect and repair panel',
+          estimatedCostMin: null,
+          estimatedCostMax: null,
+          boundingBox: { x: 0.4, y: 0.25, width: 0.18, height: 0.2 },
+        },
+      ],
+      needsHumanReview: false,
+      warnings: [],
+    }),
+    ['passenger_side']
+  )
+  assert.equal(result.error, null)
+  assert.equal(result.data?.items[0]?.vehicleArea, 'passenger_front_door')
+  assert.equal(result.data?.needsHumanReview, true)
+  assert.match(result.data?.warnings[0] ?? '', /source image role/)
+})
+
 test('inspection prompt requires dent evidence and precise Transit regions', () => {
   const prompt = buildDamageInspectionPrompt('Van 44')
   assert.match(prompt, /highlights\/reflections that bend consistently/)
   assert.match(prompt, /Do not call ordinary reflections, shadows, dirt/)
   assert.match(prompt, /driver_rear_cargo_panel/)
+  assert.match(prompt, /role is authoritative/)
   assert.match(prompt, /tight bounding box around the defect itself/)
-  assert.equal(getDamagePromptVersion(), 'van-damage-v2')
+  assert.equal(getDamagePromptVersion(), 'van-damage-v3')
 })
 
 test('S3 original keys are deterministic and sanitize filenames', () => {

@@ -340,7 +340,7 @@ export default async function InspectionPage({
     looseDb
       .from('van_damage_items')
       .select(
-        'id,image_id,damage_type,normalized_damage_type,vehicle_area,canonical_region,severity,confidence,description,repair_recommendation,bounding_box,damage_case_id,observation_type,created_at'
+        'id,image_id,damage_type,normalized_damage_type,vehicle_area,canonical_region,severity,confidence,description,repair_recommendation,bounding_box,damage_case_id,observation_type,metadata,created_at'
       )
       .eq('inspection_id', inspectionId)
       .eq('tenant_id', scope.tenantId)
@@ -479,17 +479,24 @@ export default async function InspectionPage({
       updated_at: image.updated_at,
     }
   })
+  const imageRoleById = new Map(images.map((image) => [image.id, image.image_role]))
   const items = (itemsResult.data ?? []).flatMap((raw) => {
     const item = asRecord(raw)
     const id = text(item.id)
     if (!id) return []
     const damageCaseId = text(item.damage_case_id)
+    const imageId = text(item.image_id)
+    const itemMetadata = asRecord(item.metadata)
     return [
       {
         damage_case_id: damageCaseId,
         observation_type: text(item.observation_type),
         normalized_damage_type: text(item.normalized_damage_type),
         canonical_region: text(item.canonical_region),
+        source_image_role: imageId ? imageRoleById.get(imageId) ?? null : null,
+        region_reviewed_by_human:
+          typeof itemMetadata.humanReviewedCanonicalRegion === 'string' &&
+          itemMetadata.humanReviewedCanonicalRegion.trim().length > 0,
         first_attribution:
           damageCaseId && attributionByCase.has(damageCaseId)
             ? (() => {
@@ -530,7 +537,7 @@ export default async function InspectionPage({
               })()
             : null,
         id,
-        image_id: text(item.image_id),
+        image_id: imageId,
         damage_type: text(item.damage_type),
         vehicle_area: text(item.vehicle_area),
         severity: text(item.severity),

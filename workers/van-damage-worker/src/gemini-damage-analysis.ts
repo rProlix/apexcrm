@@ -10,7 +10,7 @@ export type GeminiAnalysisResult = {
   parseError: string | null
 }
 
-const PROMPT_VERSION = 'van-damage-v2'
+const PROMPT_VERSION = 'van-damage-v3'
 
 export function getDamagePromptVersion() {
   return PROMPT_VERSION
@@ -40,6 +40,9 @@ Assign the highest visible damage rating using this exact fleet scale:
 3 = any dent or panel deformation, crack, broken part, bumper/body damage, broken light/mirror/glass, or structural/functional damage
 
 Location accuracy is mandatory. Use the most specific physical region supported by the evidence. Never use a generic side or door when the exact panel and side are visible.
+Each supplied image includes a role. A driver_side or passenger_side role is authoritative for
+the visible vehicle side: never return a region from the opposite side. Driver/left and
+passenger/right always refer to the vehicle's own perspective, not the viewer's screen.
 Allowed vehicleArea values:
 front_bumper, front_bumper_driver, front_bumper_passenger, rear_bumper, rear_bumper_driver, rear_bumper_passenger,
 hood, windshield, roof_front, roof_center, roof_rear, driver_roof_edge, passenger_roof_edge,
@@ -131,7 +134,10 @@ export async function analyzeVanDamage(input: {
   if (body.error) throw new Error('AI analysis request failed')
   const rawText =
     body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ?? ''
-  const parsed = parseDamageAnalysis(rawText)
+  const parsed = parseDamageAnalysis(
+    rawText,
+    input.images.map((image) => image.role)
+  )
   if (!parsed.data) throw new Error(parsed.error ?? 'AI analysis returned an invalid response')
   return { analysis: parsed.data, rawText, parseError: null }
 }

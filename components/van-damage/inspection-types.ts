@@ -32,6 +32,8 @@ export type DamageItem = {
   observation_type?: string | null
   normalized_damage_type?: string | null
   canonical_region?: string | null
+  source_image_role?: string | null
+  region_reviewed_by_human?: boolean
   first_attribution?: {
     reporter: Record<string, unknown>
     sourceTimestamp: string | null
