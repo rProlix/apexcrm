@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useSignedDamageImageUrl } from './SignedDamageImage'
 import type { DamageImage, DamageItem } from './inspection-types'
@@ -37,6 +37,20 @@ export function DamageOverlayFrame({
     enabled: true,
     onUrl,
   })
+  const [loaded, setLoaded] = useState(false)
+  const [renderError, setRenderError] = useState<string | null>(null)
+  const [refreshAttempted, setRefreshAttempted] = useState(false)
+
+  useEffect(() => {
+    setLoaded(false)
+    setRenderError(null)
+  }, [url])
+
+  useEffect(() => {
+    setLoaded(false)
+    setRenderError(null)
+    setRefreshAttempted(false)
+  }, [image.id])
   const resolved = useMemo(
     () =>
       items.map((item, index) => ({
@@ -59,8 +73,13 @@ export function DamageOverlayFrame({
   const invalidCount = resolved.length - valid.length
 
   return (
-    <div className={cn('relative flex h-full w-full items-center justify-center overflow-hidden bg-white/[0.025]', className)}>
-      {loading && !url && (
+    <div
+      className={cn(
+        'relative flex h-full w-full items-center justify-center overflow-hidden bg-white/[0.025]',
+        className
+      )}
+    >
+      {(!loaded || loading) && !error && !renderError && (
         <div
           aria-label="Loading image"
           className="absolute inset-0 animate-pulse bg-gradient-to-r from-white/[.02] via-white/[.07] to-white/[.02]"
@@ -75,9 +94,25 @@ export function DamageOverlayFrame({
             draggable={false}
             loading={eager ? 'eager' : 'lazy'}
             fetchPriority={eager ? 'high' : 'auto'}
-            className={cn('block max-h-full max-w-full select-none object-contain', imageClassName)}
+            className={cn(
+              'block max-h-full max-w-full select-none object-contain transition-opacity duration-200',
+              loaded ? 'opacity-100' : 'opacity-0',
+              imageClassName
+            )}
             onClick={onOpen}
-            onError={() => void retry()}
+            onLoad={() => {
+              setLoaded(true)
+              setRenderError(null)
+            }}
+            onError={() => {
+              setLoaded(false)
+              if (!refreshAttempted) {
+                setRefreshAttempted(true)
+                void retry()
+                return
+              }
+              setRenderError('The full-size image could not be displayed.')
+            }}
           />
           {overlays &&
             valid.map(({ item, index, box }) => (
@@ -90,10 +125,18 @@ export function DamageOverlayFrame({
             ))}
         </div>
       ) : null}
-      {error && (
+      {(error || renderError) && (
         <div className="absolute inset-0 flex items-center justify-center p-3 text-center text-xs text-white/35">
-          <button type="button" onClick={() => void retry()} className="focus-ring rounded-lg border border-white/10 px-3 py-2">
-            Image unavailable. Retry
+          <button
+            type="button"
+            onClick={() => {
+              setRefreshAttempted(false)
+              setRenderError(null)
+              void retry()
+            }}
+            className="focus-ring rounded-lg border border-white/10 bg-black/60 px-3 py-2 text-white/70"
+          >
+            {renderError || 'Image unavailable.'} Retry
           </button>
         </div>
       )}

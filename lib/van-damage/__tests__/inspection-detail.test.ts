@@ -65,3 +65,10 @@ test('fullscreen inspection image viewer gives the evidence frame explicit dimen
   assert.match(source, /className="relative h-full w-full transition-transform/)
   assert.doesNotMatch(source, /className="relative max-h-full max-w-full transition-transform/)
 })
+
+test('fullscreen inspection viewer escapes transformed page stacking contexts through a body portal', async () => {
+  const source = await readFile(lightboxUrl, 'utf8')
+  assert.match(source, /import \{ createPortal \} from 'react-dom'/)
+  assert.match(source, /return createPortal\(/)
+  assert.match(source, /document\.body/)
+})

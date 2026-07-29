@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Download, Maximize, Minus, Plus, RotateCcw, X } from 'lucide-react'
 import type { DamageItem, ResolvedDamageImage } from './inspection-types'
@@ -71,7 +72,9 @@ export default function DamageLightbox({
 
   if (!image) return null
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <motion.div
       ref={dialogRef}
       role="dialog"
@@ -220,7 +223,8 @@ export default function DamageLightbox({
         {image.content_type || 'Unknown format'}
         {image.file_size_bytes ? ` · ${(image.file_size_bytes / 1024 / 1024).toFixed(1)} MB` : ''}
       </div>
-    </motion.div>
+    </motion.div>,
+    document.body
   )
 }
 
