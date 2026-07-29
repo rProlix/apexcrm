@@ -17,6 +17,7 @@ export function DamageOverlayFrame({
   overlays = true,
   className,
   imageClassName,
+  selectedFindingId,
   onUrl,
   onOpen,
 }: {
@@ -28,6 +29,7 @@ export function DamageOverlayFrame({
   overlays?: boolean
   className?: string
   imageClassName?: string
+  selectedFindingId?: string | null
   onUrl?: (url: string) => void
   onOpen?: () => void
 }) {
@@ -112,6 +114,7 @@ export function DamageOverlayFrame({
                 item={item}
                 index={index}
                 style={overlayBoxStyle(box)}
+                selected={item.id === selectedFindingId}
               />
             ))}
         </div>
@@ -146,10 +149,12 @@ function DamageOverlayButton({
   item,
   index,
   style,
+  selected,
 }: {
   item: DamageItem
   index: number
   style: Record<string, string>
+  selected: boolean
 }) {
   const level = normalizeDamageSeverity(item.severity)
   const review = !item.confidence || item.confidence < 0.65
@@ -164,6 +169,7 @@ function DamageOverlayButton({
   return (
     <button
       type="button"
+      aria-current={selected ? 'true' : undefined}
       aria-label={`Finding ${index + 1}: ${item.damage_type?.replaceAll('_', ' ') || 'damage'}, ${item.severity || 'unknown severity'}${review ? ', needs review' : ''}`}
       onClick={(event) => {
         event.stopPropagation()
@@ -171,12 +177,14 @@ function DamageOverlayButton({
       }}
       className={cn(
         'focus-ring group absolute z-10 border text-left shadow-[0_0_0_1px_rgba(0,0,0,.45)] transition hover:bg-opacity-25',
-        tone
+        tone,
+        selected &&
+          'z-20 ring-2 ring-white ring-offset-2 ring-offset-black shadow-[0_0_24px_rgba(255,255,255,.3)]'
       )}
       style={style}
     >
       <span className="absolute -left-px -top-6 rounded-md border border-current bg-black/75 px-1.5 py-0.5 text-[10px] font-medium backdrop-blur">
-        #{index + 1} {review ? 'Review' : `L${Math.min(3, level.level)}`}
+        #{index + 1} {selected ? 'Selected' : review ? 'Review' : `L${Math.min(3, level.level)}`}
       </span>
     </button>
   )

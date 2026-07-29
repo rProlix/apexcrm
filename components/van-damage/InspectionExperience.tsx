@@ -1107,6 +1107,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
               businessId={props.businessId}
               inspectionId={inspection.id}
               canRetry={props.canManage}
+              selectedFindingId={selectedFindingId}
             />
           </section>
 
@@ -1207,8 +1208,21 @@ export function InspectionExperience(props: InspectionExperienceProps) {
                   <article
                     id={`finding-${item.id}`}
                     key={item.id}
-                    className={`grid scroll-mt-24 gap-4 px-5 py-5 transition-colors md:grid-cols-[44px_1fr_auto] md:px-6 ${
-                      selectedFindingId === item.id ? 'bg-brand/[0.055]' : ''
+                    data-selected={selectedFindingId === item.id ? 'true' : undefined}
+                    title="Open this finding’s image and damage-map overview"
+                    onClick={(event) => {
+                      if (
+                        (event.target as HTMLElement).closest(
+                          'button, a, input, select, textarea, label'
+                        )
+                      )
+                        return
+                      focusFindingOnMap(item)
+                    }}
+                    className={`grid scroll-mt-24 cursor-pointer gap-4 px-5 py-5 transition-colors hover:bg-white/[.025] md:grid-cols-[44px_1fr_auto] md:px-6 ${
+                      selectedFindingId === item.id
+                        ? 'bg-brand/[0.075] ring-1 ring-inset ring-brand/25'
+                        : ''
                     }`}
                   >
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[.03] text-sm font-semibold text-white/45">
@@ -1308,6 +1322,15 @@ export function InspectionExperience(props: InspectionExperienceProps) {
                         {item.confidence == null ? '' : ` · ${Math.round(item.confidence * 100)}%`}
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2 md:justify-end">
+                        <button
+                          type="button"
+                          onClick={() => focusFindingOnMap(item)}
+                          className="focus-ring inline-flex items-center rounded-lg text-xs font-medium text-brand hover:text-white"
+                          aria-label={`Open image and damage-map overview for ${humanize(item.damage_type)}`}
+                        >
+                          <ExternalLink className="mr-1 h-3 w-3" />
+                          Open overview
+                        </button>
                         {resolveItemTransitRegion(item) && (
                           <button
                             onClick={() => focusFindingOnMap(item)}

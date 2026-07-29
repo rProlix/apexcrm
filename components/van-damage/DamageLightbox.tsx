@@ -24,6 +24,7 @@ export default function DamageLightbox({
   onIndexChange,
   businessId,
   origin,
+  selectedFindingId,
   onRefreshImage,
 }: {
   images: ResolvedDamageImage[]
@@ -34,6 +35,7 @@ export default function DamageLightbox({
   onIndexChange: (index: number) => void
   businessId: string
   origin: { x: number; y: number } | null
+  selectedFindingId?: string | null
   onRefreshImage: (imageId: string, url: string) => void
 }) {
   const [index, setIndex] = useState(initialIndex)
@@ -331,6 +333,7 @@ export default function DamageLightbox({
                 businessId={businessId}
                 alt={`Inspection image ${index + 1}`}
                 overlays={overlays}
+                selectedFindingId={selectedFindingId}
                 eager
                 imageClassName="max-h-[calc(100dvh-9rem)]"
                 onUrl={(url) => onRefreshImage(image.id, url)}

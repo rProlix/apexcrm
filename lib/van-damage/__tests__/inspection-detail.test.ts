@@ -15,6 +15,8 @@ const metadataApiUrl = new URL(
   import.meta.url
 )
 const lightboxUrl = new URL('../../../components/van-damage/DamageLightbox.tsx', import.meta.url)
+const galleryUrl = new URL('../../../components/van-damage/DamageImageGallery.tsx', import.meta.url)
+const overlayUrl = new URL('../../../components/van-damage/DamageOverlayFrame.tsx', import.meta.url)
 
 test('inspection report prioritizes operational status, vehicle, critical findings, evidence, and timeline', async () => {
   const component = await readFile(componentUrl, 'utf8')
@@ -92,4 +94,21 @@ test('fullscreen inspection viewer supports native pointer-based pinch zoom on t
   assert.match(source, /pinchStart\.current\.zoom/)
   assert.match(source, /style=\{\{ touchAction: 'none' \}\}/)
   assert.match(source, /useBodyScrollLock\(true\)/)
+})
+
+test('damage finding rows open their evidence image and selected map overview', async () => {
+  const [component, gallery, lightbox, overlay] = await Promise.all([
+    readFile(componentUrl, 'utf8'),
+    readFile(galleryUrl, 'utf8'),
+    readFile(lightboxUrl, 'utf8'),
+    readFile(overlayUrl, 'utf8'),
+  ])
+  assert.match(component, /title="Open this finding’s image and damage-map overview"/)
+  assert.match(component, /onClick=\{\(event\) => \{[\s\S]*focusFindingOnMap\(item\)/)
+  assert.match(component, />\s*Open overview\s*</)
+  assert.match(component, /selectedFindingId=\{selectedFindingId\}/)
+  assert.match(gallery, /selectedFindingId=\{selectedFindingId\}/)
+  assert.match(lightbox, /selectedFindingId=\{selectedFindingId\}/)
+  assert.match(overlay, /aria-current=\{selected \? 'true' : undefined\}/)
+  assert.match(overlay, /selected \? 'Selected'/)
 })

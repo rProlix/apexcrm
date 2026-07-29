@@ -18,12 +18,14 @@ export function DamageImageGallery({
   businessId,
   inspectionId,
   canRetry = false,
+  selectedFindingId = null,
 }: {
   images: DamageImage[]
   items: DamageItem[]
   businessId: string
   inspectionId?: string
   canRetry?: boolean
+  selectedFindingId?: string | null
 }) {
   const router = useRouter()
   const [resolved, setResolved] = useState<ResolvedDamageImage[]>(
@@ -233,6 +235,7 @@ export function DamageImageGallery({
                   alt={`Inspection image ${index + 1}`}
                   eager={index < 3}
                   overlays={overlays}
+                  selectedFindingId={selectedFindingId}
                   onUrl={(url) => rememberUrl(image.id, url)}
                   onOpen={() => void openImage(index)}
                   className="absolute inset-0 p-2"
@@ -303,6 +306,7 @@ export function DamageImageGallery({
             items={items}
             initialIndex={activeIndex}
             overlays={overlays}
+            selectedFindingId={selectedFindingId}
             businessId={businessId}
             origin={lightboxOrigin}
             onClose={() => {
