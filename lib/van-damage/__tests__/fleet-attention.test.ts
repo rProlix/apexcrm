@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import test from 'node:test'
 import {
   aggregateUniqueSevereVans,
@@ -155,6 +157,24 @@ test('Fleet damage sorting is deterministic for severity and van number', () => 
   assert.deepEqual([...cards].sort((a, b) => compareFleetDamageCards(a, b, 'highest_damage')).map((card) => card.van_number), ['2', '10'])
   assert.deepEqual([...cards].sort((a, b) => compareFleetDamageCards(a, b, 'van_asc')).map((card) => card.van_number), ['2', '10'])
   assert.deepEqual([...cards].sort((a, b) => compareFleetDamageCards(a, b, 'van_desc')).map((card) => card.van_number), ['10', '2'])
+})
+
+test('Fleet damage grid filters stay within the page width', async () => {
+  const source = await readFile(
+    path.join(process.cwd(), 'components/van-damage/FleetNeedsAttentionBoard.tsx'),
+    'utf8'
+  )
+  assert.match(source, /flex min-w-0 flex-col gap-4 2xl:flex-row/)
+  assert.match(
+    source,
+    /grid w-full min-w-0 max-w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3/
+  )
+  assert.match(source, /2xl:grid-cols-\[minmax\(12rem,1fr\)_minmax\(9rem,10rem\)/)
+  assert.doesNotMatch(
+    source,
+    /md:grid-cols-\[minmax\(12rem,1fr\)_10rem_11rem_11rem_13rem_auto\]/
+  )
+  assert.match(source, /className="ui-input min-h-10 w-full min-w-0 px-3 py-2 text-xs"/)
 })
 
 function vehicle(id: string, vanNumber: string) {

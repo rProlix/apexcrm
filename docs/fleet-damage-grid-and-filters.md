@@ -24,3 +24,5 @@ The Fleet page now includes a responsive all-vans grid:
 - mobile: one column.
 
 Filters are URL-backed GET parameters for search, damage level, analysis age, operational status, and sort. Search includes van number, display name, plate, make, and model.
+
+The filter bar is intentionally responsive: controls wrap at small, medium, and large widths, then collapse into a single compact row only at `2xl`. This keeps long select labels inside the Fleet page container instead of forcing horizontal page overflow.

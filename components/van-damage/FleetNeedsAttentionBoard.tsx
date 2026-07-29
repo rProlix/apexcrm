@@ -443,17 +443,17 @@ function FleetDamageGrid({
 
   return (
     <section className="rounded-2xl border border-white/[0.075] bg-[var(--surface-panel)] p-4 md:p-5">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
+      <div className="flex min-w-0 flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold text-white">Fleet damage grid</h2>
           <p className="mt-1 text-xs text-white/40">
             {activeFilterCount ? `${displayed.length} of ${cards.length} vans` : `${cards.length} vans`} · showing up to 18 vans in a 3-row damage board.
           </p>
         </div>
-        <form className="grid gap-2 md:grid-cols-[minmax(12rem,1fr)_10rem_11rem_11rem_13rem_auto]" aria-label="Filter Fleet damage grid">
-          <label className="relative">
+        <form className="grid w-full min-w-0 max-w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:max-w-[72rem] 2xl:grid-cols-[minmax(12rem,1fr)_minmax(9rem,10rem)_minmax(9rem,11rem)_minmax(9rem,11rem)_minmax(11rem,13rem)_auto]" aria-label="Filter Fleet damage grid">
+          <label className="relative min-w-0">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-white/25" />
-            <input name="q" defaultValue={searchQuery} placeholder="Search vans" className="ui-input min-h-10 py-2 pl-9 text-xs" />
+            <input name="q" defaultValue={searchQuery} placeholder="Search vans" className="ui-input min-h-10 w-full min-w-0 py-2 pl-9 text-xs" />
           </label>
           <FleetSelect name="level" value={levelFilter} label="Damage level" options={[
             ['all', 'All levels'],
@@ -502,10 +502,10 @@ function FleetDamageGrid({
             ['most_damage', 'Most active damage'],
             ['most_maintenance', 'Most active maintenance'],
           ]} />
-          <div className="flex gap-2">
-            <button className="ui-button-secondary min-h-10 px-3 text-xs">Apply</button>
+          <div className="flex min-w-0 gap-2 sm:col-span-2 lg:col-span-1 2xl:col-span-1">
+            <button className="ui-button-secondary min-h-10 flex-1 px-3 text-xs 2xl:flex-none">Apply</button>
             {activeFilterCount > 0 && (
-              <Link href="/dashboard/vehicles" className="ui-button-ghost min-h-10 px-3 text-xs">
+              <Link href="/dashboard/vehicles" className="ui-button-ghost min-h-10 flex-1 px-3 text-xs 2xl:flex-none">
                 Clear
               </Link>
             )}
@@ -618,7 +618,12 @@ function FleetSelect({
   options: Array<[string, string]>
 }) {
   return (
-    <select name={name} defaultValue={value} aria-label={label} className="ui-input min-h-10 px-3 py-2 text-xs">
+    <select
+      name={name}
+      defaultValue={value}
+      aria-label={label}
+      className="ui-input min-h-10 w-full min-w-0 px-3 py-2 text-xs"
+    >
       {options.map(([optionValue, optionLabel]) => (
         <option key={optionValue} value={optionValue}>
           {optionLabel}
