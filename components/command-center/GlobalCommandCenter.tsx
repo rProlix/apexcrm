@@ -22,6 +22,7 @@ import {
 } from '@/lib/command-center/experience'
 import type { NavModule } from '@/modules/shared/moduleTypes'
 import { MOTION_TRANSITION } from '@/lib/design-system/motion'
+import { useBodyScrollLock } from '@/lib/design-system/body-scroll-lock'
 import { cn } from '@/lib/utils'
 import { requestQuickPeek } from '@/components/command-center/QuickPeek'
 
@@ -56,6 +57,7 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  useBodyScrollLock(open)
 
   const navigation = useMemo(() => getCommandNavigation(props), [props])
   const normalized = normalizeCommandQuery(query)
@@ -113,8 +115,6 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
 
   useEffect(() => {
     if (!open) return
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     inputRef.current?.focus()
     const onDialogKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -129,7 +129,6 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
     window.addEventListener('keydown', onDialogKeyDown)
     return () => {
       window.removeEventListener('keydown', onDialogKeyDown)
-      document.body.style.overflow = previousOverflow
     }
   }, [closeDialog, open])
 

@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useBodyScrollLock } from '@/lib/design-system/body-scroll-lock'
 
 const STANDARD_HOLD_MS = 1450
 const STANDARD_EXIT_MS = 360
@@ -9,33 +10,21 @@ const REDUCED_EXIT_MS = 160
 
 export function AppLaunchScreen() {
   const [phase, setPhase] = useState<'entering' | 'leaving' | 'complete'>('entering')
-  const previousOverflow = useRef('')
+  useBodyScrollLock(phase !== 'complete')
 
   useEffect(() => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const holdDuration = reduceMotion ? REDUCED_HOLD_MS : STANDARD_HOLD_MS
     const exitDuration = reduceMotion ? REDUCED_EXIT_MS : STANDARD_EXIT_MS
-    previousOverflow.current = document.body.style.overflow
-
-    document.body.style.overflow = 'hidden'
 
     const exitTimer = window.setTimeout(() => setPhase('leaving'), holdDuration)
-    const completeTimer = window.setTimeout(
-      () => setPhase('complete'),
-      holdDuration + exitDuration
-    )
+    const completeTimer = window.setTimeout(() => setPhase('complete'), holdDuration + exitDuration)
 
     return () => {
       window.clearTimeout(exitTimer)
       window.clearTimeout(completeTimer)
-      document.body.style.overflow = previousOverflow.current
     }
   }, [])
-
-  useEffect(() => {
-    if (phase !== 'complete') return
-    document.body.style.overflow = previousOverflow.current
-  }, [phase])
 
   if (phase === 'complete') return null
 

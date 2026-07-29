@@ -84,3 +84,12 @@ test('fullscreen pan uses motion values without a lagging CSS transform transiti
   assert.doesNotMatch(source, /setOffset\(/)
   assert.doesNotMatch(source, /transition-transform duration-150/)
 })
+
+test('fullscreen inspection viewer supports native pointer-based pinch zoom on touch screens', async () => {
+  const source = await readFile(lightboxUrl, 'utf8')
+  assert.match(source, /activePointers = useRef\(new Map/)
+  assert.match(source, /pointerDistance\(points\[0\], points\[1\]\)/)
+  assert.match(source, /pinchStart\.current\.zoom/)
+  assert.match(source, /style=\{\{ touchAction: 'none' \}\}/)
+  assert.match(source, /useBodyScrollLock\(true\)/)
+})

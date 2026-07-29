@@ -20,6 +20,7 @@ import {
   type VehicleBlueprintInput,
 } from '@/lib/van-damage/transit-blueprint'
 import { createTransitGeometry } from '@/lib/van-damage/transit-geometry'
+import { useBodyScrollLock } from '@/lib/design-system/body-scroll-lock'
 
 type RegionSummary = {
   items: DamageItem[]
@@ -51,18 +52,16 @@ export const FordTransit2019DamageMap = memo(function FordTransit2019DamageMap(
   const configuration = useMemo(() => resolveTransitConfiguration(props.vehicle), [props.vehicle])
   const [fullscreen, setFullscreen] = useState(false)
   const fullscreenButton = useRef<HTMLButtonElement>(null)
+  useBodyScrollLock(fullscreen)
 
   useEffect(() => {
     if (!fullscreen) return
-    const previousOverflow = document.body.style.overflow
     const trigger = fullscreenButton.current
     const close = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setFullscreen(false)
     }
-    document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', close)
     return () => {
-      document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', close)
       trigger?.focus()
     }

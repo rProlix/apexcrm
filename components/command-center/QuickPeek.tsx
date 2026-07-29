@@ -11,6 +11,7 @@ import type {
   QuickPeekPayload,
 } from '@/lib/command-center/experience'
 import { SignedDamageImage } from '@/components/van-damage/SignedDamageImage'
+import { useBodyScrollLock } from '@/lib/design-system/body-scroll-lock'
 
 interface QuickPeekRequest {
   type: CommandRecordType
@@ -41,6 +42,7 @@ export function QuickPeekProvider({ children }: { children: React.ReactNode }) {
   const dialogRef = useRef<HTMLElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const pushedHistoryRef = useRef(false)
+  useBodyScrollLock(Boolean(request))
 
   const restoreFocus = useCallback((origin?: HTMLElement | null) => {
     window.requestAnimationFrame(() => {
@@ -131,12 +133,7 @@ export function QuickPeekProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!request) return
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     window.requestAnimationFrame(() => closeButtonRef.current?.focus())
-    return () => {
-      document.body.style.overflow = previousOverflow
-    }
   }, [request])
 
   useEffect(() => {

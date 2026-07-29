@@ -11,6 +11,7 @@ import {
 } from 'framer-motion'
 import { Download, Maximize, Minus, Plus, RotateCcw, X } from 'lucide-react'
 import type { DamageItem, ResolvedDamageImage } from './inspection-types'
+import { useBodyScrollLock } from '@/lib/design-system/body-scroll-lock'
 import { MOTION_TRANSITION } from '@/lib/design-system/motion'
 import { DamageOverlayFrame } from './DamageOverlayFrame'
 
@@ -38,6 +39,10 @@ export default function DamageLightbox({
   const [index, setIndex] = useState(initialIndex)
   const [zoom, setZoom] = useState(1)
   const pointerStart = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
+  const activePointers = useRef(new Map<number, { x: number; y: number }>())
+  const pinchStart = useRef<{ distance: number; zoom: number } | null>(null)
+  const pinchOccurred = useRef(false)
+  const zoomFrame = useRef<number | null>(null)
   const touchStart = useRef<number | null>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -49,6 +54,31 @@ export default function DamageLightbox({
   const imageTransform = useMotionTemplate`translate3d(${panX}px, ${panY}px, 0) scale(${zoomValue})`
   const image = images[index]
   const imageItems = items.filter((item) => item.image_id === image?.id && item.bounding_box)
+  useBodyScrollLock(true)
+
+  const syncZoomLabel = useCallback((value: number) => {
+    if (zoomFrame.current != null) window.cancelAnimationFrame(zoomFrame.current)
+    zoomFrame.current = window.requestAnimationFrame(() => {
+      setZoom(value)
+      zoomFrame.current = null
+    })
+  }, [])
+
+  const clampPan = useCallback(
+    (nextZoom: number) => {
+      if (nextZoom <= 1 || !viewportRef.current) {
+        panX.set(0)
+        panY.set(0)
+        return
+      }
+      const bounds = viewportRef.current.getBoundingClientRect()
+      const maxX = (bounds.width * (nextZoom - 1)) / 2
+      const maxY = (bounds.height * (nextZoom - 1)) / 2
+      panX.set(clamp(panX.get(), -maxX, maxX))
+      panY.set(clamp(panY.get(), -maxY, maxY))
+    },
+    [panX, panY]
+  )
 
   const resetView = useCallback(() => {
     setZoom(1)
@@ -59,25 +89,12 @@ export default function DamageLightbox({
 
   const adjustZoom = useCallback(
     (delta: number) => {
-      setZoom((current) => {
-        const next = Math.max(1, Math.min(4, current + delta))
-        zoomValue.set(next)
-        if (next === 1) {
-          panX.set(0)
-          panY.set(0)
-        } else if (viewportRef.current) {
-          const bounds = viewportRef.current.getBoundingClientRect()
-          panX.set(
-            clamp(panX.get(), (-bounds.width * (next - 1)) / 2, (bounds.width * (next - 1)) / 2)
-          )
-          panY.set(
-            clamp(panY.get(), (-bounds.height * (next - 1)) / 2, (bounds.height * (next - 1)) / 2)
-          )
-        }
-        return next
-      })
+      const next = clamp(zoomValue.get() + delta, 1, 4)
+      zoomValue.set(next)
+      setZoom(next)
+      clampPan(next)
     },
-    [panX, panY, zoomValue]
+    [clampPan, zoomValue]
   )
 
   const move = useCallback(
@@ -100,12 +117,10 @@ export default function DamageLightbox({
       if (event.key === 'Tab' && dialogRef.current) trapFocus(event, dialogRef.current)
     }
     window.addEventListener('keydown', handleKey)
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     window.requestAnimationFrame(() => closeRef.current?.focus())
     return () => {
       window.removeEventListener('keydown', handleKey)
-      document.body.style.overflow = previousOverflow
+      if (zoomFrame.current != null) window.cancelAnimationFrame(zoomFrame.current)
     }
   }, [adjustZoom, index, move, onClose])
 
@@ -128,11 +143,16 @@ export default function DamageLightbox({
       exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.995 }}
       transition={MOTION_TRANSITION.overlay}
       onTouchStart={(event) => {
-        if (zoom > 1) return
+        if (event.touches.length !== 1 || zoomValue.get() > 1 || pinchOccurred.current) return
         touchStart.current = event.touches[0]?.clientX ?? null
       }}
       onTouchEnd={(event) => {
-        if (zoom > 1) return
+        if (pinchOccurred.current) {
+          if (event.touches.length === 0) pinchOccurred.current = false
+          touchStart.current = null
+          return
+        }
+        if (zoomValue.get() > 1) return
         if (touchStart.current == null) return
         const distance =
           (event.changedTouches[0]?.clientX ?? touchStart.current) - touchStart.current
@@ -202,9 +222,24 @@ export default function DamageLightbox({
       <div
         ref={viewportRef}
         className="relative min-h-0 flex-1 overflow-hidden"
-        style={{ touchAction: zoom > 1 ? 'none' : 'pan-y' }}
+        style={{ touchAction: 'none' }}
         onPointerDown={(event) => {
-          if (zoom <= 1) return
+          if (event.pointerType === 'touch') {
+            activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+            event.currentTarget.setPointerCapture(event.pointerId)
+            if (activePointers.current.size >= 2) {
+              const points = [...activePointers.current.values()]
+              pinchStart.current = {
+                distance: Math.max(1, pointerDistance(points[0], points[1])),
+                zoom: zoomValue.get(),
+              }
+              pinchOccurred.current = true
+              touchStart.current = null
+              pointerStart.current = null
+              return
+            }
+          }
+          if (zoomValue.get() <= 1) return
           pointerStart.current = {
             x: event.clientX,
             y: event.clientY,
@@ -214,10 +249,27 @@ export default function DamageLightbox({
           event.currentTarget.setPointerCapture(event.pointerId)
         }}
         onPointerMove={(event) => {
+          if (event.pointerType === 'touch' && activePointers.current.has(event.pointerId)) {
+            activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+          }
+          if (pinchStart.current && activePointers.current.size >= 2) {
+            const points = [...activePointers.current.values()]
+            const next = clamp(
+              pinchStart.current.zoom *
+                (pointerDistance(points[0], points[1]) / pinchStart.current.distance),
+              1,
+              4
+            )
+            zoomValue.set(next)
+            clampPan(next)
+            syncZoomLabel(next)
+            return
+          }
           if (!pointerStart.current) return
+          const currentZoom = zoomValue.get()
           const bounds = event.currentTarget.getBoundingClientRect()
-          const maxX = (bounds.width * (zoom - 1)) / 2
-          const maxY = (bounds.height * (zoom - 1)) / 2
+          const maxX = (bounds.width * (currentZoom - 1)) / 2
+          const maxY = (bounds.height * (currentZoom - 1)) / 2
           panX.set(
             clamp(pointerStart.current.ox + event.clientX - pointerStart.current.x, -maxX, maxX)
           )
@@ -225,14 +277,34 @@ export default function DamageLightbox({
             clamp(pointerStart.current.oy + event.clientY - pointerStart.current.y, -maxY, maxY)
           )
         }}
-        onPointerUp={() => {
+        onPointerUp={(event) => {
+          activePointers.current.delete(event.pointerId)
+          if (pinchStart.current) {
+            pinchStart.current = null
+            const currentZoom = zoomValue.get()
+            setZoom(currentZoom)
+            clampPan(currentZoom)
+            const remaining = [...activePointers.current.values()][0]
+            pointerStart.current =
+              remaining && currentZoom > 1
+                ? { x: remaining.x, y: remaining.y, ox: panX.get(), oy: panY.get() }
+                : null
+            return
+          }
           pointerStart.current = null
         }}
-        onPointerCancel={() => {
+        onPointerCancel={(event) => {
+          activePointers.current.delete(event.pointerId)
+          pinchStart.current = null
           pointerStart.current = null
+          setZoom(zoomValue.get())
         }}
-        onLostPointerCapture={() => {
-          pointerStart.current = null
+        onLostPointerCapture={(event) => {
+          activePointers.current.delete(event.pointerId)
+          if (activePointers.current.size === 0) {
+            pinchStart.current = null
+            pointerStart.current = null
+          }
         }}
       >
         <button
@@ -286,6 +358,10 @@ export default function DamageLightbox({
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value))
+}
+
+function pointerDistance(first: { x: number; y: number }, second: { x: number; y: number }) {
+  return Math.hypot(second.x - first.x, second.y - first.y)
 }
 
 function trapFocus(event: KeyboardEvent, container: HTMLElement) {
