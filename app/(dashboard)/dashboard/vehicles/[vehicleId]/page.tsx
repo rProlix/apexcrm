@@ -97,6 +97,30 @@ export default async function VehicleProfilePage({
     inspectionIds.length > 0
       ? sessionScope.or(`van_id.eq.${vehicleId},inspection_id.in.(${inspectionIds.join(',')})`)
       : sessionScope.eq('van_id', vehicleId)
+  const caseScope = newTables
+    .from('van_damage_cases')
+    .select('*')
+    .eq('tenant_id', scope.tenantId)
+    .eq('business_id', scope.businessId)
+  const scopedCases =
+    inspectionIds.length > 0
+      ? caseScope.or(
+          [
+            `van_id.eq.${vehicleId}`,
+            `first_detected_inspection_id.in.(${inspectionIds.join(',')})`,
+            `latest_observed_inspection_id.in.(${inspectionIds.join(',')})`,
+          ].join(',')
+        )
+      : caseScope.eq('van_id', vehicleId)
+  const observationScope = newTables
+    .from('van_damage_observations')
+    .select('*')
+    .eq('tenant_id', scope.tenantId)
+    .eq('business_id', scope.businessId)
+  const scopedObservations =
+    inspectionIds.length > 0
+      ? observationScope.or(`van_id.eq.${vehicleId},inspection_id.in.(${inspectionIds.join(',')})`)
+      : observationScope.eq('van_id', vehicleId)
 
   const [
     sessionsResult,
@@ -105,7 +129,6 @@ export default async function VehicleProfilePage({
     observationsResult,
     channelsResult,
     tenantResult,
-    maintenanceResult,
   ] = await Promise.all([
     scopedSessions
       .order('upload_started_at', { ascending: false })
@@ -122,36 +145,14 @@ export default async function VehicleProfilePage({
           .order('created_at', { ascending: true })
           .limit(1000)
       : Promise.resolve({ data: [] }),
-    newTables
-      .from('van_damage_cases')
-      .select('*')
-      .eq('tenant_id', scope.tenantId)
-      .eq('business_id', scope.businessId)
-      .eq('van_id', vehicleId)
-      .order('last_observed_at', { ascending: false })
-      .limit(100),
-    newTables
-      .from('van_damage_observations')
-      .select('*')
-      .eq('tenant_id', scope.tenantId)
-      .eq('business_id', scope.businessId)
-      .eq('van_id', vehicleId)
-      .order('observed_at', { ascending: false })
-      .limit(500),
+    scopedCases.order('last_observed_at', { ascending: false }).limit(100),
+    scopedObservations.order('observed_at', { ascending: false }).limit(500),
     db
       .from('van_slack_channels')
       .select('slack_channel_id, slack_channel_name')
       .eq('tenant_id', scope.tenantId)
       .eq('business_id', scope.businessId),
     db.from('tenants').select('branding').eq('id', scope.tenantId).maybeSingle(),
-    db
-      .from('fleet_maintenance_items')
-      .select('*')
-      .eq('tenant_id', scope.tenantId)
-      .eq('business_id', scope.businessId)
-      .eq('van_id', vehicleId)
-      .order('latest_activity_at', { ascending: false })
-      .limit(100),
   ])
 
   const inspections = new Map(
@@ -162,6 +163,22 @@ export default async function VehicleProfilePage({
   const observations = (observationsResult.data ?? []) as Array<
     VanProfileCase['observations'][number] & { damage_case_id: string | null }
   >
+  const damageCaseIds = ((casesResult.data ?? []) as Array<{ id: string }>).map((item) => item.id)
+  const maintenanceScope = db
+    .from('fleet_maintenance_items')
+    .select('*')
+    .eq('tenant_id', scope.tenantId)
+    .eq('business_id', scope.businessId)
+  const maintenanceResult =
+    damageCaseIds.length > 0
+      ? await maintenanceScope
+          .or(`van_id.eq.${vehicleId},related_damage_case_id.in.(${damageCaseIds.join(',')})`)
+          .order('latest_activity_at', { ascending: false })
+          .limit(100)
+      : await maintenanceScope
+          .eq('van_id', vehicleId)
+          .order('latest_activity_at', { ascending: false })
+          .limit(100)
   const channels = new Map(
     (channelsResult.data ?? []).map(
       (channel: { slack_channel_id: string; slack_channel_name: string | null }) => [

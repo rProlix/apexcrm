@@ -187,7 +187,7 @@ test('vehicle profile image precedence never chooses an unrelated random inspect
   )
 })
 
-test('fleet profiles hydrate images and sessions through the canonical inspection vehicle link', async () => {
+test('fleet profiles hydrate history through the canonical inspection vehicle link', async () => {
   const [profilePage, fleetPage] = await Promise.all([
     readFile(
       path.join(
@@ -212,6 +212,22 @@ test('fleet profiles hydrate images and sessions through the canonical inspectio
   assert.match(
     profilePage,
     /observation\.inspection_id === session\.inspection_id \|\|\s*observation\.upload_session_id === session\.id/
+  )
+  assert.match(
+    profilePage,
+    /first_detected_inspection_id\.in\.\(\$\{inspectionIds\.join\(','\)\}\)/
+  )
+  assert.match(
+    profilePage,
+    /latest_observed_inspection_id\.in\.\(\$\{inspectionIds\.join\(','\)\}\)/
+  )
+  assert.match(
+    profilePage,
+    /observationScope\.or\(`van_id\.eq\.\$\{vehicleId\},inspection_id\.in\.\(\$\{inspectionIds\.join\(','\)\}\)`\)/
+  )
+  assert.match(
+    profilePage,
+    /related_damage_case_id\.in\.\(\$\{damageCaseIds\.join\(','\)\}\)/
   )
   assert.match(fleetPage, /\{ allowAutomaticFirstUpload: true \}/)
 })
