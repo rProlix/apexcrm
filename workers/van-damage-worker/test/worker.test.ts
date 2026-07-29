@@ -181,7 +181,7 @@ test('van number normalization treats prefixed and bare values as one van', () =
   }
 })
 
-test('completed duplicate jobs are successful no-ops', async () => {
+test('completed duplicate and permanently orphaned jobs are successful no-ops', async () => {
   const tenantId = randomUUID()
   const body = JSON.stringify({
     version: 'v1',
@@ -222,25 +222,27 @@ test('completed duplicate jobs are successful no-ops', async () => {
   const unused = async () => {
     throw new Error('should not be called')
   }
-  const persistence = {
-    claimJob: async () => 'completed' as const,
-    loadIntegrationForJob: unused,
-    upsertImageS3Info: unused,
-    createAiRun: unused,
-    saveAiRawResponse: unused,
-    completeImageAnalysis: unused,
-    markImageFailed: unused,
-    getOrCreateVanByNumber: unused,
-    attachInspectionToVan: unused,
-    markInspectionNeedsReview: unused,
-    updateVanProfileAfterInspection: unused,
+  for (const claim of ['completed', 'missing'] as const) {
+    const persistence = {
+      claimJob: async () => claim,
+      loadIntegrationForJob: unused,
+      upsertImageS3Info: unused,
+      createAiRun: unused,
+      saveAiRawResponse: unused,
+      completeImageAnalysis: unused,
+      markImageFailed: unused,
+      getOrCreateVanByNumber: unused,
+      attachInspectionToVan: unused,
+      markInspectionNeedsReview: unused,
+      updateVanProfileAfterInspection: unused,
+    }
+    const result = await processMessageBody(body, {
+      config,
+      persistence,
+      storage: { uploadOriginal: unused },
+    })
+    assert.equal(result, 'success', claim)
   }
-  const result = await processMessageBody(body, {
-    config,
-    persistence,
-    storage: { uploadOriginal: unused },
-  })
-  assert.equal(result, 'success')
 })
 
 test('Supabase job claims include the full tenant/business/inspection scope', () => {

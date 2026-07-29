@@ -115,9 +115,10 @@ export async function processMessageBody(
   if (claim === 'missing') {
     logger.error('SQS message references a missing job', {
       ...jobContext,
+      result: 'permanent_orphan',
       durationMs: Date.now() - startedAt,
     })
-    return 'retry'
+    return 'success'
   }
 
   try {
