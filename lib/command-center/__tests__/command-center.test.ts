@@ -224,6 +224,21 @@ test('report registry returns only active, role-permitted reports', () => {
   assert.equal(getAvailableReports(['store'], 'customer').length, 0)
 })
 
+test('fleet reports use business-scoped operational sources and readable vehicle labels', async () => {
+  const reports = await readFile(path.join(process.cwd(), 'lib/command-center/reports.ts'), 'utf8')
+  assert.match(reports, /customLoad: loadFleetWeeklyInspectionsReport/)
+  assert.match(reports, /customLoad: loadFleetDamageByVanReport/)
+  assert.match(reports, /customLoad: loadFleetMaintenanceCostReport/)
+  assert.match(reports, /customLoad: loadFleetDriverUploadHistoryReport/)
+  assert.match(reports, /\.from\('van_damage_observations'\)/)
+  assert.doesNotMatch(reports, /fleet_damage_by_van[\s\S]*table: 'van_damage_items'/)
+  assert.ok((reports.match(/\.eq\('business_id', context\.tenantId\)/g) ?? []).length >= 4)
+  assert.match(reports, /\.from\('vehicles'\)/)
+  assert.match(reports, /Van \$\{vanNumber\}/)
+  assert.match(reports, /\.from\('van_damage_upload_sessions'\)/)
+  assert.match(reports, /formatDriverName\(asRecord\(row\.driver_snapshot\)\)/)
+})
+
 test('CSV and PDF report renderers produce downloadable file signatures', () => {
   const data = {
     summary: [{ label: 'Orders', value: 1 }],

@@ -3,6 +3,7 @@ import type { AnyRole } from '@/lib/auth/types'
 import { getTenantDateRange } from './time'
 import type { CommandCenterContext } from './context'
 import { loadInspectionCompliance } from '@/lib/server/van-damage/compliance'
+import { formatDriverName } from '@/lib/van-damage/history'
 
 export type ReportFormat = 'pdf' | 'csv'
 
@@ -46,32 +47,16 @@ export const REPORT_REGISTRY: Record<string, ReportDefinition> = {
       ['damage', 'Damage findings'],
     ],
     emptyMessage: 'No inspections were received in this period.',
-    table: 'van_damage_inspections',
-    select: 'id, van_id, title, status, review_status, image_count, damage_count, created_at',
-    dateColumn: 'created_at',
-    map: (row, context) => ({
-      created_at: formatDate(row.created_at, context.timeZone),
-      vehicle:
-        text(row.title) || (row.van_id ? `Vehicle ${text(row.van_id).slice(0, 8)}` : 'Unassigned'),
-      status: text(row.review_status || row.status),
-      images: number(row.image_count),
-      damage: number(row.damage_count),
-    }),
-    summary: (rows) => [
-      { label: 'Inspections', value: rows.length },
-      {
-        label: 'Needs review',
-        value: rows.filter((row) => /review|pending/i.test(text(row.status))).length,
-      },
-    ],
+    customLoad: loadFleetWeeklyInspectionsReport,
   }),
   fleet_damage_by_van: report({
     key: 'fleet_damage_by_van',
     moduleKey: 'damage_ai',
     displayName: 'Damage by Van',
-    description: 'Detected damage grouped by inspection and vehicle.',
+    description: 'Reconciled damage observations grouped by inspection and vehicle.',
     columns: [
       ['created_at', 'Detected'],
+      ['vehicle', 'Vehicle'],
       ['inspection', 'Inspection'],
       ['area', 'Vehicle area'],
       ['type', 'Damage type'],
@@ -79,27 +64,7 @@ export const REPORT_REGISTRY: Record<string, ReportDefinition> = {
       ['confidence', 'Confidence'],
     ],
     emptyMessage: 'No damage findings were recorded in this period.',
-    table: 'van_damage_items',
-    select: 'id, inspection_id, vehicle_area, damage_type, severity, confidence, created_at',
-    dateColumn: 'created_at',
-    map: (row, context) => ({
-      created_at: formatDate(row.created_at, context.timeZone),
-      inspection: `Inspection ${text(row.inspection_id).slice(0, 8)}`,
-      area: text(row.vehicle_area) || 'Unspecified',
-      type: text(row.damage_type) || 'Unspecified',
-      severity: text(row.severity) || 'Unspecified',
-      confidence:
-        row.confidence === null || row.confidence === undefined
-          ? 'Not available'
-          : `${Math.round(number(row.confidence) * 100)}%`,
-    }),
-    summary: (rows) => [
-      { label: 'Damage findings', value: rows.length },
-      {
-        label: 'Severe findings',
-        value: rows.filter((row) => /3|severe|critical/i.test(text(row.severity))).length,
-      },
-    ],
+    customLoad: loadFleetDamageByVanReport,
   }),
   fleet_maintenance_cost: report({
     key: 'fleet_maintenance_cost',
@@ -115,28 +80,7 @@ export const REPORT_REGISTRY: Record<string, ReportDefinition> = {
       ['actual', 'Actual'],
     ],
     emptyMessage: 'No maintenance items were recorded in this period.',
-    table: 'fleet_maintenance_items',
-    select:
-      'id, maintenance_number, title, status, van_id, estimated_cost, actual_cost, currency, reported_at',
-    dateColumn: 'reported_at',
-    map: (row, context) => ({
-      reported_at: formatDate(row.reported_at, context.timeZone),
-      item: `#${number(row.maintenance_number)} ${text(row.title)}`,
-      status: text(row.status),
-      vehicle: row.van_id ? `Vehicle ${text(row.van_id).slice(0, 8)}` : 'Unassigned',
-      estimated: formatDecimalMoney(row.estimated_cost, text(row.currency) || 'USD'),
-      actual: formatDecimalMoney(row.actual_cost, text(row.currency) || 'USD'),
-    }),
-    summary: (rows) => [
-      { label: 'Maintenance items', value: rows.length },
-      {
-        label: 'Actual cost',
-        value: formatDecimalMoney(
-          rows.reduce((sum, row) => sum + number(row.actual_cost), 0),
-          'USD'
-        ),
-      },
-    ],
+    customLoad: loadFleetMaintenanceCostReport,
   }),
   fleet_driver_upload_history: report({
     key: 'fleet_driver_upload_history',
@@ -152,24 +96,7 @@ export const REPORT_REGISTRY: Record<string, ReportDefinition> = {
       ['status', 'Status'],
     ],
     emptyMessage: 'No attributed inspection uploads were found in this period.',
-    table: 'van_damage_inspections',
-    select: 'id, slack_user_id, van_id, image_count, status, created_at',
-    dateColumn: 'created_at',
-    map: (row, context) => ({
-      created_at: formatDate(row.created_at, context.timeZone),
-      driver: text(row.slack_user_id) || 'Unknown uploader',
-      inspection: `Inspection ${text(row.id).slice(0, 8)}`,
-      vehicle: row.van_id ? `Vehicle ${text(row.van_id).slice(0, 8)}` : 'Unassigned',
-      images: number(row.image_count),
-      status: text(row.status),
-    }),
-    summary: (rows) => [
-      { label: 'Uploads', value: rows.length },
-      {
-        label: 'Known uploaders',
-        value: new Set(rows.map((row) => row.slack_user_id).filter(Boolean)).size,
-      },
-    ],
+    customLoad: loadFleetDriverUploadHistoryReport,
   }),
   fleet_unresolved_level_3: report({
     key: 'fleet_unresolved_level_3',
@@ -270,7 +197,7 @@ export const REPORT_REGISTRY: Record<string, ReportDefinition> = {
     columns: [],
     emptyMessage: 'No inspection comparisons were completed in this period.',
     customLoad: async (context, range) => {
-      const { data, error } = await (context.db as any)
+      const { data, error } = await reportDb(context)
         .from('van_damage_comparison_runs')
         .select(
           'id,van_id,status,overall_confidence,current_inspection_id,prior_inspection_id,created_at'
@@ -279,6 +206,7 @@ export const REPORT_REGISTRY: Record<string, ReportDefinition> = {
         .gte('created_at', range.startIso)
         .lt('created_at', range.endIso)
         .order('created_at', { ascending: false })
+        .limit(5000)
       if (error) throw new Error(error.code)
       const rows = (data ?? []).map((row: Record<string, unknown>) => ({
         created_at: formatDate(row.created_at, context.timeZone),
@@ -322,13 +250,14 @@ export const REPORT_REGISTRY: Record<string, ReportDefinition> = {
     columns: [],
     emptyMessage: 'No repair verifications were recorded in this period.',
     customLoad: async (context, range) => {
-      const { data, error } = await (context.db as any)
+      const { data, error } = await reportDb(context)
         .from('van_damage_repair_verifications')
         .select('id,damage_case_id,status,ai_classification,human_decision,reviewed_at,created_at')
         .eq('tenant_id', context.tenantId)
         .gte('created_at', range.startIso)
         .lt('created_at', range.endIso)
         .order('created_at', { ascending: false })
+        .limit(5000)
       if (error) throw new Error(error.code)
       const rows = (data ?? []).map((row: Record<string, unknown>) => ({
         created_at: formatDate(row.created_at, context.timeZone),
@@ -725,19 +654,263 @@ function report(input: SimpleReportDefinition): ReportDefinition {
   }
 }
 
+async function loadFleetWeeklyInspectionsReport(
+  context: CommandCenterContext,
+  range: { startIso: string; endIso: string }
+): Promise<ReportData> {
+  const { data, error } = await reportDb(context)
+    .from('van_damage_inspections')
+    .select('id,van_id,title,status,review_status,image_count,damage_count,created_at')
+    .eq('tenant_id', context.tenantId)
+    .eq('business_id', context.tenantId)
+    .gte('created_at', range.startIso)
+    .lt('created_at', range.endIso)
+    .order('created_at', { ascending: false })
+    .limit(5000)
+  if (error) throw new Error(error.code)
+  const rawRows = ((data ?? []) as Array<Record<string, unknown>>)
+  const vehicles = await loadReportVehicles(context, rawRows.map((row) => text(row.van_id)))
+  const rows = rawRows.map((row) => ({
+    created_at: formatDate(row.created_at, context.timeZone),
+    vehicle:
+      vehicleLabel(vehicles, text(row.van_id)) || text(row.title) || 'Unassigned',
+    status: text(row.review_status || row.status),
+    images: number(row.image_count),
+    damage: number(row.damage_count),
+  }))
+  return {
+    summary: [
+      { label: 'Inspections', value: rows.length },
+      {
+        label: 'Needs review',
+        value: rawRows.filter((row) => /review|pending/i.test(text(row.review_status || row.status)))
+          .length,
+      },
+    ],
+    columns: [
+      { key: 'created_at', label: 'Received' },
+      { key: 'vehicle', label: 'Vehicle' },
+      { key: 'status', label: 'Status' },
+      { key: 'images', label: 'Images' },
+      { key: 'damage', label: 'Damage findings' },
+    ],
+    rows,
+    emptyMessage: 'No inspections were received in this period.',
+  }
+}
+
+async function loadFleetDamageByVanReport(
+  context: CommandCenterContext,
+  range: { startIso: string; endIso: string }
+): Promise<ReportData> {
+  const { data, error } = await reportDb(context)
+    .from('van_damage_observations')
+    .select(
+      'id,inspection_id,van_id,canonical_region,vehicle_area,normalized_damage_type,original_damage_type,severity,confidence,observed_at'
+    )
+    .eq('tenant_id', context.tenantId)
+    .eq('business_id', context.tenantId)
+    .gte('observed_at', range.startIso)
+    .lt('observed_at', range.endIso)
+    .order('observed_at', { ascending: false })
+    .limit(5000)
+  if (error) throw new Error(error.code)
+  const rawRows = ((data ?? []) as Array<Record<string, unknown>>)
+  const vehicles = await loadReportVehicles(context, rawRows.map((row) => text(row.van_id)))
+  const rows = rawRows.map((row) => ({
+    created_at: formatDate(row.observed_at, context.timeZone),
+    vehicle: vehicleLabel(vehicles, text(row.van_id)) || 'Unassigned',
+    inspection: `Inspection ${text(row.inspection_id).slice(0, 8)}`,
+    area: text(row.canonical_region || row.vehicle_area).replaceAll('_', ' ') || 'Unspecified',
+    type:
+      text(row.normalized_damage_type || row.original_damage_type).replaceAll('_', ' ') ||
+      'Unspecified',
+    severity: text(row.severity).replaceAll('_', ' ') || 'Unspecified',
+    confidence: formatConfidence(row.confidence),
+  }))
+  return {
+    summary: [
+      { label: 'Damage observations', value: rows.length },
+      {
+        label: 'Severe observations',
+        value: rawRows.filter((row) => /3|severe|critical/i.test(text(row.severity))).length,
+      },
+      {
+        label: 'Vans with observations',
+        value: new Set(rawRows.map((row) => text(row.van_id)).filter(Boolean)).size,
+      },
+    ],
+    columns: [
+      { key: 'created_at', label: 'Detected' },
+      { key: 'vehicle', label: 'Vehicle' },
+      { key: 'inspection', label: 'Inspection' },
+      { key: 'area', label: 'Vehicle area' },
+      { key: 'type', label: 'Damage type' },
+      { key: 'severity', label: 'Severity' },
+      { key: 'confidence', label: 'Confidence' },
+    ],
+    rows,
+    emptyMessage: 'No damage findings were recorded in this period.',
+  }
+}
+
+async function loadFleetMaintenanceCostReport(
+  context: CommandCenterContext,
+  range: { startIso: string; endIso: string }
+): Promise<ReportData> {
+  const { data, error } = await reportDb(context)
+    .from('fleet_maintenance_items')
+    .select(
+      'id,maintenance_number,title,status,van_id,estimated_cost,actual_cost,currency,reported_at'
+    )
+    .eq('tenant_id', context.tenantId)
+    .eq('business_id', context.tenantId)
+    .gte('reported_at', range.startIso)
+    .lt('reported_at', range.endIso)
+    .order('reported_at', { ascending: false })
+    .limit(5000)
+  if (error) throw new Error(error.code)
+  const rawRows = ((data ?? []) as Array<Record<string, unknown>>)
+  const vehicles = await loadReportVehicles(context, rawRows.map((row) => text(row.van_id)))
+  const rows = rawRows.map((row) => ({
+    reported_at: formatDate(row.reported_at, context.timeZone),
+    item: `#${number(row.maintenance_number)} ${text(row.title)}`,
+    status: text(row.status).replaceAll('_', ' '),
+    vehicle: vehicleLabel(vehicles, text(row.van_id)) || 'Unassigned',
+    estimated: formatDecimalMoney(row.estimated_cost, text(row.currency) || 'USD'),
+    actual: formatDecimalMoney(row.actual_cost, text(row.currency) || 'USD'),
+  }))
+  return {
+    summary: [
+      { label: 'Maintenance items', value: rows.length },
+      {
+        label: 'Actual cost',
+        value: formatDecimalMoney(
+          rawRows.reduce((sum, row) => sum + number(row.actual_cost), 0),
+          'USD'
+        ),
+      },
+    ],
+    columns: [
+      { key: 'reported_at', label: 'Reported' },
+      { key: 'item', label: 'Maintenance item' },
+      { key: 'status', label: 'Status' },
+      { key: 'vehicle', label: 'Vehicle' },
+      { key: 'estimated', label: 'Estimated' },
+      { key: 'actual', label: 'Actual' },
+    ],
+    rows,
+    emptyMessage: 'No maintenance items were recorded in this period.',
+  }
+}
+
+async function loadFleetDriverUploadHistoryReport(
+  context: CommandCenterContext,
+  range: { startIso: string; endIso: string }
+): Promise<ReportData> {
+  const { data, error } = await reportDb(context)
+    .from('van_damage_upload_sessions')
+    .select(
+      'id,inspection_id,van_id,driver_snapshot,slack_user_id,image_count,status,upload_started_at'
+    )
+    .eq('tenant_id', context.tenantId)
+    .eq('business_id', context.tenantId)
+    .gte('upload_started_at', range.startIso)
+    .lt('upload_started_at', range.endIso)
+    .order('upload_started_at', { ascending: false })
+    .limit(5000)
+  if (error) throw new Error(error.code)
+  const rawRows = ((data ?? []) as Array<Record<string, unknown>>)
+  const vehicles = await loadReportVehicles(context, rawRows.map((row) => text(row.van_id)))
+  const rows = rawRows.map((row) => ({
+    created_at: formatDate(row.upload_started_at, context.timeZone),
+    driver: formatDriverName(asRecord(row.driver_snapshot)) || text(row.slack_user_id) || 'Unknown uploader',
+    inspection: `Inspection ${text(row.inspection_id).slice(0, 8)}`,
+    vehicle: vehicleLabel(vehicles, text(row.van_id)) || 'Unassigned',
+    images: number(row.image_count),
+    status: text(row.status).replaceAll('_', ' '),
+  }))
+  return {
+    summary: [
+      { label: 'Uploads', value: rows.length },
+      {
+        label: 'Known uploaders',
+        value: new Set(
+          rawRows
+            .map((row) => formatDriverName(asRecord(row.driver_snapshot)) || text(row.slack_user_id))
+            .filter(Boolean)
+        ).size,
+      },
+    ],
+    columns: [
+      { key: 'created_at', label: 'Uploaded' },
+      { key: 'driver', label: 'Slack user' },
+      { key: 'inspection', label: 'Inspection' },
+      { key: 'vehicle', label: 'Vehicle' },
+      { key: 'images', label: 'Images' },
+      { key: 'status', label: 'Status' },
+    ],
+    rows,
+    emptyMessage: 'No attributed inspection uploads were found in this period.',
+  }
+}
+
+async function loadReportVehicles(
+  context: CommandCenterContext,
+  rawVehicleIds: string[]
+): Promise<Map<string, Record<string, unknown>>> {
+  const vehicleIds = [...new Set(rawVehicleIds.filter(Boolean))]
+  if (!vehicleIds.length) return new Map()
+  const { data, error } = await reportDb(context)
+    .from('vehicles')
+    .select('id,name,van_number,plate_number')
+    .eq('tenant_id', context.tenantId)
+    .in('id', vehicleIds)
+    .limit(5000)
+  if (error) throw new Error(error.code)
+  return new Map(((data ?? []) as Array<Record<string, unknown>>).map((row) => [text(row.id), row]))
+}
+
+function vehicleLabel(vehicles: Map<string, Record<string, unknown>>, vehicleId: string): string {
+  const vehicle = vehicles.get(vehicleId)
+  if (!vehicle) return vehicleId ? `Vehicle ${vehicleId.slice(0, 8)}` : ''
+  const vanNumber = text(vehicle.van_number)
+  const name = text(vehicle.name)
+  const plate = text(vehicle.plate_number)
+  return [vanNumber ? `Van ${vanNumber}` : name, plate].filter(Boolean).join(' · ')
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function formatConfidence(value: unknown): string {
+  if (value === null || value === undefined) return 'Not available'
+  const confidence = number(value)
+  return confidence <= 1 ? `${Math.round(confidence * 100)}%` : `${Math.round(confidence)}%`
+}
+
 interface UntypedReportQuery {
   select(columns: string): UntypedReportQuery
   eq(column: string, value: unknown): UntypedReportQuery
   gte(column: string, value: string): UntypedReportQuery
   lt(column: string, value: string): UntypedReportQuery
+  in(column: string, values: string[]): UntypedReportQuery
+  order(column: string, options: { ascending: boolean }): UntypedReportQuery
   limit(count: number): Promise<{
     data: Array<Record<string, unknown>> | null
     error: { code: string } | null
   }>
 }
 
+function reportDb(context: CommandCenterContext): { from(tableName: string): UntypedReportQuery } {
+  return context.db as unknown as { from(tableName: string): UntypedReportQuery }
+}
+
 function untypedFrom(context: CommandCenterContext, table: string): UntypedReportQuery {
-  return (context.db as unknown as { from(tableName: string): UntypedReportQuery }).from(table)
+  return reportDb(context).from(table)
 }
 
 function validateDateRange(from: string, to: string): void {
