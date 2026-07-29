@@ -72,9 +72,9 @@
   --z-base: 0;
   --z-sticky: 20;
   --z-drawer: 40;
-  --z-popover: 50;
-  --z-modal: 60;
-  --z-toast: 70;
+  --z-popover: 70;
+  --z-modal: 80;
+  --z-toast: 90;
 }
 
 @property --ui-spotlight-x {
@@ -912,7 +912,8 @@ summary {
   }
 
   .crm-topbar {
-    overflow: hidden;
+    z-index: var(--z-popover);
+    overflow: visible;
     background:
       linear-gradient(90deg, rgb(var(--tenant-accent-rgb) / 0.018), transparent 35%),
       rgb(var(--surface-base) / 0.82);
@@ -960,6 +961,7 @@ summary {
   }
 
   .crm-popover {
+    z-index: var(--z-modal);
     background:
       linear-gradient(145deg, rgb(255 255 255 / 0.05), transparent 38%),
       rgb(var(--surface-overlay) / 0.98);

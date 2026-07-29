@@ -316,7 +316,7 @@ export function GlobalCommandCenter(props: GlobalCommandCenterProps) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center px-3 pt-[8dvh] sm:px-6 sm:pt-[12dvh]">
+        <div className="fixed inset-0 z-[var(--z-modal)] flex items-start justify-center px-3 pt-[8dvh] sm:px-6 sm:pt-[12dvh]">
           <button
             type="button"
             className="ui-overlay-backdrop absolute inset-0 h-full w-full cursor-default"

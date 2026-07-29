@@ -122,6 +122,23 @@ test('natural-language companion is tenant scoped, module gated, and available f
   assert.doesNotMatch(commandCenter, /\bgemini\b/i)
 })
 
+test('global topbar menus render above page content without clipping', async () => {
+  const [globals, topbar, commandCenter] = await Promise.all([
+    source('app/globals.css'),
+    source('components/shell/TopBar.tsx'),
+    source('components/command-center/GlobalCommandCenter.tsx'),
+  ])
+  assert.match(globals, /--z-sticky:\s*20;/)
+  assert.match(globals, /--z-popover:\s*70;/)
+  assert.match(globals, /--z-modal:\s*80;/)
+  assert.match(globals, /\.crm-topbar\s*\{[\s\S]*z-index:\s*var\(--z-popover\);/)
+  assert.match(globals, /\.crm-topbar\s*\{[\s\S]*overflow:\s*visible;/)
+  assert.match(globals, /\.crm-popover\s*\{[\s\S]*z-index:\s*var\(--z-modal\);/)
+  assert.doesNotMatch(topbar, /crm-topbar[^'"]*z-20/)
+  assert.doesNotMatch(topbar, /crm-popover[^'"]*z-50/)
+  assert.match(commandCenter, /z-\[var\(--z-modal\)\]/)
+})
+
 test('one global realtime channel serves active modules without exposing row payloads', async () => {
   const files = await readCodeFiles(path.join(process.cwd(), 'components'))
   const contents = await Promise.all(files.map((file) => readFile(file, 'utf8')))
