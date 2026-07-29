@@ -60,7 +60,16 @@ test('migration enforces image-scoped idempotency and does not delete sibling fi
     resolve(process.cwd(), 'supabase/migrations/20260728100000_multi_image_analysis_pipeline.sql'),
     'utf8'
   )
-  assert.match(migration, /tenant_id::text \|\| ':' \|\| i\.id::text \|\| ':'/)
+  const correction = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20260729010000_fix_multi_image_job_idempotency.sql'),
+    'utf8'
+  )
+  for (const sql of [migration, correction]) {
+    assert.match(sql, /tenant_id::text \|\| ':' \|\| image_row\.id::text \|\| ':'/)
+    assert.doesNotMatch(sql, /tenant_id::text \|\| ':' \|\| i\.id::text \|\| ':'/)
+  }
+  assert.match(correction, /a\.status IN \('completed','needs_review'\)/)
+  assert.match(correction, /ON CONFLICT \(tenant_id,image_id,analysis_version\) DO UPDATE/)
   assert.match(migration, /DELETE FROM public\.van_damage_items[\s\S]*image_id = p_image_id/)
   assert.doesNotMatch(
     migration,

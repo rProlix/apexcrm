@@ -417,17 +417,26 @@ BEGIN
       AND inspection_id = base_row.inspection_row_id
     ORDER BY COALESCE(upload_order,original_file_index,2147483647),created_at,id
   LOOP
-    INSERT INTO public.van_damage_jobs (
-      tenant_id,business_id,inspection_id,image_id,slack_event_id,job_type,status,
-      analysis_version,idempotency_key
-    ) SELECT
-      i.tenant_id,i.business_id,i.id,image_row.id,p_slack_event_id,'image_analysis','queued',
-      p_analysis_version,
-      i.tenant_id::text || ':' || i.id::text || ':' || p_analysis_version
-    FROM public.van_damage_inspections i WHERE i.id = base_row.inspection_row_id
-    ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO UPDATE
-      SET updated_at = van_damage_jobs.updated_at
-    RETURNING * INTO job_row;
+    SELECT j.* INTO job_row
+    FROM public.van_damage_image_analyses a
+    JOIN public.van_damage_jobs j ON j.id = a.job_id
+    WHERE a.image_id = image_row.id
+      AND a.analysis_version = p_analysis_version
+      AND a.status IN ('completed','needs_review')
+    LIMIT 1;
+    IF NOT FOUND THEN
+      INSERT INTO public.van_damage_jobs (
+        tenant_id,business_id,inspection_id,image_id,slack_event_id,job_type,status,
+        analysis_version,idempotency_key
+      ) SELECT
+        i.tenant_id,i.business_id,i.id,image_row.id,p_slack_event_id,'image_analysis','queued',
+        p_analysis_version,
+        i.tenant_id::text || ':' || image_row.id::text || ':' || p_analysis_version
+      FROM public.van_damage_inspections i WHERE i.id = base_row.inspection_row_id
+      ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO UPDATE
+        SET updated_at = van_damage_jobs.updated_at
+      RETURNING * INTO job_row;
+    END IF;
 
     INSERT INTO public.van_damage_image_analyses (
       tenant_id,business_id,inspection_id,image_id,job_id,analysis_version,status
