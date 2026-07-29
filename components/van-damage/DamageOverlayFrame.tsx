@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useSignedDamageImageUrl } from './SignedDamageImage'
 import type { DamageImage, DamageItem } from './inspection-types'
@@ -37,20 +37,10 @@ export function DamageOverlayFrame({
     enabled: true,
     onUrl,
   })
-  const [loaded, setLoaded] = useState(false)
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null)
   const [renderError, setRenderError] = useState<string | null>(null)
   const [refreshAttempted, setRefreshAttempted] = useState(false)
-
-  useEffect(() => {
-    setLoaded(false)
-    setRenderError(null)
-  }, [url])
-
-  useEffect(() => {
-    setLoaded(false)
-    setRenderError(null)
-    setRefreshAttempted(false)
-  }, [image.id])
+  const loaded = Boolean(url && loadedUrl === url)
   const resolved = useMemo(
     () =>
       items.map((item, index) => ({
@@ -101,11 +91,12 @@ export function DamageOverlayFrame({
             )}
             onClick={onOpen}
             onLoad={() => {
-              setLoaded(true)
+              setLoadedUrl(url)
               setRenderError(null)
+              setRefreshAttempted(false)
             }}
             onError={() => {
-              setLoaded(false)
+              setLoadedUrl(null)
               if (!refreshAttempted) {
                 setRefreshAttempted(true)
                 void retry()
@@ -131,6 +122,7 @@ export function DamageOverlayFrame({
             type="button"
             onClick={() => {
               setRefreshAttempted(false)
+              setLoadedUrl(null)
               setRenderError(null)
               void retry()
             }}

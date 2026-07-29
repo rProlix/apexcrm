@@ -71,7 +71,7 @@ export function DamageImageGallery({
   }, [])
 
   const openImage = useCallback(
-    async (index: number, origin?: HTMLElement | null) => {
+    (index: number, origin?: HTMLElement | null) => {
       const image = images[index]
       if (!image) return
       if (origin) {
@@ -81,13 +81,12 @@ export function DamageImageGallery({
       } else {
         setLightboxOrigin(null)
       }
-      try {
-        const result = await getSignedDamageImageUrl({ imageId: image.id, businessId })
-        rememberUrl(image.id, result.url)
-      } catch {
-        // The lightbox provides a graceful unavailable state.
-      }
       setActiveIndex(index)
+      void getSignedDamageImageUrl({ imageId: image.id, businessId })
+        .then((result) => rememberUrl(image.id, result.url))
+        .catch(() => {
+          // The already-open lightbox provides a graceful unavailable state.
+        })
     },
     [businessId, images, rememberUrl]
   )

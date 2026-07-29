@@ -62,7 +62,7 @@ test('inspection client payload is provider-neutral and omits internal model ide
 
 test('fullscreen inspection image viewer gives the evidence frame explicit dimensions', async () => {
   const source = await readFile(lightboxUrl, 'utf8')
-  assert.match(source, /className="relative h-full w-full transition-transform/)
+  assert.match(source, /className="relative h-full w-full will-change-transform/)
   assert.doesNotMatch(source, /className="relative max-h-full max-w-full transition-transform/)
 })
 
@@ -71,4 +71,16 @@ test('fullscreen inspection viewer escapes transformed page stacking contexts th
   assert.match(source, /import \{ createPortal \} from 'react-dom'/)
   assert.match(source, /return createPortal\(/)
   assert.match(source, /document\.body/)
+})
+
+test('fullscreen pan uses motion values without a lagging CSS transform transition', async () => {
+  const source = await readFile(lightboxUrl, 'utf8')
+  assert.match(
+    source,
+    /useMotionTemplate`translate3d\(\$\{panX\}px, \$\{panY\}px, 0\) scale\(\$\{zoomValue\}\)`/
+  )
+  assert.match(source, /panX\.set\(/)
+  assert.match(source, /panY\.set\(/)
+  assert.doesNotMatch(source, /setOffset\(/)
+  assert.doesNotMatch(source, /transition-transform duration-150/)
 })
