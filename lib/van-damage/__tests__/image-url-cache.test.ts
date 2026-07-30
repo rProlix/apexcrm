@@ -95,6 +95,8 @@ test('signed URL endpoint preserves authorization scope and private caching', as
   assert.match(source, /\.eq\('business_id', access\.businessId\)/)
   assert.match(source, /profile/)
   assert.match(source, /van_damage_image_assets/)
+  assert.match(source, /asset_type', 'original'/)
+  assert.match(source, /Image has not been uploaded yet/)
   assert.match(source, /'Cache-Control': `private,/)
   assert.doesNotMatch(source, /Cache-Control': `public/)
 })

@@ -65,6 +65,12 @@ type RunRawRow = {
   completed_at: string | null
 }
 
+type UploadSessionRawRow = {
+  id: string
+  inspection_id: string
+  van_id: string | null
+}
+
 export default async function VehiclesPage({
   searchParams,
 }: {
@@ -88,6 +94,7 @@ export default async function VehiclesPage({
     inspectionResult,
     runResult,
     imageResult,
+    uploadSessionsResult,
   ] = await Promise.all([
       db
         .from('vehicles')
@@ -135,20 +142,39 @@ export default async function VehiclesPage({
       looseDb
         .from('van_damage_images')
         .select(
-          'id,image_role,created_at,upload_order,original_file_index,van_damage_inspections!inner(van_id)'
+          'id,upload_session_id,image_role,created_at,upload_order,original_file_index,van_damage_inspections(van_id)'
         )
         .eq('tenant_id', tenantId)
         .eq('business_id', tenantId)
         .in('status', ['uploaded', 'analyzed'])
         .order('created_at', { ascending: false })
         .limit(1500),
+      looseDb
+        .from('van_damage_upload_sessions')
+        .select('id,inspection_id,van_id')
+        .eq('tenant_id', tenantId)
+        .eq('business_id', tenantId)
+        .order('upload_started_at', { ascending: false })
+        .limit(1500),
     ])
 
+  const uploadSessions = (uploadSessionsResult.data ?? []) as UploadSessionRawRow[]
+  const sessionById = new Map(uploadSessions.map((session) => [session.id, session]))
+  const sessionByInspectionId = new Map(
+    uploadSessions.map((session) => [session.inspection_id, session])
+  )
   const imageCandidatesByVan = new Map<string, VehicleImageCandidate[]>()
   for (const rawImage of (imageResult.data ?? []) as Array<Record<string, unknown>>) {
     const relation = rawImage.van_damage_inspections
     const inspection = Array.isArray(relation) ? asRecord(relation[0]) : asRecord(relation)
-    const vanId = typeof inspection.van_id === 'string' ? inspection.van_id : null
+    const uploadSession =
+      typeof rawImage.upload_session_id === 'string'
+        ? sessionById.get(rawImage.upload_session_id)
+        : null
+    const vanId =
+      (typeof inspection.van_id === 'string' ? inspection.van_id : null) ??
+      uploadSession?.van_id ??
+      null
     const id = typeof rawImage.id === 'string' ? rawImage.id : null
     const createdAt = typeof rawImage.created_at === 'string' ? rawImage.created_at : null
     if (!vanId || !id || !createdAt) continue
@@ -176,7 +202,21 @@ export default async function VehiclesPage({
       profileImageId: profileImage.imageId,
     }
   }) as FleetVehicleRow[]
-  const damageCases = (damageCasesResult.data ?? []) as Array<Record<string, unknown>>
+  const damageCases: Array<Record<string, unknown>> = ((damageCasesResult.data ?? []) as Array<Record<string, unknown>>).map(
+    (damageCase) => {
+      const session =
+        typeof damageCase.first_upload_session_id === 'string'
+          ? sessionById.get(damageCase.first_upload_session_id)
+          : null
+      return {
+        ...damageCase,
+        van_id:
+          (typeof damageCase.van_id === 'string' ? damageCase.van_id : null) ??
+          session?.van_id ??
+          null,
+      }
+    }
+  )
   const attention = (attentionResult.data ?? []).map((item) => {
     const damageCase = damageCases.find((candidate) => candidate.id === item.latest_damage_case_id)
     return {
@@ -283,9 +323,10 @@ export default async function VehiclesPage({
     damageCases: damageCases as FleetDamageCaseInput[],
     analyses: ((inspectionResult.data ?? []) as InspectionRawRow[]).map((inspection) => {
       const run = runByInspection.get(inspection.id)
+      const sessionVanId = sessionByInspectionId.get(inspection.id)?.van_id ?? null
       return {
         tenant_id: inspection.tenant_id,
-        van_id: inspection.van_id,
+        van_id: inspection.van_id ?? sessionVanId,
         inspection_id: inspection.id,
         inspection_status: inspection.status,
         completed_at: inspection.completed_at,

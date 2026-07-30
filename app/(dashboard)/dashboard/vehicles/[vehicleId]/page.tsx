@@ -77,7 +77,7 @@ export default async function VehicleProfilePage({
     .maybeSingle()
   if (!vehicle) notFound()
 
-  const inspectionsResult = await db
+  const initialInspectionsResult = await db
     .from('van_damage_inspections')
     .select(
       'id, status, review_status, damage_count, ai_summary, ai_confidence, created_at, completed_at'
@@ -87,28 +87,37 @@ export default async function VehicleProfilePage({
     .eq('van_id', vehicleId)
     .order('created_at', { ascending: false })
     .limit(50)
-  const inspectionIds = (inspectionsResult.data ?? []).map((inspection) => inspection.id)
+  const initialInspectionIds = (initialInspectionsResult.data ?? []).map((inspection) => inspection.id)
   const sessionScope = newTables
     .from('van_damage_upload_sessions')
     .select('*')
     .eq('tenant_id', scope.tenantId)
     .eq('business_id', scope.businessId)
   const scopedSessions =
-    inspectionIds.length > 0
-      ? sessionScope.or(`van_id.eq.${vehicleId},inspection_id.in.(${inspectionIds.join(',')})`)
+    initialInspectionIds.length > 0
+      ? sessionScope.or(`van_id.eq.${vehicleId},inspection_id.in.(${initialInspectionIds.join(',')})`)
       : sessionScope.eq('van_id', vehicleId)
+  const sessionsResult = await scopedSessions.order('upload_started_at', { ascending: false }).limit(50)
+  const sessions = (sessionsResult.data ?? []) as VanProfileSession[]
+  const sessionInspectionIds = sessions
+    .map((session) => session.inspection_id)
+    .filter((id): id is string => typeof id === 'string' && Boolean(id))
+  const sessionIds = sessions.map((session) => session.id).filter(Boolean)
+  const inspectionIds = [...new Set([...initialInspectionIds, ...sessionInspectionIds])]
+
   const caseScope = newTables
     .from('van_damage_cases')
     .select('*')
     .eq('tenant_id', scope.tenantId)
     .eq('business_id', scope.businessId)
   const scopedCases =
-    inspectionIds.length > 0
+    inspectionIds.length > 0 || sessionIds.length > 0
       ? caseScope.or(
           [
             `van_id.eq.${vehicleId}`,
             `first_detected_inspection_id.in.(${inspectionIds.join(',')})`,
             `latest_observed_inspection_id.in.(${inspectionIds.join(',')})`,
+            ...(sessionIds.length > 0 ? [`first_upload_session_id.in.(${sessionIds.join(',')})`] : []),
           ].join(',')
         )
       : caseScope.eq('van_id', vehicleId)
@@ -118,22 +127,37 @@ export default async function VehicleProfilePage({
     .eq('tenant_id', scope.tenantId)
     .eq('business_id', scope.businessId)
   const scopedObservations =
-    inspectionIds.length > 0
-      ? observationScope.or(`van_id.eq.${vehicleId},inspection_id.in.(${inspectionIds.join(',')})`)
+    inspectionIds.length > 0 || sessionIds.length > 0
+      ? observationScope.or(
+          [
+            `van_id.eq.${vehicleId}`,
+            ...(inspectionIds.length > 0 ? [`inspection_id.in.(${inspectionIds.join(',')})`] : []),
+            ...(sessionIds.length > 0 ? [`upload_session_id.in.(${sessionIds.join(',')})`] : []),
+          ].join(',')
+        )
       : observationScope.eq('van_id', vehicleId)
 
   const [
-    sessionsResult,
+    inspectionsResult,
     imagesResult,
     casesResult,
     observationsResult,
     channelsResult,
     tenantResult,
   ] = await Promise.all([
-    scopedSessions
-      .order('upload_started_at', { ascending: false })
-      .limit(50),
     inspectionIds.length > 0
+      ? db
+          .from('van_damage_inspections')
+          .select(
+            'id, status, review_status, damage_count, ai_summary, ai_confidence, created_at, completed_at'
+          )
+          .eq('tenant_id', scope.tenantId)
+          .eq('business_id', scope.businessId)
+          .in('id', inspectionIds)
+          .order('created_at', { ascending: false })
+          .limit(100)
+      : Promise.resolve(initialInspectionsResult),
+    inspectionIds.length > 0 || sessionIds.length > 0
       ? newTables
           .from('van_damage_images')
           .select(
@@ -141,7 +165,12 @@ export default async function VehicleProfilePage({
           )
           .eq('tenant_id', scope.tenantId)
           .eq('business_id', scope.businessId)
-          .in('inspection_id', inspectionIds)
+          .or(
+            [
+              ...(inspectionIds.length > 0 ? [`inspection_id.in.(${inspectionIds.join(',')})`] : []),
+              ...(sessionIds.length > 0 ? [`upload_session_id.in.(${sessionIds.join(',')})`] : []),
+            ].join(',')
+          )
           .order('created_at', { ascending: true })
           .limit(1000)
       : Promise.resolve({ data: [] }),
@@ -158,7 +187,6 @@ export default async function VehicleProfilePage({
   const inspections = new Map(
     (inspectionsResult.data ?? []).map((inspection) => [inspection.id, inspection])
   )
-  const sessions = (sessionsResult.data ?? []) as VanProfileSession[]
   const images = (imagesResult.data ?? []) as VanProfileImageRow[]
   const observations = (observationsResult.data ?? []) as Array<
     VanProfileCase['observations'][number] & { damage_case_id: string | null }
@@ -189,7 +217,7 @@ export default async function VehicleProfilePage({
   )
   const profileImage = asProfileImage(asRecord(asRecord(vehicle.metadata).vanDamage).profileImage)
   const fallbackProfileImageId =
-    images.find((image) => image.s3_key && ['uploaded', 'analyzed'].includes(image.status))?.id ??
+    images.find((image) => ['uploaded', 'analyzed'].includes(image.status))?.id ??
     null
   const hydratedSessions: VanProfileSession[] = sessions.map((session) => ({
     ...session,

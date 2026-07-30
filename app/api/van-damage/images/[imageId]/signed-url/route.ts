@@ -30,26 +30,21 @@ export async function GET(
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!image) return NextResponse.json({ error: 'Image not found' }, { status: 404 })
-  if (!image.s3_bucket || !image.s3_key) return NextResponse.json({ error: 'Image has not been uploaded yet' }, { status: 409 })
-  let bucket = image.s3_bucket
-  let key = image.s3_key
-  if (profile !== 'original') {
-    const assetDb = db as unknown as {
-      from(table: 'van_damage_image_assets'): {
-        select(columns: string): {
+  const assetDb = db as unknown as {
+    from(table: 'van_damage_image_assets'): {
+      select(columns: string): {
+        eq(column: string, value: string): {
           eq(column: string, value: string): {
             eq(column: string, value: string): {
               eq(column: string, value: string): {
                 eq(column: string, value: string): {
                   eq(column: string, value: string): {
-                    eq(column: string, value: string): {
-                      order(column: string, options: { ascending: boolean }): {
-                        limit(count: number): {
-                          maybeSingle(): Promise<{
-                            data: DerivativeAssetRow | null
-                            error: { message: string } | null
-                          }>
-                        }
+                    order(column: string, options: { ascending: boolean }): {
+                      limit(count: number): {
+                        maybeSingle(): Promise<{
+                          data: DerivativeAssetRow | null
+                          error: { message: string } | null
+                        }>
                       }
                     }
                   }
@@ -60,6 +55,10 @@ export async function GET(
         }
       }
     }
+  }
+  let bucket = image.s3_bucket
+  let key = image.s3_key
+  if (profile !== 'original') {
     const { data: derivative, error: derivativeError } = await assetDb
       .from('van_damage_image_assets')
       .select('bucket, object_key')
@@ -78,6 +77,24 @@ export async function GET(
       key = derivative.object_key
     }
   }
+  if (!bucket || !key) {
+    const { data: originalAsset, error: originalAssetError } = await assetDb
+      .from('van_damage_image_assets')
+      .select('bucket, object_key')
+      .eq('image_id', imageId)
+      .eq('tenant_id', access.tenantId)
+      .eq('business_id', access.businessId)
+      .eq('asset_type', 'original')
+      .eq('derivative_profile', 'original')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (originalAssetError) return NextResponse.json({ error: originalAssetError.message }, { status: 500 })
+    bucket = originalAsset?.bucket ?? null
+    key = originalAsset?.object_key ?? null
+  }
+  if (!bucket || !key) return NextResponse.json({ error: 'Image has not been uploaded yet' }, { status: 409 })
 
   const { region } = getVanDamageAwsEnv()
   const download = request.nextUrl.searchParams.get('download') === '1'

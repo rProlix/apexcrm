@@ -25,6 +25,7 @@ type LooseQuery = {
   select: (columns: string) => LooseQuery
   eq: (column: string, value: string) => LooseQuery
   in: (column: string, values: string[]) => LooseQuery
+  or: (filters: string) => LooseQuery
   not: (column: string, operator: string, value: unknown) => LooseQuery
   order: (column: string, options: { ascending: boolean }) => LooseQuery
   limit: (count: number) => Promise<{ data: unknown[] | null; error?: { message: string } | null }>
@@ -72,18 +73,39 @@ export async function PATCH(
   if (parsed.data.mode === 'manual') {
     const { data: imageResult, error } = await looseDb
       .from('van_damage_images')
-      .select('id, inspection_id, van_damage_inspections!inner(van_id)')
+      .select('id, inspection_id, upload_session_id, van_damage_inspections(van_id)')
       .eq('id', parsed.data.imageId)
       .eq('tenant_id', access.tenantId)
       .eq('business_id', access.businessId)
       .maybeSingle()
     const image = imageResult as {
       id: string
+      inspection_id?: string | null
+      upload_session_id?: string | null
       van_damage_inspections?: { van_id?: string } | null
     } | null
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     const inspection = image?.van_damage_inspections as { van_id?: string } | null
-    if (!image || inspection?.van_id !== vehicleId) {
+    let sessionVanId: string | null = null
+    if (image && inspection?.van_id !== vehicleId) {
+      const sessionFilters = [
+        image.upload_session_id ? `id.eq.${image.upload_session_id}` : null,
+        image.inspection_id ? `inspection_id.eq.${image.inspection_id}` : null,
+      ].filter(Boolean)
+      if (sessionFilters.length) {
+        const { data: sessionRows, error: sessionError } = await looseDb
+          .from('van_damage_upload_sessions')
+          .select('id, van_id')
+          .eq('tenant_id', access.tenantId)
+          .eq('business_id', access.businessId)
+          .or(sessionFilters.join(','))
+          .limit(1)
+        if (sessionError) return NextResponse.json({ error: sessionError.message }, { status: 500 })
+        const session = (sessionRows ?? [])[0] as { van_id?: string | null } | undefined
+        sessionVanId = session?.van_id ?? null
+      }
+    }
+    if (!image || (inspection?.van_id !== vehicleId && sessionVanId !== vehicleId)) {
       return NextResponse.json(
         { error: 'Image is not available for this vehicle' },
         { status: 404 }
@@ -91,16 +113,34 @@ export async function PATCH(
     }
     imageId = image.id
   } else {
+    const { data: sessionRows, error: sessionsError } = await looseDb
+      .from('van_damage_upload_sessions')
+      .select('id, inspection_id')
+      .eq('tenant_id', access.tenantId)
+      .eq('business_id', access.businessId)
+      .eq('van_id', vehicleId)
+      .order('upload_started_at', { ascending: true })
+      .limit(250)
+    if (sessionsError) return NextResponse.json({ error: sessionsError.message }, { status: 500 })
+    const sessions = (sessionRows ?? []) as Array<{ id: string; inspection_id: string | null }>
+    const sessionIds = sessions.map((session) => session.id).filter(Boolean)
+    const inspectionIds = sessions
+      .map((session) => session.inspection_id)
+      .filter((id): id is string => typeof id === 'string' && Boolean(id))
+    const filters = [
+      `van_damage_inspections.van_id.eq.${vehicleId}`,
+      ...(sessionIds.length ? [`upload_session_id.in.(${sessionIds.join(',')})`] : []),
+      ...(inspectionIds.length ? [`inspection_id.in.(${inspectionIds.join(',')})`] : []),
+    ]
     const { data: imageRows } = await looseDb
       .from('van_damage_images')
       .select(
-        'id, upload_order, original_file_index, created_at, van_damage_inspections!inner(van_id)'
+        'id, upload_order, original_file_index, created_at, van_damage_inspections(van_id)'
       )
       .eq('tenant_id', access.tenantId)
       .eq('business_id', access.businessId)
-      .eq('van_damage_inspections.van_id', vehicleId)
+      .or(filters.join(','))
       .in('status', ['uploaded', 'analyzed'])
-      .not('s3_key', 'is', null)
       .order('created_at', { ascending: true })
       .limit(50)
     const image = (imageRows ?? []) as Array<{

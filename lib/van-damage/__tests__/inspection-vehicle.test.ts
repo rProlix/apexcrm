@@ -199,16 +199,19 @@ test('fleet profiles hydrate history through the canonical inspection vehicle li
     readFile(path.join(process.cwd(), 'app/(dashboard)/dashboard/vehicles/page.tsx'), 'utf8'),
   ])
 
-  assert.match(profilePage, /const inspectionIds = \(inspectionsResult\.data \?\? \[\]\)/)
+  assert.match(profilePage, /const initialInspectionIds = \(initialInspectionsResult\.data \?\? \[\]\)/)
   assert.match(
     profilePage,
-    /sessionScope\.or\(`van_id\.eq\.\$\{vehicleId\},inspection_id\.in\.\(\$\{inspectionIds\.join\(','\)\}\)`\)/
+    /sessionScope\.or\(`van_id\.eq\.\$\{vehicleId\},inspection_id\.in\.\(\$\{initialInspectionIds\.join\(','\)\}\)`\)/
   )
-  assert.match(profilePage, /\.in\('inspection_id', inspectionIds\)/)
+  assert.match(profilePage, /\.in\('id', inspectionIds\)/)
   assert.match(
     profilePage,
     /image\.inspection_id === session\.inspection_id \|\| image\.upload_session_id === session\.id/
   )
+  assert.match(profilePage, /const sessionInspectionIds = sessions/)
+  assert.match(profilePage, /const sessionIds = sessions\.map/)
+  assert.match(profilePage, /upload_session_id\.in\.\(\$\{sessionIds\.join\(','\)\}\)/)
   assert.match(
     profilePage,
     /observation\.inspection_id === session\.inspection_id \|\|\s*observation\.upload_session_id === session\.id/
@@ -223,11 +226,14 @@ test('fleet profiles hydrate history through the canonical inspection vehicle li
   )
   assert.match(
     profilePage,
-    /observationScope\.or\(`van_id\.eq\.\$\{vehicleId\},inspection_id\.in\.\(\$\{inspectionIds\.join\(','\)\}\)`\)/
+    /upload_session_id\.in\.\(\$\{sessionIds\.join\(','\)\}\)/
   )
   assert.match(
     profilePage,
     /related_damage_case_id\.in\.\(\$\{damageCaseIds\.join\(','\)\}\)/
   )
+  assert.match(profilePage, /images\.find\(\(image\) => \['uploaded', 'analyzed'\]\.includes\(image\.status\)\)/)
   assert.match(fleetPage, /\{ allowAutomaticFirstUpload: true \}/)
+  assert.match(fleetPage, /sessionById\.get\(rawImage\.upload_session_id\)/)
+  assert.match(fleetPage, /inspection\.van_id \?\? sessionVanId/)
 })
