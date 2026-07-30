@@ -3,12 +3,13 @@ import test from 'node:test'
 import { DEFAULT_TENANT_ACCENT, resolveSafeTenantAccent } from '@/lib/design-system/tenantAccent'
 
 test('tenant accent resolver accepts a readable six-digit brand color', () => {
-  assert.deepEqual(resolveSafeTenantAccent('#3b82f6'), {
-    accent: '#3b82f6',
-    accentRgb: '59 130 246',
-    foreground: '#ffffff',
-    wasAdjusted: false,
-  })
+  const result = resolveSafeTenantAccent('#3b82f6')
+  assert.equal(result.accent, '#3b82f6')
+  assert.equal(result.accentRgb, '59 130 246')
+  assert.equal(result.foreground, '#080b11')
+  assert.equal(result.scale[500], '#3b82f6')
+  assert.equal(result.scaleRgb[500], '59 130 246')
+  assert.equal(result.wasAdjusted, false)
 })
 
 test('tenant accent resolver rejects malformed, excessively dark, and excessively light colors', () => {

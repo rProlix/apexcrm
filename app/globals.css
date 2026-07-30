@@ -24,10 +24,24 @@
   --tenant-accent: #c9a84c;
   --tenant-accent-rgb: 201 168 76;
   --tenant-accent-foreground: #080b11;
-  --color-gold: #c9a84c;
-  --color-gold-light: #e8c34a;
-  --color-gold-dark: #b8911e;
-  --color-gold-muted: rgba(201, 168, 76, 0.12);
+  --tenant-accent-hover: #b59744;
+  --tenant-accent-active: #a5893e;
+  --tenant-accent-soft: #272517;
+  --tenant-focus: #c9a84c;
+  --tenant-accent-50-rgb: 250 248 237;
+  --tenant-accent-100-rgb: 245 239 218;
+  --tenant-accent-200-rgb: 235 223 190;
+  --tenant-accent-300-rgb: 224 205 151;
+  --tenant-accent-400-rgb: 211 184 108;
+  --tenant-accent-500-rgb: 201 168 76;
+  --tenant-accent-600-rgb: 177 148 67;
+  --tenant-accent-700-rgb: 149 124 56;
+  --tenant-accent-800-rgb: 121 101 46;
+  --tenant-accent-900-rgb: 92 77 35;
+  --color-gold: var(--tenant-accent);
+  --color-gold-light: rgb(var(--tenant-accent-300-rgb));
+  --color-gold-dark: rgb(var(--tenant-accent-600-rgb));
+  --color-gold-muted: rgb(var(--tenant-accent-rgb) / 0.12);
 
   --color-text-primary: rgba(247, 249, 252, 0.96);
   --color-text-secondary: rgba(224, 230, 239, 0.68);
@@ -50,12 +64,10 @@
   --radius-overlay: 1.125rem;
 
   --shadow-surface:
-    0 1px 0 rgba(255, 255, 255, 0.025) inset,
-    0 1px 2px rgba(0, 0, 0, 0.28),
+    0 1px 0 rgba(255, 255, 255, 0.025) inset, 0 1px 2px rgba(0, 0, 0, 0.28),
     0 18px 44px rgba(0, 0, 0, 0.14);
   --shadow-overlay:
-    0 1px 0 rgba(255, 255, 255, 0.045) inset,
-    0 28px 90px rgba(0, 0, 0, 0.56),
+    0 1px 0 rgba(255, 255, 255, 0.045) inset, 0 28px 90px rgba(0, 0, 0, 0.56),
     0 2px 12px rgba(0, 0, 0, 0.3);
   --shadow-md: var(--shadow-surface);
 
@@ -120,6 +132,25 @@ body {
 
 body::selection {
   text-shadow: none;
+}
+
+/* Builder and published sites share accessible interaction color roles. */
+.site-root {
+  accent-color: var(--color-primary);
+}
+
+.site-root :where(a, button, input, select, textarea):focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.site-root a:not([style]) {
+  color: var(--color-link);
+}
+
+.site-root ::selection {
+  background: var(--color-primary-soft);
+  color: var(--color-text);
 }
 
 /* ─── Initial product launch sequence ───────────────────────────── */
@@ -195,8 +226,7 @@ body::selection {
   border: 1px solid rgb(var(--tenant-accent-rgb) / 0.28);
   border-radius: 1.125rem;
   background:
-    linear-gradient(145deg, rgb(var(--tenant-accent-rgb) / 0.18), transparent 58%),
-    #121722;
+    linear-gradient(145deg, rgb(var(--tenant-accent-rgb) / 0.18), transparent 58%), #121722;
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.1),
     0 22px 60px rgb(0 0 0 / 0.38),
@@ -211,9 +241,7 @@ body::selection {
   height: 5.25rem;
   padding: 0.7rem;
   border-color: rgb(255 255 255 / 0.22);
-  background:
-    linear-gradient(145deg, rgb(255 255 255 / 0.98), rgb(238 242 247 / 0.92)),
-    #f7f9fc;
+  background: linear-gradient(145deg, rgb(255 255 255 / 0.98), rgb(238 242 247 / 0.92)), #f7f9fc;
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.9),
     0 24px 64px rgb(0 0 0 / 0.42),
@@ -278,11 +306,7 @@ body::selection {
   display: block;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    rgb(var(--tenant-accent-rgb) / 0.45),
-    var(--tenant-accent)
-  );
+  background: linear-gradient(90deg, rgb(var(--tenant-accent-rgb) / 0.45), var(--tenant-accent));
   box-shadow: 0 0 14px rgb(var(--tenant-accent-rgb) / 0.34);
   transform: scaleX(0);
   transform-origin: left center;
@@ -394,8 +418,7 @@ summary {
 
   .premium-panel {
     background:
-      linear-gradient(145deg, rgba(255, 255, 255, 0.035), transparent 42%),
-      var(--color-raised);
+      linear-gradient(145deg, rgba(255, 255, 255, 0.035), transparent 42%), var(--color-raised);
     border-radius: var(--radius-panel);
     box-shadow: var(--shadow-surface);
   }
@@ -730,8 +753,7 @@ summary {
     position: relative;
     isolation: isolate;
     background:
-      linear-gradient(180deg, rgb(255 255 255 / 0.012), transparent 24rem),
-      var(--color-base);
+      linear-gradient(180deg, rgb(255 255 255 / 0.012), transparent 24rem), var(--color-base);
   }
 
   .crm-shell-ambient {
@@ -853,7 +875,12 @@ summary {
     bottom: -1px;
     left: 1rem;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgb(var(--tenant-accent-rgb) / 0.28), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--tenant-accent-rgb) / 0.28),
+      transparent
+    );
   }
 
   .crm-nav-label {
@@ -900,8 +927,11 @@ summary {
   }
 
   .crm-nav-item-active {
-    background:
-      linear-gradient(90deg, rgb(var(--tenant-accent-rgb) / 0.12), rgb(var(--tenant-accent-rgb) / 0.045));
+    background: linear-gradient(
+      90deg,
+      rgb(var(--tenant-accent-rgb) / 0.12),
+      rgb(var(--tenant-accent-rgb) / 0.045)
+    );
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.035),
       0 8px 24px rgb(0 0 0 / 0.1);
@@ -930,7 +960,12 @@ summary {
     bottom: -1px;
     width: clamp(5rem, 18vw, 16rem);
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgb(var(--tenant-accent-rgb) / 0.5), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--tenant-accent-rgb) / 0.5),
+      transparent
+    );
     pointer-events: none;
   }
 
@@ -1080,7 +1115,13 @@ summary {
     opacity: 0.9;
   }
 
-  :where(a.ui-surface, button.ui-surface, .ui-surface.group, .ui-card.group, .ui-interactive-surface) {
+  :where(
+    a.ui-surface,
+    button.ui-surface,
+    .ui-surface.group,
+    .ui-card.group,
+    .ui-interactive-surface
+  ) {
     transform: translateY(0);
     transition:
       transform var(--motion-feedback) var(--motion-enter),
@@ -1254,12 +1295,12 @@ summary {
   }
 
   :where(
-      a.ui-surface,
-      button.ui-surface,
-      .ui-surface.group,
-      .ui-card.group,
-      .ui-interactive-surface
-    ):hover {
+    a.ui-surface,
+    button.ui-surface,
+    .ui-surface.group,
+    .ui-card.group,
+    .ui-interactive-surface
+  ):hover {
     transform: translateY(-1px);
     border-color: rgb(224 232 244 / 0.13);
     box-shadow:
@@ -1330,7 +1371,13 @@ summary {
   .crm-nav-icon,
   .crm-bottom-nav-icon,
   .ui-chrome-button,
-  :where(a.ui-surface, button.ui-surface, .ui-surface.group, .ui-card.group, .ui-interactive-surface) {
+  :where(
+    a.ui-surface,
+    button.ui-surface,
+    .ui-surface.group,
+    .ui-card.group,
+    .ui-interactive-surface
+  ) {
     transform: none !important;
     transition-property: color, background-color, border-color, box-shadow !important;
   }

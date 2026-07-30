@@ -71,6 +71,16 @@ export function DashboardShell({
                 '--tenant-accent': tenantAccent.accent,
                 '--tenant-accent-rgb': tenantAccent.accentRgb,
                 '--tenant-accent-foreground': tenantAccent.foreground,
+                '--tenant-accent-hover': tenantAccent.hover,
+                '--tenant-accent-active': tenantAccent.active,
+                '--tenant-accent-soft': tenantAccent.soft,
+                '--tenant-focus': tenantAccent.focus,
+                ...Object.fromEntries(
+                  Object.entries(tenantAccent.scaleRgb).map(([step, rgb]) => [
+                    `--tenant-accent-${step}-rgb`,
+                    rgb,
+                  ])
+                ),
               } as React.CSSProperties
             }
           >

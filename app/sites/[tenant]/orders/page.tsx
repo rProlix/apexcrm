@@ -27,9 +27,9 @@ export default async function OrdersPage({ params }: Props) {
   if (!config) notFound()
 
   const headersList = await headers()
-  const isPlatform  = headersList.get('x-is-platform') === 'true'
-  const basePath    = isPlatform ? `/sites/${tenant}` : ''
-  const loginPath   = `${basePath}/login?next=/orders`
+  const isPlatform = headersList.get('x-is-platform') === 'true'
+  const basePath = isPlatform ? `/sites/${tenant}` : ''
+  const loginPath = `${basePath}/login?next=/orders`
 
   const siteCtx = await resolveSiteUser(siteData.tenant.id)
 
@@ -40,26 +40,33 @@ export default async function OrdersPage({ params }: Props) {
     return (
       <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
         <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center', paddingTop: '3rem' }}>
-          <h1 style={{
-            fontSize:   'clamp(1.5rem, 3vw, 2rem)',
-            fontWeight: 700,
-            fontFamily: 'var(--font-heading)',
-            color:      'var(--color-text)',
-            margin:     '0 0 1rem',
-          }}>Order History</h1>
+          <h1
+            style={{
+              fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+              fontWeight: 700,
+              fontFamily: 'var(--font-heading)',
+              color: 'var(--color-text)',
+              margin: '0 0 1rem',
+            }}
+          >
+            Order History
+          </h1>
           <p style={{ color: 'var(--color-muted)', marginBottom: '2rem' }}>
             As a business {siteCtx.role}, you can view all store orders from your CRM dashboard.
           </p>
           {siteCtx.canManageStore ? (
-            <Link href="/dashboard" style={{
-              display:        'inline-block',
-              background:     'var(--color-primary)',
-              color:          '#fff',
-              padding:        '0.75rem 1.75rem',
-              borderRadius:   '0.75rem',
-              fontWeight:     600,
-              textDecoration: 'none',
-            }}>
+            <Link
+              href="/dashboard"
+              style={{
+                display: 'inline-block',
+                background: 'var(--color-primary)',
+                color: 'var(--color-primary-foreground)',
+                padding: '0.75rem 1.75rem',
+                borderRadius: '0.75rem',
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
               Go to CRM Dashboard →
             </Link>
           ) : (
@@ -80,25 +87,32 @@ export default async function OrdersPage({ params }: Props) {
     return (
       <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
         <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center', paddingTop: '3rem' }}>
-          <h1 style={{
-            fontSize:   'clamp(1.5rem, 3vw, 2rem)',
-            fontWeight: 700,
-            fontFamily: 'var(--font-heading)',
-            color:      'var(--color-text)',
-            margin:     '0 0 1rem',
-          }}>Order History</h1>
+          <h1
+            style={{
+              fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+              fontWeight: 700,
+              fontFamily: 'var(--font-heading)',
+              color: 'var(--color-text)',
+              margin: '0 0 1rem',
+            }}
+          >
+            Order History
+          </h1>
           <p style={{ color: 'var(--color-muted)', marginBottom: '2rem' }}>
             You don&apos;t have an account with this store yet.
           </p>
-          <Link href={`${basePath}/signup`} style={{
-            display:        'inline-block',
-            background:     'var(--color-primary)',
-            color:          '#fff',
-            padding:        '0.75rem 1.75rem',
-            borderRadius:   '0.75rem',
-            fontWeight:     600,
-            textDecoration: 'none',
-          }}>
+          <Link
+            href={`${basePath}/signup`}
+            style={{
+              display: 'inline-block',
+              background: 'var(--color-primary)',
+              color: 'var(--color-primary-foreground)',
+              padding: '0.75rem 1.75rem',
+              borderRadius: '0.75rem',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
             Create a store account
           </Link>
         </div>
@@ -116,14 +130,17 @@ export default async function OrdersPage({ params }: Props) {
     .limit(50)
 
   const orders = (ordersRaw ?? []) as Array<{
-    id: string; status: string; total_amount: number | null
-    created_at: string; items?: unknown[]
+    id: string
+    status: string
+    total_amount: number | null
+    created_at: string
+    items?: unknown[]
   }>
 
   const statusColors: Record<string, string> = {
-    pending:   '#d97706',
-    paid:      '#059669',
-    shipped:   '#2563eb',
+    pending: '#d97706',
+    paid: '#059669',
+    shipped: '#2563eb',
     delivered: '#059669',
     cancelled: '#dc2626',
   }
@@ -131,63 +148,89 @@ export default async function OrdersPage({ params }: Props) {
   return (
     <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
-          <h1 style={{
-            fontSize:   'clamp(1.5rem, 3vw, 2rem)',
-            fontWeight: 700,
-            fontFamily: 'var(--font-heading)',
-            color:      'var(--color-text)',
-            margin:     0,
-          }}>Order History</h1>
-          <Link href={`${basePath}/account`} style={{
-            fontSize:       '0.875rem',
-            color:          'var(--color-muted)',
-            textDecoration: 'none',
-          }}>← Account</Link>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '2rem',
+          }}
+        >
+          <h1
+            style={{
+              fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+              fontWeight: 700,
+              fontFamily: 'var(--font-heading)',
+              color: 'var(--color-text)',
+              margin: 0,
+            }}
+          >
+            Order History
+          </h1>
+          <Link
+            href={`${basePath}/account`}
+            style={{
+              fontSize: '0.875rem',
+              color: 'var(--color-muted)',
+              textDecoration: 'none',
+            }}
+          >
+            ← Account
+          </Link>
         </div>
 
-        {(!orders || orders.length === 0) ? (
-          <div style={{
-            textAlign:  'center',
-            padding:    '4rem 1.5rem',
-            color:      'var(--color-muted)',
-          }}>
+        {!orders || orders.length === 0 ? (
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '4rem 1.5rem',
+              color: 'var(--color-muted)',
+            }}
+          >
             <p style={{ fontSize: '1.125rem', marginBottom: '1.5rem' }}>No orders yet.</p>
-            <Link href={`${basePath}/shop`} style={{
-              display:        'inline-block',
-              background:     'var(--color-primary)',
-              color:          '#fff',
-              padding:        '0.75rem 1.75rem',
-              borderRadius:   '0.75rem',
-              fontWeight:     600,
-              textDecoration: 'none',
-            }}>
+            <Link
+              href={`${basePath}/shop`}
+              style={{
+                display: 'inline-block',
+                background: 'var(--color-primary)',
+                color: 'var(--color-primary-foreground)',
+                padding: '0.75rem 1.75rem',
+                borderRadius: '0.75rem',
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
               Start Shopping
             </Link>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {orders.map((order) => (
-              <div key={order.id} style={{
-                background:   'var(--color-surface)',
-                border:       '1px solid var(--color-border)',
-                borderRadius: '0.875rem',
-                padding:      '1.25rem 1.5rem',
-                display:      'flex',
-                alignItems:   'center',
-                gap:          '1rem',
-                flexWrap:     'wrap',
-              }}>
+              <div
+                key={order.id}
+                style={{
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '0.875rem',
+                  padding: '1.25rem 1.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  flexWrap: 'wrap',
+                }}
+              >
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{
-                    margin:       0,
-                    fontWeight:   600,
-                    color:        'var(--color-text)',
-                    fontSize:     '0.9375rem',
-                    overflow:     'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace:   'nowrap',
-                  }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontWeight: 600,
+                      color: 'var(--color-text)',
+                      fontSize: '0.9375rem',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
                     Order #{order.id.slice(0, 8).toUpperCase()}
                   </p>
                   <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-muted)' }}>
@@ -195,14 +238,16 @@ export default async function OrdersPage({ params }: Props) {
                   </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <span style={{
-                    fontSize:     '0.75rem',
-                    fontWeight:   600,
-                    padding:      '0.25rem 0.75rem',
-                    borderRadius: '99px',
-                    background:   `${statusColors[order.status] ?? '#6b7280'}22`,
-                    color:        statusColors[order.status] ?? '#6b7280',
-                  }}>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: '99px',
+                      background: `${statusColors[order.status] ?? '#6b7280'}22`,
+                      color: statusColors[order.status] ?? '#6b7280',
+                    }}
+                  >
                     {order.status}
                   </span>
                   <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>

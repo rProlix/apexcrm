@@ -20,16 +20,16 @@ const config: Config = {
           400: '#526078',
         },
         gold: {
-          50: '#fdf8ec',
-          100: '#f9edcc',
-          200: '#f2d98a',
-          300: '#e8c34a',
-          400: '#d4a82a',
-          500: '#c9a84c',
-          600: '#b8911e',
-          700: '#9a7518',
-          800: '#7d5e14',
-          900: '#664d10',
+          50: 'rgb(var(--tenant-accent-50-rgb) / <alpha-value>)',
+          100: 'rgb(var(--tenant-accent-100-rgb) / <alpha-value>)',
+          200: 'rgb(var(--tenant-accent-200-rgb) / <alpha-value>)',
+          300: 'rgb(var(--tenant-accent-300-rgb) / <alpha-value>)',
+          400: 'rgb(var(--tenant-accent-400-rgb) / <alpha-value>)',
+          500: 'rgb(var(--tenant-accent-500-rgb) / <alpha-value>)',
+          600: 'rgb(var(--tenant-accent-600-rgb) / <alpha-value>)',
+          700: 'rgb(var(--tenant-accent-700-rgb) / <alpha-value>)',
+          800: 'rgb(var(--tenant-accent-800-rgb) / <alpha-value>)',
+          900: 'rgb(var(--tenant-accent-900-rgb) / <alpha-value>)',
         },
         // Semantic surface tokens
         surface: {
@@ -41,6 +41,9 @@ const config: Config = {
         brand: {
           DEFAULT: 'rgb(var(--tenant-accent-rgb) / <alpha-value>)',
           foreground: 'var(--tenant-accent-foreground)',
+          hover: 'var(--tenant-accent-hover)',
+          active: 'var(--tenant-accent-active)',
+          soft: 'var(--tenant-accent-soft)',
         },
       },
       fontFamily: {
@@ -56,15 +59,16 @@ const config: Config = {
         '3xl': '1.5rem',
       },
       boxShadow: {
-        'glow-gold': '0 0 20px rgba(201,168,76,0.12)',
-        'glow-gold-lg': '0 0 36px rgba(201,168,76,0.16)',
+        'glow-gold': '0 0 20px rgb(var(--tenant-accent-rgb) / 0.12)',
+        'glow-gold-lg': '0 0 36px rgb(var(--tenant-accent-rgb) / 0.16)',
         panel:
           'inset 0 1px 0 rgba(255,255,255,0.025), 0 1px 2px rgba(0,0,0,0.28), 0 18px 44px rgba(0,0,0,0.14)',
         'panel-lg':
           'inset 0 1px 0 rgba(255,255,255,0.04), 0 28px 80px rgba(0,0,0,0.5), 0 2px 10px rgba(0,0,0,0.28)',
       },
       backgroundImage: {
-        'gold-gradient': 'linear-gradient(135deg, #c9a84c 0%, #e8c34a 50%, #b8911e 100%)',
+        'gold-gradient':
+          'linear-gradient(135deg, rgb(var(--tenant-accent-500-rgb)) 0%, rgb(var(--tenant-accent-300-rgb)) 50%, rgb(var(--tenant-accent-600-rgb)) 100%)',
         'surface-gradient': 'linear-gradient(180deg, #101620 0%, #0b0f17 100%)',
         'glass-gradient':
           'linear-gradient(135deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.018) 100%)',

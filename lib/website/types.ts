@@ -2,6 +2,7 @@
 
 import type { Premium3DScrollHeroContent } from './premium3d/types'
 import { defaultPremium3DScrollHeroContent } from './premium3d/types'
+import type { WebsiteDesignSystem } from './design/types'
 
 // Re-export so callers can import the Premium 3D Scroll Hero content type from
 // the central website types module.
@@ -47,105 +48,111 @@ export type VersionStatus = 'draft' | 'published' | 'archived'
 // ── Theme ────────────────────────────────────────────────────────────────────
 
 export interface WebsiteTheme {
-  primaryColor:    string
-  accentColor:     string
+  primaryColor: string
+  primaryForeground: string
+  primaryHover: string
+  primaryActive: string
+  primarySoft: string
+  accentColor: string
+  linkColor: string
+  focusColor: string
   backgroundColor: string
-  surfaceColor:    string
-  textColor:       string
-  mutedColor:      string
-  borderColor:     string
-  fontHeading:     string
-  fontBody:        string
-  borderRadius:    'none' | 'sm' | 'md' | 'lg' | 'xl' | 'full'
-  mode:            'dark' | 'light'
+  surfaceColor: string
+  textColor: string
+  mutedColor: string
+  borderColor: string
+  fontHeading: string
+  fontBody: string
+  borderRadius: 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'full'
+  mode: 'dark' | 'light'
 }
 
 export interface WebsiteFont {
   heading: string
-  body:    string
+  body: string
 }
 
 export interface WebsiteBrandColors {
-  primary:    string
-  accent:     string
+  primary: string
+  accent: string
   background: string
-  surface:    string
-  text:       string
-  muted:      string
-  border:     string
+  surface: string
+  text: string
+  muted: string
+  border: string
 }
 
 // ── Section content contracts ─────────────────────────────────────────────────
 
 export interface HeroContent {
-  headline:             string
-  subheadline:          string
-  ctaLabel:             string
-  ctaHref:              string
-  ctaSecondaryLabel?:   string
-  ctaSecondaryHref?:    string
-  backgroundImage?:     string
-  backgroundVideo?:     string
-  overlay:              boolean
-  overlayOpacity:       number
-  align:                'left' | 'center' | 'right'
+  headline: string
+  subheadline: string
+  ctaLabel: string
+  ctaHref: string
+  ctaSecondaryLabel?: string
+  ctaSecondaryHref?: string
+  backgroundImage?: string
+  backgroundVideo?: string
+  overlay: boolean
+  overlayOpacity: number
+  align: 'left' | 'center' | 'right'
 }
 
 export interface FeatureGridContent {
   headline: string
   subtitle: string
-  columns:  2 | 3 | 4
-  items:    Array<{
-    icon?:       string
-    image?:      string
-    title:       string
+  columns: 2 | 3 | 4
+  items: Array<{
+    icon?: string
+    image?: string
+    title: string
     description: string
   }>
 }
 
 export interface ProductGridContent {
-  headline:     string
-  subtitle:     string
-  limit:        number
-  showAll:      boolean
-  allHref:      string
+  headline: string
+  subtitle: string
+  limit: number
+  showAll: boolean
+  allHref: string
   filterActive: boolean
 }
 
 export interface TestimonialsContent {
   headline: string
-  items:    Array<{
-    name:    string
-    role?:   string
+  items: Array<{
+    name: string
+    role?: string
     avatar?: string
-    text:    string
-    rating:  number
+    text: string
+    rating: number
   }>
 }
 
 export interface FaqContent {
   headline: string
-  items:    Array<{
+  items: Array<{
     question: string
-    answer:   string
+    answer: string
   }>
 }
 
 export interface CtaContent {
-  headline:  string
-  body:      string
-  ctaLabel:  string
-  ctaHref:   string
-  align:     'left' | 'center' | 'right'
+  headline: string
+  body: string
+  ctaLabel: string
+  ctaHref: string
+  align: 'left' | 'center' | 'right'
 }
 
 export interface ContactContent {
-  headline:  string
-  body:      string
-  email?:    string
-  phone?:    string
-  address?:  string
-  showForm:  boolean
+  headline: string
+  body: string
+  email?: string
+  phone?: string
+  address?: string
+  showForm: boolean
 }
 
 export interface RichTextContent {
@@ -153,45 +160,45 @@ export interface RichTextContent {
 }
 
 export interface BannerContent {
-  text:        string
-  ctaLabel?:   string
-  ctaHref?:    string
-  variant:     'info' | 'promo' | 'warning'
+  text: string
+  ctaLabel?: string
+  ctaHref?: string
+  variant: 'info' | 'promo' | 'warning'
   dismissible: boolean
 }
 
 export interface ImageGalleryContent {
   headline?: string
-  images:    Array<{ url: string; alt: string; caption?: string }>
-  layout:    'grid' | 'masonry' | 'carousel'
+  images: Array<{ url: string; alt: string; caption?: string }>
+  layout: 'grid' | 'masonry' | 'carousel'
 }
 
 export interface AboutContent {
-  headline:   string
-  body:       string
-  image?:     string
+  headline: string
+  body: string
+  image?: string
   teamItems?: Array<{ name: string; role: string; avatar?: string }>
 }
 
 export interface Product360ViewerContent {
   /** UUID of the product whose 360° package should be loaded */
-  productId:      string
+  productId: string
   /** UUID of a specific product_360_packages record (optional override) */
-  packageId?:     string
+  packageId?: string
   /** Spin slowly on load */
-  autoRotate:     boolean
+  autoRotate: boolean
   /** Autoplay frames per second (used when autoRotate is on) */
-  speed:          number
+  speed: number
   /** Label shown in the viewer overlay */
-  label?:         string
+  label?: string
   /** Show control buttons */
-  showControls?:  boolean
+  showControls?: boolean
   /** Show hotspots */
-  showHotspots?:  boolean
+  showHotspots?: boolean
   /** Show package label in viewer */
-  showLabel?:     boolean
+  showLabel?: boolean
   /** Layout hint: hero | card | split */
-  layout?:        'hero' | 'card' | 'split'
+  layout?: 'hero' | 'card' | 'split'
 }
 
 export type SectionContent =
@@ -213,32 +220,32 @@ export type SectionContent =
 // ── Site config sub-objects ───────────────────────────────────────────────────
 
 export interface SeoDefaults {
-  title?:          string
-  description?:    string
-  ogImage?:        string
-  twitterHandle?:  string
-  keywords?:       string[]
+  title?: string
+  description?: string
+  ogImage?: string
+  twitterHandle?: string
+  keywords?: string[]
 }
 
 export interface HeaderConfig {
-  showLogo:    boolean
-  showNav:     boolean
+  showLogo: boolean
+  showNav: boolean
   transparent: boolean
-  sticky:      boolean
-  ctaLabel?:   string
-  ctaHref?:    string
+  sticky: boolean
+  ctaLabel?: string
+  ctaHref?: string
 }
 
 export interface FooterConfig {
-  showLogo:    boolean
-  tagline?:    string
-  copyright?:  string
+  showLogo: boolean
+  tagline?: string
+  copyright?: string
   showSocials: boolean
   socials?: {
-    twitter?:   string
+    twitter?: string
     instagram?: string
-    facebook?:  string
-    linkedin?:  string
+    facebook?: string
+    linkedin?: string
   }
 }
 
@@ -247,141 +254,142 @@ export interface FooterConfig {
 export type DomainType = 'subdomain' | 'custom'
 
 export interface SiteSettings {
-  id:            string
-  tenant_id:     string
-  site_name:     string | null
-  logo_url:      string | null
-  favicon_url:   string | null
-  brand_colors:  WebsiteBrandColors
-  fonts:         WebsiteFont
-  theme:         Partial<WebsiteTheme>
-  seo_defaults:  SeoDefaults
+  id: string
+  tenant_id: string
+  site_name: string | null
+  logo_url: string | null
+  favicon_url: string | null
+  brand_colors: WebsiteBrandColors
+  fonts: WebsiteFont
+  theme: Partial<WebsiteTheme>
+  design_system?: WebsiteDesignSystem | Record<string, unknown> | null
+  seo_defaults: SeoDefaults
   header_config: HeaderConfig
   footer_config: FooterConfig
   custom_domain: string | null
-  subdomain:     string | null
+  subdomain: string | null
   /** Controls which domain is active for the public site. */
-  domain_type:   DomainType
-  is_published:  boolean
-  created_at:    string
-  updated_at:    string
+  domain_type: DomainType
+  is_published: boolean
+  created_at: string
+  updated_at: string
   // POV Event App / Invitation-event integration (migrations 078–079)
-  website_type?:   'business' | 'creative' | 'invitational' | 'pov_event' | null
-  pov_enabled?:    boolean | null
-  pov_event_id?:   string | null
+  website_type?: 'business' | 'creative' | 'invitational' | 'pov_event' | null
+  pov_enabled?: boolean | null
+  pov_event_id?: string | null
   // Canva import integration (migration 080)
-  canva_import_enabled?:         boolean | null
-  canva_import_id?:              string | null
-  canva_import_mode?:            'preserve' | 'converted' | null
-  canva_source_url?:             string | null
-  canva_embed_code?:             string | null
+  canva_import_enabled?: boolean | null
+  canva_import_id?: string | null
+  canva_import_mode?: 'preserve' | 'converted' | null
+  canva_source_url?: string | null
+  canva_embed_code?: string | null
   canva_animation_preservation?: 'exact' | 'approximate' | 'partial' | 'unknown' | null
 }
 
 export interface SitePage {
-  id:               string
-  tenant_id:        string
-  slug:             string
-  title:            string | null
+  id: string
+  tenant_id: string
+  slug: string
+  title: string | null
   meta_description: string | null
-  page_type:        PageType
-  status:           PageStatus
-  sort_order:       number
-  created_at:       string
-  updated_at:       string
+  page_type: PageType
+  status: PageStatus
+  sort_order: number
+  created_at: string
+  updated_at: string
 }
 
 export interface SiteSection {
-  id:           string
-  tenant_id:    string
-  page_id:      string
+  id: string
+  tenant_id: string
+  page_id: string
   section_type: SectionType
-  section_key:  string | null
-  content:      SectionContent
-  sort_order:   number
-  is_visible:   boolean
-  created_at:   string
-  updated_at:   string
+  section_key: string | null
+  content: SectionContent
+  sort_order: number
+  is_visible: boolean
+  created_at: string
+  updated_at: string
 }
 
 export interface SiteNavigationItem {
-  id:         string
-  tenant_id:  string
-  label:      string
-  href:       string
+  id: string
+  tenant_id: string
+  label: string
+  href: string
   sort_order: number
   is_visible: boolean
-  location:   NavLocation
+  location: NavLocation
   created_at: string
   updated_at: string
 }
 
 export interface SiteAsset {
-  id:         string
-  tenant_id:  string
+  id: string
+  tenant_id: string
   asset_type: string
-  url:        string
-  metadata:   Record<string, unknown>
+  url: string
+  metadata: Record<string, unknown>
   created_at: string
 }
 
 export interface SiteVersion {
-  id:           string
-  tenant_id:    string
+  id: string
+  tenant_id: string
   version_name: string | null
-  snapshot:     SiteSnapshot
-  status:       VersionStatus
-  created_at:   string
-  updated_at:   string
+  snapshot: SiteSnapshot
+  status: VersionStatus
+  created_at: string
+  updated_at: string
 }
 
 export interface SiteAnalytics {
-  id:         string
-  tenant_id:  string
-  page_slug:  string | null
+  id: string
+  tenant_id: string
+  page_slug: string | null
   event_type: string
-  metadata:   Record<string, unknown>
+  metadata: Record<string, unknown>
   created_at: string
 }
 
 // ── Composite / derived types ─────────────────────────────────────────────────
 
 export interface SiteSnapshot {
-  settings:   Omit<SiteSettings, 'id' | 'created_at' | 'updated_at'>
-  pages:      Array<SitePage & { sections: SiteSection[] }>
+  settings: Omit<SiteSettings, 'id' | 'created_at' | 'updated_at'>
+  pages: Array<SitePage & { sections: SiteSection[] }>
   navigation: SiteNavigationItem[]
 }
 
 export interface PublishedSiteConfig {
-  tenant_id:  string
-  settings:   SiteSettings
-  pages:      Array<SitePage & { sections: SiteSection[] }>
+  tenant_id: string
+  settings: SiteSettings
+  pages: Array<SitePage & { sections: SiteSection[] }>
   navigation: {
     header: SiteNavigationItem[]
     footer: SiteNavigationItem[]
   }
-  theme:      WebsiteTheme
+  theme: WebsiteTheme
 }
 
 export interface SiteByHostResult {
   tenant: {
-    id:            string
-    name:          string
-    slug:          string
-    subdomain:     string | null
+    id: string
+    name: string
+    slug: string
+    subdomain: string | null
     custom_domain: string | null
   }
-  settings:    SiteSettings | null
+  settings: SiteSettings | null
   isPublished: boolean
 }
 
 // ── Section type metadata (used by the builder UI) ───────────────────────────
 
 export interface SectionTypeMeta {
-  type:           SectionType
-  label:          string
-  description:    string
-  icon:           string
+  type: SectionType
+  label: string
+  description: string
+  icon: string
   defaultContent: SectionContent
 }
 
@@ -392,13 +400,13 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
     description: 'Full-width hero with headline, subtitle, and call-to-action',
     icon: 'layout',
     defaultContent: {
-      headline:       'Welcome to Our Store',
-      subheadline:    'Discover premium products curated for you.',
-      ctaLabel:       'Shop Now',
-      ctaHref:        '/shop',
-      overlay:        true,
+      headline: 'Welcome to Our Store',
+      subheadline: 'Discover premium products curated for you.',
+      ctaLabel: 'Shop Now',
+      ctaHref: '/shop',
+      overlay: true,
       overlayOpacity: 50,
-      align:          'center',
+      align: 'center',
     } as HeroContent,
   },
   feature_grid: {
@@ -409,11 +417,11 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
     defaultContent: {
       headline: 'Why Choose Us',
       subtitle: '',
-      columns:  3,
+      columns: 3,
       items: [
-        { title: 'Quality',  description: 'Premium materials and craftsmanship.' },
-        { title: 'Speed',    description: 'Fast shipping on every order.' },
-        { title: 'Support',  description: '24/7 customer service.' },
+        { title: 'Quality', description: 'Premium materials and craftsmanship.' },
+        { title: 'Speed', description: 'Fast shipping on every order.' },
+        { title: 'Support', description: '24/7 customer service.' },
       ],
     } as FeatureGridContent,
   },
@@ -423,11 +431,11 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
     description: 'Display live products from your store',
     icon: 'shopping-bag',
     defaultContent: {
-      headline:     'Featured Products',
-      subtitle:     '',
-      limit:        8,
-      showAll:      true,
-      allHref:      '/shop',
+      headline: 'Featured Products',
+      subtitle: '',
+      limit: 8,
+      showAll: true,
+      allHref: '/shop',
       filterActive: true,
     } as ProductGridContent,
   },
@@ -438,7 +446,7 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
     icon: 'star',
     defaultContent: {
       headline: 'What Our Customers Say',
-      items:    [],
+      items: [],
     } as TestimonialsContent,
   },
   faq: {
@@ -448,7 +456,7 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
     icon: 'help-circle',
     defaultContent: {
       headline: 'Frequently Asked Questions',
-      items:    [],
+      items: [],
     } as FaqContent,
   },
   cta: {
@@ -458,10 +466,10 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
     icon: 'zap',
     defaultContent: {
       headline: 'Ready to Get Started?',
-      body:     '',
+      body: '',
       ctaLabel: 'Get Started',
-      ctaHref:  '/shop',
-      align:    'center',
+      ctaHref: '/shop',
+      align: 'center',
     } as CtaContent,
   },
   contact: {
@@ -471,7 +479,7 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
     icon: 'mail',
     defaultContent: {
       headline: 'Get In Touch',
-      body:     '',
+      body: '',
       showForm: true,
     } as ContactContent,
   },
@@ -488,8 +496,8 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
     description: 'Top-of-page promotional or informational banner',
     icon: 'megaphone',
     defaultContent: {
-      text:        'Free shipping on orders over $50!',
-      variant:     'promo',
+      text: 'Free shipping on orders over $50!',
+      variant: 'promo',
       dismissible: true,
     } as BannerContent,
   },
@@ -510,7 +518,7 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
     icon: 'users',
     defaultContent: {
       headline: 'About Us',
-      body:     'Tell your story here.',
+      body: 'Tell your story here.',
     } as AboutContent,
   },
   product_360_viewer: {
@@ -519,11 +527,11 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
     description: 'Interactive drag-to-rotate 360° product spin viewer',
     icon: 'rotate-ccw',
     defaultContent: {
-      productId:  '',
-      packageId:  '',
+      productId: '',
+      packageId: '',
       autoRotate: false,
-      speed:      18,
-      label:      '',
+      speed: 18,
+      label: '',
     } as Product360ViewerContent,
   },
   premium_3d_scroll_hero: {
@@ -545,23 +553,77 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
 // ── Page type metadata ────────────────────────────────────────────────────────
 
 export interface PageTypeMeta {
-  type:        PageType
-  label:       string
-  slug:        string
-  isSystem:    boolean
+  type: PageType
+  label: string
+  slug: string
+  isSystem: boolean
   description: string
 }
 
 export const PAGE_TYPE_META: Record<PageType, PageTypeMeta> = {
-  home:     { type: 'home',     label: 'Home',          slug: '',          isSystem: true,  description: 'Main landing page' },
-  shop:     { type: 'shop',     label: 'Shop',          slug: 'shop',      isSystem: true,  description: 'Product catalog' },
-  product:  { type: 'product',  label: 'Product Detail',slug: 'shop/[id]', isSystem: true,  description: 'Individual product page' },
-  cart:     { type: 'cart',     label: 'Cart',          slug: 'cart',      isSystem: true,  description: 'Shopping cart' },
-  checkout: { type: 'checkout', label: 'Checkout',      slug: 'checkout',  isSystem: true,  description: 'Checkout flow' },
-  account:  { type: 'account',  label: 'My Account',    slug: 'account',   isSystem: true,  description: 'Customer account page' },
-  orders:   { type: 'orders',   label: 'Order History', slug: 'orders',    isSystem: true,  description: 'Customer order history' },
-  contact:  { type: 'contact',  label: 'Contact',       slug: 'contact',   isSystem: false, description: 'Contact page' },
-  faq:      { type: 'faq',      label: 'FAQ',           slug: 'faq',       isSystem: false, description: 'Frequently asked questions' },
-  about:    { type: 'about',    label: 'About',         slug: 'about',     isSystem: false, description: 'About the business' },
-  custom:   { type: 'custom',   label: 'Custom Page',   slug: '',          isSystem: false, description: 'Freeform custom page' },
+  home: { type: 'home', label: 'Home', slug: '', isSystem: true, description: 'Main landing page' },
+  shop: {
+    type: 'shop',
+    label: 'Shop',
+    slug: 'shop',
+    isSystem: true,
+    description: 'Product catalog',
+  },
+  product: {
+    type: 'product',
+    label: 'Product Detail',
+    slug: 'shop/[id]',
+    isSystem: true,
+    description: 'Individual product page',
+  },
+  cart: { type: 'cart', label: 'Cart', slug: 'cart', isSystem: true, description: 'Shopping cart' },
+  checkout: {
+    type: 'checkout',
+    label: 'Checkout',
+    slug: 'checkout',
+    isSystem: true,
+    description: 'Checkout flow',
+  },
+  account: {
+    type: 'account',
+    label: 'My Account',
+    slug: 'account',
+    isSystem: true,
+    description: 'Customer account page',
+  },
+  orders: {
+    type: 'orders',
+    label: 'Order History',
+    slug: 'orders',
+    isSystem: true,
+    description: 'Customer order history',
+  },
+  contact: {
+    type: 'contact',
+    label: 'Contact',
+    slug: 'contact',
+    isSystem: false,
+    description: 'Contact page',
+  },
+  faq: {
+    type: 'faq',
+    label: 'FAQ',
+    slug: 'faq',
+    isSystem: false,
+    description: 'Frequently asked questions',
+  },
+  about: {
+    type: 'about',
+    label: 'About',
+    slug: 'about',
+    isSystem: false,
+    description: 'About the business',
+  },
+  custom: {
+    type: 'custom',
+    label: 'Custom Page',
+    slug: '',
+    isSystem: false,
+    description: 'Freeform custom page',
+  },
 }

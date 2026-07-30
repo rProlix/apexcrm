@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 import { notFound, redirect } from 'next/navigation'
 import { requireRole } from '@/lib/auth/requireRole'
 import { getDraftSiteConfig } from '@/lib/website/getPublishedSiteConfig'
-import { normalizeTheme } from '@/lib/website/normalizeTheme'
+import { resolveWebsitePresentation } from '@/lib/website/resolveWebsitePresentation'
 import { SiteHeader } from '@/components/site/SiteHeader'
 import { SiteFooter } from '@/components/site/SiteFooter'
 import { SectionRenderer } from '@/components/site/SectionRenderer'
@@ -38,58 +38,50 @@ export default async function PreviewPage({ params }: Props) {
   const config = await getDraftSiteConfig(tenantId)
   if (!config) notFound()
 
-  const theme   = normalizeTheme(config.settings)
-  const cssVars = {
-    '--color-primary':  theme.primaryColor,
-    '--color-accent':   theme.accentColor,
-    '--color-bg':       theme.backgroundColor,
-    '--color-surface':  theme.surfaceColor,
-    '--color-text':     theme.textColor,
-    '--color-muted':    theme.mutedColor,
-    '--color-border':   theme.borderColor,
-    '--font-heading':   `"${theme.fontHeading}", sans-serif`,
-    '--font-body':      `"${theme.fontBody}", sans-serif`,
-  } as React.CSSProperties
+  const { cssVars } = resolveWebsitePresentation(config.settings)
 
-  const homePage = config.pages.find((p) => p.page_type === 'home' || p.slug === '')
-    ?? config.pages[0]
+  const homePage =
+    config.pages.find((p) => p.page_type === 'home' || p.slug === '') ?? config.pages[0]
 
   return (
     <div
+      className="site-root"
       style={{
         ...cssVars,
-        background: theme.backgroundColor,
-        color:      theme.textColor,
-        fontFamily: `"${theme.fontBody}", sans-serif`,
-        minHeight:  '100vh',
+        background: 'var(--color-bg)',
+        color: 'var(--color-text)',
+        fontFamily: 'var(--font-body)',
+        minHeight: '100vh',
       }}
     >
       {/* Preview banner */}
-      <div style={{
-        background:     '#f59e0b',
-        color:          '#000',
-        textAlign:      'center',
-        padding:        '0.625rem 1rem',
-        fontSize:       '0.8125rem',
-        fontWeight:     600,
-        position:       'sticky',
-        top:            0,
-        zIndex:         100,
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        gap:            '0.75rem',
-      }}>
+      <div
+        style={{
+          background: '#f59e0b',
+          color: '#000',
+          textAlign: 'center',
+          padding: '0.625rem 1rem',
+          fontSize: '0.8125rem',
+          fontWeight: 600,
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0.75rem',
+        }}
+      >
         <span>⚠️ Preview Mode — Draft content. Not visible to the public.</span>
         <a
           href={`/website/pages`}
           style={{
-            background:     '#000',
-            color:          '#f59e0b',
-            padding:        '0.25rem 0.75rem',
-            borderRadius:   '99px',
-            fontSize:       '0.75rem',
-            fontWeight:     700,
+            background: '#000',
+            color: '#f59e0b',
+            padding: '0.25rem 0.75rem',
+            borderRadius: '99px',
+            fontSize: '0.75rem',
+            fontWeight: 700,
             textDecoration: 'none',
           }}
         >
@@ -101,20 +93,20 @@ export default async function PreviewPage({ params }: Props) {
 
       <main>
         {homePage?.sections.map((section) => (
-          <SectionRenderer
-            key={section.id}
-            section={section}
-            tenantId={tenantId}
-          />
+          <SectionRenderer key={section.id} section={section} tenantId={tenantId} />
         ))}
 
         {(!homePage || homePage.sections.length === 0) && (
-          <div style={{
-            textAlign:  'center',
-            padding:    '5rem 1.5rem',
-            color:      'var(--color-muted)',
-          }}>
-            <p style={{ fontSize: '1.125rem' }}>No published sections yet. Add sections in the editor.</p>
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '5rem 1.5rem',
+              color: 'var(--color-muted)',
+            }}
+          >
+            <p style={{ fontSize: '1.125rem' }}>
+              No published sections yet. Add sections in the editor.
+            </p>
           </div>
         )}
       </main>

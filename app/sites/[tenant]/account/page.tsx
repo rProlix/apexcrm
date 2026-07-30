@@ -16,7 +16,7 @@ interface Props {
 
 export default async function AccountPage({ params }: Props) {
   const { tenant } = await params
-  const tenantKey  = decodeURIComponent(tenant)
+  const tenantKey = decodeURIComponent(tenant)
 
   const siteData = tenantKey.includes('.')
     ? await getSiteByHost(tenantKey)
@@ -31,9 +31,9 @@ export default async function AccountPage({ params }: Props) {
   // When x-is-platform is true, all internal links must be prefixed with
   // /sites/[tenant] so they resolve correctly on the platform root domain.
   const headersList = await headers()
-  const isPlatform  = headersList.get('x-is-platform') === 'true'
-  const basePath    = isPlatform ? `/sites/${tenant}` : ''
-  const loginPath   = `${basePath}/login`
+  const isPlatform = headersList.get('x-is-platform') === 'true'
+  const basePath = isPlatform ? `/sites/${tenant}` : ''
+  const loginPath = `${basePath}/login`
 
   // Resolve the authenticated user's context (business user OR customer)
   const siteCtx = await resolveSiteUser(siteData.tenant.id)
@@ -43,25 +43,32 @@ export default async function AccountPage({ params }: Props) {
     return (
       <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
         <div style={{ maxWidth: 400, margin: '0 auto', textAlign: 'center' }}>
-          <h1 style={{
-            fontSize:   'clamp(1.5rem, 3vw, 2rem)',
-            fontWeight: 700,
-            fontFamily: 'var(--font-heading)',
-            color:      'var(--color-text)',
-            margin:     '0 0 1rem',
-          }}>My Account</h1>
+          <h1
+            style={{
+              fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+              fontWeight: 700,
+              fontFamily: 'var(--font-heading)',
+              color: 'var(--color-text)',
+              margin: '0 0 1rem',
+            }}
+          >
+            My Account
+          </h1>
           <p style={{ color: 'var(--color-muted)', marginBottom: '2rem' }}>
             Sign in to view your account and orders.
           </p>
-          <Link href={`${loginPath}?next=/account`} style={{
-            display:        'inline-block',
-            background:     'var(--color-primary)',
-            color:          '#fff',
-            padding:        '0.875rem 2rem',
-            borderRadius:   '0.75rem',
-            fontWeight:     700,
-            textDecoration: 'none',
-          }}>
+          <Link
+            href={`${loginPath}?next=/account`}
+            style={{
+              display: 'inline-block',
+              background: 'var(--color-primary)',
+              color: 'var(--color-primary-foreground)',
+              padding: '0.875rem 2rem',
+              borderRadius: '0.75rem',
+              fontWeight: 700,
+              textDecoration: 'none',
+            }}
+          >
             Sign In
           </Link>
         </div>
@@ -72,64 +79,78 @@ export default async function AccountPage({ params }: Props) {
   // ── Business user: owner / admin / staff ────────────────────────────────
   if (siteCtx.accessLevel === 'platform' || siteCtx.accessLevel === 'business') {
     const roleLabel =
-      siteCtx.role === 'owner' ? 'Platform Owner'
-      : siteCtx.role === 'admin' ? 'Business Admin'
-      : 'Staff Member'
+      siteCtx.role === 'owner'
+        ? 'Platform Owner'
+        : siteCtx.role === 'admin'
+          ? 'Business Admin'
+          : 'Staff Member'
 
     const canManage = siteCtx.canEditWebsite
 
     return (
       <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
         <div style={{ maxWidth: 600, margin: '0 auto' }}>
-          <h1 style={{
-            fontSize:   'clamp(1.5rem, 3vw, 2rem)',
-            fontWeight: 800,
-            fontFamily: 'var(--font-heading)',
-            color:      'var(--color-text)',
-            margin:     '0 0 0.25rem',
-          }}>Business Account</h1>
+          <h1
+            style={{
+              fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+              fontWeight: 800,
+              fontFamily: 'var(--font-heading)',
+              color: 'var(--color-text)',
+              margin: '0 0 0.25rem',
+            }}
+          >
+            Business Account
+          </h1>
           <p style={{ color: 'var(--color-muted)', margin: '0 0 2rem', fontSize: '0.9375rem' }}>
             Signed in as {siteCtx.email ?? 'unknown'} · {roleLabel}
           </p>
 
           {canManage ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <Link href={`${basePath}/`} style={{
-                display:        'block',
-                background:     'var(--color-primary)',
-                color:          '#fff',
-                padding:        '1rem 1.5rem',
-                borderRadius:   '0.875rem',
-                fontWeight:     700,
-                textDecoration: 'none',
-                fontSize:       '0.9375rem',
-              }}>
+              <Link
+                href={`${basePath}/`}
+                style={{
+                  display: 'block',
+                  background: 'var(--color-primary)',
+                  color: 'var(--color-primary-foreground)',
+                  padding: '1rem 1.5rem',
+                  borderRadius: '0.875rem',
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                  fontSize: '0.9375rem',
+                }}
+              >
                 Edit Website →
               </Link>
-              <Link href="/dashboard" style={{
-                display:        'block',
-                background:     'var(--color-surface)',
-                border:         '1px solid var(--color-border)',
-                color:          'var(--color-text)',
-                padding:        '1rem 1.5rem',
-                borderRadius:   '0.875rem',
-                fontWeight:     600,
-                textDecoration: 'none',
-                fontSize:       '0.9375rem',
-              }}>
+              <Link
+                href="/dashboard"
+                style={{
+                  display: 'block',
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text)',
+                  padding: '1rem 1.5rem',
+                  borderRadius: '0.875rem',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  fontSize: '0.9375rem',
+                }}
+              >
                 Go to CRM Dashboard →
               </Link>
             </div>
           ) : (
-            <div style={{
-              background:   'var(--color-surface)',
-              border:       '1px solid var(--color-border)',
-              borderRadius: '0.875rem',
-              padding:      '1.5rem',
-            }}>
+            <div
+              style={{
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '0.875rem',
+                padding: '1.5rem',
+              }}
+            >
               <p style={{ color: 'var(--color-muted)', margin: 0 }}>
-                You do not have access to manage this site.
-                Your account is associated with a different business.
+                You do not have access to manage this site. Your account is associated with a
+                different business.
               </p>
             </div>
           )}
@@ -137,16 +158,19 @@ export default async function AccountPage({ params }: Props) {
           <div style={{ marginTop: '2rem' }}>
             <form action={customerLogout}>
               <input type="hidden" name="redirect_to" value={`${basePath}/login`} />
-              <button type="submit" style={{
-                background:   'transparent',
-                border:       '1px solid var(--color-border)',
-                color:        'var(--color-muted)',
-                padding:      '0.625rem 1.25rem',
-                borderRadius: '0.75rem',
-                cursor:       'pointer',
-                fontSize:     '0.875rem',
-                fontWeight:   500,
-              }}>
+              <button
+                type="submit"
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-muted)',
+                  padding: '0.625rem 1.25rem',
+                  borderRadius: '0.75rem',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                }}
+              >
                 Sign Out
               </button>
             </form>
@@ -158,7 +182,9 @@ export default async function AccountPage({ params }: Props) {
 
   // ── Customer account view ────────────────────────────────────────────────
   const sessionClient = await createSessionServerClient()
-  const { data: { user } } = await sessionClient.auth.getUser()
+  const {
+    data: { user },
+  } = await sessionClient.auth.getUser()
 
   const serviceClient = getSupabaseServerClient()
 
@@ -169,7 +195,7 @@ export default async function AccountPage({ params }: Props) {
     .maybeSingle()
 
   const fullName = (profile?.full_name as string | null) ?? user?.email?.split('@')[0] ?? 'Customer'
-  const email    = (profile?.email    as string | null) ?? user?.email ?? '—'
+  const email = (profile?.email as string | null) ?? user?.email ?? '—'
 
   // Fetch rewards balance for this tenant
   const customerId = siteCtx.customerId ?? (profile?.customer_id as string | null)
@@ -188,45 +214,71 @@ export default async function AccountPage({ params }: Props) {
   const logoutRedirect = `${basePath}/login`
 
   const card: React.CSSProperties = {
-    background:   'var(--color-surface)',
-    border:       '1px solid var(--color-border)',
+    background: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
     borderRadius: '1rem',
-    padding:      '1.5rem',
+    padding: '1.5rem',
   }
 
   return (
     <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <h1 style={{
-          fontSize:   'clamp(1.5rem, 3vw, 2rem)',
-          fontWeight: 800,
-          fontFamily: 'var(--font-heading)',
-          color:      'var(--color-text)',
-          margin:     '0 0 0.25rem',
-        }}>My Account</h1>
+        <h1
+          style={{
+            fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+            fontWeight: 800,
+            fontFamily: 'var(--font-heading)',
+            color: 'var(--color-text)',
+            margin: '0 0 0.25rem',
+          }}
+        >
+          My Account
+        </h1>
         <p style={{ color: 'var(--color-muted)', margin: '0 0 2rem', fontSize: '0.9375rem' }}>
           Welcome back, {fullName}
         </p>
 
-        <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-
+        <div
+          style={{
+            display: 'grid',
+            gap: '1rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          }}
+        >
           {/* Profile summary */}
           <div style={card}>
-            <h2 style={{ fontWeight: 700, color: 'var(--color-text)', margin: '0 0 0.75rem', fontSize: '0.9375rem' }}>
+            <h2
+              style={{
+                fontWeight: 700,
+                color: 'var(--color-text)',
+                margin: '0 0 0.75rem',
+                fontSize: '0.9375rem',
+              }}
+            >
               Profile
             </h2>
-            <p style={{ color: 'var(--color-text)', fontWeight: 600, margin: '0 0 0.25rem', fontSize: '0.9375rem' }}>
+            <p
+              style={{
+                color: 'var(--color-text)',
+                fontWeight: 600,
+                margin: '0 0 0.25rem',
+                fontSize: '0.9375rem',
+              }}
+            >
               {fullName}
             </p>
             <p style={{ color: 'var(--color-muted)', fontSize: '0.8125rem', margin: '0 0 1rem' }}>
               {email}
             </p>
-            <Link href={`${basePath}/profile`} style={{
-              fontSize:       '0.8125rem',
-              color:          'var(--color-primary)',
-              fontWeight:     600,
-              textDecoration: 'none',
-            }}>
+            <Link
+              href={`${basePath}/profile`}
+              style={{
+                fontSize: '0.8125rem',
+                color: 'var(--color-primary)',
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
               Edit profile →
             </Link>
           </div>
@@ -234,10 +286,24 @@ export default async function AccountPage({ params }: Props) {
           {/* Orders */}
           <Link href={`${basePath}/orders`} style={{ textDecoration: 'none' }}>
             <div style={{ ...card, cursor: 'pointer', height: '100%', boxSizing: 'border-box' }}>
-              <h2 style={{ fontWeight: 700, color: 'var(--color-text)', margin: '0 0 0.5rem', fontSize: '0.9375rem' }}>
+              <h2
+                style={{
+                  fontWeight: 700,
+                  color: 'var(--color-text)',
+                  margin: '0 0 0.5rem',
+                  fontSize: '0.9375rem',
+                }}
+              >
                 Order History
               </h2>
-              <p style={{ color: 'var(--color-primary)', fontSize: '0.875rem', margin: 0, fontWeight: 600 }}>
+              <p
+                style={{
+                  color: 'var(--color-primary)',
+                  fontSize: '0.875rem',
+                  margin: 0,
+                  fontWeight: 600,
+                }}
+              >
                 View all orders →
               </p>
             </div>
@@ -246,15 +312,36 @@ export default async function AccountPage({ params }: Props) {
           {/* Rewards */}
           <Link href={`${basePath}/rewards`} style={{ textDecoration: 'none' }}>
             <div style={{ ...card, cursor: 'pointer', height: '100%', boxSizing: 'border-box' }}>
-              <h2 style={{ fontWeight: 700, color: 'var(--color-text)', margin: '0 0 0.5rem', fontSize: '0.9375rem' }}>
+              <h2
+                style={{
+                  fontWeight: 700,
+                  color: 'var(--color-text)',
+                  margin: '0 0 0.5rem',
+                  fontSize: '0.9375rem',
+                }}
+              >
                 Rewards
               </h2>
               {pointsBalance !== null ? (
-                <p style={{ color: 'var(--color-primary)', fontSize: '1.25rem', margin: 0, fontWeight: 800 }}>
+                <p
+                  style={{
+                    color: 'var(--color-primary)',
+                    fontSize: '1.25rem',
+                    margin: 0,
+                    fontWeight: 800,
+                  }}
+                >
                   {pointsBalance.toLocaleString()} pts
                 </p>
               ) : (
-                <p style={{ color: 'var(--color-primary)', fontSize: '0.875rem', margin: 0, fontWeight: 600 }}>
+                <p
+                  style={{
+                    color: 'var(--color-primary)',
+                    fontSize: '0.875rem',
+                    margin: 0,
+                    fontWeight: 600,
+                  }}
+                >
                   View rewards →
                 </p>
               )}
@@ -263,18 +350,34 @@ export default async function AccountPage({ params }: Props) {
 
           {/* Shop */}
           <Link href={`${basePath}/shop`} style={{ textDecoration: 'none' }}>
-            <div style={{
-              ...card,
-              background: 'var(--color-primary)',
-              border:     'none',
-              cursor:     'pointer',
-              height:     '100%',
-              boxSizing:  'border-box',
-            }}>
-              <h2 style={{ fontWeight: 700, color: '#fff', margin: '0 0 0.5rem', fontSize: '0.9375rem' }}>
+            <div
+              style={{
+                ...card,
+                background: 'var(--color-primary)',
+                border: 'none',
+                cursor: 'pointer',
+                height: '100%',
+                boxSizing: 'border-box',
+              }}
+            >
+              <h2
+                style={{
+                  fontWeight: 700,
+                  color: 'var(--color-primary-foreground)',
+                  margin: '0 0 0.5rem',
+                  fontSize: '0.9375rem',
+                }}
+              >
                 Shop
               </h2>
-              <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.875rem', margin: 0 }}>
+              <p
+                style={{
+                  color: 'var(--color-primary-foreground)',
+                  opacity: 0.75,
+                  fontSize: '0.875rem',
+                  margin: 0,
+                }}
+              >
                 Browse products →
               </p>
             </div>
@@ -288,14 +391,14 @@ export default async function AccountPage({ params }: Props) {
             <button
               type="submit"
               style={{
-                background:   'transparent',
-                border:       '1px solid var(--color-border)',
-                color:        'var(--color-muted)',
-                padding:      '0.625rem 1.25rem',
+                background: 'transparent',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-muted)',
+                padding: '0.625rem 1.25rem',
                 borderRadius: '0.75rem',
-                cursor:       'pointer',
-                fontSize:     '0.875rem',
-                fontWeight:   500,
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: 500,
               }}
             >
               Sign Out

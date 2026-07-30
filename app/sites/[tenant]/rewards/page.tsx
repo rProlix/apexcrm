@@ -16,43 +16,43 @@ interface Props {
 }
 
 type Transaction = {
-  id:               string
+  id: string
   transaction_type: string
-  points_delta:     number
-  source_type:      string | null
-  created_at:       string
-  metadata:         Json
+  points_delta: number
+  source_type: string | null
+  created_at: string
+  metadata: Json
 }
 
 type PunchCard = {
-  id:              string
-  title:           string
-  punch_goal:      number
+  id: string
+  title: string
+  punch_goal: number
   current_punches: number
-  reward_type:     string
-  reward_value:    number | null
-  status:          string
+  reward_type: string
+  reward_value: number | null
+  status: string
 }
 
 const typeLabel: Record<string, string> = {
-  earned:   'Points Earned',
+  earned: 'Points Earned',
   redeemed: 'Points Redeemed',
   adjusted: 'Adjustment',
-  expired:  'Expired',
-  bonus:    'Bonus Points',
+  expired: 'Expired',
+  bonus: 'Bonus Points',
 }
 
 const typeColor: Record<string, string> = {
-  earned:   '#059669',
+  earned: '#059669',
   redeemed: '#dc2626',
   adjusted: '#2563eb',
-  expired:  '#6b7280',
-  bonus:    '#7c3aed',
+  expired: '#6b7280',
+  bonus: '#7c3aed',
 }
 
 export default async function RewardsPage({ params }: Props) {
   const { tenant } = await params
-  const tenantKey  = decodeURIComponent(tenant)
+  const tenantKey = decodeURIComponent(tenant)
 
   const siteData = tenantKey.includes('.')
     ? await getSiteByHost(tenantKey)
@@ -60,8 +60,16 @@ export default async function RewardsPage({ params }: Props) {
 
   if (!siteData) {
     return (
-      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', textAlign: 'center', padding: '4rem 1.5rem' }}>
+      <div
+        style={{
+          minHeight: '60vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          padding: '4rem 1.5rem',
+        }}
+      >
         <p style={{ color: 'var(--color-muted)' }}>Site not found.</p>
       </div>
     )
@@ -70,17 +78,25 @@ export default async function RewardsPage({ params }: Props) {
   const config = await getPublishedSiteConfig(siteData.tenant.id)
   if (!config) {
     return (
-      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', textAlign: 'center', padding: '4rem 1.5rem' }}>
+      <div
+        style={{
+          minHeight: '60vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          padding: '4rem 1.5rem',
+        }}
+      >
         <p style={{ color: 'var(--color-muted)' }}>Rewards are not available yet.</p>
       </div>
     )
   }
 
   const headersList = await headers()
-  const isPlatform  = headersList.get('x-is-platform') === 'true'
-  const basePath    = isPlatform ? `/sites/${tenant}` : ''
-  const loginPath   = `${basePath}/login?next=/rewards`
+  const isPlatform = headersList.get('x-is-platform') === 'true'
+  const basePath = isPlatform ? `/sites/${tenant}` : ''
+  const loginPath = `${basePath}/login?next=/rewards`
 
   const siteCtx = await resolveSiteUser(siteData.tenant.id)
 
@@ -89,29 +105,44 @@ export default async function RewardsPage({ params }: Props) {
   // ── Business user: redirect to management tools (no rewards data to show) ─
   if (siteCtx.accessLevel === 'platform' || siteCtx.accessLevel === 'business') {
     return (
-      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', textAlign: 'center', padding: '4rem 1.5rem' }}>
+      <div
+        style={{
+          minHeight: '60vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          padding: '4rem 1.5rem',
+        }}
+      >
         <div>
-          <h1 style={{
-            fontSize:   'clamp(1.5rem, 3vw, 2rem)',
-            fontWeight: 700,
-            fontFamily: 'var(--font-heading)',
-            color:      'var(--color-text)',
-            margin:     '0 0 1rem',
-          }}>Rewards</h1>
+          <h1
+            style={{
+              fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+              fontWeight: 700,
+              fontFamily: 'var(--font-heading)',
+              color: 'var(--color-text)',
+              margin: '0 0 1rem',
+            }}
+          >
+            Rewards
+          </h1>
           <p style={{ color: 'var(--color-muted)', marginBottom: '2rem' }}>
             As a business {siteCtx.role}, manage your rewards program from your CRM dashboard.
           </p>
           {siteCtx.canManageStore ? (
-            <Link href="/dashboard" style={{
-              display:        'inline-block',
-              background:     'var(--color-primary)',
-              color:          '#fff',
-              padding:        '0.75rem 1.75rem',
-              borderRadius:   '0.75rem',
-              fontWeight:     600,
-              textDecoration: 'none',
-            }}>
+            <Link
+              href="/dashboard"
+              style={{
+                display: 'inline-block',
+                background: 'var(--color-primary)',
+                color: 'var(--color-primary-foreground)',
+                padding: '0.75rem 1.75rem',
+                borderRadius: '0.75rem',
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
               Go to CRM Dashboard →
             </Link>
           ) : (
@@ -166,67 +197,117 @@ export default async function RewardsPage({ params }: Props) {
   }
 
   const balance = safeOptional<{
-    points_balance:           number
-    lifetime_points_earned:   number
+    points_balance: number
+    lifetime_points_earned: number
     lifetime_points_redeemed: number
   }>(balanceResult.data, balanceResult.error)
   const transactions = safeQuery<Transaction>(transactionsResult.data, transactionsResult.error)
-  const punchCards   = safeQuery<PunchCard>(punchCardsResult.data, punchCardsResult.error)
+  const punchCards = safeQuery<PunchCard>(punchCardsResult.data, punchCardsResult.error)
 
-  const pointsBalance    = balance?.points_balance           ?? 0
-  const lifetimeEarned   = balance?.lifetime_points_earned   ?? 0
+  const pointsBalance = balance?.points_balance ?? 0
+  const lifetimeEarned = balance?.lifetime_points_earned ?? 0
   const lifetimeRedeemed = balance?.lifetime_points_redeemed ?? 0
 
   const card: React.CSSProperties = {
-    background:   'var(--color-surface)',
-    border:       '1px solid var(--color-border)',
+    background: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
     borderRadius: '1rem',
-    padding:      '1.5rem',
+    padding: '1.5rem',
   }
 
   return (
     <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
-
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '2rem',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+          }}
+        >
           <div>
-            <h1 style={{
-              fontSize:   'clamp(1.5rem, 3vw, 2rem)',
-              fontWeight: 800,
-              fontFamily: 'var(--font-heading)',
-              color:      'var(--color-text)',
-              margin:     0,
-            }}>Rewards</h1>
+            <h1
+              style={{
+                fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+                fontWeight: 800,
+                fontFamily: 'var(--font-heading)',
+                color: 'var(--color-text)',
+                margin: 0,
+              }}
+            >
+              Rewards
+            </h1>
             <p style={{ color: 'var(--color-muted)', margin: '0.25rem 0 0', fontSize: '0.875rem' }}>
               Earn points on every purchase
             </p>
           </div>
-          <Link href={`${basePath}/account`} style={{
-            fontSize: '0.875rem', color: 'var(--color-muted)', textDecoration: 'none',
-          }}>
+          <Link
+            href={`${basePath}/account`}
+            style={{
+              fontSize: '0.875rem',
+              color: 'var(--color-muted)',
+              textDecoration: 'none',
+            }}
+          >
             ← Account
           </Link>
         </div>
 
         {/* Balance overview */}
-        <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', marginBottom: '2rem' }}>
-          <div style={{
-            ...card,
-            background:  'var(--color-primary)',
-            border:      'none',
-            textAlign:   'center',
-          }}>
-            <p style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1 }}>
+        <div
+          style={{
+            display: 'grid',
+            gap: '1rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            marginBottom: '2rem',
+          }}
+        >
+          <div
+            style={{
+              ...card,
+              background: 'var(--color-primary)',
+              border: 'none',
+              textAlign: 'center',
+            }}
+          >
+            <p
+              style={{
+                fontSize: '2.5rem',
+                fontWeight: 800,
+                color: 'var(--color-primary-foreground)',
+                margin: 0,
+                lineHeight: 1,
+              }}
+            >
               {pointsBalance.toLocaleString()}
             </p>
-            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.875rem', margin: '0.5rem 0 0', fontWeight: 600 }}>
+            <p
+              style={{
+                color: 'var(--color-primary-foreground)',
+                opacity: 0.75,
+                fontSize: '0.875rem',
+                margin: '0.5rem 0 0',
+                fontWeight: 600,
+              }}
+            >
               Available Points
             </p>
           </div>
 
           <div style={{ ...card, textAlign: 'center' }}>
-            <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--color-text)', margin: 0, lineHeight: 1 }}>
+            <p
+              style={{
+                fontSize: '1.75rem',
+                fontWeight: 700,
+                color: 'var(--color-text)',
+                margin: 0,
+                lineHeight: 1,
+              }}
+            >
               {lifetimeEarned.toLocaleString()}
             </p>
             <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem', margin: '0.5rem 0 0' }}>
@@ -235,7 +316,15 @@ export default async function RewardsPage({ params }: Props) {
           </div>
 
           <div style={{ ...card, textAlign: 'center' }}>
-            <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--color-text)', margin: 0, lineHeight: 1 }}>
+            <p
+              style={{
+                fontSize: '1.75rem',
+                fontWeight: 700,
+                color: 'var(--color-text)',
+                margin: 0,
+                lineHeight: 1,
+              }}
+            >
               {lifetimeRedeemed.toLocaleString()}
             </p>
             <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem', margin: '0.5rem 0 0' }}>
@@ -247,60 +336,111 @@ export default async function RewardsPage({ params }: Props) {
         {/* Punch cards */}
         {punchCards.length > 0 && (
           <div style={{ marginBottom: '2rem' }}>
-            <h2 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--color-text)', margin: '0 0 1rem' }}>
+            <h2
+              style={{
+                fontSize: '1.0625rem',
+                fontWeight: 700,
+                color: 'var(--color-text)',
+                margin: '0 0 1rem',
+              }}
+            >
               Punch Cards
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {punchCards.map((pc) => {
                 const progress = Math.min(1, pc.current_punches / pc.punch_goal)
-                const pct      = Math.round(progress * 100)
+                const pct = Math.round(progress * 100)
                 return (
                   <div key={pc.id} style={card}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        marginBottom: '0.75rem',
+                        gap: '0.5rem',
+                        flexWrap: 'wrap',
+                      }}
+                    >
                       <div>
-                        <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9375rem' }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontWeight: 600,
+                            color: 'var(--color-text)',
+                            fontSize: '0.9375rem',
+                          }}
+                        >
                           {pc.title}
                         </p>
-                        <p style={{ margin: '0.125rem 0 0', fontSize: '0.8125rem', color: 'var(--color-muted)' }}>
+                        <p
+                          style={{
+                            margin: '0.125rem 0 0',
+                            fontSize: '0.8125rem',
+                            color: 'var(--color-muted)',
+                          }}
+                        >
                           {pc.current_punches} / {pc.punch_goal} punches
                         </p>
                       </div>
                       {pc.status === 'completed' && (
-                        <span style={{
-                          background: '#dcfce7', color: '#15803d',
-                          padding: '0.25rem 0.625rem', borderRadius: '99px',
-                          fontSize: '0.75rem', fontWeight: 700,
-                        }}>
+                        <span
+                          style={{
+                            background: '#dcfce7',
+                            color: '#15803d',
+                            padding: '0.25rem 0.625rem',
+                            borderRadius: '99px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                          }}
+                        >
                           Completed ✓
                         </span>
                       )}
                     </div>
                     {/* Progress bar */}
-                    <div style={{
-                      background: 'var(--color-border)', borderRadius: '99px',
-                      height: 8, overflow: 'hidden',
-                    }}>
-                      <div style={{
-                        height: '100%',
-                        width: `${pct}%`,
-                        background: pc.status === 'completed' ? '#059669' : 'var(--color-primary)',
+                    <div
+                      style={{
+                        background: 'var(--color-border)',
                         borderRadius: '99px',
-                        transition: 'width 0.4s ease',
-                      }} />
+                        height: 8,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${pct}%`,
+                          background:
+                            pc.status === 'completed' ? '#059669' : 'var(--color-primary)',
+                          borderRadius: '99px',
+                          transition: 'width 0.4s ease',
+                        }}
+                      />
                     </div>
 
                     {/* Punch dots */}
-                    <div style={{ display: 'flex', gap: '0.375rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '0.375rem',
+                        marginTop: '0.75rem',
+                        flexWrap: 'wrap',
+                      }}
+                    >
                       {Array.from({ length: pc.punch_goal }).map((_, i) => (
                         <div
                           key={i}
                           style={{
-                            width:        20,
-                            height:       20,
+                            width: 20,
+                            height: 20,
                             borderRadius: '50%',
-                            background:   i < pc.current_punches ? 'var(--color-primary)' : 'var(--color-border)',
-                            border:       `2px solid ${i < pc.current_punches ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                            transition:   'background 0.2s',
+                            background:
+                              i < pc.current_punches
+                                ? 'var(--color-primary)'
+                                : 'var(--color-border)',
+                            border: `2px solid ${i < pc.current_punches ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                            transition: 'background 0.2s',
                           }}
                         />
                       ))}
@@ -314,12 +454,26 @@ export default async function RewardsPage({ params }: Props) {
 
         {/* Transaction history */}
         <div>
-          <h2 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--color-text)', margin: '0 0 1rem' }}>
+          <h2
+            style={{
+              fontSize: '1.0625rem',
+              fontWeight: 700,
+              color: 'var(--color-text)',
+              margin: '0 0 1rem',
+            }}
+          >
             Points History
           </h2>
 
           {transactions.length === 0 ? (
-            <div style={{ ...card, textAlign: 'center', padding: '3rem 1.5rem', color: 'var(--color-muted)' }}>
+            <div
+              style={{
+                ...card,
+                textAlign: 'center',
+                padding: '3rem 1.5rem',
+                color: 'var(--color-muted)',
+              }}
+            >
               <p style={{ margin: 0 }}>No transactions yet.</p>
               <p style={{ margin: '0.5rem 0 0', fontSize: '0.875rem' }}>
                 Start shopping to earn points!
@@ -328,33 +482,48 @@ export default async function RewardsPage({ params }: Props) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {transactions.map((tx) => (
-                <div key={tx.id} style={{
-                  ...card,
-                  padding:        '1rem 1.25rem',
-                  display:        'flex',
-                  alignItems:     'center',
-                  justifyContent: 'space-between',
-                  gap:            '1rem',
-                  flexWrap:       'wrap',
-                }}>
+                <div
+                  key={tx.id}
+                  style={{
+                    ...card,
+                    padding: '1rem 1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    flexWrap: 'wrap',
+                  }}
+                >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)', fontSize: '0.875rem' }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontWeight: 600,
+                        color: 'var(--color-text)',
+                        fontSize: '0.875rem',
+                      }}
+                    >
                       {typeLabel[tx.transaction_type] ?? tx.transaction_type}
                     </p>
                     <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-muted)' }}>
                       {new Date(tx.created_at).toLocaleDateString(undefined, {
-                        year: 'numeric', month: 'short', day: 'numeric',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
                       })}
                       {tx.source_type ? ` · ${tx.source_type}` : ''}
                     </p>
                   </div>
-                  <span style={{
-                    fontWeight:  700,
-                    fontSize:    '0.9375rem',
-                    color:       typeColor[tx.transaction_type] ?? 'var(--color-text)',
-                    whiteSpace:  'nowrap',
-                  }}>
-                    {tx.points_delta > 0 ? '+' : ''}{tx.points_delta.toLocaleString()} pts
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      fontSize: '0.9375rem',
+                      color: typeColor[tx.transaction_type] ?? 'var(--color-text)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {tx.points_delta > 0 ? '+' : ''}
+                    {tx.points_delta.toLocaleString()} pts
                   </span>
                 </div>
               ))}
@@ -364,16 +533,19 @@ export default async function RewardsPage({ params }: Props) {
 
         {/* Shop CTA */}
         <div style={{ marginTop: '2.5rem', textAlign: 'center' }}>
-          <Link href={`${basePath}/shop`} style={{
-            display:        'inline-block',
-            background:     'var(--color-primary)',
-            color:          '#fff',
-            padding:        '0.875rem 2.5rem',
-            borderRadius:   '0.875rem',
-            fontWeight:     700,
-            textDecoration: 'none',
-            fontSize:       '0.9375rem',
-          }}>
+          <Link
+            href={`${basePath}/shop`}
+            style={{
+              display: 'inline-block',
+              background: 'var(--color-primary)',
+              color: 'var(--color-primary-foreground)',
+              padding: '0.875rem 2.5rem',
+              borderRadius: '0.875rem',
+              fontWeight: 700,
+              textDecoration: 'none',
+              fontSize: '0.9375rem',
+            }}
+          >
             Shop & Earn More Points →
           </Link>
         </div>

@@ -13,32 +13,35 @@ import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
-import { normalizeTheme } from '@/lib/website/normalizeTheme'
+import { resolveWebsitePresentation } from '@/lib/website/resolveWebsitePresentation'
 import { SiteHeader } from '@/components/site/SiteHeader'
 import { SiteFooter } from '@/components/site/SiteFooter'
 import { BusinessAdminBar } from '@/components/site/BusinessAdminBar'
 import { resolveSiteUser } from '@/lib/auth/resolveSiteUser'
-import { normalizeDesignSystem, buildCssVars } from '@/lib/website/design/normalizeDesignSystem'
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 interface Props {
-  children:  React.ReactNode
-  params:    Promise<{ tenant: string }>
+  children: React.ReactNode
+  params: Promise<{ tenant: string }>
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ tenant: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ tenant: string }>
+}): Promise<Metadata> {
   try {
     const { tenant: tenantSlug } = await params
     const tenantKey = decodeURIComponent(tenantSlug)
-    const siteData  = tenantKey.includes('.')
+    const siteData = tenantKey.includes('.')
       ? await getSiteByHost(tenantKey)
       : await getSiteBySlug(tenantKey)
 
     if (!siteData) return { title: 'Not Found' }
 
     const { tenant, settings } = siteData
-    const seo   = (settings?.seo_defaults as Record<string, string> | null) ?? {}
+    const seo = (settings?.seo_defaults as Record<string, string> | null) ?? {}
     const title = seo.title || settings?.site_name || tenant.name
 
     const canonicalHost =
@@ -48,12 +51,12 @@ export async function generateMetadata({ params }: { params: Promise<{ tenant: s
 
     return {
       title,
-      description:  seo.description ?? undefined,
+      description: seo.description ?? undefined,
       openGraph: {
         title,
         description: seo.description ?? undefined,
-        images:      seo.ogImage ? [seo.ogImage] : undefined,
-        url:         `https://${canonicalHost}`,
+        images: seo.ogImage ? [seo.ogImage] : undefined,
+        url: `https://${canonicalHost}`,
       },
       alternates: {
         canonical: `https://${canonicalHost}`,
@@ -87,9 +90,21 @@ export default async function SiteLayout({ children, params }: Props) {
     if (!siteData) {
       console.error('[SiteLayout] no site found for key:', tenantKey)
       return (
-        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0f0f13', color: '#fff' }}>
+        <div
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#0f0f13',
+            color: '#fff',
+          }}
+        >
           <div style={{ textAlign: 'center', padding: '0 1.5rem' }}>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>Site not found</h1>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+              Site not found
+            </h1>
             <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem' }}>
               This address is not associated with any site.
             </p>
@@ -102,10 +117,22 @@ export default async function SiteLayout({ children, params }: Props) {
 
     if (!config) {
       return (
-        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0f0f13', color: '#fff' }}>
+        <div
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#0f0f13',
+            color: '#fff',
+          }}
+        >
           <div style={{ textAlign: 'center', padding: '0 1.5rem' }}>
             <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🚧</div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>{siteData.tenant.name}</h1>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+              {siteData.tenant.name}
+            </h1>
             <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem', maxWidth: '28rem' }}>
               This website is coming soon. Check back later.
             </p>
@@ -114,61 +141,10 @@ export default async function SiteLayout({ children, params }: Props) {
       )
     }
 
-    const theme = normalizeTheme(config.settings)
-
-    // Base CSS vars from existing theme system
-    const baseCssVars: Record<string, string> = {
-      '--color-primary':    theme.primaryColor,
-      '--color-accent':     theme.accentColor,
-      '--color-bg':         theme.backgroundColor,
-      '--color-surface':    theme.surfaceColor,
-      '--color-text':       theme.textColor,
-      '--color-muted':      theme.mutedColor,
-      '--color-border':     theme.borderColor,
-      '--font-heading':     `"${theme.fontHeading}", sans-serif`,
-      '--font-body':        `"${theme.fontBody}", sans-serif`,
-    }
-
-    // Overlay design system CSS vars from the canonical design_system column first,
-    // then fall back to legacy theme.palette if design_system is absent.
-    // AI restyle, template apply, and premium design all write to design_system;
-    // the legacy theme column stores the raw user-picked colors/fonts.
-    const settingsRaw = config.settings as unknown as Record<string, unknown>
-    const designSystemCol = settingsRaw?.design_system as Record<string, unknown> | null | undefined
-    const settingsTheme   = settingsRaw?.theme           as Record<string, unknown> | null | undefined
-
-    // Priority 1: design_system column (AI restyle / template / premium design)
-    if (designSystemCol && typeof designSystemCol === 'object' && Object.keys(designSystemCol).length > 0) {
-      try {
-        const businessCategory = (designSystemCol.businessCategory as string | null) ?? null
-        const ds = normalizeDesignSystem(designSystemCol, businessCategory)
-        const dsCssVars = buildCssVars(ds)
-        Object.assign(baseCssVars, dsCssVars)
-        if (process.env.NODE_ENV === 'development') {
-          const palette = (designSystemCol as Record<string, unknown>)?.palette
-          const primary = palette && typeof palette === 'object' ? (palette as Record<string, unknown>).primary ?? '?' : '?'
-          console.info('[SiteLayout] CSS vars from design_system column, primary=', primary)
-        }
-      } catch {
-        // Non-critical
-      }
-    }
-    // Priority 2: legacy theme.palette (older AI autofill / manual theme picker)
-    else if (settingsTheme && typeof settingsTheme === 'object' && settingsTheme.palette) {
-      try {
-        const businessCategory = (settingsTheme.businessCategory as string) ?? null
-        const ds = normalizeDesignSystem(settingsTheme, businessCategory)
-        const dsCssVars = buildCssVars(ds)
-        Object.assign(baseCssVars, dsCssVars)
-      } catch {
-        // Non-critical: fall through to base vars
-      }
-    }
-
-    const cssVars = baseCssVars as React.CSSProperties
+    const { cssVars } = resolveWebsitePresentation(config.settings)
 
     const isPlatform = headersList.get('x-is-platform') === 'true'
-    const basePath   = isPlatform ? `/sites/${tenantSlug}` : ''
+    const basePath = isPlatform ? `/sites/${tenantSlug}` : ''
 
     // isAuthenticated is true for any recognised identity: owner, admin, staff,
     // or customer. This drives the header "Account" vs "Sign In" link only.
@@ -189,7 +165,7 @@ export default async function SiteLayout({ children, params }: Props) {
         const role = siteCtx.role as 'owner' | 'admin' | 'staff'
         adminBarProps = {
           role,
-          canEdit:    siteCtx.canEditWebsite,
+          canEdit: siteCtx.canEditWebsite,
           tenantSlug: siteData.tenant.slug ?? tenantSlug,
         }
       }
@@ -198,18 +174,16 @@ export default async function SiteLayout({ children, params }: Props) {
     }
 
     // Add top padding when the admin bar is visible so content isn't hidden under it
-    const contentStyle = adminBarProps
-      ? { paddingTop: '2.75rem' }
-      : {}
+    const contentStyle = adminBarProps ? { paddingTop: '2.75rem' } : {}
 
     return (
       <div
         className="site-root min-h-screen flex flex-col"
         style={{
           ...cssVars,
-          background: theme.backgroundColor,
-          color:      theme.textColor,
-          fontFamily: `"${theme.fontBody}", sans-serif`,
+          background: 'var(--color-bg)',
+          color: 'var(--color-text)',
+          fontFamily: 'var(--font-body)',
         }}
       >
         {adminBarProps && (
@@ -222,11 +196,7 @@ export default async function SiteLayout({ children, params }: Props) {
           />
         )}
         <div style={contentStyle}>
-          <SiteHeader
-            config={config}
-            basePath={basePath}
-            isAuthenticated={isAuthenticated}
-          />
+          <SiteHeader config={config} basePath={basePath} isAuthenticated={isAuthenticated} />
           <main className="flex-1">{children}</main>
           <SiteFooter config={config} />
         </div>
@@ -236,7 +206,18 @@ export default async function SiteLayout({ children, params }: Props) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('[SiteLayout] unhandled error:', message)
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0f0f13', color: '#fff', padding: '2rem' }}>
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#0f0f13',
+          color: '#fff',
+          padding: '2rem',
+        }}
+      >
         <div style={{ textAlign: 'center' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>
             This page could not be loaded

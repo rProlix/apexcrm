@@ -1,14 +1,14 @@
 export const dynamic = 'force-dynamic'
 
 // app/sites/[tenant]/shop/[id]/page.tsx — Public product detail page
-import { notFound }              from 'next/navigation'
-import Link                      from 'next/link'
-import Image                     from 'next/image'
+import { notFound } from 'next/navigation'
+import Link from 'next/link'
+import Image from 'next/image'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
-import { getPublishedSiteConfig }       from '@/lib/website/getPublishedSiteConfig'
-import { getSupabaseServerClient }      from '@/lib/supabase/server'
-import { Product360BlockRenderer }      from '@/components/product-360/Product360BlockRenderer'
-import { isModuleEnabled }              from '@/lib/modules/guardModuleAccess'
+import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { Product360BlockRenderer } from '@/components/product-360/Product360BlockRenderer'
+import { isModuleEnabled } from '@/lib/modules/guardModuleAccess'
 
 interface Props {
   params: Promise<{ tenant: string; id: string }>
@@ -41,8 +41,13 @@ export default async function ProductPage({ params }: Props) {
     .maybeSingle()
 
   const product = productRaw as {
-    id: string; name: string; description: string | null
-    price: number; currency: string; inventory_count: number; is_active: boolean
+    id: string
+    name: string
+    description: string | null
+    price: number
+    currency: string
+    inventory_count: number
+    is_active: boolean
     image_url?: string | null
   } | null
 
@@ -53,15 +58,17 @@ export default async function ProductPage({ params }: Props) {
 
   // Check if there are any enabled ready packages for this product
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: pkgCheck } = p360Enabled ? await (db as any)
-    .from('product_360_packages')
-    .select('id')
-    .eq('tenant_id', tenantId)
-    .eq('product_id', id)
-    .eq('status', 'ready')
-    .eq('is_enabled', true)
-    .limit(1)
-    .maybeSingle() : { data: null }
+  const { data: pkgCheck } = p360Enabled
+    ? await (db as any)
+        .from('product_360_packages')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('product_id', id)
+        .eq('status', 'ready')
+        .eq('is_enabled', true)
+        .limit(1)
+        .maybeSingle()
+    : { data: null }
 
   const has360Viewer = !!pkgCheck
 
@@ -69,27 +76,43 @@ export default async function ProductPage({ params }: Props) {
     <div style={{ minHeight: '60vh', padding: '3rem 1.5rem' }}>
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
         {/* Breadcrumb */}
-        <nav style={{ marginBottom: '2rem', display: 'flex', gap: '0.5rem', fontSize: '0.8125rem', color: 'var(--color-muted)' }}>
-          <Link href="/" style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>Home</Link>
+        <nav
+          style={{
+            marginBottom: '2rem',
+            display: 'flex',
+            gap: '0.5rem',
+            fontSize: '0.8125rem',
+            color: 'var(--color-muted)',
+          }}
+        >
+          <Link href="/" style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>
+            Home
+          </Link>
           <span>/</span>
-          <Link href="/shop" style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>Shop</Link>
+          <Link href="/shop" style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>
+            Shop
+          </Link>
           <span>/</span>
           <span style={{ color: 'var(--color-text)' }}>{product.name}</span>
         </nav>
 
         {/* Product detail */}
-        <div style={{
-          display:             'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap:                 '3rem',
-        }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: '3rem',
+          }}
+        >
           {/* Image / 360 viewer */}
-          <div style={{
-            borderRadius: '1.25rem',
-            overflow:     'hidden',
-            background:   'var(--color-surface)',
-            border:       '1px solid var(--color-border)',
-          }}>
+          <div
+            style={{
+              borderRadius: '1.25rem',
+              overflow: 'hidden',
+              background: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
             {has360Viewer ? (
               <Product360BlockRenderer
                 tenantId={tenantId}
@@ -98,85 +121,119 @@ export default async function ProductPage({ params }: Props) {
                 showHotspots
               />
             ) : product.image_url ? (
-              <Image src={product.image_url} alt={product.name} width={600} height={600} unoptimized
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <Image
+                src={product.image_url}
+                alt={product.name}
+                width={600}
+                height={600}
+                unoptimized
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
             ) : (
-              <div style={{
-                aspectRatio: '1',
-                display:        'flex',
-                alignItems:     'center',
-                justifyContent: 'center',
-              }}>
+              <div
+                style={{
+                  aspectRatio: '1',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
                 <span style={{ fontSize: '5rem', opacity: 0.2 }}>📦</span>
               </div>
             )}
           </div>
 
           {/* Info */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingTop: '0.5rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.5rem',
+              paddingTop: '0.5rem',
+            }}
+          >
             <div>
-              <h1 style={{
-                fontSize:   'clamp(1.5rem, 3vw, 2rem)',
-                fontWeight: 700,
-                fontFamily: 'var(--font-heading)',
-                color:      'var(--color-text)',
-                margin:     '0 0 0.5rem',
-              }}>{product.name}</h1>
-              <p style={{
-                fontSize:   '1.75rem',
-                fontWeight: 700,
-                color:      'var(--color-primary)',
-                margin:     0,
-              }}>
+              <h1
+                style={{
+                  fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+                  fontWeight: 700,
+                  fontFamily: 'var(--font-heading)',
+                  color: 'var(--color-text)',
+                  margin: '0 0 0.5rem',
+                }}
+              >
+                {product.name}
+              </h1>
+              <p
+                style={{
+                  fontSize: '1.75rem',
+                  fontWeight: 700,
+                  color: 'var(--color-primary)',
+                  margin: 0,
+                }}
+              >
                 ${Number(product.price).toFixed(2)}
               </p>
             </div>
 
             {product.description && (
-              <p style={{
-                color:      'var(--color-muted)',
-                lineHeight: 1.7,
-                margin:     0,
-                fontSize:   '0.9375rem',
-              }}>{product.description}</p>
+              <p
+                style={{
+                  color: 'var(--color-muted)',
+                  lineHeight: 1.7,
+                  margin: 0,
+                  fontSize: '0.9375rem',
+                }}
+              >
+                {product.description}
+              </p>
             )}
 
             {/* Add to cart */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <Link href="/cart" style={{
-                display:        'block',
-                background:     'var(--color-primary)',
-                color:          '#fff',
-                textAlign:      'center',
-                padding:        '1rem',
-                borderRadius:   '0.875rem',
-                fontWeight:     700,
-                fontSize:       '1rem',
-                textDecoration: 'none',
-              }}>
+              <Link
+                href="/cart"
+                style={{
+                  display: 'block',
+                  background: 'var(--color-primary)',
+                  color: 'var(--color-primary-foreground)',
+                  textAlign: 'center',
+                  padding: '1rem',
+                  borderRadius: '0.875rem',
+                  fontWeight: 700,
+                  fontSize: '1rem',
+                  textDecoration: 'none',
+                }}
+              >
                 Add to Cart
               </Link>
-              <Link href="/checkout" style={{
-                display:        'block',
-                background:     'var(--color-surface)',
-                border:         '1px solid var(--color-border)',
-                color:          'var(--color-text)',
-                textAlign:      'center',
-                padding:        '1rem',
-                borderRadius:   '0.875rem',
-                fontWeight:     600,
-                fontSize:       '1rem',
-                textDecoration: 'none',
-              }}>
+              <Link
+                href="/checkout"
+                style={{
+                  display: 'block',
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text)',
+                  textAlign: 'center',
+                  padding: '1rem',
+                  borderRadius: '0.875rem',
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  textDecoration: 'none',
+                }}
+              >
                 Buy Now
               </Link>
             </div>
 
-            <Link href="/shop" style={{
-              fontSize:       '0.875rem',
-              color:          'var(--color-muted)',
-              textDecoration: 'none',
-            }}>
+            <Link
+              href="/shop"
+              style={{
+                fontSize: '0.875rem',
+                color: 'var(--color-muted)',
+                textDecoration: 'none',
+              }}
+            >
               ← Back to Shop
             </Link>
           </div>

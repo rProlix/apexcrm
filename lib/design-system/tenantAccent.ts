@@ -1,7 +1,15 @@
+import { deriveBrandColorRoles, hexToRgbTriplet, type ColorScaleStep } from './colorTheory'
+
 export interface SafeTenantAccent {
   accent: string
   accentRgb: string
   foreground: '#080b11' | '#ffffff'
+  hover: string
+  active: string
+  soft: string
+  focus: string
+  scale: Record<ColorScaleStep, string>
+  scaleRgb: Record<ColorScaleStep, string>
   wasAdjusted: boolean
 }
 
@@ -22,13 +30,21 @@ export function resolveSafeTenantAccent(value: unknown): SafeTenantAccent {
   // producing inaccessible tenant chrome.
   const unsafe = luminance < 0.12 || luminance > 0.82
   const accent = unsafe ? DEFAULT_TENANT_ACCENT : normalized
-  const [safeRed, safeGreen, safeBlue] = hexToRgb(accent)
-  const safeLuminance = relativeLuminance(safeRed, safeGreen, safeBlue)
+  const roles = deriveBrandColorRoles(accent, '#06090e', DEFAULT_TENANT_ACCENT)
+  const scaleRgb = Object.fromEntries(
+    Object.entries(roles.scale).map(([step, color]) => [step, hexToRgbTriplet(color)])
+  ) as Record<ColorScaleStep, string>
 
   return {
     accent,
-    accentRgb: `${safeRed} ${safeGreen} ${safeBlue}`,
-    foreground: safeLuminance > 0.4 ? '#080b11' : '#ffffff',
+    accentRgb: hexToRgbTriplet(accent),
+    foreground: roles.primaryForeground === '#111318' ? '#080b11' : '#ffffff',
+    hover: roles.primaryHover,
+    active: roles.primaryActive,
+    soft: roles.primarySoft,
+    focus: roles.focus,
+    scale: roles.scale,
+    scaleRgb,
     wasAdjusted: unsafe || normalized !== value,
   }
 }

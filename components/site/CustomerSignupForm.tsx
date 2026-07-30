@@ -15,45 +15,42 @@
 
 import { useState, FormEvent } from 'react'
 import Link from 'next/link'
-import {
-  createLegalAgreement,
-  LEGAL_AGREEMENT_REQUIRED_MESSAGE,
-} from '@/lib/legal/consent'
+import { createLegalAgreement, LEGAL_AGREEMENT_REQUIRED_MESSAGE } from '@/lib/legal/consent'
 import { getPlatformLegalUrl } from '@/lib/legal/policies'
 
 interface Props {
-  tenantId:  string
+  tenantId: string
   loginHref: string
-  next:      string
+  next: string
 }
 
 const inputStyle: React.CSSProperties = {
-  width:        '100%',
-  padding:      '0.75rem 1rem',
+  width: '100%',
+  padding: '0.75rem 1rem',
   borderRadius: '0.625rem',
-  border:       '1px solid var(--color-border)',
-  background:   'var(--color-surface)',
-  color:        'var(--color-text)',
-  fontSize:     '1rem',
-  outline:      'none',
-  boxSizing:    'border-box',
+  border: '1px solid var(--color-border)',
+  background: 'var(--color-surface)',
+  color: 'var(--color-text)',
+  fontSize: '1rem',
+  outline: 'none',
+  boxSizing: 'border-box',
 }
 
 const labelStyle: React.CSSProperties = {
-  display:      'block',
-  fontSize:     '0.8125rem',
-  fontWeight:   600,
-  color:        'var(--color-muted)',
+  display: 'block',
+  fontSize: '0.8125rem',
+  fontWeight: 600,
+  color: 'var(--color-muted)',
   marginBottom: '0.375rem',
 }
 
 export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
-  const [fullName,  setFullName]  = useState('')
-  const [email,     setEmail]     = useState('')
-  const [password,  setPassword]  = useState('')
-  const [pending,   setPending]   = useState(false)
-  const [error,     setError]     = useState<string | null>(null)
-  const [message,   setMessage]   = useState<string | null>(null)
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
   const [debugInfo, setDebugInfo] = useState<string | null>(null)
   const [acceptedLegal, setAcceptedLegal] = useState(false)
 
@@ -76,9 +73,9 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
       // erickvcontacf.nexoranow.com/api/storefront/auth/signup — so the route
       // handler sees request.url with the correct subdomain host.
       const res = await fetch('/api/storefront/auth/signup', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
+        body: JSON.stringify({
           email,
           password,
           full_name: fullName,
@@ -107,7 +104,7 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
 
       setMessage(
         data.message ??
-        'We sent a confirmation email to your inbox. Click the link to activate your account, then sign in.',
+          'We sent a confirmation email to your inbox. Click the link to activate your account, then sign in.'
       )
 
       // Show debug info in non-production (API includes it only in dev)
@@ -125,30 +122,37 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
     return (
       <div style={{ textAlign: 'center', padding: '2rem 0' }}>
         <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>📬</div>
-        <h2 style={{
-          fontWeight:   700,
-          color:        'var(--color-text)',
-          marginBottom: '0.75rem',
-          fontSize:     '1.25rem',
-        }}>
+        <h2
+          style={{
+            fontWeight: 700,
+            color: 'var(--color-text)',
+            marginBottom: '0.75rem',
+            fontSize: '1.25rem',
+          }}
+        >
           Check your inbox
         </h2>
-        <p style={{ color: 'var(--color-muted)', lineHeight: 1.6, margin: 0 }}>
-          {message}
-        </p>
+        <p style={{ color: 'var(--color-muted)', lineHeight: 1.6, margin: 0 }}>{message}</p>
         {debugInfo && (
-          <p style={{ marginTop: '1rem', fontSize: '0.75rem', color: '#9ca3af', fontFamily: 'monospace' }}>
+          <p
+            style={{
+              marginTop: '1rem',
+              fontSize: '0.75rem',
+              color: '#9ca3af',
+              fontFamily: 'monospace',
+            }}
+          >
             {debugInfo}
           </p>
         )}
         <Link
           href={loginHref}
           style={{
-            display:        'inline-block',
-            marginTop:      '1.5rem',
-            color:          'var(--color-primary)',
-            fontWeight:     600,
-            fontSize:       '0.9375rem',
+            display: 'inline-block',
+            marginTop: '1.5rem',
+            color: 'var(--color-primary)',
+            fontWeight: 600,
+            fontSize: '0.9375rem',
             textDecoration: 'none',
           }}
         >
@@ -159,22 +163,30 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <form
+      onSubmit={handleSubmit}
+      style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
+    >
       {error && (
-        <div role="alert" style={{
-          background:   '#fef2f2',
-          border:       '1px solid #fecaca',
-          borderRadius: '0.625rem',
-          padding:      '0.75rem 1rem',
-          color:        '#dc2626',
-          fontSize:     '0.875rem',
-        }}>
+        <div
+          role="alert"
+          style={{
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '0.625rem',
+            padding: '0.75rem 1rem',
+            color: '#dc2626',
+            fontSize: '0.875rem',
+          }}
+        >
           {error}
         </div>
       )}
 
       <div>
-        <label htmlFor="full_name" style={labelStyle}>Full Name</label>
+        <label htmlFor="full_name" style={labelStyle}>
+          Full Name
+        </label>
         <input
           id="full_name"
           name="full_name"
@@ -183,13 +195,15 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
           required
           placeholder="Jane Smith"
           value={fullName}
-          onChange={e => setFullName(e.target.value)}
+          onChange={(e) => setFullName(e.target.value)}
           style={inputStyle}
         />
       </div>
 
       <div>
-        <label htmlFor="email" style={labelStyle}>Email</label>
+        <label htmlFor="email" style={labelStyle}>
+          Email
+        </label>
         <input
           id="email"
           name="email"
@@ -198,13 +212,15 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
           required
           placeholder="you@example.com"
           value={email}
-          onChange={e => setEmail(e.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
           style={inputStyle}
         />
       </div>
 
       <div>
-        <label htmlFor="password" style={labelStyle}>Password</label>
+        <label htmlFor="password" style={labelStyle}>
+          Password
+        </label>
         <input
           id="password"
           name="password"
@@ -214,7 +230,7 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
           minLength={6}
           placeholder="Min. 6 characters"
           value={password}
-          onChange={e => setPassword(e.target.value)}
+          onChange={(e) => setPassword(e.target.value)}
           style={inputStyle}
         />
       </div>
@@ -222,14 +238,14 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
       <label
         htmlFor="customer-legal-agreement"
         style={{
-          display:      'flex',
-          alignItems:   'flex-start',
-          gap:          '0.625rem',
-          padding:      '0.875rem',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '0.625rem',
+          padding: '0.875rem',
           borderRadius: '0.75rem',
-          border:       '1px solid var(--color-border)',
-          background:   'color-mix(in srgb, var(--color-surface) 92%, var(--color-primary) 8%)',
-          cursor:       'pointer',
+          border: '1px solid var(--color-border)',
+          background: 'color-mix(in srgb, var(--color-surface) 92%, var(--color-primary) 8%)',
+          cursor: 'pointer',
         }}
       >
         <input
@@ -237,27 +253,58 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
           type="checkbox"
           checked={acceptedLegal}
           onChange={(event) => setAcceptedLegal(event.target.checked)}
-          style={{ width: 16, height: 16, marginTop: 2, flexShrink: 0, accentColor: 'var(--color-primary)' }}
+          style={{
+            width: 16,
+            height: 16,
+            marginTop: 2,
+            flexShrink: 0,
+            accentColor: 'var(--color-primary)',
+          }}
         />
         <span style={{ color: 'var(--color-muted)', fontSize: '0.75rem', lineHeight: 1.55 }}>
           I agree to the{' '}
-          <a href={getPlatformLegalUrl('terms')} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+          <a
+            href={getPlatformLegalUrl('terms')}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: 'var(--color-primary)', fontWeight: 600 }}
+          >
             Terms of Use
           </a>{' '}
           and{' '}
-          <a href={getPlatformLegalUrl('acceptable-use')} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+          <a
+            href={getPlatformLegalUrl('acceptable-use')}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: 'var(--color-primary)', fontWeight: 600 }}
+          >
             Acceptable Use Policy
           </a>
           , and acknowledge the{' '}
-          <a href={getPlatformLegalUrl('privacy')} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+          <a
+            href={getPlatformLegalUrl('privacy')}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: 'var(--color-primary)', fontWeight: 600 }}
+          >
             Privacy Policy
           </a>
           ,{' '}
-          <a href={getPlatformLegalUrl('cookie-policy')} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+          <a
+            href={getPlatformLegalUrl('cookie-policy')}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: 'var(--color-primary)', fontWeight: 600 }}
+          >
             Cookie Policy
           </a>
           , and{' '}
-          <a href={getPlatformLegalUrl('ai-notice')} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+          <a
+            href={getPlatformLegalUrl('ai-notice')}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: 'var(--color-primary)', fontWeight: 600 }}
+          >
             AI Notice
           </a>
           .
@@ -268,23 +315,30 @@ export function CustomerSignupForm({ tenantId, loginHref, next }: Props) {
         type="submit"
         disabled={pending || !acceptedLegal}
         style={{
-          width:        '100%',
-          padding:      '0.875rem',
+          width: '100%',
+          padding: '0.875rem',
           borderRadius: '0.75rem',
-          border:       'none',
-          background:   pending ? 'var(--color-muted)' : 'var(--color-primary)',
-          color:        '#fff',
-          fontSize:     '1rem',
-          fontWeight:   700,
-          cursor:       pending || !acceptedLegal ? 'not-allowed' : 'pointer',
-          transition:   'opacity 0.15s',
-          opacity:      pending || !acceptedLegal ? 0.58 : 1,
+          border: 'none',
+          background: pending ? 'var(--color-muted)' : 'var(--color-primary)',
+          color: 'var(--color-primary-foreground)',
+          fontSize: '1rem',
+          fontWeight: 700,
+          cursor: pending || !acceptedLegal ? 'not-allowed' : 'pointer',
+          transition: 'opacity 0.15s',
+          opacity: pending || !acceptedLegal ? 0.58 : 1,
         }}
       >
         {pending ? 'Creating account…' : 'Create Account'}
       </button>
 
-      <p style={{ textAlign: 'center', margin: 0, fontSize: '0.875rem', color: 'var(--color-muted)' }}>
+      <p
+        style={{
+          textAlign: 'center',
+          margin: 0,
+          fontSize: '0.875rem',
+          color: 'var(--color-muted)',
+        }}
+      >
         Already have an account?{' '}
         <Link href={loginHref} style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
           Sign in
