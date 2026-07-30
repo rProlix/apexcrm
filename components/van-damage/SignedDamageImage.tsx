@@ -29,9 +29,9 @@ export function useSignedDamageImageUrl({
     if (!enabled) return
     const requestId = ++requestRef.current
     setLoading(true)
-      setError(null)
-      try {
-        if (forceRefresh) invalidateSignedDamageImageUrl(imageId, businessId)
+    setError(null)
+    try {
+      if (forceRefresh) invalidateSignedDamageImageUrl(imageId, businessId)
       const result = await getSignedDamageImageUrl({ imageId, businessId, profile, forceRefresh })
       if (requestRef.current !== requestId) return
       setUrl(result.url)
@@ -50,6 +50,11 @@ export function useSignedDamageImageUrl({
       requestRef.current += 1
     }
   }, [enabled, load])
+
+  useEffect(() => {
+    setUrl(null)
+    setError(null)
+  }, [businessId, imageId, profile])
 
   return { url, error, loading, retry: () => load(true) }
 }
@@ -94,6 +99,11 @@ export function SignedDamageImage({
     return () => observer.disconnect()
   }, [visible])
 
+  useEffect(() => {
+    setLoaded(false)
+    setRefreshAttempted(false)
+  }, [url])
+
   return (
     <div ref={containerRef} className={`relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] ${fillContainer ? 'h-full' : 'aspect-video'}`}>
       {!loaded && !error && <div aria-label="Loading image" className="absolute inset-0 animate-pulse bg-gradient-to-r from-white/[.02] via-white/[.07] to-white/[.02]" />}
@@ -101,8 +111,10 @@ export function SignedDamageImage({
         src={url}
         alt={alt}
         fill
+        unoptimized
         sizes={sizes}
         priority={eager}
+        decoding="async"
         className={`object-cover transition duration-300 ${loaded ? 'opacity-100' : 'scale-[1.02] opacity-0 blur-sm'}`}
         onLoad={() => setLoaded(true)}
         onError={() => {

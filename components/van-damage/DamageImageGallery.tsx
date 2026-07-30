@@ -183,6 +183,7 @@ export function DamageImageGallery({
               <SignedDamageImage
                 imageId={image.id}
                 businessId={businessId}
+                profile="thumbnail"
                 alt=""
                 sizes="80px"
                 eager={index < 4}

@@ -249,6 +249,7 @@ export function VanProfileWorkspace({
             <SignedDamageImage
               imageId={coverImageId}
               businessId={businessId}
+              profile="large"
               alt={`${vehicle.name} profile image`}
             />
           ) : (
@@ -548,6 +549,7 @@ function LatestInspectionCard({
           <SignedDamageImage
             imageId={session.first_image_id}
             businessId={businessId}
+            profile="medium"
             alt="Latest upload primary image"
           />
         ) : (
@@ -634,6 +636,7 @@ function UploadSessionCard({
           <SignedDamageImage
             imageId={session.first_image_id}
             businessId={businessId}
+            profile="thumbnail"
             alt="Upload session first image"
           />
         ) : (
@@ -696,6 +699,7 @@ function UploadSessionCard({
                 <SignedDamageImage
                   imageId={image.id}
                   businessId={businessId}
+                  profile="thumbnail"
                   alt={`Upload image ${image.upload_order == null ? '' : image.upload_order + 1}`}
                 />
                 <div className="mt-2 flex flex-wrap gap-1">
@@ -753,6 +757,7 @@ function DamageCaseCard({
           <SignedDamageImage
             imageId={damageCase.latest_evidence_image_id}
             businessId={businessId}
+            profile="thumbnail"
             alt="Latest damage evidence"
           />
         ) : (

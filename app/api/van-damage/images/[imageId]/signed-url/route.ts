@@ -11,6 +11,7 @@ export const runtime = 'nodejs'
 const SIGNED_URL_TTL_SECONDS = 15 * 60
 const allowedProfiles = new Set(['original', 'thumbnail', 'medium', 'large'])
 type DerivativeAssetRow = { bucket: string | null; object_key: string | null }
+let s3Client: S3Client | null = null
 
 function isMissingImageAssetsTable(error: { code?: string; message: string } | null) {
   if (!error) return false
@@ -111,6 +112,7 @@ export async function GET(
   if (!bucket || !key) return NextResponse.json({ error: 'Image has not been uploaded yet' }, { status: 409 })
 
   const { region } = getVanDamageAwsEnv()
+  const signerClient = s3Client ?? (s3Client = new S3Client({ region, maxAttempts: 2 }))
   const download = request.nextUrl.searchParams.get('download') === '1'
   const cacheKey = `${access.tenantId}:${access.businessId}:${image.id}:${profile}:${download ? 'download' : 'view'}`
   const now = Date.now()
@@ -118,7 +120,7 @@ export async function GET(
     cacheKey,
     ttlSeconds: SIGNED_URL_TTL_SECONDS,
     create: () => getSignedUrl(
-      new S3Client({ region, maxAttempts: 2 }),
+      signerClient,
       new GetObjectCommand({
         Bucket: bucket!,
         Key: key!,

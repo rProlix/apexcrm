@@ -227,32 +227,35 @@ export async function processMessageBody(
         sha256: imageSha256,
         source: 'slack',
       })
-      try {
-        const derivatives = await storage.uploadDerivatives({
-          tenantId: job.tenantId,
-          businessId: job.businessId,
-          inspectionId: job.inspectionId,
-          imageId: image.id,
-          vehicleId: vanProfile?.id ?? null,
-          body: data,
-        })
-        await persistence.upsertDerivativeAssets({
-          job,
-          imageId: image.id,
-          vanId: vanProfile?.id ?? null,
-          sourceSha256: imageSha256,
-          derivatives,
-        })
-        logger.info('Image derivatives completed', {
-          ...jobContext,
-          derivativeCount: derivatives.length,
-        })
-      } catch (error) {
-        logger.warn('Image derivative generation failed without deleting original', {
-          ...jobContext,
-          failureCategory: classifyFailure(error),
-        })
-      }
+    }
+    // Every logical image gets its own display derivatives, including exact
+    // duplicates whose immutable original object is safely reused.
+    try {
+      const derivatives = await storage.uploadDerivatives({
+        tenantId: job.tenantId,
+        businessId: job.businessId,
+        inspectionId: job.inspectionId,
+        imageId: image.id,
+        vehicleId: vanProfile?.id ?? null,
+        body: data,
+      })
+      await persistence.upsertDerivativeAssets({
+        job,
+        imageId: image.id,
+        vanId: vanProfile?.id ?? null,
+        sourceSha256: imageSha256,
+        derivatives,
+      })
+      logger.info('Image derivatives completed', {
+        ...jobContext,
+        derivativeCount: derivatives.length,
+        reusedOriginal: Boolean(duplicate),
+      })
+    } catch (error) {
+      logger.warn('Image derivative generation failed without deleting original', {
+        ...jobContext,
+        failureCategory: classifyFailure(error),
+      })
     }
     logger.info('Supabase update completed', {
       ...jobContext,

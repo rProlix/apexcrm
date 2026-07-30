@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useSignedDamageImageUrl } from './SignedDamageImage'
 import type { DamageImage, DamageItem } from './inspection-types'
@@ -33,10 +33,13 @@ export function DamageOverlayFrame({
   onUrl?: (url: string) => void
   onOpen?: () => void
 }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [nearViewport, setNearViewport] = useState(eager)
   const { url, error, loading, retry } = useSignedDamageImageUrl({
     imageId: image.id,
     businessId,
-    enabled: true,
+    profile: 'medium',
+    enabled: nearViewport,
     onUrl,
   })
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null)
@@ -64,8 +67,31 @@ export function DamageOverlayFrame({
   )
   const invalidCount = resolved.length - valid.length
 
+  useEffect(() => {
+    if (
+      nearViewport ||
+      !containerRef.current ||
+      typeof IntersectionObserver === 'undefined'
+    ) {
+      if (!nearViewport) setNearViewport(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setNearViewport(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '400px 0px' },
+    )
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [nearViewport])
+
   return (
     <div
+      ref={containerRef}
       className={cn(
         'relative flex h-full w-full items-center justify-center overflow-hidden bg-white/[0.025]',
         className
@@ -86,6 +112,7 @@ export function DamageOverlayFrame({
             draggable={false}
             loading={eager ? 'eager' : 'lazy'}
             fetchPriority={eager ? 'high' : 'auto'}
+            decoding="async"
             className={cn(
               'block max-h-full max-w-full select-none object-contain transition-opacity duration-200',
               loaded ? 'opacity-100' : 'opacity-0',

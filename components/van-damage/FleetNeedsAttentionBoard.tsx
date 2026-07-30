@@ -769,6 +769,7 @@ function SevereVanCard({
             <SignedDamageImage
               imageId={imageId}
               businessId={businessId}
+              profile="thumbnail"
               alt={`${item.vehicle_name} profile or damage evidence`}
             />
           ) : (

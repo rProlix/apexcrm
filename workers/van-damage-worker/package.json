@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "health": "tsx src/health.ts",
     "health:built": "node dist/health.js",
+    "backfill:derivatives": "tsx scripts/backfill-image-derivatives.ts",
     "type-check": "tsc --noEmit",
     "test": "tsx --test test/*.test.ts"
   },
