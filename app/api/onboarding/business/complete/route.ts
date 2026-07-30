@@ -1,14 +1,18 @@
 export const dynamic = 'force-dynamic'
 
-import { NextResponse }             from 'next/server'
+import { NextResponse } from 'next/server'
 import { createSessionServerClient } from '@/lib/supabase/server'
 import {
   completeBusinessOnboarding,
   type OnboardingData,
 } from '@/lib/onboarding/businessOnboarding'
-import type { CRMPlanKey } from '@/lib/plans/planCatalog'
 import { validateLegalAgreement } from '@/lib/legal/consent'
 import { recordLegalConsent } from '@/lib/legal/recordConsent'
+import {
+  getSignupPackageForBusinessType,
+  hasOnlyValidSignupModules,
+  SIGNUP_PACKAGE_PRESETS,
+} from '@/lib/plans/signupModulePricing'
 
 /**
  * POST /api/onboarding/business/complete
@@ -20,23 +24,19 @@ import { recordLegalConsent } from '@/lib/legal/recordConsent'
 export async function POST(request: Request) {
   try {
     const sessionClient = await createSessionServerClient()
-    const { data: { user } } = await sessionClient.auth.getUser()
+    const {
+      data: { user },
+    } = await sessionClient.auth.getUser()
 
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Not authenticated.' },
-        { status: 401 }
-      )
+      return NextResponse.json({ success: false, error: 'Not authenticated.' }, { status: 401 })
     }
 
-    const body = await request.json() as Omit<OnboardingData, 'authUserId'>
+    const body = (await request.json()) as Omit<OnboardingData, 'authUserId'>
 
     const legalValidation = validateLegalAgreement(body.legalAgreement, 'business_admin')
     if (!legalValidation.ok) {
-      return NextResponse.json(
-        { success: false, error: legalValidation.error },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: legalValidation.error }, { status: 400 })
     }
 
     // Validate required fields
@@ -47,19 +47,39 @@ export async function POST(request: Request) {
       )
     }
 
-    const validPlanKeys: CRMPlanKey[] = ['starter', 'growth', 'pro', 'enterprise']
-    if (!validPlanKeys.includes(body.selectedPlanKey)) {
+    if (!hasOnlyValidSignupModules(body.selectedModules)) {
       return NextResponse.json(
-        { success: false, error: 'Invalid plan key.' },
+        { success: false, error: 'One or more selected modules are invalid.' },
         { status: 400 }
       )
     }
 
+    const selected = new Set(body.selectedModules)
+    if ((selected.has('damage_ai') || selected.has('maintenance')) && !selected.has('vehicles')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Fleet must be enabled when Van Damage AI or Fleet Maintenance is selected.',
+        },
+        { status: 400 }
+      )
+    }
+
+    const defaultPackage = getSignupPackageForBusinessType(
+      body.businessCategory ?? body.businessType
+    )
+    const selectedPackageKey = SIGNUP_PACKAGE_PRESETS.some(
+      (preset) => preset.key === body.selectedPackageKey
+    )
+      ? body.selectedPackageKey
+      : defaultPackage.key
+
     const result = await completeBusinessOnboarding({
       ...body,
+      selectedPackageKey,
       legalAgreement: legalValidation.agreement,
       authUserId: user.id,
-      email:      user.email ?? body.email,
+      email: user.email ?? body.email,
     })
 
     await recordLegalConsent({
@@ -82,18 +102,21 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json({
-      success:        true,
-      tenantId:       result.tenantId,
-      tenantSlug:     result.tenantSlug,
-      planKey:        result.planKey,
+      success: true,
+      tenantId: result.tenantId,
+      tenantSlug: result.tenantSlug,
+      planKey: result.planKey,
       enabledModules: result.enabledModules,
-      lockedModules:  result.lockedModules,
-      redirectUrl:    `/onboarding?${params.toString()}`,
+      lockedModules: result.lockedModules,
+      redirectUrl: `/onboarding?${params.toString()}`,
     })
   } catch (err) {
     console.error('[/api/onboarding/business/complete] error:', err)
     return NextResponse.json(
-      { success: false, error: err instanceof Error ? err.message : 'Failed to complete onboarding.' },
+      {
+        success: false,
+        error: err instanceof Error ? err.message : 'Failed to complete onboarding.',
+      },
       { status: 500 }
     )
   }

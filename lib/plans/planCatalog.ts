@@ -72,6 +72,7 @@ export interface OnboardingAnswers {
   needsPayments?:               boolean
   needsWebsite?:                boolean
   needsStore?:                  boolean
+  needsCustomers?:              boolean
   needsRewards?:                boolean
   needsStaff?:                  boolean
   needsCustomerPortal?:         boolean
