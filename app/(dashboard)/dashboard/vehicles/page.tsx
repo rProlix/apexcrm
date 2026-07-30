@@ -146,7 +146,7 @@ export default async function VehiclesPage({
         )
         .eq('tenant_id', tenantId)
         .eq('business_id', tenantId)
-        .in('status', ['uploaded', 'analyzed'])
+        .in('status', ['uploaded', 'processing', 'analyzed', 'needs_review', 'failed'])
         .order('created_at', { ascending: false })
         .limit(1500),
       looseDb

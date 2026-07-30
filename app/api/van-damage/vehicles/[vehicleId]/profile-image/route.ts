@@ -140,7 +140,7 @@ export async function PATCH(
       .eq('tenant_id', access.tenantId)
       .eq('business_id', access.businessId)
       .or(filters.join(','))
-      .in('status', ['uploaded', 'analyzed'])
+      .in('status', ['uploaded', 'processing', 'analyzed', 'needs_review', 'failed'])
       .order('created_at', { ascending: true })
       .limit(50)
     const image = (imageRows ?? []) as Array<{

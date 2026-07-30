@@ -217,8 +217,9 @@ export default async function VehicleProfilePage({
   )
   const profileImage = asProfileImage(asRecord(asRecord(vehicle.metadata).vanDamage).profileImage)
   const fallbackProfileImageId =
-    images.find((image) => ['uploaded', 'analyzed'].includes(image.status))?.id ??
-    null
+    images.find((image) =>
+      ['uploaded', 'processing', 'analyzed', 'needs_review', 'failed'].includes(image.status)
+    )?.id ?? null
   const hydratedSessions: VanProfileSession[] = sessions.map((session) => ({
     ...session,
     driver_snapshot: asRecord(session.driver_snapshot),

@@ -12,6 +12,16 @@ const SIGNED_URL_TTL_SECONDS = 15 * 60
 const allowedProfiles = new Set(['original', 'thumbnail', 'medium', 'large'])
 type DerivativeAssetRow = { bucket: string | null; object_key: string | null }
 
+function isMissingImageAssetsTable(error: { code?: string; message: string } | null) {
+  if (!error) return false
+  return (
+    error.code === 'PGRST205' ||
+    /van_damage_image_assets.*schema cache|could not find the table.*van_damage_image_assets/i.test(
+      error.message
+    )
+  )
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ imageId: string }> },
@@ -71,7 +81,9 @@ export async function GET(
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
-    if (derivativeError) return NextResponse.json({ error: derivativeError.message }, { status: 500 })
+    if (derivativeError && !isMissingImageAssetsTable(derivativeError)) {
+      return NextResponse.json({ error: derivativeError.message }, { status: 500 })
+    }
     if (derivative?.bucket && derivative.object_key) {
       bucket = derivative.bucket
       key = derivative.object_key
@@ -90,7 +102,9 @@ export async function GET(
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
-    if (originalAssetError) return NextResponse.json({ error: originalAssetError.message }, { status: 500 })
+    if (originalAssetError && !isMissingImageAssetsTable(originalAssetError)) {
+      return NextResponse.json({ error: originalAssetError.message }, { status: 500 })
+    }
     bucket = originalAsset?.bucket ?? null
     key = originalAsset?.object_key ?? null
   }

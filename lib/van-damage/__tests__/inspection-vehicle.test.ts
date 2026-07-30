@@ -188,7 +188,7 @@ test('vehicle profile image precedence never chooses an unrelated random inspect
 })
 
 test('fleet profiles hydrate history through the canonical inspection vehicle link', async () => {
-  const [profilePage, fleetPage] = await Promise.all([
+  const [profilePage, fleetPage, profileSyncMigration] = await Promise.all([
     readFile(
       path.join(
         process.cwd(),
@@ -197,6 +197,13 @@ test('fleet profiles hydrate history through the canonical inspection vehicle li
       'utf8'
     ),
     readFile(path.join(process.cwd(), 'app/(dashboard)/dashboard/vehicles/page.tsx'), 'utf8'),
+    readFile(
+      path.join(
+        process.cwd(),
+        'supabase/migrations/20260729123000_sync_multi_image_inspection_profiles.sql'
+      ),
+      'utf8'
+    ),
   ])
 
   assert.match(profilePage, /const initialInspectionIds = \(initialInspectionsResult\.data \?\? \[\]\)/)
@@ -232,8 +239,25 @@ test('fleet profiles hydrate history through the canonical inspection vehicle li
     profilePage,
     /related_damage_case_id\.in\.\(\$\{damageCaseIds\.join\(','\)\}\)/
   )
-  assert.match(profilePage, /images\.find\(\(image\) => \['uploaded', 'analyzed'\]\.includes\(image\.status\)\)/)
+  assert.match(
+    profilePage,
+    /\['uploaded', 'processing', 'analyzed', 'needs_review', 'failed'\]\.includes\(image\.status\)/
+  )
   assert.match(fleetPage, /\{ allowAutomaticFirstUpload: true \}/)
+  assert.match(
+    fleetPage,
+    /\.in\('status', \['uploaded', 'processing', 'analyzed', 'needs_review', 'failed'\]\)/
+  )
   assert.match(fleetPage, /sessionById\.get\(rawImage\.upload_session_id\)/)
   assert.match(fleetPage, /inspection\.van_id \?\? sessionVanId/)
+  assert.match(
+    profileSyncMigration,
+    /CREATE TRIGGER van_damage_inspections_sync_terminal_profile/
+  )
+  assert.match(
+    profileSyncMigration,
+    /PERFORM public\.van_damage_reconcile_cases_for_inspection\(NEW\.id\)/
+  )
+  assert.match(profileSyncMigration, /session\.van_id IS DISTINCT FROM inspection\.van_id/)
+  assert.match(profileSyncMigration, /session\.status IS DISTINCT FROM inspection\.status/)
 })
