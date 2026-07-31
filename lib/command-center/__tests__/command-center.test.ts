@@ -356,8 +356,12 @@ test('command-center damage previews use signed image rendering', async () => {
   ])
 
   assert.match(quickPeek, /SignedDamageImage/)
+  assert.match(quickPeek, /record\?\.media \?\? request\?\.previewMedia/)
+  assert.match(quickPeek, /profile="thumbnail"/)
+  assert.match(quickPeek, /eager/)
   assert.match(actionInbox, /SignedDamageImage/)
   assert.match(quickPeekLoader, /loadInspectionEvidenceImage/)
+  assert.match(quickPeekLoader, /Promise\.all\(\[/)
   assert.match(actionLoader, /damageEvidenceMetadata/)
   assert.doesNotMatch(quickPeek, /slack_file_url/)
   assert.doesNotMatch(actionInbox, /slack_file_url/)

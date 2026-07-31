@@ -16,6 +16,7 @@ import { useBodyScrollLock } from '@/lib/design-system/body-scroll-lock'
 interface QuickPeekRequest {
   type: CommandRecordType
   id: string
+  previewMedia?: QuickPeekMedia[]
   origin?: HTMLElement | null
   originY?: number
   pushHistory?: boolean
@@ -162,6 +163,7 @@ export function QuickPeekProvider({ children }: { children: React.ReactNode }) {
   }, [close, request])
 
   const value = useMemo(() => ({ open, close }), [close, open])
+  const visibleMedia = record?.media ?? request?.previewMedia
 
   return (
     <QuickPeekContext.Provider value={value}>
@@ -204,6 +206,13 @@ export function QuickPeekProvider({ children }: { children: React.ReactNode }) {
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-5">
+              {visibleMedia?.length ? (
+                <div className="mb-6 space-y-2">
+                  {visibleMedia.map((media) => (
+                    <QuickPeekMediaPreview key={`${media.kind}:${media.imageId}`} media={media} />
+                  ))}
+                </div>
+              ) : null}
               {loading && <QuickPeekSkeleton />}
               {error && !loading && (
                 <div
@@ -238,17 +247,6 @@ export function QuickPeekProvider({ children }: { children: React.ReactNode }) {
                       <p className="mt-4 text-sm leading-6 text-white/62">{record.summary}</p>
                     )}
                   </div>
-
-                  {record.media?.length ? (
-                    <div className="space-y-2">
-                      {record.media.map((media) => (
-                        <QuickPeekMediaPreview
-                          key={`${media.kind}:${media.imageId}`}
-                          media={media}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
 
                   <dl className="grid grid-cols-2 gap-x-5 gap-y-4 border-y border-white/[0.075] py-5">
                     {record.fields.map((item) => (
@@ -303,12 +301,14 @@ export function QuickPeekTrigger({
   id,
   label = 'Quick Peek',
   className,
+  previewMedia,
   children,
 }: {
   type: CommandRecordType
   id: string
   label?: string
   className?: string
+  previewMedia?: QuickPeekMedia[]
   children?: React.ReactNode
 }) {
   const context = useContext(QuickPeekContext)
@@ -320,6 +320,7 @@ export function QuickPeekTrigger({
         (context?.open ?? requestQuickPeek)({
           type,
           id,
+          previewMedia,
           origin: event.currentTarget,
         })
       }

@@ -203,6 +203,19 @@ export function RecentInspectionsList({
                           <QuickPeekTrigger
                             type="inspection"
                             id={inspection.id}
+                            previewMedia={
+                              inspection.latestImageId
+                                ? [
+                                    {
+                                      kind: 'damage_image',
+                                      imageId: inspection.latestImageId,
+                                      businessId,
+                                      alt: `Inspection image for ${inspection.vanNumber ? `Van ${inspection.vanNumber}` : inspection.vanName}`,
+                                      caption: 'Latest inspection image',
+                                    },
+                                  ]
+                                : undefined
+                            }
                             className="w-full lg:w-auto"
                           />
                           <Link

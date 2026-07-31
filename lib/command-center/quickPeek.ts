@@ -85,14 +85,17 @@ async function loadInspection(
   id: string
 ): Promise<QuickPeekPayload> {
   assertActiveModule(context, 'damage_ai')
-  const { data, error } = await context.db
-    .from('van_damage_inspections')
-    .select(
-      'id,title,status,review_status,image_count,damage_count,ai_summary,ai_confidence,van_id,created_at,updated_at'
-    )
-    .eq('tenant_id', context.tenantId)
-    .eq('id', id)
-    .maybeSingle()
+  const [{ data, error }, evidenceImage] = await Promise.all([
+    context.db
+      .from('van_damage_inspections')
+      .select(
+        'id,title,status,review_status,image_count,damage_count,ai_summary,ai_confidence,van_id,created_at,updated_at'
+      )
+      .eq('tenant_id', context.tenantId)
+      .eq('id', id)
+      .maybeSingle(),
+    loadInspectionEvidenceImage(context, id),
+  ])
   if (error || !data) throw notFound()
   const actions: QuickPeekPayload['actions'] = [
     {
@@ -110,7 +113,6 @@ async function loadInspection(
       href: `/dashboard/vehicles/maintenance?inspectionId=${data.id}`,
     })
   }
-  const evidenceImage = await loadInspectionEvidenceImage(context, data.id)
   return {
     type: 'inspection',
     id: data.id,
