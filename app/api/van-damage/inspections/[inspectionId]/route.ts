@@ -38,7 +38,14 @@ type LooseQuery = {
   select: (columns: string) => LooseQuery
   update: (values: Record<string, unknown>) => LooseQuery
   eq: (column: string, value: unknown) => LooseQuery
-  maybeSingle: () => Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>
+  limit: (count: number) => Promise<{
+    data: Record<string, unknown>[] | null
+    error: { message: string } | null
+  }>
+  maybeSingle: () => Promise<{
+    data: Record<string, unknown> | null
+    error: { message: string } | null
+  }>
   then: PromiseLike<{ error: { message: string } | null }>['then']
 }
 
@@ -223,6 +230,20 @@ export async function PATCH(
   const phase3c = asRecord(metadata.phase3c)
   const auditTrail = asRecordArray(phase3c.auditTrail)
   const comments = asRecordArray(phase3c.comments)
+  const looseDb = db as unknown as { from: (table: string) => LooseQuery }
+
+  const loadHasLevel3 = async () => {
+    const { data } = await looseDb
+      .from('van_damage_items')
+      .select('severity')
+      .eq('inspection_id', inspectionId)
+      .eq('tenant_id', access.tenantId)
+      .eq('business_id', access.businessId)
+      .limit(500)
+    return (data ?? []).some((item) =>
+      ['high', 'critical', 'level_3'].includes(String(item.severity ?? ''))
+    )
+  }
 
   if (parsed.data.type === 'comment') {
     const comment = {
@@ -267,8 +288,6 @@ export async function PATCH(
     if (!canonicalRegion) {
       return NextResponse.json({ error: 'Select a valid vehicle section.' }, { status: 400 })
     }
-    const looseDb = db as unknown as { from: (table: string) => LooseQuery }
-
     const { data: item, error: itemError } = await looseDb
       .from('van_damage_items')
       .select('id, damage_case_id, canonical_region, vehicle_area, metadata')
@@ -374,11 +393,18 @@ export async function PATCH(
         ].slice(-250),
       },
     }
+    const hasLevel3 = await loadHasLevel3()
     const { error: inspectionError } = await db
       .from('van_damage_inspections')
       .update({
-        review_status: inspection.review_status === 'reviewed' ? 'reviewed' : 'in_review',
-        status: inspection.status === 'completed' ? inspection.status : 'needs_review',
+        review_status: hasLevel3
+          ? inspection.review_status === 'reviewed'
+            ? 'reviewed'
+            : 'in_review'
+          : inspection.review_status === 'reviewed'
+            ? 'reviewed'
+            : 'pending',
+        status: hasLevel3 ? 'needs_review' : 'completed',
         reviewed_by: access.userId,
         reviewed_at: now,
         metadata: nextMetadata as unknown as Json,
@@ -399,6 +425,14 @@ export async function PATCH(
       metadata: correction as unknown as Json,
     })
     return NextResponse.json({ ok: true, canonicalRegion })
+  }
+
+  const hasLevel3 = await loadHasLevel3()
+  if (parsed.data.action === 'manual_review' && !hasLevel3) {
+    return NextResponse.json(
+      { error: 'Only Level 3 damage requires the review workflow.' },
+      { status: 409 }
+    )
   }
 
   const actionConfig = {
@@ -434,10 +468,17 @@ export async function PATCH(
     },
     restore: {
       label: 'Inspection restored',
-      reviewStatus:
-        inspection.review_status === 'dismissed' ? 'in_review' : inspection.review_status,
-      status: inspection.status === 'needs_review' ? 'needs_review' : 'completed',
-      lifecycle: inspection.review_status === 'reviewed' ? 'approved' : 'manual_review',
+      reviewStatus: hasLevel3
+        ? inspection.review_status === 'dismissed'
+          ? 'in_review'
+          : inspection.review_status
+        : 'pending',
+      status: hasLevel3 ? 'needs_review' : 'completed',
+      lifecycle: hasLevel3
+        ? inspection.review_status === 'reviewed'
+          ? 'approved'
+          : 'manual_review'
+        : 'approved',
     },
   } as const
   const config = actionConfig[parsed.data.action]

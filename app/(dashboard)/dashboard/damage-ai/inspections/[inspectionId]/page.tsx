@@ -327,6 +327,7 @@ export default async function InspectionPage({
     activeCasesResult,
     maintenanceResult,
     imageAnalysesResult,
+    favoriteResult,
   ] = await Promise.all([
     db
       .from('van_damage_images')
@@ -441,6 +442,15 @@ export default async function InspectionPage({
       .eq('tenant_id', scope.tenantId)
       .eq('business_id', scope.businessId)
       .limit(1000),
+    resolvedVehicle
+      ? looseDb
+          .from('van_damage_favorite_vehicles')
+          .select('vehicle_id')
+          .eq('tenant_id', scope.tenantId)
+          .eq('business_id', scope.businessId)
+          .eq('vehicle_id', resolvedVehicle.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
   const attributionByCase = new Map(
     ((casesResult.data ?? []) as Array<Record<string, unknown>>).map((row) => [String(row.id), row])
@@ -493,7 +503,7 @@ export default async function InspectionPage({
         observation_type: text(item.observation_type),
         normalized_damage_type: text(item.normalized_damage_type),
         canonical_region: text(item.canonical_region),
-        source_image_role: imageId ? imageRoleById.get(imageId) ?? null : null,
+        source_image_role: imageId ? (imageRoleById.get(imageId) ?? null) : null,
         region_reviewed_by_human:
           typeof itemMetadata.humanReviewedCanonicalRegion === 'string' &&
           itemMetadata.humanReviewedCanonicalRegion.trim().length > 0,
@@ -549,6 +559,9 @@ export default async function InspectionPage({
       },
     ]
   })
+  const inspectionHasLevel3 = items.some((item) =>
+    ['high', 'critical', 'level_3'].includes(item.severity ?? '')
+  )
   const aiRunRaw = asRecord(runsResult.data?.[0])
   const aiRun = text(aiRunRaw.id)
     ? {
@@ -890,13 +903,20 @@ export default async function InspectionPage({
             timeZone={resolveInspectionTimeZone({ tenant: tenantResult.data })}
             canManage={['owner', 'admin'].includes(scope.ctx.role)}
             canViewMetadata={scope.ctx.role === 'owner'}
+            isFavoriteVehicle={Boolean(favoriteResult.data)}
             uploaderName={uploaderName}
             inspectionTimestamp={inspection.slack_upload_at ?? inspection.created_at}
             inspection={{
               id: inspection.id,
               title: inspection.title,
-              status: inspection.status,
-              review_status: inspection.review_status,
+              status:
+                inspection.status === 'needs_review' && !inspectionHasLevel3
+                  ? 'completed'
+                  : inspection.status,
+              review_status:
+                inspection.review_status === 'in_review' && !inspectionHasLevel3
+                  ? 'pending'
+                  : inspection.review_status,
               source: inspection.source,
               image_count: inspection.image_count,
               damage_count: inspection.damage_count,

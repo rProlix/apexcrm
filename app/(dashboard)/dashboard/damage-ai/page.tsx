@@ -9,6 +9,7 @@ import {
   FileSearch,
   MessageSquare,
   Settings,
+  Star,
 } from 'lucide-react'
 import { getVanDamagePageScope } from '@/lib/server/van-damage/page-scope'
 import { getVanDamageServiceClient } from '@/lib/server/van-damage/supabase'
@@ -26,6 +27,7 @@ import {
   type InspectionImageFilter,
   type InspectionReviewFilter,
   type InspectionSearchRow,
+  type InspectionSummaryView,
 } from '@/lib/van-damage/inspection-search'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -83,6 +85,7 @@ export default async function DamageAIPage({
     observationResult,
     caseResult,
     imageResult,
+    favoriteResult,
   ] = await Promise.all([
     tables
       .from('van_damage_inspections')
@@ -135,6 +138,12 @@ export default async function DamageAIPage({
       .eq('business_id', scope.businessId)
       .order('created_at', { ascending: false })
       .limit(10000),
+    tables
+      .from('van_damage_favorite_vehicles')
+      .select('vehicle_id')
+      .eq('tenant_id', scope.tenantId)
+      .eq('business_id', scope.businessId)
+      .limit(1000),
   ])
 
   const timeZone = resolveInspectionTimeZone({ tenant: tenantResult.data })
@@ -143,6 +152,9 @@ export default async function DamageAIPage({
       const vehicle = asRecord(row)
       return [text(vehicle.id), vehicle]
     })
+  )
+  const favoriteVehicleIds = new Set(
+    (favoriteResult.data ?? []).map((row) => text(asRecord(row).vehicle_id)).filter(Boolean)
   )
   const itemsByInspection = new Map<string, Record<string, unknown>[]>()
   for (const raw of itemResult.data ?? []) {
@@ -276,11 +288,18 @@ export default async function DamageAIPage({
       ...items.map((item) => text(item.severity)),
       ...linkedCases.map((damageCase) => text(damageCase.current_severity)),
     ])
+    const hasLevel3 = severities.some((severity) =>
+      ['high', 'critical', 'level_3'].includes(severity)
+    )
+    const rawStatus = text(inspection.status, 'queued')
+    const status = rawStatus === 'needs_review' && !hasLevel3 ? 'completed' : rawStatus
+    const rawReviewStatus = text(inspection.review_status, 'pending')
+    const reviewStatus = rawReviewStatus === 'in_review' && !hasLevel3 ? 'pending' : rawReviewStatus
     return {
       id,
       title: text(inspection.title) || null,
-      status: text(inspection.status, 'queued'),
-      reviewStatus: text(inspection.review_status, 'pending'),
+      status,
+      reviewStatus,
       imageCount: Number(inspection.image_count) || 0,
       damageCount: Number(inspection.damage_count) || 0,
       aiSummary: text(inspection.ai_summary) || null,
@@ -343,7 +362,8 @@ export default async function DamageAIPage({
       firstReporterNames: stringList(firstReporters.map((identity) => identity.name)),
       latestUploaderIds: stringList(latestUploaders.map((identity) => identity.id)),
       latestUploaderNames: stringList(latestUploaders.map((identity) => identity.name)),
-      hasLevel3: severities.some((severity) => ['high', 'critical', 'level_3'].includes(severity)),
+      hasLevel3,
+      isFavorite: favoriteVehicleIds.has(text(inspection.van_id)),
       activeDamageCount: linkedCases.filter(
         (damageCase) => text(damageCase.lifecycle_status) === 'active'
       ).length,
@@ -385,7 +405,11 @@ export default async function DamageAIPage({
     latestUploader: value(query, 'latestUploader') || 'all',
     level3: value(query, 'level3') === '1',
     today: value(query, 'today') === '1',
+    view: (['in_progress', 'completed', 'needs_review', 'favorites'].includes(value(query, 'view'))
+      ? value(query, 'view')
+      : 'all') as InspectionSummaryView,
   }
+  const baseResults = filterAndSortInspections(allRows, { ...filters, view: 'all' }, timeZone)
   const results = filterAndSortInspections(allRows, filters, timeZone)
   const pageSize = 25
   const requestedPage = Math.max(1, Number.parseInt(value(query, 'page'), 10) || 1)
@@ -393,11 +417,14 @@ export default async function DamageAIPage({
   const page = Math.min(requestedPage, pageCount)
   const inspections = results.slice((page - 1) * pageSize, page * pageSize)
   const connected = publicIntegration(integration)
-  const completed = results.filter((item) => item.status === 'completed').length
-  const review = results.filter((item) => item.status === 'needs_review').length
-  const pending = results.filter((item) =>
+  const completed = baseResults.filter((item) => item.status === 'completed').length
+  const review = baseResults.filter((item) => item.hasLevel3).length
+  const pending = baseResults.filter((item) =>
     ['queued', 'processing', 'analyzing'].includes(item.status)
   ).length
+  const favorites = new Set(
+    baseResults.filter((item) => item.isFavorite && item.vanId).map((item) => item.vanId)
+  ).size
   const suffix = `?businessId=${encodeURIComponent(scope.businessId)}`
   const driverOptions = [
     ...new Map(
@@ -461,23 +488,54 @@ export default async function DamageAIPage({
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {[
           {
             label: 'Matching inspections',
-            value: results.length,
+            value: baseResults.length,
             icon: FileSearch,
             color: 'text-sky-300',
+            view: 'all',
           },
-          { label: 'In progress', value: pending, icon: Clock3, color: 'text-violet-300' },
-          { label: 'Completed', value: completed, icon: CheckCircle2, color: 'text-emerald-300' },
-          { label: 'Needs review', value: review, icon: AlertTriangle, color: 'text-amber-300' },
-        ].map(({ label, value: count, icon: Icon, color }) => (
-          <div key={label} className="ui-surface p-4">
+          {
+            label: 'In progress',
+            value: pending,
+            icon: Clock3,
+            color: 'text-violet-300',
+            view: 'in_progress',
+          },
+          {
+            label: 'Completed',
+            value: completed,
+            icon: CheckCircle2,
+            color: 'text-emerald-300',
+            view: 'completed',
+          },
+          {
+            label: 'Needs review',
+            value: review,
+            icon: AlertTriangle,
+            color: 'text-amber-300',
+            view: 'needs_review',
+          },
+          {
+            label: 'Favorites',
+            value: favorites,
+            icon: Star,
+            color: 'fill-gold-300 text-gold-300',
+            view: 'favorites',
+          },
+        ].map(({ label, value: count, icon: Icon, color, view }) => (
+          <Link
+            key={label}
+            href={summaryViewHref(query, view)}
+            aria-current={filters.view === view ? 'page' : undefined}
+            className={`ui-surface group p-4 transition-[border-color,background-color,transform] duration-200 ease-[cubic-bezier(.23,1,.32,1)] active:scale-[.98] ${filters.view === view ? 'border-gold-300/35 bg-gold-300/[.055]' : 'hover:border-white/20 hover:bg-white/[.035]'}`}
+          >
             <Icon className={`h-5 w-5 ${color}`} />
             <p className="mt-4 text-2xl font-semibold tabular-nums text-white">{count}</p>
             <p className="text-xs text-[var(--text-secondary)]">{label}</p>
-          </div>
+          </Link>
         ))}
       </div>
 
@@ -595,6 +653,18 @@ function PaginationLink({
       {children}
     </Link>
   )
+}
+
+function summaryViewHref(query: SearchParams, view: string) {
+  const params = new URLSearchParams()
+  Object.entries(query).forEach(([key, raw]) => {
+    const entry = Array.isArray(raw) ? raw[0] : raw
+    if (entry) params.set(key, entry)
+  })
+  if (view === 'all') params.delete('view')
+  else params.set('view', view)
+  params.delete('page')
+  return `/dashboard/damage-ai?${params.toString()}`
 }
 
 function MissingBusiness() {

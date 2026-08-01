@@ -301,7 +301,7 @@ export async function processMessageBody(
       await persistence.saveAiRawResponse(job, aiRunId, '', null)
       const cachedAnalysis = {
         ...cached.result,
-        needsHumanReview: cached.result.needsHumanReview || !vanNumber,
+        needsHumanReview: cached.result.damageRating === 3,
         warnings: [
           ...cached.result.warnings,
           'Automated result reused from a matching private evidence analysis.',
@@ -358,7 +358,7 @@ export async function processMessageBody(
     await persistence.saveAiRawResponse(job, aiRunId, result.rawText, result.parseError)
     const analysis = {
       ...result.analysis,
-      needsHumanReview: result.analysis.needsHumanReview || !vanNumber,
+      needsHumanReview: result.analysis.damageRating === 3,
       warnings: [
         ...result.analysis.warnings,
         ...(!vanNumber ? ['Vehicle identity requires review'] : []),
@@ -437,7 +437,7 @@ export async function processMessageBody(
 }
 
 function estimateDamageAnalysisCost(inputBytes: number) {
-  return Math.max(0.002, Math.min(0.03, inputBytes / 1024 / 1024 * 0.003))
+  return Math.max(0.002, Math.min(0.03, (inputBytes / 1024 / 1024) * 0.003))
 }
 
 function stringFromMetadata(value: unknown): string {

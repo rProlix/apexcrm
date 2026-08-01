@@ -74,7 +74,7 @@ function normalizeGeminiAnalysis(
     damageRating,
     damageRatingLabel: labels[damageRating],
     items: normalizedItems,
-    needsHumanReview: analysis.needsHumanReview === true || hasLocationConflict,
+    needsHumanReview: damageRating === 3,
     warnings: [
       ...(Array.isArray(analysis.warnings) ? analysis.warnings : []),
       ...(hasLocationConflict

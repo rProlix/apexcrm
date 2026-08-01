@@ -119,6 +119,7 @@ test('damage parser promotes dents to fleet level 3 and severe map styling', () 
   assert.equal(result.data?.damageRatingLabel, 'dents_or_damage')
   assert.equal(result.data?.items[0]?.severity, 'high')
   assert.equal(result.data?.items[0]?.vehicleArea, 'driver_rear_cargo_panel')
+  assert.equal(result.data?.needsHumanReview, true)
 })
 
 test('damage parser corrects an opposite-side location from the source image role', () => {
@@ -154,6 +155,38 @@ test('damage parser corrects an opposite-side location from the source image rol
   assert.equal(result.data?.items[0]?.vehicleArea, 'passenger_front_door')
   assert.equal(result.data?.needsHumanReview, true)
   assert.match(result.data?.warnings[0] ?? '', /source image role/)
+})
+
+test('only Level 3 damage requires human review', () => {
+  const result = parseDamageAnalysis(
+    JSON.stringify({
+      summary: 'Uncertain light scratch',
+      overallConfidence: 0.55,
+      damageRating: 2,
+      damageRatingLabel: 'light_scratches',
+      damageRatingReason: 'A possible surface scratch is visible.',
+      damageCount: 1,
+      vehicleCondition: 'good',
+      items: [
+        {
+          imageIndex: 0,
+          damageType: 'scratch',
+          vehicleArea: 'driver_front_door',
+          severity: 'low',
+          confidence: 0.55,
+          description: 'Possible light scratch',
+          repairRecommendation: 'Monitor during routine checks',
+          estimatedCostMin: null,
+          estimatedCostMax: null,
+          boundingBox: null,
+        },
+      ],
+      needsHumanReview: true,
+      warnings: ['Low confidence'],
+    })
+  )
+  assert.equal(result.data?.damageRating, 2)
+  assert.equal(result.data?.needsHumanReview, false)
 })
 
 test('inspection prompt requires dent evidence and precise Transit regions', () => {

@@ -168,6 +168,7 @@ export type InspectionExperienceProps = {
   timeZone: string
   canManage: boolean
   canViewMetadata: boolean
+  isFavoriteVehicle: boolean
   uploaderName: string
   inspectionTimestamp: string
   inspection: Inspection
@@ -268,7 +269,9 @@ export function InspectionExperience(props: InspectionExperienceProps) {
   const [activeSection, setActiveSection] = useState('inspection-summary')
   const [sortBy, setSortBy] = useState<'severity' | 'confidence' | 'newest'>('severity')
   const [bookmarked, setBookmarked] = useState(false)
-  const [favorite, setFavorite] = useState(false)
+  const [favorite, setFavorite] = useState(props.isFavoriteVehicle)
+  const [favoritePending, setFavoritePending] = useState(false)
+  const [favoriteError, setFavoriteError] = useState<string | null>(null)
   const parsed = asRecord(aiRun?.parsed_response)
   const rating = typeof parsed.damageRating === 'number' ? parsed.damageRating : null
   // Inspection confidence is the authoritative aggregate across completed image
@@ -290,10 +293,6 @@ export function InspectionExperience(props: InspectionExperienceProps) {
           ? 'moderate'
           : 'minor'
   const severity = severityPresentation[severityKey]
-  const needsReview =
-    inspection.status === 'needs_review' ||
-    parsed.needsHumanReview === true ||
-    inspection.review_status === 'in_review'
   const safetyConcern =
     maxSeverity === 'critical' ||
     items.some((item) =>
@@ -339,11 +338,8 @@ export function InspectionExperience(props: InspectionExperienceProps) {
   const level3Items = items.filter((item) =>
     ['high', 'critical', 'level_3'].includes(item.severity ?? '')
   )
-  const findingsNeedingReview = items.filter(
-    (item) =>
-      ['high', 'critical'].includes(item.severity ?? '') ||
-      item.first_attribution?.needsReview === true
-  ).length
+  const needsReview = level3Items.length > 0
+  const findingsNeedingReview = level3Items.length
   const severityOptions = uniqueTexts(items.map((item) => item.severity))
   const areaOptions = useMemo(
     () => uniqueTexts(items.map((item) => resolveItemTransitRegion(item))),
@@ -419,7 +415,6 @@ export function InspectionExperience(props: InspectionExperienceProps) {
 
   useEffect(() => {
     setBookmarked(localStorage.getItem(`vanDamageBookmark:${inspection.id}`) === '1')
-    setFavorite(localStorage.getItem(`vanDamageFavorite:${inspection.id}`) === '1')
     const hash = window.location.hash.replace('#', '')
     if (hash.startsWith('finding-')) {
       document.getElementById(hash)?.scrollIntoView({ block: 'center' })
@@ -496,15 +491,33 @@ export function InspectionExperience(props: InspectionExperienceProps) {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  function toggleStored(key: 'bookmark' | 'favorite') {
-    const storageKey =
-      key === 'bookmark'
-        ? `vanDamageBookmark:${inspection.id}`
-        : `vanDamageFavorite:${inspection.id}`
+  function toggleStored() {
+    const storageKey = `vanDamageBookmark:${inspection.id}`
     const next = localStorage.getItem(storageKey) !== '1'
     localStorage.setItem(storageKey, next ? '1' : '0')
-    if (key === 'bookmark') setBookmarked(next)
-    else setFavorite(next)
+    setBookmarked(next)
+  }
+
+  async function toggleFavorite() {
+    if (!vehicle || favoritePending) return
+    const next = !favorite
+    setFavorite(next)
+    setFavoritePending(true)
+    setFavoriteError(null)
+    const response = await fetch(
+      `/api/van-damage/vehicles/${vehicle.id}/favorite?businessId=${encodeURIComponent(props.businessId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ favorite: next }),
+      }
+    )
+    if (!response.ok) {
+      const result = (await response.json().catch(() => ({}))) as { error?: string }
+      setFavorite(!next)
+      setFavoriteError(result.error || 'Unable to update this favorite van.')
+    }
+    setFavoritePending(false)
   }
 
   function exportJson() {
@@ -565,7 +578,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
       `}</style>
       <section
         id="inspection-summary"
-        className="scroll-mt-20 overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_80%_0%,rgba(201,168,76,.12),transparent_32%),linear-gradient(135deg,#18181b,#101012)] shadow-panel-lg"
+        className={`scroll-mt-20 overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_80%_0%,rgba(201,168,76,.12),transparent_32%),linear-gradient(135deg,#18181b,#101012)] shadow-panel-lg ${favorite ? 'favorite-van-detail' : ''}`}
       >
         <div className="border-b border-white/8 px-5 py-4 md:px-7">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -629,7 +642,7 @@ export function InspectionExperience(props: InspectionExperienceProps) {
                 </button>
               )}
               <button
-                onClick={() => toggleStored('bookmark')}
+                onClick={toggleStored}
                 aria-pressed={bookmarked}
                 className="focus-ring no-print rounded-full border border-white/10 p-1.5 text-white/45 hover:bg-white/5 hover:text-white"
                 title="Bookmark inspection"
@@ -639,10 +652,17 @@ export function InspectionExperience(props: InspectionExperienceProps) {
                 />
               </button>
               <button
-                onClick={() => toggleStored('favorite')}
+                onClick={toggleFavorite}
                 aria-pressed={favorite}
-                className="focus-ring no-print rounded-full border border-white/10 p-1.5 text-white/45 hover:bg-white/5 hover:text-white"
-                title="Favorite inspection"
+                disabled={!vehicle || favoritePending}
+                className={`focus-ring no-print rounded-full border p-1.5 transition-[transform,border-color,background-color,color] duration-150 ease-[cubic-bezier(.23,1,.32,1)] active:scale-[.94] disabled:cursor-not-allowed disabled:opacity-40 ${favorite ? 'border-gold-300/40 bg-gold-300/12 text-gold-300' : 'border-white/10 text-white/45 hover:bg-white/5 hover:text-white'}`}
+                title={
+                  vehicle
+                    ? favorite
+                      ? 'Remove favorite van'
+                      : 'Favorite this van'
+                    : 'Link a van before favoriting'
+                }
               >
                 <Star className={`h-3.5 w-3.5 ${favorite ? 'fill-gold-300 text-gold-300' : ''}`} />
               </button>
@@ -674,6 +694,11 @@ export function InspectionExperience(props: InspectionExperienceProps) {
               )}
             </div>
           </div>
+          {favoriteError && (
+            <p role="alert" className="mt-2 text-xs text-red-200">
+              {favoriteError}
+            </p>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-[.85fr_1.3fr_1fr]">

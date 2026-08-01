@@ -35,6 +35,12 @@ export const inspectionSortOptions = [
 export type InspectionSort = (typeof inspectionSortOptions)[number]
 export type InspectionImageFilter = 'all' | 'has_images' | 'no_images'
 export type InspectionReviewFilter = 'all' | 'needs_review' | 'ai_reviewed' | 'human_reviewed'
+export type InspectionSummaryView =
+  | 'all'
+  | 'in_progress'
+  | 'completed'
+  | 'needs_review'
+  | 'favorites'
 export type DamageStateFilter =
   | 'all'
   | 'new_damage'
@@ -79,6 +85,7 @@ export type InspectionSearchRow = {
   latestUploaderIds: string[]
   latestUploaderNames: string[]
   hasLevel3: boolean
+  isFavorite: boolean
   activeDamageCount: number
   latestImageId: string | null
 }
@@ -101,6 +108,7 @@ export type InspectionSearchFilters = {
   latestUploader: string
   level3: boolean
   today: boolean
+  view: InspectionSummaryView
 }
 
 export const defaultInspectionSearchFilters: InspectionSearchFilters = {
@@ -121,6 +129,7 @@ export const defaultInspectionSearchFilters: InspectionSearchFilters = {
   latestUploader: 'all',
   level3: false,
   today: false,
+  view: 'all',
 }
 
 const severityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, unknown: 0 }
@@ -148,6 +157,14 @@ export function filterAndSortInspections(
   const query = filters.q.trim().toLocaleLowerCase()
   const todayKey = getInspectionLocalDateKey(now.toISOString(), timeZone)
   const filtered = rows.filter((row) => {
+    if (
+      filters.view === 'in_progress' &&
+      !['queued', 'processing', 'analyzing'].includes(row.status)
+    )
+      return false
+    if (filters.view === 'completed' && row.status !== 'completed') return false
+    if (filters.view === 'needs_review' && !row.hasLevel3) return false
+    if (filters.view === 'favorites' && !row.isFavorite) return false
     if (query) {
       const haystack = [
         row.vanNumber,
@@ -188,12 +205,7 @@ export function filterAndSortInspections(
       return false
     if (filters.images === 'has_images' && row.imageCount < 1) return false
     if (filters.images === 'no_images' && row.imageCount > 0) return false
-    if (
-      filters.review === 'needs_review' &&
-      row.status !== 'needs_review' &&
-      row.reviewStatus !== 'in_review'
-    )
-      return false
+    if (filters.review === 'needs_review' && !row.hasLevel3) return false
     if (filters.review === 'ai_reviewed' && !row.aiSummary && row.status !== 'completed')
       return false
     if (filters.review === 'human_reviewed' && row.reviewStatus !== 'reviewed') return false
@@ -281,11 +293,7 @@ function compareInspections(a: InspectionSearchRow, b: InspectionSearchRow, sort
     case 'recently_reviewed':
       return newest(a.reviewedAt, b.reviewedAt)
     case 'needs_review':
-      return (
-        Number(b.status === 'needs_review' || b.reviewStatus === 'in_review') -
-          Number(a.status === 'needs_review' || a.reviewStatus === 'in_review') ||
-        newest(a.createdAt, b.createdAt)
-      )
+      return Number(b.hasLevel3) - Number(a.hasLevel3) || newest(a.createdAt, b.createdAt)
     case 'repair_scheduled':
       return (
         Number(includesValue(b.repairStatuses, 'scheduled')) -

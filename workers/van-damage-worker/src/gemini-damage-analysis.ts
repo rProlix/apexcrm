@@ -57,7 +57,7 @@ driver_taillight, passenger_taillight, upper_grille, lower_grille, interior, unk
 
 Severity must align with the fleet scale: dirt/debris=low; scratches/scuffs=low or medium; every dent/deformation/crack/broken part=high; use critical only for clearly unsafe or functionally compromised damage.
 Create a separate item for each distinct defect. Use a tight bounding box around the defect itself, not the whole vehicle or panel. Bounding boxes are normalized 0..1 coordinates relative to the supplied photo.
-Set needsHumanReview only for uncertain visual evidence, uncertain location, or insufficient image quality—not merely because damage exists.
+Set needsHumanReview to true only when damageRating is 3. Ratings 0, 1, and 2 never require the review workflow.
 
 Return JSON only, without markdown, with exactly this shape:
 {

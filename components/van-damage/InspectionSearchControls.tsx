@@ -107,7 +107,8 @@ export function InspectionSearchControls({
       filters.latestUploader,
     ].filter((value) => value !== 'all').length +
     Number(filters.today) +
-    Number(filters.level3)
+    Number(filters.level3) +
+    Number(filters.view !== 'all')
 
   const quick = [
     {

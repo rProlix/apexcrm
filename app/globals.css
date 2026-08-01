@@ -1319,6 +1319,52 @@ summary {
   }
 }
 
+.favorite-van-row {
+  border-color: rgb(224 190 88 / 0.2);
+  background:
+    radial-gradient(circle at 4% 50%, rgb(224 190 88 / 0.08), transparent 32%),
+    rgb(224 190 88 / 0.018);
+  box-shadow:
+    inset 3px 0 0 rgb(224 190 88 / 0.72),
+    inset 0 1px 0 rgb(255 255 255 / 0.025);
+}
+
+.favorite-van-detail {
+  border-color: rgb(224 190 88 / 0.34);
+  box-shadow:
+    inset 0 1px 0 rgb(255 238 176 / 0.08),
+    inset 0 0 48px rgb(224 190 88 / 0.035),
+    var(--shadow-panel-lg);
+}
+
+.favorite-van-row > * {
+  position: relative;
+  z-index: 1;
+}
+
+.favorite-van-row::after {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 0;
+  width: 28%;
+  content: '';
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgb(255 234 157 / 0.09), transparent);
+  transform: skewX(-16deg) translate3d(-240%, 0, 0);
+  animation: favorite-van-priority-sweep 5.8s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+
+@keyframes favorite-van-priority-sweep {
+  0%,
+  68% {
+    transform: skewX(-16deg) translate3d(-240%, 0, 0);
+  }
+  88%,
+  100% {
+    transform: skewX(-16deg) translate3d(470%, 0, 0);
+  }
+}
+
 /* ─── Selection color ───────────────────────────────────────────── */
 ::selection {
   background: rgb(var(--tenant-accent-rgb) / 0.28);
@@ -1343,6 +1389,12 @@ summary {
   .animate-fade-in,
   .animate-pulse-gold {
     animation: none !important;
+  }
+
+  .favorite-van-row::after {
+    animation: none !important;
+    transform: none;
+    opacity: 0.25;
   }
 
   .ui-navigation-progress-bar {

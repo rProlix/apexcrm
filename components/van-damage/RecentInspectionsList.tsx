@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { AlertTriangle, ArrowRight, ImageIcon, ShieldAlert, UserRound } from 'lucide-react'
+import { AlertTriangle, ArrowRight, ImageIcon, ShieldAlert, Star, UserRound } from 'lucide-react'
 import { InspectionPeriodBadge } from './InspectionPeriodBadge'
 import { SignedDamageImage } from './SignedDamageImage'
 import { StatusBadge } from './StatusBadge'
@@ -107,16 +107,14 @@ export function RecentInspectionsList({
                   {groupRows.map((inspection, index) => {
                     const newDamage = inspection.newDamageCount ?? 0
                     const existingDamage = inspection.existingDamageCount ?? 0
-                    const needsReview =
-                      inspection.status === 'needs_review' ||
-                      inspection.reviewStatus === 'in_review'
+                    const needsReview = inspection.hasLevel3
                     const failed = inspection.status === 'failed'
                     const processing = processingStatuses.has(inspection.status)
                     const href = detailHref(inspection, businessId, returnHref)
                     return (
                       <article
                         key={inspection.id}
-                        className="grid gap-4 px-4 py-4 sm:grid-cols-[7.5rem_minmax(0,1fr)] sm:px-5 lg:grid-cols-[7.5rem_minmax(0,1fr)_auto] lg:items-center"
+                        className={`relative isolate grid gap-4 overflow-hidden px-4 py-4 sm:grid-cols-[7.5rem_minmax(0,1fr)] sm:px-5 lg:grid-cols-[7.5rem_minmax(0,1fr)_auto] lg:items-center ${inspection.isFavorite ? 'favorite-van-row' : ''}`}
                       >
                         <div className="overflow-hidden rounded-xl">
                           {inspection.latestImageId ? (
@@ -151,6 +149,12 @@ export function RecentInspectionsList({
                               showLabel
                             />
                             <StatusBadge status={inspection.status} />
+                            {inspection.isFavorite && (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-gold-300/30 bg-gold-300/10 px-2.5 py-1 text-[10px] font-medium text-gold-200">
+                                <Star className="h-3 w-3 fill-gold-300 text-gold-300" />
+                                Favorite van
+                              </span>
+                            )}
                             {inspection.hasLevel3 && (
                               <span className="inline-flex items-center gap-1 rounded-full border border-red-400/25 bg-red-400/10 px-2.5 py-1 text-[10px] font-medium text-red-200">
                                 <ShieldAlert className="h-3 w-3" />
