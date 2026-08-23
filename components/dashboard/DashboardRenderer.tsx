@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import { PremiumLineChart } from '@/components/charts/PremiumLineChart'
 import { UsageCostWidget } from '@/components/widgets/UsageCostWidget'
 import { UsageChartWidget } from '@/components/widgets/UsageChartWidget'
+import { SectionHeader } from '@/components/ui/SectionHeader'
 import type {
   DashboardLayout,
   WidgetConfig,
@@ -22,25 +23,28 @@ interface DashboardRendererProps {
 // ─── Individual widget renderers ────────────────────────────────
 
 function StatWidgetInner({ data }: { data: WidgetDataStat }) {
+  const accent = data.color ?? 'text-brand'
+
   return (
-    <div>
-      <p className="text-xs font-semibold text-white/35 uppercase tracking-widest mb-3 truncate">
-        {data.label}
-      </p>
+    <div className="flex min-h-24 flex-col justify-between">
+      <p className="truncate text-xs font-medium text-white/45">{data.label}</p>
       {data.value === 0 || data.value === '' ? (
-        <div>
-          <p className="text-2xl font-bold text-white/15 tabular-nums">—</p>
-          <p className="text-xs text-white/25 mt-1.5">{data.emptyMessage ?? 'No data yet'}</p>
+        <div className="mt-5">
+          <p className="text-3xl font-semibold tracking-[-0.04em] text-white/15 tabular-nums">—</p>
+          <p className="mt-1.5 text-xs text-white/25">{data.emptyMessage ?? 'No data yet'}</p>
         </div>
       ) : (
-        <p
-          className={cn(
-            'text-2xl font-bold tabular-nums tracking-tight',
-            data.color ?? 'text-gold-400'
-          )}
-        >
-          {data.formatted}
-        </p>
+        <div className="mt-5 flex items-end justify-between gap-3">
+          <p className="text-3xl font-semibold tracking-[-0.045em] text-white tabular-nums">
+            {data.formatted}
+          </p>
+          <span
+            className={cn(
+              'mb-1 h-1.5 w-1.5 rounded-full bg-current shadow-[0_0_12px_currentColor]',
+              accent
+            )}
+          />
+        </div>
       )}
     </div>
   )
@@ -96,7 +100,7 @@ function WidgetShell({
     <div className={cn(wide && 'col-span-full sm:col-span-2')}>
       <div
         className={cn(
-          'relative h-full overflow-hidden rounded-2xl p-5',
+          'ui-kpi-tile relative h-full overflow-hidden rounded-2xl p-5',
           'premium-panel premium-border transition-colors duration-200 hover:border-white/[0.13]'
         )}
       >
@@ -153,15 +157,15 @@ export function DashboardRenderer({ layout, widgetDataMap, renderWidget }: Dashb
         return (
           <section key={section.id}>
             {/* Section header */}
-            <div className="flex items-center gap-3 mb-5">
-              <h2 className="text-xs font-semibold text-white/35 uppercase tracking-widest">
-                {section.title}
-              </h2>
-              <div className="flex-1 h-px bg-white/5" />
-              <span className="text-2xs text-white/20">
-                {section.widgets.length} widget{section.widgets.length !== 1 ? 's' : ''}
-              </span>
-            </div>
+            <SectionHeader
+              title={section.title}
+              meta={
+                <span>
+                  {section.widgets.length} signal{section.widgets.length !== 1 ? 's' : ''}
+                </span>
+              }
+              className="mb-5"
+            />
 
             {/* Widget grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

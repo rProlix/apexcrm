@@ -23,6 +23,7 @@ The existing licensed Inter variable face loaded with `next/font` remains the si
 | Page title        | `.ui-page-title`       | Route-level title, 24-28px, semibold       |
 | Page subtitle     | `.ui-page-subtitle`    | Supporting explanation, 14px, maximum 65ch |
 | Section title     | `.ui-section-title`    | Section or panel title, 16px, semibold     |
+| Section header    | `.ui-section-header`   | Title, context, metadata, and one action   |
 | Widget title      | `.ui-card-title`       | Repeated widget and compact panel title    |
 | Metric value      | `.ui-metric-value`     | Tabular operational values                 |
 | Metric label      | `.ui-metric-label`     | Short metric context                       |
@@ -105,6 +106,8 @@ Animations use transform and opacity by default. Bounded shadow, clip, or backdr
 - Overlays remember the originating control, position or transform origin from it where practical, focus the first useful control, close with Escape, and restore focus.
 - Command Center opens immediately from Command-K or Control-K. Pointer activation may use the overlay transition.
 - Desktop navigation can collapse without hiding routes or counts; the server reads the preference before render to avoid layout flicker.
+- Top chrome pairs tenant identity with the current workspace section and route so location remains clear in deep workflows.
+- Dashboard customization keeps reorder and remove controls visible while editing, announces save progress, and surfaces persistence failures inline.
 - Quick Peek preserves page scroll, fetches detail on demand, and becomes a full-height sheet on mobile.
 - Selected records, findings, filters, and tabs receive a stable active indicator rather than repeated entrance animation.
 - Destructive or safety-sensitive state is not removed before server confirmation.

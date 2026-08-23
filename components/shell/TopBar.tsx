@@ -2,6 +2,7 @@
 
 import { Bell, Building2, ChevronDown, LogOut, Menu, Settings } from 'lucide-react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useEffect, useRef, type RefObject } from 'react'
 import { cn } from '@/lib/utils'
 import { initials } from '@/lib/utils'
@@ -48,8 +49,10 @@ export function TopBar({
   menuButtonRef,
   mobileNavigationOpen = false,
 }: TopBarProps) {
+  const pathname = usePathname()
   const name = userEmail?.split('@')[0] ?? 'User'
   const profileMenuRef = useRef<HTMLDetailsElement>(null)
+  const routeContext = getRouteContext(pathname, modules)
 
   useEffect(() => {
     const closeMenu = (restoreFocus: boolean) => {
@@ -99,7 +102,7 @@ export function TopBar({
           <Menu className="h-5 w-5" strokeWidth={1.75} />
         </button>
 
-        <div className="hidden min-w-0 items-center gap-2 md:flex">
+        <div className="hidden min-w-0 items-center gap-2.5 md:flex">
           <div
             className={cn(
               'brand-accent-surface flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border',
@@ -122,9 +125,15 @@ export function TopBar({
             {!tenantLogoUrl && <Building2 className="h-3.5 w-3.5" aria-hidden="true" />}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-white/[0.72]">{tenantName}</p>
-            <p className="text-2xs capitalize text-white/[0.32]">
-              {userRole ?? 'workspace'} workspace
+            <div className="flex min-w-0 items-center gap-1.5 text-2xs font-medium text-white/[0.32]">
+              <span className="max-w-28 truncate">{tenantName}</span>
+              <span aria-hidden="true" className="text-white/15">
+                /
+              </span>
+              <span className="truncate text-white/[0.48]">{routeContext.section}</span>
+            </div>
+            <p className="truncate text-xs font-semibold tracking-[-0.01em] text-white/[0.82]">
+              {routeContext.page}
             </p>
           </div>
         </div>
@@ -201,4 +210,33 @@ export function TopBar({
       </div>
     </header>
   )
+}
+
+function getRouteContext(pathname: string, modules: NavModule[]) {
+  const routeModule = modules
+    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0]
+  const staticRoutes = [
+    { prefix: '/owner', section: 'Platform' },
+    { prefix: '/admin', section: 'Platform' },
+    { prefix: '/settings', section: 'Workspace' },
+    { prefix: '/modules', section: 'Workspace' },
+    { prefix: '/staff', section: 'Workspace' },
+    { prefix: '/actions', section: 'Operations' },
+    { prefix: '/activity', section: 'Operations' },
+    { prefix: '/reports', section: 'Operations' },
+    { prefix: '/setup', section: 'Workspace' },
+    { prefix: '/notifications', section: 'Operations' },
+  ]
+  const matched = staticRoutes.find(
+    ({ prefix }) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  )
+  const segment = pathname.split('/').filter(Boolean).at(-1) ?? 'dashboard'
+  const page = segment.replace(/[-_]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+
+  if (pathname === '/dashboard') return { section: 'Workspace', page: 'Command center' }
+  return {
+    section: routeModule?.label ?? matched?.section ?? 'Workspace',
+    page: routeModule && pathname === routeModule.href ? `${routeModule.label} overview` : page,
+  }
 }

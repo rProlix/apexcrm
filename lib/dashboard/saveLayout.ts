@@ -32,12 +32,11 @@ export async function saveLayout(tenantId: string, layout: DashboardLayout): Pro
   const supabase = getSupabaseServerClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any)
+  const { error } = await (supabase as any)
     .from('dashboard_layouts')
-    .upsert(
-      { tenant_id: tenantId, layout: safeLayout },
-      { onConflict: 'tenant_id' }
-    )
+    .upsert({ tenant_id: tenantId, layout: safeLayout }, { onConflict: 'tenant_id' })
+
+  if (error) throw new Error('Layout changes could not be saved. Please try again.')
 
   revalidatePath('/dashboard')
 }

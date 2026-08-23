@@ -16,20 +16,24 @@ import {
   rectSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable'
-import { Settings2, Check, Loader2 } from 'lucide-react'
+import { Settings2, Check, AlertCircle, LoaderCircle } from 'lucide-react'
 import { saveLayout } from '@/lib/dashboard/saveLayout'
 import { DashboardRenderer } from '@/components/dashboard/DashboardRenderer'
 import { DraggableWidget } from '@/components/dashboard/DraggableWidget'
 import { SuggestedWidgets } from '@/components/dashboard/SuggestedWidgets'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/Button'
+import { SectionHeader } from '@/components/ui/SectionHeader'
 import type { DashboardLayout, WidgetConfig, WidgetData } from '@/lib/dashboard/types'
 
 interface DashboardBuilderProps {
-  tenantId:        string
-  initialLayout:   DashboardLayout
-  widgetDataMap:   Record<string, WidgetData>
-  suggestedKeys:   string[]
-  widgetRegistry:  Record<string, { key: string; label: string; description: string; defaultSection: string }>
+  tenantId: string
+  initialLayout: DashboardLayout
+  widgetDataMap: Record<string, WidgetData>
+  suggestedKeys: string[]
+  widgetRegistry: Record<
+    string,
+    { key: string; label: string; description: string; defaultSection: string }
+  >
 }
 
 export function DashboardBuilder({
@@ -39,22 +43,31 @@ export function DashboardBuilder({
   suggestedKeys,
   widgetRegistry,
 }: DashboardBuilderProps) {
-  const [layout,    setLayout]    = useState<DashboardLayout>(initialLayout)
-  const [editMode,  setEditMode]  = useState(false)
-  const [saved,     setSaved]     = useState(false)
+  const [layout, setLayout] = useState<DashboardLayout>(initialLayout)
+  const [editMode, setEditMode] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const sensors = useSensors(
-    useSensor(PointerSensor,  { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
   const persist = useCallback(
     (updated: DashboardLayout) => {
       startTransition(async () => {
-        await saveLayout(tenantId, updated)
-        setSaved(true)
-        setTimeout(() => setSaved(false), 2000)
+        setSaveError(null)
+        setSaved(false)
+        try {
+          await saveLayout(tenantId, updated)
+          setSaved(true)
+          window.setTimeout(() => setSaved(false), 2000)
+        } catch (error) {
+          setSaveError(
+            error instanceof Error ? error.message : 'Layout changes could not be saved.'
+          )
+        }
       })
     },
     [tenantId]
@@ -85,9 +98,7 @@ export function DashboardBuilder({
     (sectionId: string, widgetId: string) => {
       setLayout((prev) => {
         const sections = prev.sections.map((s) =>
-          s.id === sectionId
-            ? { ...s, widgets: s.widgets.filter((w) => w.id !== widgetId) }
-            : s
+          s.id === sectionId ? { ...s, widgets: s.widgets.filter((w) => w.id !== widgetId) } : s
         )
         const updated = { ...prev, sections }
         persist(updated)
@@ -106,15 +117,13 @@ export function DashboardBuilder({
 
         const targetId = defaultSection || 'operations'
         const newWidget: WidgetConfig = {
-          id:   `w_${key}_${Date.now()}`,
+          id: `w_${key}_${Date.now()}`,
           key,
           type,
         }
 
         const sections = prev.sections.map((s) =>
-          s.id === targetId
-            ? { ...s, widgets: [...s.widgets, newWidget] }
-            : s
+          s.id === targetId ? { ...s, widgets: [...s.widgets, newWidget] } : s
         )
 
         // If no section matched, append to first section
@@ -139,37 +148,64 @@ export function DashboardBuilder({
 
   return (
     <div className="space-y-8">
-      {/* Top bar */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xs font-semibold text-white/25 uppercase tracking-widest">
-          Dashboard
-        </h2>
-        <div className="flex items-center gap-3">
-          {saved && (
-            <span className="flex items-center gap-1.5 text-xs text-emerald-400">
-              <Check className="h-3.5 w-3.5" /> Saved
-            </span>
-          )}
-          {isPending && !saved && (
-            <span className="flex items-center gap-1.5 text-xs text-white/30">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…
-            </span>
-          )}
-          <button
-            onClick={() => setEditMode((v) => !v)}
-            className={cn(
-              'flex items-center gap-2 h-8 px-3 rounded-xl text-xs font-medium border',
-              'transition-all duration-150',
-              editMode
-                ? 'bg-gold-500/15 border-gold-500/30 text-gold-400 shadow-glow-gold'
-                : 'bg-graphite-700 border-graphite-500 text-white/50 hover:text-white'
+      <SectionHeader
+        eyebrow="Personal workspace"
+        title="Performance dashboard"
+        description="Arrange the signals you use most. Changes save automatically to this workspace."
+        meta={
+          <span className="inline-flex items-center gap-1.5" aria-live="polite">
+            {isPending ? (
+              <>
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+                Saving
+              </>
+            ) : saved ? (
+              <>
+                <Check className="h-3.5 w-3.5 text-emerald-300" />
+                Saved
+              </>
+            ) : saveError ? (
+              <>
+                <AlertCircle className="h-3.5 w-3.5 text-red-300" />
+                Save failed
+              </>
+            ) : (
+              'Auto-save on'
             )}
+          </span>
+        }
+        action={
+          <Button
+            type="button"
+            variant={editMode ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => setEditMode((value) => !value)}
+            aria-pressed={editMode}
           >
-            <Settings2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-            {editMode ? 'Done editing' : 'Edit Layout'}
-          </button>
+            {editMode ? <Check className="h-3.5 w-3.5" /> : <Settings2 className="h-3.5 w-3.5" />}
+            {editMode ? 'Finish editing' : 'Customize'}
+          </Button>
+        }
+      />
+
+      {saveError && (
+        <div className="ui-dashboard-save-error" role="alert">
+          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{saveError}</span>
         </div>
-      </div>
+      )}
+
+      {editMode && (
+        <div className="ui-dashboard-editbar" role="status">
+          <Settings2 className="h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-medium text-white/80">Layout editing is on</p>
+            <p className="mt-0.5 text-xs text-white/40">
+              Drag from a widget handle to reorder, or remove a widget from its top-right control.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Sections */}
       <div className="space-y-10">
@@ -178,14 +214,14 @@ export function DashboardBuilder({
 
           return (
             <div key={section.id}>
-              <div className="flex items-center gap-3 mb-5">
-                <h3 className="text-xs font-semibold text-white/35 uppercase tracking-widest">
+              <div className="mb-5 flex items-center gap-3">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-white/45">
                   {section.title}
                 </h3>
-                <div className="flex-1 h-px bg-white/5" />
+                <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] to-transparent" />
                 {editMode && section.widgets.length > 1 && (
-                  <span className="text-2xs text-gold-400/50 border border-gold-500/20 rounded px-1.5 py-0.5">
-                    drag to reorder
+                  <span className="rounded-md border border-brand/15 bg-brand/[0.05] px-2 py-1 text-2xs font-medium text-brand/70">
+                    Drag to reorder
                   </span>
                 )}
               </div>
