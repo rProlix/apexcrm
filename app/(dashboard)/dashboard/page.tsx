@@ -159,9 +159,9 @@ export default async function DashboardPage() {
   return (
     <div className="ui-page space-y-8">
       <PageHeader
-        eyebrow={config.tenant.name}
-        title="Operational command center"
-        description="Priorities, daily changes, and live performance from the modules available to you."
+        eyebrow="Command center"
+        title={`Good to see you, ${config.tenant.name}`}
+        description="Your operational picture, prioritized for the decisions that need attention now."
         meta={
           <>
             <LiveBadge />

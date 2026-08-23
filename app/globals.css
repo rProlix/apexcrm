@@ -549,6 +549,78 @@ summary {
       var(--shadow-surface);
   }
 
+  .ui-command-deck {
+    @apply relative rounded-2xl border border-white/[0.09];
+    background:
+      radial-gradient(circle at 10% -20%, rgb(var(--tenant-accent-rgb) / 0.12), transparent 34%),
+      linear-gradient(145deg, rgb(255 255 255 / 0.045), transparent 36%),
+      rgb(var(--surface-base) / 0.94);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.055),
+      0 28px 80px rgb(0 0 0 / 0.22);
+  }
+
+  .ui-command-deck::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-image: linear-gradient(90deg, rgb(255 255 255 / 0.018) 1px, transparent 1px);
+    background-size: 25% 100%;
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  .ui-command-deck-head {
+    @apply relative z-[1] flex flex-col justify-between gap-5 p-5 sm:flex-row sm:items-center sm:p-6;
+  }
+
+  .ui-command-orbit {
+    @apply relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-brand/20 bg-brand/[0.07];
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.06),
+      0 12px 30px rgb(var(--tenant-accent-rgb) / 0.08);
+  }
+
+  .ui-command-orbit::after {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    border: 1px solid rgb(var(--tenant-accent-rgb) / 0.14);
+    border-radius: 0.5rem;
+  }
+
+  .ui-command-primary {
+    @apply inline-flex min-h-10 shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-brand/30 bg-brand px-4 text-sm font-semibold text-brand-foreground sm:self-auto;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.24),
+      0 14px 32px rgb(var(--tenant-accent-rgb) / 0.12);
+    transition:
+      transform var(--motion-feedback) var(--motion-enter),
+      filter var(--motion-feedback) var(--motion-enter);
+  }
+
+  .ui-command-metrics {
+    @apply relative z-[1] grid grid-cols-2 border-y border-white/[0.06] bg-black/10 lg:grid-cols-4;
+  }
+
+  .ui-command-metric {
+    @apply min-w-0 px-5 py-4 sm:px-6;
+    border-right: 1px solid rgb(255 255 255 / 0.06);
+  }
+
+  .ui-command-metric:nth-child(even) {
+    border-right: 0;
+  }
+
+  .ui-command-metric:nth-child(n + 3) {
+    border-top: 1px solid rgb(255 255 255 / 0.06);
+  }
+
+  .ui-command-stream {
+    background: rgb(var(--surface-base) / 0.82);
+  }
+
   .ui-briefing-section {
     background: rgb(255 255 255 / 0.018);
   }
@@ -1358,6 +1430,10 @@ summary {
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .ui-command-primary:hover {
+    filter: brightness(1.06);
+  }
+
   .ui-button-primary:hover::after {
     transform: skewX(-18deg) translate3d(520%, 0, 0);
   }
@@ -1414,6 +1490,20 @@ summary {
       .ui-interactive-surface
     ):hover::after {
     opacity: 0.85;
+  }
+}
+
+.ui-command-primary:active {
+  transform: scale(0.97);
+}
+
+@media (min-width: 1024px) {
+  .ui-command-metric:nth-child(2) {
+    border-right: 1px solid rgb(255 255 255 / 0.06);
+  }
+
+  .ui-command-metric:nth-child(n + 3) {
+    border-top: 0;
   }
 }
 

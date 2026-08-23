@@ -1,12 +1,5 @@
 import Link from 'next/link'
-import {
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  Clock3,
-  ListChecks,
-  Newspaper,
-} from 'lucide-react'
+import { ArrowRight, ArrowUpRight, CheckCircle2, Clock3, ListChecks, Radar } from 'lucide-react'
 import { getModuleAssistantQuestions } from '@/lib/command-center/ai'
 import { loadTopActionItems } from '@/lib/command-center/actions'
 import { loadActivityFeed } from '@/lib/command-center/activity'
@@ -32,6 +25,8 @@ export async function CommandCenterDashboard() {
   const setup = setupResult.data
   const activity = activityResult.data
   const assistantGroups = getModuleAssistantQuestions(context.activeModuleKeys)
+  const changeCount = daily.sections.reduce((total, section) => total + section.bullets.length, 0)
+  const setupPercent = setup?.percent ?? 0
   await recordCommandAudit({
     tenantId: context.tenantId,
     actorUserId: context.user.id,
@@ -42,49 +37,78 @@ export async function CommandCenterDashboard() {
   return (
     <div className="space-y-6">
       <DashboardRealtimeRefresh />
-      <section className="ui-briefing ui-surface overflow-hidden p-5 sm:p-6">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-          <div className="flex items-start gap-3">
-            <div className="brand-accent-surface mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border">
-              <Newspaper className="h-4 w-4 text-brand" />
+      <section className="ui-command-deck overflow-hidden">
+        <div className="ui-command-deck-head">
+          <div className="flex items-start gap-4">
+            <div className="ui-command-orbit" aria-hidden="true">
+              <Radar className="h-5 w-5 text-brand" />
             </div>
             <div>
-              <p className="text-2xs font-semibold uppercase tracking-[0.14em] text-brand/75">
-                Daily intelligence
-              </p>
-              <h2 className="mt-1 text-xl font-semibold tracking-[-0.025em] text-white">
-                What changed today
+              <p className="text-xs font-medium text-brand/75">Live operational brief</p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-white sm:text-[1.75rem]">
+                Today at a glance
               </h2>
-              <p className="mt-1.5 text-xs text-white/40">
-                {daily.dateLabel} · {daily.timeZone} · refreshed{' '}
+              <p className="mt-2 text-xs text-white/40">
+                {daily.dateLabel} <span className="mx-1.5 text-white/15">/</span> refreshed{' '}
                 {formatInTenantTime(daily.freshnessTimestamp, daily.timeZone)}
               </p>
             </div>
           </div>
-          {daily.criticalAlerts.length > 0 && (
-            <Link
-              href="/actions?priority=urgent"
-              className="focus-ring inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-red-400/20 bg-red-400/[0.08] px-3 py-2 text-xs font-medium text-red-200 transition-colors hover:bg-red-400/[0.12]"
-            >
-              <AlertTriangle className="h-3.5 w-3.5" />
-              {daily.criticalAlerts.length} high-priority
-            </Link>
-          )}
+          <Link href="/actions" className="ui-command-primary focus-ring">
+            Review priorities
+            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
+
+        <div className="ui-command-metrics" aria-label="Workspace status">
+          <CommandMetric
+            label="Open priorities"
+            value={actionsResult.error ? 'Unavailable' : String(actions.length)}
+            detail={actions.length === 1 ? 'item needs review' : 'items need review'}
+            tone={actions.length > 0 ? 'attention' : 'neutral'}
+          />
+          <CommandMetric
+            label="Changes today"
+            value={daily.state === 'error' ? 'Unavailable' : String(changeCount)}
+            detail={`${daily.sections.length} active area${daily.sections.length === 1 ? '' : 's'}`}
+          />
+          <CommandMetric
+            label="Workspace setup"
+            value={setup ? `${setupPercent}%` : 'Unavailable'}
+            detail={
+              setup?.allRequiredComplete ? 'required setup complete' : 'configuration progress'
+            }
+          />
+          <CommandMetric
+            label="System state"
+            value={daily.criticalAlerts.length > 0 ? 'Attention' : 'Clear'}
+            detail={
+              daily.criticalAlerts.length > 0
+                ? `${daily.criticalAlerts.length} high-priority alert${daily.criticalAlerts.length === 1 ? '' : 's'}`
+                : 'no critical alerts'
+            }
+            tone={daily.criticalAlerts.length > 0 ? 'critical' : 'positive'}
+          />
         </div>
 
         {daily.state === 'error' ? (
-          <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-200/75">
+          <div className="mx-5 mb-5 rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-200/75 sm:mx-6">
             We couldn’t load today’s summary.
           </div>
         ) : daily.state === 'empty' ? (
-          <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.02] p-4 text-sm text-white/45">
+          <div className="mx-5 mb-5 rounded-xl border border-white/8 bg-white/[0.02] p-4 text-sm text-white/45 sm:mx-6">
             Nothing urgent changed today.
           </div>
         ) : (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-px border-t border-white/[0.06] bg-white/[0.06] md:grid-cols-2 xl:grid-cols-3">
             {daily.sections.map((section) => (
-              <div key={section.moduleKey} className="ui-briefing-section ui-surface-muted p-4">
-                <p className="text-xs font-semibold text-white/75">{section.title}</p>
+              <div key={section.moduleKey} className="ui-command-stream p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold text-white/75">{section.title}</p>
+                  <span className="font-mono text-2xs tabular-nums text-white/25">
+                    {section.bullets.length.toString().padStart(2, '0')}
+                  </span>
+                </div>
                 <ul className="mt-2 space-y-2">
                   {section.bullets.map((bullet) => (
                     <li key={bullet.id}>
@@ -111,8 +135,8 @@ export async function CommandCenterDashboard() {
         )}
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <section className="ui-surface p-5">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
+        <section className="ui-surface p-5 sm:p-6">
           <SectionHeader
             eyebrow="Action required"
             title="Work needing a person"
@@ -159,7 +183,7 @@ export async function CommandCenterDashboard() {
             </p>
           </section>
         ) : !setup.allRequiredComplete && setup.items.length > 0 ? (
-          <section className="ui-surface p-5">
+          <section className="ui-surface p-5 sm:p-6">
             <SectionHeader
               eyebrow="Business setup"
               title={`${setup.percent}% complete`}
@@ -203,7 +227,7 @@ export async function CommandCenterDashboard() {
         )}
       </div>
 
-      <section className="ui-surface p-5">
+      <section className="ui-surface p-5 sm:p-6">
         <SectionHeader
           eyebrow="Staff activity"
           title="Recent important changes"
@@ -233,6 +257,35 @@ export async function CommandCenterDashboard() {
       </section>
 
       <AiAssistantPanel groups={assistantGroups} />
+    </div>
+  )
+}
+
+function CommandMetric({
+  label,
+  value,
+  detail,
+  tone = 'neutral',
+}: {
+  label: string
+  value: string
+  detail: string
+  tone?: 'neutral' | 'attention' | 'critical' | 'positive'
+}) {
+  const toneClass = {
+    neutral: 'text-white',
+    attention: 'text-amber-200',
+    critical: 'text-red-200',
+    positive: 'text-emerald-200',
+  }[tone]
+
+  return (
+    <div className="ui-command-metric">
+      <p className="text-2xs font-medium text-white/35">{label}</p>
+      <p className={`mt-2 text-xl font-semibold tracking-[-0.035em] tabular-nums ${toneClass}`}>
+        {value}
+      </p>
+      <p className="mt-1 truncate text-2xs text-white/25">{detail}</p>
     </div>
   )
 }

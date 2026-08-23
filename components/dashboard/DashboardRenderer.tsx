@@ -16,6 +16,7 @@ import type {
 interface DashboardRendererProps {
   layout: DashboardLayout
   widgetDataMap: Record<string, WidgetData>
+  hideSectionHeaders?: boolean
   /** When provided, wraps each widget in a draggable handle */
   renderWidget?: (widgetConfig: WidgetConfig, content: React.ReactNode) => React.ReactNode
 }
@@ -30,7 +31,7 @@ function StatWidgetInner({ data }: { data: WidgetDataStat }) {
       <p className="truncate text-xs font-medium text-white/45">{data.label}</p>
       {data.value === 0 || data.value === '' ? (
         <div className="mt-5">
-          <p className="text-3xl font-semibold tracking-[-0.04em] text-white/15 tabular-nums">—</p>
+          <p className="text-3xl font-semibold tracking-[-0.04em] text-white/15 tabular-nums">0</p>
           <p className="mt-1.5 text-xs text-white/25">{data.emptyMessage ?? 'No data yet'}</p>
         </div>
       ) : (
@@ -135,7 +136,12 @@ function renderWidgetContent(config: WidgetConfig, data: WidgetData | undefined)
 
 // ─── Main renderer ───────────────────────────────────────────────
 
-export function DashboardRenderer({ layout, widgetDataMap, renderWidget }: DashboardRendererProps) {
+export function DashboardRenderer({
+  layout,
+  widgetDataMap,
+  hideSectionHeaders = false,
+  renderWidget,
+}: DashboardRendererProps) {
   const visibleSections = layout.sections.filter((s) => s.widgets.length > 0)
 
   if (visibleSections.length === 0) {
@@ -157,15 +163,17 @@ export function DashboardRenderer({ layout, widgetDataMap, renderWidget }: Dashb
         return (
           <section key={section.id}>
             {/* Section header */}
-            <SectionHeader
-              title={section.title}
-              meta={
-                <span>
-                  {section.widgets.length} signal{section.widgets.length !== 1 ? 's' : ''}
-                </span>
-              }
-              className="mb-5"
-            />
+            {!hideSectionHeaders && (
+              <SectionHeader
+                title={section.title}
+                meta={
+                  <span>
+                    {section.widgets.length} signal{section.widgets.length !== 1 ? 's' : ''}
+                  </span>
+                }
+                className="mb-5"
+              />
+            )}
 
             {/* Widget grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

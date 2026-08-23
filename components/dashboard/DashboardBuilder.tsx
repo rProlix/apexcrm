@@ -229,7 +229,7 @@ export function DashboardBuilder({
               {section.widgets.length === 0 ? (
                 editMode ? (
                   <div className="rounded-2xl border-2 border-dashed border-white/8 p-8 text-center text-xs text-white/20">
-                    No widgets — add one from suggestions below
+                    No widgets yet. Add one from the suggestions below.
                   </div>
                 ) : null
               ) : (
@@ -242,6 +242,7 @@ export function DashboardBuilder({
                     <DashboardRenderer
                       layout={{ sections: [section] }}
                       widgetDataMap={widgetDataMap}
+                      hideSectionHeaders
                       renderWidget={(wc, content) => (
                         <DraggableWidget
                           key={wc.id}
