@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react'
 import { useBodyScrollLock } from '@/lib/design-system/body-scroll-lock'
 import { getBrandInitials } from '@/lib/design-system/workspaceBranding'
 
-const STANDARD_HOLD_MS = 1450
-const STANDARD_EXIT_MS = 360
-const REDUCED_HOLD_MS = 180
-const REDUCED_EXIT_MS = 160
+const STANDARD_HOLD_MS = 760
+const STANDARD_EXIT_MS = 240
+const REDUCED_HOLD_MS = 80
+const REDUCED_EXIT_MS = 120
 
 export function AppLaunchScreen({
   tenantName,
@@ -50,7 +50,11 @@ export function AppLaunchScreen({
       <div className="app-launch-grid" aria-hidden="true" />
 
       <div className="app-launch-content">
-        <div className="app-launch-mark" data-has-logo={showLogo ? 'true' : 'false'} aria-hidden="true">
+        <div
+          className="app-launch-mark"
+          data-has-logo={showLogo ? 'true' : 'false'}
+          aria-hidden="true"
+        >
           {showLogo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img

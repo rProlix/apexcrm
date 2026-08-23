@@ -5,6 +5,7 @@ import { getAvailableReports, loadReportData } from '@/lib/command-center/report
 import { formatInTenantTime, getTenantDayRange } from '@/lib/command-center/time'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { EmptyState, ErrorState } from '@/components/ui/StatePanel'
+import { SelectField, TextField } from '@/components/ui/Field'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,26 +58,43 @@ export default async function ReportsPage({
         />
       ) : (
         <>
-          <form className="ui-toolbar grid md:grid-cols-4" aria-label="Report controls">
-            <label className="ui-label text-xs md:col-span-2">
-              Report type
-              <select name="report" defaultValue={reportKey} className={inputClass}>
-                {reports.map((report) => (
-                  <option key={report.key} value={report.key}>
-                    {report.displayName} · {report.moduleKey}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="ui-label text-xs">
-              From
-              <input name="from" type="date" defaultValue={dateFrom} className={inputClass} />
-            </label>
-            <label className="ui-label text-xs">
-              To
-              <input name="to" type="date" defaultValue={dateTo} className={inputClass} />
-            </label>
-            <button className="ui-button-secondary text-xs">Preview report</button>
+          <form
+            className="ui-surface grid gap-3 p-3 sm:grid-cols-2 sm:items-end xl:grid-cols-[minmax(0,2fr)_minmax(9rem,1fr)_minmax(9rem,1fr)_auto]"
+            aria-label="Report controls"
+          >
+            <SelectField
+              id="report-type"
+              name="report"
+              label="Report type"
+              defaultValue={reportKey}
+              className="sm:col-span-2 xl:col-span-1"
+              controlClassName="min-h-10 py-2 text-xs"
+            >
+              {reports.map((report) => (
+                <option key={report.key} value={report.key}>
+                  {report.displayName} ({report.moduleKey})
+                </option>
+              ))}
+            </SelectField>
+            <TextField
+              id="report-date-from"
+              name="from"
+              label="From"
+              type="date"
+              defaultValue={dateFrom}
+              controlClassName="min-h-10 py-2 text-xs"
+            />
+            <TextField
+              id="report-date-to"
+              name="to"
+              label="To"
+              type="date"
+              defaultValue={dateTo}
+              controlClassName="min-h-10 py-2 text-xs"
+            />
+            <button className="ui-button-secondary w-full text-xs sm:col-span-2 xl:col-span-1 xl:w-auto">
+              Preview report
+            </button>
           </form>
 
           {previewError && (
@@ -217,7 +235,6 @@ function DownloadLink({
     </Link>
   )
 }
-const inputClass = 'ui-input mt-1.5 min-h-10 py-2 text-xs'
 function param(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value
 }

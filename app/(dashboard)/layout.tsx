@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { headers } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
@@ -187,6 +187,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const userApproved = profile?.approved !== false
   const isPlatformAdmin = userRole === 'owner'
   const safeAccent = resolveSafeTenantAccent(config.branding.primary_color)
+  const initialSidebarCollapsed = (await cookies()).get('apex_sidebar')?.value === 'compact'
   const commandCenter = {
     inbox: !isPlatformAdmin && hasPermission(userRole as AnyRole, 'view_dashboard'),
     activity: !isPlatformAdmin && hasPermission(userRole as AnyRole, 'view_dashboard'),
@@ -253,6 +254,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         typeof config.branding.favicon_url === 'string' ? config.branding.favicon_url : null
       }
       tenantAccent={safeAccent}
+      initialSidebarCollapsed={initialSidebarCollapsed}
     >
       {children}
     </DashboardShell>

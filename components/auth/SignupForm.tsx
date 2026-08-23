@@ -2,82 +2,36 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { ArrowLeft, MailCheck } from 'lucide-react'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { signupSchema, slugifyBusinessName } from '@/lib/validation/auth'
 import { createTenantForUser } from '@/lib/auth/createTenantForUser'
 import { Button } from '@/components/ui/Button'
+import { TextField } from '@/components/ui/Field'
+import { InlineNotice } from '@/components/ui/InlineNotice'
 import { cn } from '@/lib/utils'
-import {
-  createLegalAgreement,
-  LEGAL_AGREEMENT_REQUIRED_MESSAGE,
-} from '@/lib/legal/consent'
+import { createLegalAgreement, LEGAL_AGREEMENT_REQUIRED_MESSAGE } from '@/lib/legal/consent'
 
-type SignupField = 'businessName' | 'slug' | 'email' | 'password' | 'confirmPassword' | 'acceptedLegal'
+type SignupField =
+  | 'businessName'
+  | 'slug'
+  | 'email'
+  | 'password'
+  | 'confirmPassword'
+  | 'acceptedLegal'
 type FieldErrors = Partial<Record<SignupField, string>>
 
-interface FieldProps {
-  id:            string
-  label:         string
-  type?:         string
-  value:         string
-  onChange:      (v: string) => void
-  placeholder?:  string
-  autoComplete?: string
-  hint?:         string
-  error?:        string
-  disabled?:     boolean
-}
-
-function Field({
-  id, label, type = 'text', value, onChange,
-  placeholder, autoComplete, hint, error, disabled,
-}: FieldProps) {
-  return (
-    <div className="space-y-1.5">
-      <label
-        htmlFor={id}
-        className="block text-xs font-medium text-white/50 uppercase tracking-wider"
-      >
-        {label}
-      </label>
-      <input
-        id={id}
-        type={type}
-        autoComplete={autoComplete}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        placeholder={placeholder}
-        className={cn(
-          'w-full h-11 px-4 rounded-xl bg-graphite-800 border text-white text-sm',
-          'placeholder:text-white/25 focus:outline-none transition-colors duration-150',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
-          error
-            ? 'border-red-500/50 focus:border-red-500/70'
-            : 'border-graphite-600 focus:border-gold-500/50'
-        )}
-      />
-      {hint && !error && (
-        <p className="text-xs text-white/30">{hint}</p>
-      )}
-      {error && (
-        <p className="text-xs text-red-400">{error}</p>
-      )}
-    </div>
-  )
-}
-
 export function SignupForm() {
-  const [businessName,     setBusinessName]     = useState('')
-  const [slug,             setSlug]             = useState('')
-  const [email,            setEmail]            = useState('')
-  const [password,         setPassword]         = useState('')
-  const [confirmPassword,  setConfirmPassword]  = useState('')
-  const [loading,          setLoading]          = useState(false)
-  const [error,            setError]            = useState<string | null>(null)
-  const [fields,           setFields]           = useState<FieldErrors>({})
-  const [emailSent,        setEmailSent]        = useState(false)
-  const [acceptedLegal,    setAcceptedLegal]    = useState(false)
+  const [businessName, setBusinessName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [fields, setFields] = useState<FieldErrors>({})
+  const [emailSent, setEmailSent] = useState(false)
+  const [acceptedLegal, setAcceptedLegal] = useState(false)
 
   // Derive slug preview from business name when user hasn't typed a custom slug
   const slugPreview = slug.trim() || (businessName ? slugifyBusinessName(businessName) : '')
@@ -89,7 +43,7 @@ export function SignupForm() {
 
     const parsed = signupSchema.safeParse({
       businessName,
-      slug:            slug.trim() || undefined,
+      slug: slug.trim() || undefined,
       email,
       password,
       confirmPassword,
@@ -125,11 +79,11 @@ export function SignupForm() {
     const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent('/dashboard')}`
 
     const { data, error: signUpError } = await supabase.auth.signUp({
-      email:    parsed.data.email,
+      email: parsed.data.email,
       password: parsed.data.password,
-      options:  {
+      options: {
         data: {
-          role:         'admin',
+          role: 'admin',
           businessName: parsed.data.businessName,
           legal_acceptance: legalAgreement,
         },
@@ -159,10 +113,10 @@ export function SignupForm() {
     let tenantSlug = ''
     try {
       const result = await createTenantForUser({
-        authUserId:   data.user.id,
-        email:        parsed.data.email,
+        authUserId: data.user.id,
+        email: parsed.data.email,
         businessName: parsed.data.businessName,
-        slug:         parsed.data.slug || undefined,
+        slug: parsed.data.slug || undefined,
         legalAgreement,
       })
       tenantSlug = result.tenantSlug
@@ -183,7 +137,10 @@ export function SignupForm() {
 
     // Hard redirect — forces a full page load so the newly set auth cookies
     // are included in the very first server request (router.push can race).
-    const onboardingParams = new URLSearchParams({ slug: tenantSlug, name: parsed.data.businessName })
+    const onboardingParams = new URLSearchParams({
+      slug: tenantSlug,
+      name: parsed.data.businessName,
+    })
     window.location.href = `/onboarding?${onboardingParams.toString()}`
   }
 
@@ -191,13 +148,12 @@ export function SignupForm() {
     return (
       <div className="glass-surface premium-border noise-overlay p-8 shadow-panel-lg text-center">
         <div className="inline-flex h-14 w-14 rounded-2xl bg-gold-gradient items-center justify-center mb-5 shadow-glow-gold">
-          <span className="text-2xl">✉</span>
+          <MailCheck className="h-6 w-6 text-graphite-900" strokeWidth={1.75} aria-hidden="true" />
         </div>
         <h2 className="text-xl font-bold text-white mb-2">Check your email</h2>
         <p className="text-sm text-white/50 mb-6 leading-relaxed">
-          We sent a confirmation link to{' '}
-          <span className="text-white/80 font-medium">{email}</span>.
-          Click the link to activate your account and continue to your dashboard.
+          We sent a confirmation link to <span className="font-medium text-white/80">{email}</span>.
+          Click it to activate your account and continue to your dashboard.
         </p>
         <p className="text-xs text-white/25">
           Already confirmed?{' '}
@@ -217,16 +173,17 @@ export function SignupForm() {
           <span className="text-graphite-900 font-bold text-lg">A</span>
         </div>
         <h1 className="text-2xl font-bold text-white tracking-tight">Create your workspace</h1>
-        <p className="text-sm text-white/40 mt-1">Get started with ApexCRM — free 14-day trial</p>
+        <p className="mt-1 text-sm text-white/40">Start your 14-day ApexCRM trial.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-        <Field
+        <TextField
           id="businessName"
           label="Business name"
+          required
           autoComplete="organization"
           value={businessName}
-          onChange={setBusinessName}
+          onChange={(event) => setBusinessName(event.target.value)}
           placeholder="Apex Auto Group"
           error={fields.businessName}
           disabled={loading}
@@ -251,27 +208,51 @@ export function SignupForm() {
           />
           <span className="text-xs leading-5 text-white/55">
             I have authority to bind this business. I agree to the{' '}
-            <Link href="/legal/terms" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+            <Link
+              href="/legal/terms"
+              target="_blank"
+              className="font-medium text-gold-400 hover:text-gold-300"
+            >
               Terms of Use
             </Link>{' '}
             and{' '}
-            <Link href="/legal/acceptable-use" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+            <Link
+              href="/legal/acceptable-use"
+              target="_blank"
+              className="font-medium text-gold-400 hover:text-gold-300"
+            >
               Acceptable Use Policy
             </Link>
             , including the{' '}
-            <Link href="/legal/data-processing-addendum" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+            <Link
+              href="/legal/data-processing-addendum"
+              target="_blank"
+              className="font-medium text-gold-400 hover:text-gold-300"
+            >
               Data Processing Addendum
             </Link>
             , and acknowledge the{' '}
-            <Link href="/legal/privacy" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+            <Link
+              href="/legal/privacy"
+              target="_blank"
+              className="font-medium text-gold-400 hover:text-gold-300"
+            >
               Privacy Policy
             </Link>
             ,{' '}
-            <Link href="/legal/cookie-policy" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+            <Link
+              href="/legal/cookie-policy"
+              target="_blank"
+              className="font-medium text-gold-400 hover:text-gold-300"
+            >
               Cookie Policy
             </Link>
             , and{' '}
-            <Link href="/legal/ai-notice" target="_blank" className="font-medium text-gold-400 hover:text-gold-300">
+            <Link
+              href="/legal/ai-notice"
+              target="_blank"
+              className="font-medium text-gold-400 hover:text-gold-300"
+            >
               AI Notice
             </Link>
             .
@@ -283,12 +264,8 @@ export function SignupForm() {
         )}
 
         <div className="space-y-1.5">
-          <label
-            htmlFor="slug"
-            className="block text-xs font-medium text-white/50 uppercase tracking-wider"
-          >
-            Workspace slug{' '}
-            <span className="normal-case text-white/25 font-normal">(optional)</span>
+          <label htmlFor="slug" className="ui-label">
+            Workspace slug <span className="font-normal text-white/35">Optional</span>
           </label>
           <div className="flex items-center gap-0 rounded-xl overflow-hidden border border-graphite-600 focus-within:border-gold-500/50 transition-colors duration-150 bg-graphite-800">
             <span className="px-3 text-xs text-white/30 select-none shrink-0 border-r border-graphite-600">
@@ -302,6 +279,8 @@ export function SignupForm() {
               onChange={(e) => setSlug(e.target.value.toLowerCase())}
               disabled={loading}
               placeholder={slugPreview || 'apex-auto'}
+              aria-invalid={Boolean(fields.slug)}
+              aria-describedby={fields.slug ? 'slug-error' : slugPreview ? 'slug-hint' : undefined}
               className={cn(
                 'flex-1 h-11 px-3 bg-transparent text-white text-sm',
                 'placeholder:text-white/20 focus:outline-none',
@@ -310,60 +289,64 @@ export function SignupForm() {
             />
           </div>
           {!fields.slug && slugPreview && (
-            <p className="text-xs text-white/30">
+            <p id="slug-hint" className="ui-help">
               Your workspace will be at{' '}
               <span className="text-white/50 font-mono">{slugPreview}</span>
             </p>
           )}
           {fields.slug && (
-            <p className="text-xs text-red-400">{fields.slug}</p>
+            <p id="slug-error" className="ui-error" role="alert">
+              {fields.slug}
+            </p>
           )}
         </div>
 
         <div className="h-px bg-white/[0.06]" />
 
-        <Field
+        <TextField
           id="email"
           label="Work email"
           type="email"
+          required
           autoComplete="email"
           value={email}
-          onChange={setEmail}
+          onChange={(event) => setEmail(event.target.value)}
           placeholder="you@yourcompany.com"
           error={fields.email}
           disabled={loading}
         />
 
-        <Field
+        <TextField
           id="password"
           label="Password"
           type="password"
+          required
           autoComplete="new-password"
           value={password}
-          onChange={setPassword}
+          onChange={(event) => setPassword(event.target.value)}
           placeholder="Min 8 chars, 1 uppercase, 1 number"
           hint="Must be at least 8 characters with one uppercase letter and one number."
           error={fields.password}
           disabled={loading}
         />
 
-        <Field
+        <TextField
           id="confirmPassword"
           label="Confirm password"
           type="password"
+          required
           autoComplete="new-password"
           value={confirmPassword}
-          onChange={setConfirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
           placeholder="••••••••"
           error={fields.confirmPassword}
           disabled={loading}
         />
 
         {error && (
-          <div className="flex items-start gap-2.5 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-            <span className="mt-0.5 shrink-0">⚠</span>
+          <InlineNotice tone="error">
             <span>{error}</span>
-          </div>
+          </InlineNotice>
         )}
 
         <Button
@@ -375,7 +358,6 @@ export function SignupForm() {
         >
           {loading ? 'Creating your workspace…' : 'Create workspace'}
         </Button>
-
       </form>
 
       <div className="mt-6 pt-6 border-t border-white/[0.06] text-center space-y-3">
@@ -388,9 +370,13 @@ export function SignupForm() {
             Sign in
           </Link>
         </p>
-        <p className="text-xs text-white/20">
-          <Link href="/" className="hover:text-white/40 transition-colors">
-            ← Back to home
+        <p className="text-xs text-white/30">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 transition-colors hover:text-white/60"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            Back to home
           </Link>
         </p>
       </div>

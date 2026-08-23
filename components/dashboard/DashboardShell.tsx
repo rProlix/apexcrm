@@ -1,7 +1,7 @@
 'use client'
 
 import { MotionConfig } from 'framer-motion'
-import { Suspense, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Sidebar } from '@/components/shell/Sidebar'
 import { TopBar } from '@/components/shell/TopBar'
 import { BottomNav } from '@/components/shell/BottomNav'
@@ -13,8 +13,11 @@ import type { SafeTenantAccent } from '@/lib/design-system/tenantAccent'
 import type { AnyRole } from '@/lib/auth/types'
 import { QuickPeekProvider } from '@/components/command-center/QuickPeek'
 import { OperationsRealtimeProvider } from '@/components/command-center/OperationsRealtimeProvider'
-import { AppLaunchScreen } from '@/components/ui/AppLaunchScreen'
 import { WorkspaceDocumentBranding } from '@/components/shell/WorkspaceDocumentBranding'
+import { useBodyScrollLock } from '@/lib/design-system/body-scroll-lock'
+import { AppLaunchScreen } from '@/components/ui/AppLaunchScreen'
+
+const SIDEBAR_COOKIE = 'apex_sidebar'
 
 interface DashboardShellProps {
   tenantId: string
@@ -29,6 +32,7 @@ interface DashboardShellProps {
   tenantLogoUrl?: string | null
   tenantFaviconUrl?: string | null
   tenantAccent: SafeTenantAccent
+  initialSidebarCollapsed?: boolean
   children: React.ReactNode
 }
 
@@ -53,9 +57,42 @@ export function DashboardShell({
   tenantLogoUrl,
   tenantFaviconUrl,
   tenantAccent,
+  initialSidebarCollapsed = false,
   children,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(initialSidebarCollapsed)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
+  useBodyScrollLock(sidebarOpen)
+
+  const closeMobileNavigation = useCallback((restoreFocus = true) => {
+    setSidebarOpen((wasOpen) => {
+      if (wasOpen && restoreFocus) {
+        window.requestAnimationFrame(() => menuButtonRef.current?.focus())
+      }
+      return false
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!sidebarOpen) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      closeMobileNavigation(true)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [closeMobileNavigation, sidebarOpen])
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((current) => {
+      const next = !current
+      const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+      document.cookie = `${SIDEBAR_COOKIE}=${next ? 'compact' : 'full'}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`
+      return next
+    })
+  }, [])
 
   return (
     <MotionConfig reducedMotion="user">
@@ -66,6 +103,7 @@ export function DashboardShell({
         <QuickPeekProvider>
           <div
             className="crm-shell min-h-dvh bg-graphite-950"
+            data-sidebar-collapsed={sidebarCollapsed}
             style={
               {
                 '--tenant-accent': tenantAccent.accent,
@@ -105,8 +143,10 @@ export function DashboardShell({
               isPlatformAdmin={isPlatformAdmin}
               commandCenter={commandCenter}
               isOpen={sidebarOpen}
-              onClose={() => setSidebarOpen(false)}
+              onClose={() => closeMobileNavigation(true)}
               openActionCount={openActionCount}
+              isCollapsed={sidebarCollapsed}
+              onToggleCollapsed={toggleSidebar}
             />
 
             <button
@@ -117,7 +157,7 @@ export function DashboardShell({
               className={`ui-mobile-backdrop ui-overlay-backdrop fixed inset-0 z-30 h-full w-full cursor-default md:hidden ${
                 sidebarOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
               }`}
-              onClick={() => setSidebarOpen(false)}
+              onClick={() => closeMobileNavigation(true)}
             />
 
             <TopBar
@@ -140,13 +180,15 @@ export function DashboardShell({
               unreadNotifications={unreadNotifications}
               notificationsEnabled={commandCenter?.notifications ?? false}
               onMenuClick={() => setSidebarOpen(true)}
+              menuButtonRef={menuButtonRef}
+              mobileNavigationOpen={sidebarOpen}
             />
 
             <Suspense fallback={null}>
               <NavigationFeedback />
             </Suspense>
 
-            <main className="crm-content min-h-dvh pt-16 md:pl-64">
+            <main className="crm-content min-h-dvh pt-16 md:pl-[var(--sidebar-width)]">
               <div className="ui-page px-[var(--space-page-x)] py-[var(--space-page-y)] pb-24 md:pb-10">
                 {children}
               </div>

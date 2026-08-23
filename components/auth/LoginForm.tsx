@@ -2,71 +2,24 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import { loginSchema } from '@/lib/validation/auth'
 import { Button } from '@/components/ui/Button'
-import { cn } from '@/lib/utils'
+import { TextField } from '@/components/ui/Field'
+import { InlineNotice } from '@/components/ui/InlineNotice'
 
 type FieldErrors = Partial<Record<'email' | 'password', string>>
-
-interface FieldProps {
-  id:           string
-  label:        string
-  type?:        string
-  value:        string
-  onChange:     (v: string) => void
-  placeholder?: string
-  autoComplete?: string
-  error?:       string
-  disabled?:    boolean
-}
-
-function Field({
-  id, label, type = 'text', value, onChange,
-  placeholder, autoComplete, error, disabled,
-}: FieldProps) {
-  return (
-    <div className="space-y-1.5">
-      <label
-        htmlFor={id}
-        className="block text-xs font-medium text-white/50 uppercase tracking-wider"
-      >
-        {label}
-      </label>
-      <input
-        id={id}
-        type={type}
-        autoComplete={autoComplete}
-        required
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        placeholder={placeholder}
-        className={cn(
-          'w-full h-11 px-4 rounded-xl bg-graphite-800 border text-white text-sm',
-          'placeholder:text-white/25 focus:outline-none transition-colors duration-150',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
-          error
-            ? 'border-red-500/50 focus:border-red-500/70'
-            : 'border-graphite-600 focus:border-gold-500/50'
-        )}
-      />
-      {error && (
-        <p className="text-xs text-red-400 mt-1">{error}</p>
-      )}
-    </div>
-  )
-}
 
 type LoginFormProps = {
   nextPath?: string
 }
 
 export function LoginForm({ nextPath = '/dashboard' }: LoginFormProps) {
-  const [email,    setEmail]    = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
-  const [fields,   setFields]   = useState<FieldErrors>({})
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [fields, setFields] = useState<FieldErrors>({})
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -87,17 +40,17 @@ export function LoginForm({ nextPath = '/dashboard' }: LoginFormProps) {
     setLoading(true)
 
     const response = await fetch('/api/auth/login', {
-      method:      'POST',
+      method: 'POST',
       credentials: 'same-origin',
-      headers:     { 'Content-Type': 'application/json' },
-      body:        JSON.stringify({
-        email:    parsed.data.email,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: parsed.data.email,
         password: parsed.data.password,
       }),
     })
 
     if (!response.ok) {
-      const result = await response.json().catch(() => null) as { error?: string } | null
+      const result = (await response.json().catch(() => null)) as { error?: string } | null
       setError(result?.error ?? 'Unable to sign in. Please try again.')
       setLoading(false)
       return
@@ -122,43 +75,39 @@ export function LoginForm({ nextPath = '/dashboard' }: LoginFormProps) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-        <Field
+        <TextField
           id="email"
           label="Email"
           type="email"
+          required
           autoComplete="email"
           value={email}
-          onChange={setEmail}
+          onChange={(event) => setEmail(event.target.value)}
           placeholder="you@example.com"
           error={fields.email}
           disabled={loading}
         />
 
-        <Field
+        <TextField
           id="password"
           label="Password"
           type="password"
+          required
           autoComplete="current-password"
           value={password}
-          onChange={setPassword}
+          onChange={(event) => setPassword(event.target.value)}
           placeholder="••••••••"
           error={fields.password}
           disabled={loading}
         />
 
         {error && (
-          <div className="flex items-start gap-2.5 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-            <span className="mt-0.5 shrink-0">⚠</span>
+          <InlineNotice tone="error">
             <span>{error}</span>
-          </div>
+          </InlineNotice>
         )}
 
-        <Button
-          type="submit"
-          loading={loading}
-          className="w-full mt-2"
-          size="lg"
-        >
+        <Button type="submit" loading={loading} className="w-full mt-2" size="lg">
           Sign in
         </Button>
       </form>
@@ -173,9 +122,13 @@ export function LoginForm({ nextPath = '/dashboard' }: LoginFormProps) {
             Create one free
           </Link>
         </p>
-        <p className="text-xs text-white/20">
-          <Link href="/" className="hover:text-white/40 transition-colors">
-            ← Back to home
+        <p className="text-xs text-white/30">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 transition-colors hover:text-white/60"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            Back to home
           </Link>
         </p>
       </div>

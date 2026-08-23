@@ -40,7 +40,7 @@ Operational numbers use tabular figures. Uppercase is limited to true codes. Pro
 
 ## Layout Grid
 
-- App shell: fixed 16rem desktop navigation, fixed 4rem topbar, fluid content column.
+- App shell: 16rem desktop navigation with a persistent 5rem compact-rail option, fixed 4rem topbar, fluid content column.
 - Main content: `max-w-screen-2xl` with responsive page padding.
 - Page padding: `--space-page-x` and `--space-page-y`.
 - Dense toolbars collapse vertically below their usable content width.
@@ -104,13 +104,14 @@ Animations use transform and opacity by default. Bounded shadow, clip, or backdr
 - Hover enhancements are gated to hover-capable pointers.
 - Overlays remember the originating control, position or transform origin from it where practical, focus the first useful control, close with Escape, and restore focus.
 - Command Center opens immediately from Command-K or Control-K. Pointer activation may use the overlay transition.
+- Desktop navigation can collapse without hiding routes or counts; the server reads the preference before render to avoid layout flicker.
 - Quick Peek preserves page scroll, fetches detail on demand, and becomes a full-height sheet on mobile.
 - Selected records, findings, filters, and tabs receive a stable active indicator rather than repeated entrance animation.
 - Destructive or safety-sensitive state is not removed before server confirmation.
 
 ## Navigation
 
-Navigation renders only active, role-permitted modules. Desktop sidebar state is stable. Mobile navigation uses an overlay drawer and an explicit backdrop. Current location is visible and announced. Route changes do not play orchestrated page entrances.
+Navigation renders only active, role-permitted modules. Desktop sidebar state is stable and can be compacted to an icon rail with accessible names. Mobile navigation uses an overlay drawer, background scroll lock, Escape dismissal, focus restoration, and an explicit backdrop. Current location is visible and announced. Route changes do not play orchestrated page entrances.
 
 ## Tables and Lists
 
@@ -124,7 +125,7 @@ Navigation renders only active, role-permitted modules. Desktop sidebar state is
 
 ## Forms
 
-Labels remain above inputs. Help text and errors remain adjacent to the field. Focus, loading, disabled, error, and success states are explicit. Validation never shakes a whole form. Upload progress is shown only when it is measurable. Existing media remains visible until replacement succeeds.
+Labels remain above inputs. Shared `TextField`, `TextareaField`, and `SelectField` primitives connect labels, help text, and errors with the control. Focus, loading, disabled, error, and success states are explicit. Validation never shakes a whole form. Upload progress is shown only when it is measurable. Existing media remains visible until replacement succeeds.
 
 ## Loading, Empty, Error, and Success
 

@@ -2,7 +2,7 @@
 
 import { Bell, Building2, ChevronDown, LogOut, Menu, Settings } from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { cn } from '@/lib/utils'
 import { initials } from '@/lib/utils'
 import type { AnyRole } from '@/lib/auth/types'
@@ -29,6 +29,8 @@ interface TopBarProps {
   notificationsEnabled?: boolean
   openActionCount?: number
   tenantLogoUrl?: string | null
+  menuButtonRef?: RefObject<HTMLButtonElement | null>
+  mobileNavigationOpen?: boolean
 }
 
 export function TopBar({
@@ -43,6 +45,8 @@ export function TopBar({
   notificationsEnabled = false,
   openActionCount = 0,
   tenantLogoUrl,
+  menuButtonRef,
+  mobileNavigationOpen = false,
 }: TopBarProps) {
   const name = userEmail?.split('@')[0] ?? 'User'
   const profileMenuRef = useRef<HTMLDetailsElement>(null)
@@ -72,7 +76,7 @@ export function TopBar({
     <header
       className={cn(
         // Mobile: spans full width. Desktop: offset by sidebar width.
-        'crm-topbar fixed left-0 right-0 top-0 h-16 md:left-64',
+        'crm-topbar fixed left-0 right-0 top-0 h-16 md:left-[var(--sidebar-width)]',
         'flex items-center justify-between px-4 md:px-6',
         'border-b border-white/[0.065] bg-graphite-900/88 backdrop-blur-xl'
       )}
@@ -81,6 +85,7 @@ export function TopBar({
       <div className="flex min-w-0 items-center gap-3">
         {/* Hamburger — mobile only */}
         <button
+          ref={menuButtonRef}
           onClick={onMenuClick}
           className={cn(
             'flex h-10 w-10 items-center justify-center rounded-xl md:hidden',
@@ -88,6 +93,8 @@ export function TopBar({
             'ui-chrome-button transition-colors duration-150 focus-ring'
           )}
           aria-label="Open navigation"
+          aria-controls="workspace-sidebar"
+          aria-expanded={mobileNavigationOpen}
         >
           <Menu className="h-5 w-5" strokeWidth={1.75} />
         </button>
@@ -100,11 +107,11 @@ export function TopBar({
             )}
             style={
               tenantLogoUrl
-              ? {
-                  backgroundColor: 'rgb(248 250 252 / 0.96)',
-                  backgroundImage: `url("${tenantLogoUrl}")`,
-                  backgroundPosition: 'center',
-                  backgroundRepeat: 'no-repeat',
+                ? {
+                    backgroundColor: 'rgb(248 250 252 / 0.96)',
+                    backgroundImage: `url("${tenantLogoUrl}")`,
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
                     backgroundSize: 'contain',
                   }
                 : undefined

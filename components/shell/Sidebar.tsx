@@ -34,6 +34,8 @@ import {
   Boxes,
   ClipboardCheck,
   HardDrive,
+  PanelLeftClose,
+  PanelLeftOpen,
   X,
   type LucideIcon,
 } from 'lucide-react'
@@ -69,6 +71,8 @@ interface SidebarProps {
   onClose?: () => void
   commandCenter?: CommandCenterNavConfig
   openActionCount?: number
+  isCollapsed: boolean
+  onToggleCollapsed: () => void
 }
 
 interface NavItem {
@@ -110,6 +114,8 @@ export function Sidebar({
   onClose,
   commandCenter,
   openActionCount = 0,
+  isCollapsed,
+  onToggleCollapsed,
 }: SidebarProps) {
   const pathname = usePathname()
   const isOwner = isPlatformAdmin || userRole === 'owner'
@@ -150,9 +156,10 @@ export function Sidebar({
 
   return (
     <aside
+      id="workspace-sidebar"
       className={cn(
         // Base — fixed rail, always above overlay
-        'crm-sidebar fixed bottom-0 left-0 top-0 z-40 w-64',
+        'crm-sidebar fixed bottom-0 left-0 top-0 z-40 w-64 md:w-[var(--sidebar-width)]',
         'flex flex-col border-r border-surface-border',
         'bg-graphite-900/97 backdrop-blur-xl',
         // CSS-only transition so Framer Motion cannot override translateX
@@ -163,7 +170,12 @@ export function Sidebar({
       )}
     >
       {/* Logo / tenant name */}
-      <div className="crm-sidebar-brand flex min-h-16 items-center gap-3 border-b border-white/[0.065] px-4">
+      <div
+        className={cn(
+          'crm-sidebar-brand flex min-h-16 items-center gap-3 border-b border-white/[0.065] px-4',
+          isCollapsed && 'md:justify-center md:px-2'
+        )}
+      >
         <div
           className={cn(
             'brand-accent-surface flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border',
@@ -187,7 +199,7 @@ export function Sidebar({
             <span className="text-xs font-bold">{tenantName.slice(0, 2).toUpperCase()}</span>
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className={cn('min-w-0 flex-1', isCollapsed && 'md:hidden')}>
           <p className="truncate text-sm font-semibold tracking-[-0.01em] text-white">
             {tenantName}
           </p>
@@ -204,7 +216,10 @@ export function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Primary navigation">
+      <nav
+        className={cn('flex-1 space-y-1 overflow-y-auto px-3 py-4', isCollapsed && 'md:px-2')}
+        aria-label="Primary navigation"
+      >
         {/* Core pages — filtered by role */}
         {coreNav.filter(canSee).map((item) => (
           <SidebarItem
@@ -212,15 +227,14 @@ export function Sidebar({
             {...item}
             active={isActive(item.href, item.exact)}
             onNavigate={handleLinkClick}
+            collapsed={isCollapsed}
           />
         ))}
 
         {/* Module links — staff + admin + owner */}
         {modules.length > 0 && (
           <>
-            <div className="px-2 pb-1 pt-5">
-              <span className="crm-nav-label">Modules</span>
-            </div>
+            <SidebarSectionLabel label="Modules" collapsed={isCollapsed} />
             {modules.map((mod) => (
               <div key={mod.key}>
                 <SidebarItem
@@ -229,10 +243,16 @@ export function Sidebar({
                   icon={MODULE_ICONS[mod.key] ?? Layers}
                   active={isActive(mod.href)}
                   onNavigate={handleLinkClick}
+                  collapsed={isCollapsed}
                 />
                 {/* Appointments sub-nav — visible when in /appointments */}
                 {mod.key === 'appointments' && isActive('/appointments') && (
-                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gold-500/20 pl-3">
+                  <div
+                    className={cn(
+                      'ml-4 mt-0.5 space-y-0.5 border-l border-gold-500/20 pl-3',
+                      isCollapsed && 'md:hidden'
+                    )}
+                  >
                     {[
                       { label: 'Overview', href: '/appointments', icon: LayoutGrid, exact: true },
                       {
@@ -279,7 +299,12 @@ export function Sidebar({
                   </div>
                 )}
                 {mod.key === 'damage_ai' && isActive('/dashboard/damage-ai') && (
-                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-brand/20 pl-3">
+                  <div
+                    className={cn(
+                      'ml-4 mt-0.5 space-y-0.5 border-l border-brand/20 pl-3',
+                      isCollapsed && 'md:hidden'
+                    )}
+                  >
                     {[
                       {
                         label: 'Inspections',
@@ -315,7 +340,12 @@ export function Sidebar({
                   </div>
                 )}
                 {mod.key === 'vehicles' && isActive(mod.href) && (
-                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gold-500/20 pl-3">
+                  <div
+                    className={cn(
+                      'ml-4 mt-0.5 space-y-0.5 border-l border-gold-500/20 pl-3',
+                      isCollapsed && 'md:hidden'
+                    )}
+                  >
                     {[
                       { label: 'Fleet overview', href: mod.href, icon: LayoutGrid, exact: true },
                       {
@@ -359,15 +389,14 @@ export function Sidebar({
         {/* Admin section — admin only (staff management) */}
         {isAdmin && !isOwner && (
           <>
-            <div className="px-2 pb-1 pt-5">
-              <span className="crm-nav-label">Management</span>
-            </div>
+            <SidebarSectionLabel label="Management" collapsed={isCollapsed} />
             {adminOnlyNav.map((item) => (
               <SidebarItem
                 key={item.href}
                 {...item}
                 active={isActive(item.href)}
                 onNavigate={handleLinkClick}
+                collapsed={isCollapsed}
               />
             ))}
           </>
@@ -376,15 +405,14 @@ export function Sidebar({
         {/* Platform section — owner only */}
         {isOwner && (
           <>
-            <div className="px-2 pb-1 pt-5">
-              <span className="crm-nav-label">Platform</span>
-            </div>
+            <SidebarSectionLabel label="Platform" collapsed={isCollapsed} />
             {platformNav.map((item) => (
               <SidebarItem
                 key={item.href}
                 {...item}
                 active={isActive(item.href)}
                 onNavigate={handleLinkClick}
+                collapsed={isCollapsed}
               />
             ))}
           </>
@@ -392,9 +420,14 @@ export function Sidebar({
       </nav>
 
       {/* Role badge + footer */}
-      <div className="crm-sidebar-footer space-y-1 border-t border-surface-border px-3 py-4">
+      <div
+        className={cn(
+          'crm-sidebar-footer space-y-1 border-t border-surface-border px-3 py-4',
+          isCollapsed && 'md:px-2'
+        )}
+      >
         {userRole && (
-          <div className="px-3 py-1.5 mb-1">
+          <div className={cn('mb-1 px-3 py-1.5', isCollapsed && 'md:hidden')}>
             <span
               className={cn(
                 'text-2xs font-semibold uppercase tracking-widest px-2 py-0.5 rounded',
@@ -414,12 +447,30 @@ export function Sidebar({
           className={cn(
             'flex min-h-10 w-full items-center gap-3 rounded-xl px-3 py-2.5',
             'text-white/45 transition-colors duration-150 hover:bg-red-500/[0.08] hover:text-red-300',
-            'text-sm font-medium'
+            'text-sm font-medium',
+            isCollapsed && 'md:justify-center md:px-2'
           )}
+          title={isCollapsed ? 'Sign out' : undefined}
         >
-          <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-          Sign out
+          <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+          <span className={cn(isCollapsed && 'md:sr-only')}>Sign out</span>
         </a>
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          className="focus-ring hidden min-h-10 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/45 transition-colors hover:bg-white/[0.045] hover:text-white md:flex"
+          aria-controls="workspace-sidebar"
+          aria-expanded={!isCollapsed}
+          aria-label={isCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+          title={isCollapsed ? 'Expand navigation' : undefined}
+        >
+          {isCollapsed ? (
+            <PanelLeftOpen className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+          ) : (
+            <PanelLeftClose className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+          )}
+          <span className={cn(isCollapsed && 'sr-only')}>Collapse navigation</span>
+        </button>
       </div>
     </aside>
   )
@@ -428,9 +479,18 @@ export function Sidebar({
 interface SidebarItemProps extends NavItem {
   active: boolean
   onNavigate?: () => void
+  collapsed?: boolean
 }
 
-function SidebarItem({ label, href, icon: Icon, active, onNavigate, badge }: SidebarItemProps) {
+function SidebarItem({
+  label,
+  href,
+  icon: Icon,
+  active,
+  onNavigate,
+  badge,
+  collapsed,
+}: SidebarItemProps) {
   return (
     <div className="ui-sidebar-item">
       <Link
@@ -439,10 +499,13 @@ function SidebarItem({ label, href, icon: Icon, active, onNavigate, badge }: Sid
         className={cn(
           'relative flex min-h-10 items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium',
           'crm-nav-item transition-colors duration-150 focus-ring',
+          collapsed && 'md:justify-center md:gap-0 md:px-2',
           active
             ? 'crm-nav-item-active border-brand/20 bg-brand/[0.09] text-white'
             : 'text-white/[0.52] hover:bg-white/[0.04] hover:text-white'
         )}
+        aria-current={active ? 'page' : undefined}
+        title={collapsed ? label : undefined}
       >
         <span className={cn('crm-nav-icon', active && 'crm-nav-icon-active')} aria-hidden="true">
           <Icon
@@ -450,9 +513,14 @@ function SidebarItem({ label, href, icon: Icon, active, onNavigate, badge }: Sid
             strokeWidth={1.75}
           />
         </span>
-        <span className="truncate">{label}</span>
+        <span className={cn('truncate', collapsed && 'md:sr-only')}>{label}</span>
         {typeof badge === 'number' && badge > 0 && (
-          <span className="ml-auto min-w-5 rounded-md bg-white/[0.07] px-1.5 text-center text-2xs font-semibold leading-5 text-white/65">
+          <span
+            className={cn(
+              'ml-auto min-w-5 rounded-md bg-white/[0.07] px-1.5 text-center text-2xs font-semibold leading-5 text-white/65',
+              collapsed && 'md:absolute md:right-0 md:top-0 md:min-w-4 md:px-1 md:leading-4'
+            )}
+          >
             {badge > 99 ? '99+' : badge}
           </span>
         )}
@@ -463,6 +531,19 @@ function SidebarItem({ label, href, icon: Icon, active, onNavigate, badge }: Sid
           />
         )}
       </Link>
+    </div>
+  )
+}
+
+function SidebarSectionLabel({ label, collapsed }: { label: string; collapsed: boolean }) {
+  return (
+    <div
+      className={cn(
+        'px-2 pb-1 pt-5',
+        collapsed && 'md:mx-2 md:my-3 md:border-t md:border-white/[0.07] md:p-0'
+      )}
+    >
+      <span className={cn('crm-nav-label', collapsed && 'md:sr-only')}>{label}</span>
     </div>
   )
 }
