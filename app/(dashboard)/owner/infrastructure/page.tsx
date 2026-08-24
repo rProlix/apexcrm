@@ -136,6 +136,16 @@ export default async function InfrastructureConfigurationPage() {
             </article>
           ))}
         </div>
+        <div className="mt-3 rounded-xl border border-white/10 bg-graphite-800 p-4 text-xs text-white/45">
+          <p>
+            OAuth callback:{' '}
+            <span className="font-mono text-white/65">/api/payments/oauth/stripe/callback</span>
+          </p>
+          <p className="mt-1">
+            Connected-account webhook:{' '}
+            <span className="font-mono text-white/65">/api/payments/webhooks/stripe</span>
+          </p>
+        </div>
       </section>
     </div>
   )

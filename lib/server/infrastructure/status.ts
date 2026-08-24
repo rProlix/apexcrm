@@ -14,6 +14,12 @@ export function getRedactedInfrastructureStatus() {
   const stripe = getStripeConfigPresence()
   const checks: InfrastructureCheck[] = [
     {
+      key: 'stripeSdk',
+      label: 'Stripe SDK',
+      configured: true,
+      description: 'Server SDK loaded with bounded network retries',
+    },
+    {
       key: 'queue',
       label: 'Queue',
       configured: presence.awsRegion && presence.sqsQueue,

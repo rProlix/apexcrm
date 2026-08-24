@@ -25,6 +25,7 @@ export async function persistOAuthState(input: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const database = getSupabaseServerClient() as any
   const stateHash = hashOAuthState(input.state)
+  await database.from('payment_oauth_states').delete().lt('expires_at', new Date().toISOString())
   const expiresAt = new Date(Date.now() + STATE_TTL_MS).toISOString()
   const { error } = await database.from('payment_oauth_states').insert({
     state: stateHash,

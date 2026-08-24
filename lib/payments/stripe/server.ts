@@ -41,7 +41,7 @@ export function getStripePlatformClient(): Stripe {
       'configuration_unavailable'
     )
   }
-  platformClient ??= new Stripe(secretKey)
+  platformClient ??= new Stripe(secretKey, { maxNetworkRetries: 2 })
   return platformClient
 }
 
