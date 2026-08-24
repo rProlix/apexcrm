@@ -6,22 +6,22 @@ import { getPaymentSettings } from './getPaymentSettings'
 import { syncProviderEvent } from './syncProviderEvent'
 
 export interface CreatePaymentLinkParams {
-  tenantId:    string
-  invoiceId?:  string
-  title:       string
-  amount:      number
-  currency?:   string
+  tenantId: string
+  invoiceId?: string
+  title: string
+  amount: number
+  currency?: string
   providerKey?: string
   successUrl?: string
-  cancelUrl?:  string
-  metadata?:   Record<string, string>
+  cancelUrl?: string
+  metadata?: Record<string, string>
 }
 
 export interface CreatedPaymentLink {
-  id:              string
-  url:             string
-  providerLinkId:  string
-  providerKey:     string
+  id: string
+  url: string
+  providerLinkId: string
+  providerKey: string
 }
 
 /**
@@ -43,14 +43,14 @@ export async function createPaymentLink(
 
   const linkResult = await adapter.createPaymentLink(
     {
-      title:      params.title,
-      amount:     params.amount,
+      title: params.title,
+      amount: params.amount,
       currency,
-      tenantId:   params.tenantId,
-      invoiceId:  params.invoiceId,
+      tenantId: params.tenantId,
+      invoiceId: params.invoiceId,
       successUrl: params.successUrl,
-      cancelUrl:  params.cancelUrl,
-      metadata:   params.metadata,
+      cancelUrl: params.cancelUrl,
+      metadata: params.metadata,
     },
     providerInfo.config
   )
@@ -61,15 +61,16 @@ export async function createPaymentLink(
   const { data: link, error } = await supabase
     .from('payment_links')
     .insert({
-      tenant_id:       params.tenantId,
-      invoice_id:      params.invoiceId   ?? null,
-      title:           params.title,
-      amount:          params.amount,
+      tenant_id: params.tenantId,
+      invoice_id: params.invoiceId ?? null,
+      title: params.title,
+      amount: params.amount,
       currency,
-      provider_key:    providerInfo.providerKey,
+      provider_key: providerInfo.providerKey,
+      provider_account_id: providerInfo.accountId ?? null,
       provider_link_id: linkResult.providerLinkId,
-      url:             linkResult.url,
-      status:          'active',
+      url: linkResult.url,
+      status: 'active',
     })
     .select('id')
     .single()
@@ -79,22 +80,22 @@ export async function createPaymentLink(
   }
 
   await syncProviderEvent({
-    tenantId:   params.tenantId,
+    tenantId: params.tenantId,
     providerKey: providerInfo.providerKey,
-    eventType:   'payment_link.created',
+    eventType: 'payment_link.created',
     payload: {
-      payment_link_id:  link.id,
+      payment_link_id: link.id,
       provider_link_id: linkResult.providerLinkId,
-      url:              linkResult.url,
-      amount:           params.amount,
+      url: linkResult.url,
+      amount: params.amount,
       currency,
     },
   })
 
   return {
-    id:             link.id,
-    url:            linkResult.url,
+    id: link.id,
+    url: linkResult.url,
     providerLinkId: linkResult.providerLinkId,
-    providerKey:    providerInfo.providerKey,
+    providerKey: providerInfo.providerKey,
   }
 }

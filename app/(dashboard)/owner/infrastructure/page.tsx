@@ -5,6 +5,7 @@ import { requirePlatformOwner } from '@/lib/auth/platform-owner'
 import {
   auditInfrastructureAction,
   getRedactedInfrastructureStatus,
+  getStripeOperationalStatus,
 } from '@/lib/server/infrastructure/status'
 
 export const metadata = { title: 'Infrastructure Configuration' }
@@ -12,6 +13,7 @@ export const metadata = { title: 'Infrastructure Configuration' }
 export default async function InfrastructureConfigurationPage() {
   const owner = await requirePlatformOwner()
   const status = getRedactedInfrastructureStatus()
+  const stripeOperations = await getStripeOperationalStatus()
   await auditInfrastructureAction(owner.id, 'infrastructure_configuration.accessed', {
     healthy: status.ok,
     deployment_environment: status.deploymentEnvironment,
@@ -96,6 +98,41 @@ export default async function InfrastructureConfigurationPage() {
               >
                 {check.configured ? 'Configured' : 'Missing'}
               </p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="stripe-operations-heading">
+        <div className="mb-3">
+          <h2 id="stripe-operations-heading" className="font-semibold text-white">
+            Stripe Connect operations
+          </h2>
+          <p className="mt-1 text-xs text-white/40">
+            Redacted connection and signed webhook health. No credentials or payloads are exposed.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            ['Active connections', stripeOperations.connections],
+            ['Action required', stripeOperations.actionRequired],
+            ['Failed webhook events', stripeOperations.failedWebhookEvents],
+            [
+              'Last webhook',
+              stripeOperations.lastWebhookAt
+                ? new Intl.DateTimeFormat('en-US', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  }).format(new Date(stripeOperations.lastWebhookAt))
+                : null,
+            ],
+          ].map(([label, value]) => (
+            <article
+              key={String(label)}
+              className="rounded-xl border border-white/10 bg-graphite-800 p-4"
+            >
+              <p className="text-xs text-white/40">{label}</p>
+              <p className="mt-2 text-lg font-semibold text-white">{value ?? 'Unavailable'}</p>
             </article>
           ))}
         </div>

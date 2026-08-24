@@ -25,6 +25,8 @@ export const NOTIFICATION_EVENT_REGISTRY: NotificationEventDefinition[] = [
   event('appointments.changed', 'appointments', 'Appointment changed'),
   event('appointments.cancelled', 'appointments', 'Appointment cancelled'),
   event('payments.failed', 'payments', 'Payment failed'),
+  event('payments.connection_action_required', 'payments', 'Stripe connection needs attention'),
+  event('payments.connection_disconnected', 'payments', 'Stripe connection disconnected'),
   event('store.order_fulfillment', 'store', 'Order needs fulfillment'),
   event('customers.message_received', 'customers', 'Customer message received'),
   event('slack.disconnected', 'damage_ai', 'Slack disconnected'),

@@ -10,9 +10,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const tenantId = user.role === 'owner'
-    ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
-    : user.tenant_id
+  const tenantId =
+    user.role === 'owner'
+      ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
+      : user.tenant_id
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
@@ -35,12 +36,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const tenantId = user.role === 'owner'
-    ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
-    : user.tenant_id
+  const tenantId =
+    user.role === 'owner'
+      ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
+      : user.tenant_id
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -52,6 +56,12 @@ export async function POST(req: NextRequest) {
   if (!['stripe', 'square'].includes(provider_key)) {
     return NextResponse.json({ error: 'provider_key must be stripe or square' }, { status: 400 })
   }
+  if (provider_key === 'stripe') {
+    return NextResponse.json(
+      { error: 'Stripe connections must use secure OAuth.' },
+      { status: 400 }
+    )
+  }
   if (!secret_key || typeof secret_key !== 'string') {
     return NextResponse.json({ error: 'secret_key is required' }, { status: 400 })
   }
@@ -61,26 +71,23 @@ export async function POST(req: NextRequest) {
 
   // If this is being set as default, unset others
   if (is_default) {
-    await supabase
-      .from('payment_providers')
-      .update({ is_default: false })
-      .eq('tenant_id', tenantId)
+    await supabase.from('payment_providers').update({ is_default: false }).eq('tenant_id', tenantId)
   }
 
   const config: Record<string, unknown> = {
-    secretKey:    secret_key,
+    secretKey: secret_key,
     webhookSecret: webhook_secret ?? null,
-    accountId:    account_id     ?? null,
+    accountId: account_id ?? null,
   }
 
   const { data, error } = await supabase
     .from('payment_providers')
     .upsert(
       {
-        tenant_id:    tenantId,
+        tenant_id: tenantId,
         provider_key,
-        is_enabled:   true,
-        is_default:   is_default ?? false,
+        is_enabled: true,
+        is_default: is_default ?? false,
         config,
       },
       { onConflict: 'tenant_id,provider_key' }
@@ -93,10 +100,10 @@ export async function POST(req: NextRequest) {
   // Also upsert payment_accounts
   await supabase.from('payment_accounts').upsert(
     {
-      tenant_id:           tenantId,
+      tenant_id: tenantId,
       provider_key,
       provider_account_id: account_id ?? null,
-      status:              'connected',
+      status: 'connected',
     },
     { onConflict: 'tenant_id,provider_key' }
   )

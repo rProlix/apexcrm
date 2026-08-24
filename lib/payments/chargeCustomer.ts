@@ -6,23 +6,23 @@ import { syncProviderEvent } from './syncProviderEvent'
 import { getPaymentSettings } from './getPaymentSettings'
 
 export interface ChargeCustomerParams {
-  tenantId:     string
-  customerId?:  string
-  invoiceId?:   string
-  amount:       number          // major currency unit (e.g. 10.00 for $10)
-  currency?:    string
+  tenantId: string
+  customerId?: string
+  invoiceId?: string
+  amount: number // major currency unit (e.g. 10.00 for $10)
+  currency?: string
   description?: string
-  source?:      string          // provider payment method token
+  source?: string // provider payment method token
   providerKey?: string
-  metadata?:    Record<string, string>
+  metadata?: Record<string, string>
 }
 
 export interface ChargeCustomerResult {
-  transactionId:         string
+  transactionId: string
   providerTransactionId: string
-  status:                string
-  amount:                number
-  currency:              string
+  status: string
+  amount: number
+  currency: string
 }
 
 /**
@@ -30,15 +30,13 @@ export interface ChargeCustomerResult {
  * Routes to Stripe or Square based on tenant settings.
  * Persists the transaction and links it to the invoice.
  */
-export async function chargeCustomer(
-  params: ChargeCustomerParams
-): Promise<ChargeCustomerResult> {
+export async function chargeCustomer(params: ChargeCustomerParams): Promise<ChargeCustomerResult> {
   if (params.amount <= 0) {
     throw new Error('[chargeCustomer] Amount must be greater than 0')
   }
 
-  const settings  = await getPaymentSettings(params.tenantId)
-  const currency  = params.currency ?? settings.currency
+  const settings = await getPaymentSettings(params.tenantId)
+  const currency = params.currency ?? settings.currency
 
   const providerInfo = await getDefaultProvider(params.tenantId, params.providerKey)
   if (!providerInfo) {
@@ -71,14 +69,14 @@ export async function chargeCustomer(
 
   const chargeResult = await adapter.createCharge(
     {
-      amount:      params.amount,
+      amount: params.amount,
       currency,
-      tenantId:    params.tenantId,
-      customerId:  params.customerId,
-      invoiceId:   params.invoiceId,
+      tenantId: params.tenantId,
+      customerId: params.customerId,
+      invoiceId: params.invoiceId,
       description: params.description,
-      source:      params.source,
-      metadata:    params.metadata,
+      source: params.source,
+      metadata: params.metadata,
     },
     providerInfo.config
   )
@@ -87,16 +85,17 @@ export async function chargeCustomer(
   const { data: tx, error: txErr } = await supabase
     .from('payment_transactions')
     .insert({
-      tenant_id:              params.tenantId,
-      invoice_id:             params.invoiceId  ?? null,
-      customer_id:            params.customerId ?? null,
-      provider_key:           providerInfo.providerKey,
+      tenant_id: params.tenantId,
+      invoice_id: params.invoiceId ?? null,
+      customer_id: params.customerId ?? null,
+      provider_key: providerInfo.providerKey,
+      provider_account_id: providerInfo.accountId ?? null,
       provider_transaction_id: chargeResult.providerTransactionId,
-      provider_payment_id:    chargeResult.providerPaymentId ?? null,
-      amount:                 chargeResult.amount,
-      currency:               chargeResult.currency,
-      status:                 chargeResult.status,
-      transaction_type:       'charge',
+      provider_payment_id: chargeResult.providerPaymentId ?? null,
+      amount: chargeResult.amount,
+      currency: chargeResult.currency,
+      status: chargeResult.status,
+      transaction_type: 'charge',
     })
     .select('id')
     .single()
@@ -115,25 +114,25 @@ export async function chargeCustomer(
   }
 
   await syncProviderEvent({
-    tenantId:   params.tenantId,
+    tenantId: params.tenantId,
     providerKey: providerInfo.providerKey,
-    eventType:   `charge.${chargeResult.status}`,
+    eventType: `charge.${chargeResult.status}`,
     payload: {
-      transaction_id:         tx.id,
+      transaction_id: tx.id,
       provider_transaction_id: chargeResult.providerTransactionId,
-      amount:                  chargeResult.amount,
-      currency:                chargeResult.currency,
-      customer_id:             params.customerId,
-      invoice_id:              params.invoiceId,
+      amount: chargeResult.amount,
+      currency: chargeResult.currency,
+      customer_id: params.customerId,
+      invoice_id: params.invoiceId,
     },
     idempotencyKey: chargeResult.providerTransactionId,
   })
 
   return {
-    transactionId:         tx.id,
+    transactionId: tx.id,
     providerTransactionId: chargeResult.providerTransactionId,
-    status:                chargeResult.status,
-    amount:                chargeResult.amount,
-    currency:              chargeResult.currency,
+    status: chargeResult.status,
+    amount: chargeResult.amount,
+    currency: chargeResult.currency,
   }
 }

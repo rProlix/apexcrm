@@ -6,18 +6,18 @@ import { syncProviderEvent } from './syncProviderEvent'
 import { getPaymentSettings } from './getPaymentSettings'
 
 export interface RefundPaymentParams {
-  tenantId:      string
-  transactionId: string   // payment_transactions.id (internal)
-  amount?:       number   // if not provided, full refund
-  reason?:       string
-  metadata?:     Record<string, string>
+  tenantId: string
+  transactionId: string // payment_transactions.id (internal)
+  amount?: number // if not provided, full refund
+  reason?: string
+  metadata?: Record<string, string>
 }
 
 export interface RefundResult {
-  refundId:        string
+  refundId: string
   providerRefundId: string
-  status:          string
-  amount:          number
+  status: string
+  amount: number
 }
 
 /**
@@ -53,7 +53,7 @@ export async function refundPayment(params: RefundPaymentParams): Promise<Refund
   }
 
   // Determine refund amount
-  const fullAmount   = Number(tx.amount)
+  const fullAmount = Number(tx.amount)
   const refundAmount = params.amount ?? fullAmount
 
   if (refundAmount <= 0) {
@@ -61,7 +61,9 @@ export async function refundPayment(params: RefundPaymentParams): Promise<Refund
   }
 
   if (refundAmount > fullAmount) {
-    throw new Error(`[refundPayment] Refund amount (${refundAmount}) exceeds original charge (${fullAmount})`)
+    throw new Error(
+      `[refundPayment] Refund amount (${refundAmount}) exceeds original charge (${fullAmount})`
+    )
   }
 
   const settings = await getPaymentSettings(params.tenantId)
@@ -78,7 +80,7 @@ export async function refundPayment(params: RefundPaymentParams): Promise<Refund
     .in('status', ['pending', 'succeeded'])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const alreadyRefunded = (existingRefunds ?? [] as any[]).reduce(
+  const alreadyRefunded = (existingRefunds ?? ([] as any[])).reduce(
     (sum: number, r: any) => sum + Number(r.amount),
     0
   )
@@ -93,17 +95,24 @@ export async function refundPayment(params: RefundPaymentParams): Promise<Refund
   if (!providerInfo) {
     throw new Error('[refundPayment] No provider config found for this transaction')
   }
+  if (
+    tx.provider_account_id &&
+    providerInfo.accountId &&
+    tx.provider_account_id !== providerInfo.accountId
+  ) {
+    throw new Error('[refundPayment] Connected provider account does not own this transaction')
+  }
 
   const adapter = getAdapter(tx.provider_key)
 
   const refundResult = await adapter.refundPayment(
     {
       providerTransactionId: tx.provider_transaction_id,
-      amount:                refundAmount,
-      currency:              tx.currency,
-      tenantId:              params.tenantId,
-      reason:                params.reason,
-      metadata:              params.metadata,
+      amount: refundAmount,
+      currency: tx.currency,
+      tenantId: params.tenantId,
+      reason: params.reason,
+      metadata: params.metadata,
     },
     providerInfo.config
   )
@@ -112,12 +121,12 @@ export async function refundPayment(params: RefundPaymentParams): Promise<Refund
   const { data: refund, error: refundErr } = await supabase
     .from('payment_refunds')
     .insert({
-      tenant_id:              params.tenantId,
+      tenant_id: params.tenantId,
       payment_transaction_id: params.transactionId,
-      provider_key:           tx.provider_key,
-      provider_refund_id:     refundResult.providerRefundId,
-      amount:                 refundResult.amount,
-      status:                 refundResult.status,
+      provider_key: tx.provider_key,
+      provider_refund_id: refundResult.providerRefundId,
+      amount: refundResult.amount,
+      status: refundResult.status,
     })
     .select('id')
     .single()
@@ -127,9 +136,7 @@ export async function refundPayment(params: RefundPaymentParams): Promise<Refund
   }
 
   // Update transaction status
-  const newTxStatus = alreadyRefunded + refundResult.amount >= fullAmount
-    ? 'refunded'
-    : 'succeeded'  // partial refund — original still succeeded
+  const newTxStatus = alreadyRefunded + refundResult.amount >= fullAmount ? 'refunded' : 'succeeded' // partial refund — original still succeeded
 
   await supabase
     .from('payment_transactions')
@@ -147,22 +154,22 @@ export async function refundPayment(params: RefundPaymentParams): Promise<Refund
   }
 
   await syncProviderEvent({
-    tenantId:    params.tenantId,
+    tenantId: params.tenantId,
     providerKey: tx.provider_key,
-    eventType:   `refund.${refundResult.status}`,
+    eventType: `refund.${refundResult.status}`,
     payload: {
-      refund_id:              refund.id,
-      provider_refund_id:     refundResult.providerRefundId,
-      transaction_id:         params.transactionId,
-      amount:                 refundResult.amount,
+      refund_id: refund.id,
+      provider_refund_id: refundResult.providerRefundId,
+      transaction_id: params.transactionId,
+      amount: refundResult.amount,
     },
     idempotencyKey: refundResult.providerRefundId,
   })
 
   return {
-    refundId:         refund.id,
+    refundId: refund.id,
     providerRefundId: refundResult.providerRefundId,
-    status:           refundResult.status,
-    amount:           refundResult.amount,
+    status: refundResult.status,
+    amount: refundResult.amount,
   }
 }

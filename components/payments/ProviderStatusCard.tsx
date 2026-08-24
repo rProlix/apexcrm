@@ -4,68 +4,92 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  CheckCircle2, XCircle, AlertCircle, ChevronDown,
-  ChevronUp, Star, Unplug, KeyRound, Zap,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Star,
+  Unplug,
+  KeyRound,
+  Zap,
+  ExternalLink,
+  RefreshCw,
 } from 'lucide-react'
+import { stripeTenantMessage } from '@/lib/payments/stripe/errors'
 
 interface Provider {
-  id:           string
+  id: string
   provider_key: string
-  is_enabled:   boolean
-  is_default:   boolean
-  created_at:   string
-  updated_at?:  string
+  is_enabled: boolean
+  is_default: boolean
+  created_at: string
+  updated_at?: string
 }
 
 interface Account {
-  id:                  string
-  provider_key:        string
+  id: string
+  provider_key: string
   provider_account_id: string | null
-  status:              string
-  connection_method?:  string
-  created_at:          string
+  status: string
+  connection_method?: string
+  livemode?: boolean
+  charges_enabled?: boolean
+  payouts_enabled?: boolean
+  details_submitted?: boolean
+  connected_at?: string | null
+  created_at: string
 }
 
 interface Props {
   providers: Provider[]
-  accounts:  Account[]
-  tenantId:  string
+  accounts: Account[]
+  tenantId: string
+  stripeConfigured: boolean
 }
 
-const PROVIDER_LABELS: Record<string, { name: string; color: string; desc: string; oauthLabel: string }> = {
+const PROVIDER_LABELS: Record<
+  string,
+  { name: string; color: string; desc: string; oauthLabel: string }
+> = {
   stripe: {
-    name:       'Stripe',
-    color:      'text-purple-400',
-    desc:       'Card payments, subscriptions, hosted checkout',
+    name: 'Stripe',
+    color: 'text-purple-400',
+    desc: 'Card payments, subscriptions, hosted checkout',
     oauthLabel: 'Connect with Stripe',
   },
   square: {
-    name:       'Square',
-    color:      'text-blue-400',
-    desc:       'In-person & online payments, POS integration',
+    name: 'Square',
+    color: 'text-blue-400',
+    desc: 'In-person & online payments, POS integration',
     oauthLabel: 'Connect with Square',
   },
 }
 
 type ConnectMode = 'oauth' | 'apikey' | null
 
-export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }: Props) {
+export function ProviderStatusCard({
+  providers,
+  accounts,
+  tenantId: _tenantId,
+  stripeConfigured,
+}: Props) {
   const searchParams = useSearchParams()
-  const [loading,     setLoading]     = useState(false)
-  const [error,       setError]       = useState<string | null>(null)
-  const [success,     setSuccess]     = useState<string | null>(null)
-  const [showMode,    setShowMode]    = useState<Record<string, ConnectMode>>({})
-  const [formData,    setFormData]    = useState({
-    secret_key:     '',
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [showMode, setShowMode] = useState<Record<string, ConnectMode>>({})
+  const [formData, setFormData] = useState({
+    secret_key: '',
     webhook_secret: '',
-    account_id:     '',
-    is_default:     false,
+    account_id: '',
+    is_default: false,
   })
 
   // Handle OAuth redirect result
   useEffect(() => {
     const connected = searchParams.get('connected')
-    const errParam  = searchParams.get('error')
+    const errParam = searchParams.get('error')
 
     if (connected) {
       const name = PROVIDER_LABELS[connected]?.name ?? connected
@@ -74,13 +98,13 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
       window.history.replaceState({}, '', window.location.pathname)
     }
     if (errParam) {
-      setError(decodeURIComponent(errParam))
+      setError(stripeTenantMessage(errParam))
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, [searchParams])
 
-  const accountMap     = Object.fromEntries(accounts.map((a) => [a.provider_key, a]))
-  const allProviders   = ['stripe', 'square'] as const
+  const accountMap = Object.fromEntries(accounts.map((a) => [a.provider_key, a]))
+  const allProviders = ['stripe', 'square'] as const
 
   function toggleMode(key: string, mode: ConnectMode) {
     setShowMode((prev) => ({ ...prev, [key]: prev[key] === mode ? null : mode }))
@@ -89,6 +113,8 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
 
   function handleOAuthConnect(providerKey: string) {
     // Navigate to our connect endpoint — it generates state + redirects to provider
+    setLoading(true)
+    setError(null)
     window.location.href = `/api/payments/oauth/${providerKey}/connect`
   }
 
@@ -103,14 +129,14 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
 
     try {
       const res = await fetch('/api/payments/providers', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          provider_key:   providerKey,
-          secret_key:     formData.secret_key.trim(),
+          provider_key: providerKey,
+          secret_key: formData.secret_key.trim(),
           webhook_secret: formData.webhook_secret.trim() || undefined,
-          account_id:     formData.account_id.trim()    || undefined,
-          is_default:     formData.is_default,
+          account_id: formData.account_id.trim() || undefined,
+          is_default: formData.is_default,
         }),
       })
       const data = await res.json()
@@ -132,7 +158,7 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
     setError(null)
     try {
       const res = await fetch(`/api/payments/providers/${providerId}`, {
-        method:  'PATCH',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_default: true }),
       })
@@ -154,7 +180,7 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
     setError(null)
     try {
       const res = await fetch('/api/payments/providers/disconnect', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider_key: providerKey }),
       })
@@ -173,7 +199,7 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
       <div>
         <h1 className="text-2xl font-bold text-white tracking-tight">Payment Providers</h1>
         <p className="text-sm text-white/40 mt-1">
-          Connect Stripe and Square via OAuth or API keys to accept payments
+          Connect Stripe securely with OAuth or use your existing Square workflow
         </p>
       </div>
 
@@ -204,11 +230,14 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
 
       <div className="space-y-4">
         {allProviders.map((key) => {
-          const meta       = PROVIDER_LABELS[key]
-          const connected  = providers.find((p) => p.provider_key === key)
-          const account    = accountMap[key]
-          const isOAuth    = account?.connection_method === 'oauth'
-          const mode       = showMode[key] ?? null
+          const meta = PROVIDER_LABELS[key]
+          const connected = providers.find((p) => p.provider_key === key)
+          const account = accountMap[key]
+          const isOAuth = account?.connection_method === 'oauth'
+          const hasConnection = Boolean(account && account.status !== 'disconnected')
+          const actionRequired =
+            account?.status === 'action_required' || account?.status === 'restricted'
+          const mode = showMode[key] ?? null
 
           return (
             <motion.div
@@ -221,7 +250,9 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-4">
                   <div className="h-10 w-10 rounded-xl bg-white/6 border border-white/10 flex items-center justify-center flex-shrink-0">
-                    {connected?.is_enabled ? (
+                    {actionRequired ? (
+                      <AlertCircle className="h-5 w-5 text-amber-300" />
+                    ) : hasConnection ? (
                       <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                     ) : (
                       <XCircle className="h-5 w-5 text-white/20" />
@@ -238,14 +269,18 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
                         </span>
                       )}
 
-                      {connected?.is_enabled && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-400/10 text-emerald-400 border border-emerald-400/20">
-                          Connected
+                      {hasConnection && (
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full border ${actionRequired ? 'border-amber-400/20 bg-amber-400/10 text-amber-300' : 'border-emerald-400/20 bg-emerald-400/10 text-emerald-400'}`}
+                        >
+                          {actionRequired ? 'Action required' : 'Connected'}
                         </span>
                       )}
 
-                      {connected?.is_enabled && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full border ${isOAuth ? 'bg-purple-400/10 text-purple-400 border-purple-400/20' : 'bg-white/5 text-white/40 border-white/10'}`}>
+                      {hasConnection && (
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full border ${isOAuth ? 'bg-purple-400/10 text-purple-400 border-purple-400/20' : 'bg-white/5 text-white/40 border-white/10'}`}
+                        >
                           {isOAuth ? 'OAuth' : 'API Key'}
                         </span>
                       )}
@@ -255,15 +290,34 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
 
                     {account?.provider_account_id && (
                       <p className="text-xs text-white/30 mt-1 font-mono">
-                        ID: {account.provider_account_id}
+                        Account: ••••{account.provider_account_id.slice(-4)}
                       </p>
+                    )}
+                    {key === 'stripe' && hasConnection && (
+                      <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                        <ProviderCapability
+                          label="Payments"
+                          enabled={Boolean(account?.charges_enabled)}
+                        />
+                        <ProviderCapability
+                          label="Payouts"
+                          enabled={Boolean(account?.payouts_enabled)}
+                        />
+                        <ProviderCapability
+                          label="Details"
+                          enabled={Boolean(account?.details_submitted)}
+                        />
+                        <span className="text-white/35">
+                          {account?.livemode ? 'Live mode' : 'Test mode'}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
 
                 {/* Action buttons */}
                 <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
-                  {connected && !connected.is_default && (
+                  {connected && hasConnection && !connected.is_default && (
                     <button
                       onClick={() => handleSetDefault(connected.id)}
                       disabled={loading}
@@ -274,48 +328,76 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
                     </button>
                   )}
 
-                  {connected ? (
-                    <button
-                      onClick={() => handleDisconnect(key)}
-                      disabled={loading}
-                      className="flex items-center gap-1.5 text-xs text-red-400/70 border border-red-400/20 rounded-lg px-2.5 py-1.5 hover:bg-red-400/6 hover:text-red-400 transition-colors disabled:opacity-50"
-                    >
-                      <Unplug className="h-3 w-3" />
-                      Disconnect
-                    </button>
+                  {hasConnection ? (
+                    <>
+                      {key === 'stripe' && (
+                        <a
+                          href="https://dashboard.stripe.com/"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1.5 rounded-lg border border-white/15 px-2.5 py-1.5 text-xs text-white/65 hover:bg-white/[0.05] hover:text-white"
+                        >
+                          Manage <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                      <button
+                        onClick={() => handleOAuthConnect(key)}
+                        disabled={loading || (key === 'stripe' && !stripeConfigured)}
+                        className="flex items-center gap-1.5 rounded-lg border border-white/15 px-2.5 py-1.5 text-xs text-white/65 hover:bg-white/[0.05] hover:text-white disabled:opacity-50"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        Reconnect
+                      </button>
+                      <button
+                        onClick={() => handleDisconnect(key)}
+                        disabled={loading}
+                        className="flex items-center gap-1.5 text-xs text-red-400/70 border border-red-400/20 rounded-lg px-2.5 py-1.5 hover:bg-red-400/6 hover:text-red-400 transition-colors disabled:opacity-50"
+                      >
+                        <Unplug className="h-3 w-3" />
+                        Disconnect
+                      </button>
+                    </>
                   ) : (
                     <>
                       {/* OAuth connect */}
                       <button
                         onClick={() => handleOAuthConnect(key)}
-                        disabled={loading}
+                        disabled={loading || (key === 'stripe' && !stripeConfigured)}
                         className="flex items-center gap-1.5 text-xs font-semibold text-white border border-white/20 rounded-lg px-3 py-1.5 hover:bg-white/8 hover:border-white/30 transition-colors disabled:opacity-50"
                       >
                         <Zap className="h-3.5 w-3.5 text-gold-400" />
                         {meta.oauthLabel}
                       </button>
 
-                      {/* API key toggle */}
-                      <button
-                        onClick={() => toggleMode(key, 'apikey')}
-                        className="flex items-center gap-1.5 text-xs text-white/50 border border-white/10 rounded-lg px-2.5 py-1.5 hover:bg-white/5 hover:text-white/70 transition-colors"
-                      >
-                        <KeyRound className="h-3 w-3" />
-                        API Key
-                        {mode === 'apikey' ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3" />
-                        )}
-                      </button>
+                      {key === 'square' && (
+                        <button
+                          onClick={() => toggleMode(key, 'apikey')}
+                          className="flex items-center gap-1.5 text-xs text-white/50 border border-white/10 rounded-lg px-2.5 py-1.5 hover:bg-white/5 hover:text-white/70 transition-colors"
+                        >
+                          <KeyRound className="h-3 w-3" />
+                          API Key
+                          {mode === 'apikey' ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          )}
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
               </div>
 
+              {key === 'stripe' && !stripeConfigured && !hasConnection && (
+                <div className="mt-4 rounded-xl border border-amber-400/15 bg-amber-400/[0.06] px-3.5 py-3 text-xs text-amber-100/70">
+                  Payment integration is temporarily unavailable. Your platform administrator has
+                  been notified.
+                </div>
+              )}
+
               {/* API Key fallback form */}
               <AnimatePresence>
-                {mode === 'apikey' && !connected && (
+                {mode === 'apikey' && !hasConnection && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
@@ -330,7 +412,9 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
 
                       <div>
                         <label className="block text-xs font-medium text-white/60 mb-1.5">
-                          {key === 'stripe' ? 'Secret Key (sk_live_... or sk_test_...)' : 'Access Token'}
+                          {key === 'stripe'
+                            ? 'Secret Key (sk_live_... or sk_test_...)'
+                            : 'Access Token'}
                           <span className="text-red-400 ml-0.5">*</span>
                         </label>
                         <input
@@ -350,7 +434,9 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
                         <input
                           type="password"
                           value={formData.webhook_secret}
-                          onChange={(e) => setFormData({ ...formData, webhook_secret: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({ ...formData, webhook_secret: e.target.value })
+                          }
                           placeholder={key === 'stripe' ? 'whsec_...' : 'Webhook signature key'}
                           className="store-input w-full text-sm"
                           autoComplete="off"
@@ -365,7 +451,9 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
                           <input
                             type="text"
                             value={formData.account_id}
-                            onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
+                            onChange={(e) =>
+                              setFormData({ ...formData, account_id: e.target.value })
+                            }
                             placeholder="L..."
                             className="store-input w-full text-sm"
                           />
@@ -376,7 +464,9 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
                         <input
                           type="checkbox"
                           checked={formData.is_default}
-                          onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
+                          onChange={(e) =>
+                            setFormData({ ...formData, is_default: e.target.checked })
+                          }
                           className="rounded border-white/20 bg-white/5 text-gold-500 focus:ring-gold-500/30"
                         />
                         <span className="text-xs text-white/60">Set as default provider</span>
@@ -411,14 +501,24 @@ export function ProviderStatusCard({ providers, accounts, tenantId: _tenantId }:
         <AlertCircle className="h-4 w-4 text-white/30 flex-shrink-0 mt-0.5" />
         <div className="space-y-1.5 text-xs text-white/40 leading-relaxed">
           <p>
-            <span className="text-white/60 font-medium">OAuth (recommended)</span> — Click &quot;Connect with Stripe/Square&quot; to authorize via your provider account. Tokens are stored server-side and never exposed to the browser.
+            <span className="text-white/60 font-medium">OAuth (recommended)</span> - Authorize with
+            your provider without exposing credentials to the browser.
           </p>
           <p>
-            <span className="text-white/60 font-medium">API Key</span> — Enter your secret key manually. Webhook secrets are used to verify incoming events. Configure your webhook endpoint to{' '}
+            <span className="text-white/60 font-medium">Square API key</span> - Manual Square
+            connections remain available for existing workflows. Configure webhooks at{' '}
             <span className="font-mono text-white/60">/api/payments/webhooks/{'{provider}'}</span>.
           </p>
         </div>
       </div>
     </div>
+  )
+}
+
+function ProviderCapability({ label, enabled }: { label: string; enabled: boolean }) {
+  return (
+    <span className={enabled ? 'text-emerald-300/75' : 'text-amber-200/70'}>
+      {label} {enabled ? 'enabled' : 'pending'}
+    </span>
   )
 }

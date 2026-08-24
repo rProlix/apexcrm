@@ -2,16 +2,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { recordCommandAudit } from '@/lib/command-center/audit'
+import { getStripeClientId, getStripePlatformClient } from '@/lib/payments/stripe/server'
 
-const STRIPE_SECRET_KEY         = process.env.STRIPE_SECRET_KEY         ?? ''
 const SQUARE_APPLICATION_SECRET = process.env.SQUARE_APPLICATION_SECRET ?? ''
-const IS_PRODUCTION             = process.env.NODE_ENV === 'production'
+const IS_PRODUCTION = process.env.NODE_ENV === 'production'
 
 /**
  * POST /api/payments/providers/disconnect
  * Body: { provider_key: 'stripe' | 'square' }
  *
- * Revokes the OAuth token at the provider level (best-effort) then marks
+ * Revokes OAuth access at the provider level before marking
  * the local account as disconnected. Also disables the payment_providers row.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -33,7 +34,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const providerKey = body.provider_key
   if (!providerKey || !['stripe', 'square'].includes(providerKey)) {
-    return NextResponse.json({ error: 'provider_key must be "stripe" or "square"' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'provider_key must be "stripe" or "square"' },
+      { status: 400 }
+    )
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,20 +49,42 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select('access_token, provider_account_id, connection_method')
     .eq('tenant_id', ctx.tenant_id)
     .eq('provider_key', providerKey)
-    .eq('status', 'connected')
+    .neq('status', 'disconnected')
     .maybeSingle()
 
-  // Best-effort token revocation at the provider
-  if (account?.access_token && account?.connection_method === 'oauth') {
+  if (!account) {
+    return NextResponse.json({ error: 'Provider connection was not found' }, { status: 404 })
+  }
+
+  // Stripe deauthorization is required before local state changes. Square
+  // keeps its existing token-revocation behavior.
+  if (account.connection_method === 'oauth') {
     try {
       if (providerKey === 'stripe') {
-        await revokeStripeToken(account.access_token)
-      } else if (providerKey === 'square') {
+        if (!account.provider_account_id) throw new Error('Stripe account ID is missing')
+        await getStripePlatformClient().oauth.deauthorize({
+          client_id: getStripeClientId(),
+          stripe_user_id: account.provider_account_id,
+        })
+      } else if (providerKey === 'square' && account.access_token) {
         await revokeSquareToken(account.access_token)
       }
-    } catch (err) {
-      // Non-fatal — we still deactivate locally
-      console.warn(`[Disconnect] Token revocation failed for ${providerKey}:`, (err as Error).message)
+    } catch {
+      console.error('[payments:disconnect] Provider deauthorization failed', {
+        tenant_id: ctx.tenant_id,
+        user_id: ctx.id,
+        provider: providerKey,
+      })
+      await recordCommandAudit({
+        tenantId: ctx.tenant_id,
+        actorUserId: ctx.id,
+        action: `${providerKey}.disconnect.failed`,
+        metadata: { provider_account_id: account.provider_account_id },
+      })
+      return NextResponse.json(
+        { error: 'The provider could not be disconnected. Please try again.' },
+        { status: 502 }
+      )
     }
   }
 
@@ -66,10 +92,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { error: accountError } = await supabase
     .from('payment_accounts')
     .update({
-      status:        'disconnected',
-      access_token:  null,
+      status: 'disconnected',
+      access_token: null,
       refresh_token: null,
-      updated_at:    new Date().toISOString(),
+      disconnected_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
     .eq('tenant_id', ctx.tenant_id)
     .eq('provider_key', providerKey)
@@ -86,28 +113,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .eq('tenant_id', ctx.tenant_id)
     .eq('provider_key', providerKey)
 
-  return NextResponse.json({ success: true, provider: providerKey })
-}
-
-async function revokeStripeToken(accessToken: string): Promise<void> {
-  if (!STRIPE_SECRET_KEY) return
-
-  const res = await fetch('https://connect.stripe.com/oauth/deauthorize', {
-    method:  'POST',
-    headers: {
-      Authorization:  `Bearer ${STRIPE_SECRET_KEY}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      client_id:         process.env.STRIPE_CLIENT_ID ?? '',
-      stripe_user_id:    accessToken,
-    }).toString(),
+  await recordCommandAudit({
+    tenantId: ctx.tenant_id,
+    actorUserId: ctx.id,
+    action: `${providerKey}.disconnected`,
+    metadata: { provider_account_id: account.provider_account_id },
   })
 
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Stripe deauthorize failed: ${body}`)
-  }
+  return NextResponse.json({ success: true, provider: providerKey })
 }
 
 async function revokeSquareToken(accessToken: string): Promise<void> {
@@ -118,14 +131,14 @@ async function revokeSquareToken(accessToken: string): Promise<void> {
     : 'https://connect.squareupsandbox.com'
 
   const res = await fetch(`${baseUrl}/oauth2/revoke`, {
-    method:  'POST',
+    method: 'POST',
     headers: {
-      'Content-Type':  'application/json',
+      'Content-Type': 'application/json',
       'Square-Version': '2024-01-17',
-      Authorization:   `Client ${SQUARE_APPLICATION_SECRET}`,
+      Authorization: `Client ${SQUARE_APPLICATION_SECRET}`,
     },
     body: JSON.stringify({
-      client_id:    process.env.SQUARE_APPLICATION_ID,
+      client_id: process.env.SQUARE_APPLICATION_ID,
       access_token: accessToken,
     }),
   })

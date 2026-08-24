@@ -662,31 +662,77 @@ async function loadSlackActions(context: CommandCenterContext): Promise<SourceRe
 }
 
 async function loadPaymentActions(context: CommandCenterContext): Promise<SourceResult> {
-  const trackedActionTypes = ['payment_failed']
+  const trackedActionTypes = [
+    'payment_failed',
+    'stripe_connection_action_required',
+    'stripe_connection_disconnected',
+  ]
   try {
-    const { data, error } = await context.db
-      .from('payments')
-      .select('id, amount_cents, currency, status, created_at, updated_at')
-      .eq('tenant_id', context.tenantId)
-      .eq('status', 'failed')
-      .order('updated_at', { ascending: false })
-      .limit(100)
-    if (error) throw new Error(error.code)
+    const [paymentResult, connectionResult] = await Promise.all([
+      context.db
+        .from('payments')
+        .select('id, amount_cents, currency, status, created_at, updated_at')
+        .eq('tenant_id', context.tenantId)
+        .eq('status', 'failed')
+        .order('updated_at', { ascending: false })
+        .limit(100),
+      // Generated types are updated after the forward migration is applied.
+      (context.db as any)
+        .from('payment_accounts')
+        .select('id,status,provider_account_id,updated_at')
+        .eq('tenant_id', context.tenantId)
+        .eq('provider_key', 'stripe')
+        .in('status', ['action_required', 'restricted', 'disconnected'])
+        .limit(10),
+    ])
+    if (paymentResult.error || connectionResult.error) {
+      throw new Error(paymentResult.error?.code ?? connectionResult.error?.code)
+    }
+    const connectionCandidates: ActionCandidate[] = (connectionResult.data ?? []).map(
+      (connection: {
+        id: string
+        status: string
+        provider_account_id: string | null
+        updated_at: string
+      }) => {
+        const disconnected = connection.status === 'disconnected'
+        return {
+          moduleKey: 'payments',
+          sourceRecordType: 'stripe_connection',
+          sourceRecordId: connection.id,
+          sourceRecordLabel: 'Stripe Connect',
+          actionType: disconnected
+            ? 'stripe_connection_disconnected'
+            : 'stripe_connection_action_required',
+          title: disconnected ? 'Reconnect Stripe' : 'Stripe account needs attention',
+          description: disconnected
+            ? 'Payment acceptance is paused until an administrator reconnects Stripe.'
+            : 'Stripe requires account details or capability verification before payments can continue.',
+          priority: 'urgent',
+          assignedRole: 'admin',
+          latestActivityAt: connection.updated_at,
+          href: '/payments/providers',
+        }
+      }
+    )
     return {
       trackedActionTypes,
-      candidates: (data ?? []).map((payment) => ({
-        moduleKey: 'payments',
-        sourceRecordType: 'payment',
-        sourceRecordId: payment.id,
-        sourceRecordLabel: `Payment from ${payment.created_at.slice(0, 10)}`,
-        actionType: 'payment_failed',
-        title: 'Review failed payment',
-        description: `${formatMoney(payment.amount_cents, payment.currency)} did not complete.`,
-        priority: 'high',
-        assignedRole: 'admin',
-        latestActivityAt: payment.updated_at,
-        href: '/payments',
-      })),
+      candidates: [
+        ...(paymentResult.data ?? []).map((payment) => ({
+          moduleKey: 'payments' as const,
+          sourceRecordType: 'payment',
+          sourceRecordId: payment.id,
+          sourceRecordLabel: `Payment from ${payment.created_at.slice(0, 10)}`,
+          actionType: 'payment_failed',
+          title: 'Review failed payment',
+          description: `${formatMoney(payment.amount_cents, payment.currency)} did not complete.`,
+          priority: 'high' as const,
+          assignedRole: 'admin' as const,
+          latestActivityAt: payment.updated_at,
+          href: '/payments',
+        })),
+        ...connectionCandidates,
+      ],
     }
   } catch (error) {
     return sourceFailure('Payment actions', error)
@@ -1214,6 +1260,8 @@ function notificationEventForAction(actionType: string): string | null {
     maintenance_urgent: 'maintenance.urgent',
     maintenance_overdue: 'maintenance.overdue',
     payment_failed: 'payments.failed',
+    stripe_connection_action_required: 'payments.connection_action_required',
+    stripe_connection_disconnected: 'payments.connection_disconnected',
     order_needs_fulfillment: 'store.order_fulfillment',
     slack_workspace_disconnected: 'slack.disconnected',
     website_domain_missing: 'website.domain_disconnected',

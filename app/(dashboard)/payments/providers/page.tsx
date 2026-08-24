@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/auth/requireRole'
 import { guardModuleAccess } from '@/lib/modules/guardModuleAccess'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ProviderStatusCard } from '@/components/payments/ProviderStatusCard'
+import { getStripeConfigPresence } from '@/lib/payments/stripe/server'
 
 export const metadata = { title: 'Providers — Payments' }
 
@@ -14,7 +15,7 @@ export default async function ProvidersPage() {
 
   const tenantId = ctx.tenant_id ?? ''
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase  = getSupabaseServerClient() as any
+  const supabase = getSupabaseServerClient() as any
 
   const { data: providers } = await supabase
     .from('payment_providers')
@@ -23,7 +24,9 @@ export default async function ProvidersPage() {
 
   const { data: accounts } = await supabase
     .from('payment_accounts')
-    .select('id, provider_key, provider_account_id, status, connection_method, created_at')
+    .select(
+      'id, provider_key, provider_account_id, status, connection_method, livemode, charges_enabled, payouts_enabled, details_submitted, connected_at, created_at'
+    )
     .eq('tenant_id', tenantId)
 
   return (
@@ -33,6 +36,7 @@ export default async function ProvidersPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       accounts={(accounts ?? []) as any[]}
       tenantId={tenantId}
+      stripeConfigured={Object.values(getStripeConfigPresence()).every(Boolean)}
     />
   )
 }

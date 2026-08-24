@@ -1,180 +1,221 @@
-// app/api/payments/webhooks/stripe/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import type Stripe from 'stripe'
+import { recordCommandAudit } from '@/lib/command-center/audit'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { stripeAdapter } from '@/lib/payments/adapters/stripeAdapter'
-import { syncProviderEvent, markEventProcessed } from '@/lib/payments/syncProviderEvent'
+import { getStripePlatformClient, getStripeWebhookSecret } from '@/lib/payments/stripe/server'
+import {
+  claimPaymentWebhookEvent,
+  completePaymentWebhookEvent,
+  failPaymentWebhookEvent,
+} from '@/lib/payments/webhookEvents'
 
-/**
- * Stripe webhook handler.
- *
- * Stripe sends all events to a single endpoint. We resolve the tenant by
- * looking up the payment_providers row whose webhookSecret matches the
- * Stripe-Signature header (or by tenant_id embedded in event metadata).
- *
- * Idempotency: payment_events de-duplicates by event id.
- */
 export async function POST(req: NextRequest) {
-  const rawBody  = await req.text()
-  const signature = req.headers.get('stripe-signature') ?? ''
+  const rawBody = await req.text()
+  const signature = req.headers.get('stripe-signature')
+  if (!signature) return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
 
-  if (!signature) {
-    return NextResponse.json({ error: 'Missing Stripe-Signature header' }, { status: 400 })
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = getSupabaseServerClient() as any
-
-  // Try each enabled Stripe provider row to find the matching webhook secret
-  const { data: providers } = await supabase
-    .from('payment_providers')
-    .select('tenant_id, config')
-    .eq('provider_key', 'stripe')
-    .eq('is_enabled', true)
-
-  let webhookEvent: Awaited<ReturnType<typeof stripeAdapter.handleWebhook>> | null = null
-  let matchedTenantId: string | null = null
-
-  for (const provider of providers ?? []) {
-    const cfg = (provider.config ?? {}) as Record<string, string>
-    if (!cfg.webhookSecret) continue
-
-    try {
-      webhookEvent = await stripeAdapter.handleWebhook(rawBody, signature, {
-        secretKey:     cfg.secretKey,
-        webhookSecret: cfg.webhookSecret,
-      })
-      matchedTenantId = provider.tenant_id
-      break
-    } catch {
-      // Wrong secret — try next
-    }
-  }
-
-  if (!webhookEvent) {
-    console.warn('[stripe/webhook] No matching provider found for this signature')
+  let event: Stripe.Event
+  try {
+    event = getStripePlatformClient().webhooks.constructEvent(
+      rawBody,
+      signature,
+      getStripeWebhookSecret()
+    )
+  } catch {
+    console.warn('[stripe:webhook] signature rejected', {
+      category: 'WEBHOOK_SIGNATURE_ERROR',
+    })
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
-  // Prefer tenant_id from event metadata (set during payment creation)
-  const tenantId = webhookEvent.tenantId ?? matchedTenantId
+  const object = event.data.object as unknown as Record<string, unknown>
+  const connectedAccountId =
+    typeof event.account === 'string'
+      ? event.account
+      : event.type === 'account.updated' && typeof object.id === 'string'
+        ? object.id
+        : null
 
-  if (!tenantId) {
-    console.error('[stripe/webhook] Could not determine tenant_id for event', webhookEvent.eventType)
-    return NextResponse.json({ received: true })  // ACK to avoid Stripe retries
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const database = getSupabaseServerClient() as any
+  const { data: connection } = connectedAccountId
+    ? await database
+        .from('payment_accounts')
+        .select('tenant_id, provider_account_id, livemode, status')
+        .eq('provider_key', 'stripe')
+        .eq('provider_account_id', connectedAccountId)
+        .neq('status', 'disconnected')
+        .maybeSingle()
+    : { data: null }
 
-  // Persist event (idempotent via external id)
-  const eventId = await syncProviderEvent({
+  const tenantId = connection?.tenant_id ?? null
+  const claimed = await claimPaymentWebhookEvent({
+    providerEventId: event.id,
+    connectedAccountId,
     tenantId,
-    providerKey:    'stripe',
-    eventType:       webhookEvent.eventType,
-    payload:         webhookEvent.raw as Record<string, unknown>,
-    idempotencyKey: webhookEvent.externalId,
+    eventType: event.type,
+    livemode: event.livemode,
   })
+  if (!claimed) return NextResponse.json({ received: true, duplicate: true })
 
-  if (!eventId) {
-    // Already processed — return 200 to prevent Stripe retry
-    return NextResponse.json({ received: true, duplicate: true })
+  if (!tenantId || !connectedAccountId) {
+    await failPaymentWebhookEvent(claimed.id, 'WEBHOOK_MAPPING_ERROR')
+    console.error('[stripe:webhook] connected account mapping missing', {
+      event_id: event.id,
+      event_type: event.type,
+      stripe_account_id: connectedAccountId,
+      category: 'WEBHOOK_MAPPING_ERROR',
+    })
+    return NextResponse.json({ error: 'Connected account mapping unavailable' }, { status: 500 })
+  }
+  if (typeof connection.livemode === 'boolean' && connection.livemode !== event.livemode) {
+    await failPaymentWebhookEvent(claimed.id, 'MODE_MISMATCH')
+    return NextResponse.json({ error: 'Account mode mismatch' }, { status: 409 })
   }
 
-  // ── Event processing ────────────────────────────────────────────────────────
   try {
-    switch (webhookEvent.eventType) {
-      case 'payment_intent.succeeded': {
-        const raw  = webhookEvent.raw as Record<string, unknown>
-        const data = raw.data as Record<string, unknown>
-        const obj  = data?.object as Record<string, unknown>
-        const providerTxId = obj?.id as string | undefined
-
-        if (providerTxId) {
-          await supabase
-            .from('payment_transactions')
-            .update({ status: 'succeeded' })
-            .eq('tenant_id', tenantId)
-            .eq('provider_transaction_id', providerTxId)
-
-          // Mark associated invoice as paid
-          const { data: tx } = await supabase
-            .from('payment_transactions')
-            .select('invoice_id')
-            .eq('provider_transaction_id', providerTxId)
-            .eq('tenant_id', tenantId)
-            .maybeSingle()
-
-          if (tx?.invoice_id) {
-            await supabase
-              .from('invoices')
-              .update({ status: 'paid' })
-              .eq('id', tx.invoice_id)
-              .eq('tenant_id', tenantId)
-          }
-        }
-        break
-      }
-
-      case 'payment_intent.payment_failed': {
-        const raw  = webhookEvent.raw as Record<string, unknown>
-        const data = raw.data as Record<string, unknown>
-        const obj  = data?.object as Record<string, unknown>
-        const providerTxId = obj?.id as string | undefined
-
-        if (providerTxId) {
-          await supabase
-            .from('payment_transactions')
-            .update({ status: 'failed' })
-            .eq('tenant_id', tenantId)
-            .eq('provider_transaction_id', providerTxId)
-        }
-        break
-      }
-
-      case 'charge.refunded': {
-        const raw    = webhookEvent.raw as Record<string, unknown>
-        const data   = raw.data as Record<string, unknown>
-        const obj    = data?.object as Record<string, unknown>
-        const intent = obj?.payment_intent as string | undefined
-
-        if (intent) {
-          await supabase
-            .from('payment_transactions')
-            .update({ status: 'refunded' })
-            .eq('tenant_id', tenantId)
-            .eq('provider_transaction_id', intent)
-        }
-        break
-      }
-
-      case 'checkout.session.completed': {
-        const raw     = webhookEvent.raw as Record<string, unknown>
-        const data    = raw.data as Record<string, unknown>
-        const obj     = data?.object as Record<string, unknown>
-        const meta    = (obj?.metadata ?? {}) as Record<string, string>
-        const linkId  = obj?.id as string | undefined
-
-        if (meta.invoice_id) {
-          await supabase
-            .from('invoices')
-            .update({ status: 'paid' })
-            .eq('id', meta.invoice_id)
-            .eq('tenant_id', tenantId)
-        }
-
-        if (linkId) {
-          await supabase
-            .from('payment_links')
-            .update({ status: 'expired' })
-            .eq('provider_link_id', linkId)
-            .eq('tenant_id', tenantId)
-        }
-        break
-      }
-    }
-
-    await markEventProcessed(eventId)
-  } catch (err) {
-    console.error('[stripe/webhook] Processing error:', (err as Error).message)
-    // Still return 200 to acknowledge receipt — retry logic is up to us
+    await processStripeEvent({ event, object, tenantId, connectedAccountId, database })
+    await completePaymentWebhookEvent(claimed.id)
+    return NextResponse.json({ received: true })
+  } catch (error) {
+    const code = error instanceof Error ? error.name : 'PROCESSING_ERROR'
+    await failPaymentWebhookEvent(claimed.id, code)
+    console.error('[stripe:webhook] processing failed', {
+      tenant_id: tenantId,
+      stripe_account_id: connectedAccountId,
+      event_id: event.id,
+      event_type: event.type,
+      category: 'PAYMENT_ERROR',
+    })
+    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
+}
 
-  return NextResponse.json({ received: true })
+async function processStripeEvent(input: {
+  event: Stripe.Event
+  object: Record<string, unknown>
+  tenantId: string
+  connectedAccountId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  database: any
+}): Promise<void> {
+  const { event, object, tenantId, connectedAccountId, database } = input
+
+  switch (event.type) {
+    case 'account.updated': {
+      const account = event.data.object as Stripe.Account
+      const status = stripeAccountStatus(account)
+      const { error } = await database
+        .from('payment_accounts')
+        .update({
+          status,
+          charges_enabled: account.charges_enabled,
+          payouts_enabled: account.payouts_enabled,
+          details_submitted: account.details_submitted,
+          last_verified_at: new Date().toISOString(),
+          metadata: {
+            country: account.country,
+            default_currency: account.default_currency,
+            requirements_due: account.requirements?.currently_due?.length ?? 0,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('tenant_id', tenantId)
+        .eq('provider_key', 'stripe')
+        .eq('provider_account_id', connectedAccountId)
+      if (error) throw new Error(`account_update_${error.code}`)
+      await database
+        .from('payment_providers')
+        .update({ is_enabled: status === 'connected', updated_at: new Date().toISOString() })
+        .eq('tenant_id', tenantId)
+        .eq('provider_key', 'stripe')
+      await recordCommandAudit({
+        tenantId,
+        actorUserId: null,
+        action:
+          status === 'action_required'
+            ? 'stripe.connection.action_required'
+            : 'stripe.connection.verified',
+        metadata: { stripe_account_id: connectedAccountId, connection_status: status },
+      })
+      break
+    }
+    case 'payment_intent.succeeded':
+    case 'payment_intent.payment_failed': {
+      const providerTransactionId = object.id
+      if (typeof providerTransactionId !== 'string') break
+      const status = event.type === 'payment_intent.succeeded' ? 'succeeded' : 'failed'
+      const { error } = await database
+        .from('payment_transactions')
+        .update({ status })
+        .eq('tenant_id', tenantId)
+        .eq('provider_key', 'stripe')
+        .eq('provider_account_id', connectedAccountId)
+        .eq('provider_transaction_id', providerTransactionId)
+      if (error) throw new Error(`payment_update_${error.code}`)
+      const { data: transaction } = await database
+        .from('payment_transactions')
+        .select('invoice_id')
+        .eq('tenant_id', tenantId)
+        .eq('provider_key', 'stripe')
+        .eq('provider_account_id', connectedAccountId)
+        .eq('provider_transaction_id', providerTransactionId)
+        .maybeSingle()
+      if (status === 'succeeded' && transaction?.invoice_id) {
+        await database
+          .from('invoices')
+          .update({ status: 'paid' })
+          .eq('id', transaction.invoice_id)
+          .eq('tenant_id', tenantId)
+      }
+      break
+    }
+    case 'charge.refunded': {
+      const paymentIntentId = object.payment_intent
+      if (typeof paymentIntentId !== 'string') break
+      const { error } = await database
+        .from('payment_transactions')
+        .update({ status: 'refunded' })
+        .eq('tenant_id', tenantId)
+        .eq('provider_key', 'stripe')
+        .eq('provider_account_id', connectedAccountId)
+        .eq('provider_transaction_id', paymentIntentId)
+      if (error) throw new Error(`refund_update_${error.code}`)
+      break
+    }
+    case 'checkout.session.completed': {
+      const metadata = (object.metadata ?? {}) as Record<string, string>
+      if (metadata.tenant_id && metadata.tenant_id !== tenantId) {
+        throw new Error('checkout_tenant_mismatch')
+      }
+      if (metadata.invoice_id) {
+        await database
+          .from('invoices')
+          .update({ status: 'paid' })
+          .eq('id', metadata.invoice_id)
+          .eq('tenant_id', tenantId)
+      }
+      if (typeof object.id === 'string') {
+        await database
+          .from('payment_links')
+          .update({ status: 'expired' })
+          .eq('provider_link_id', object.id)
+          .eq('provider_account_id', connectedAccountId)
+          .eq('tenant_id', tenantId)
+      }
+      break
+    }
+  }
+}
+
+function stripeAccountStatus(account: Stripe.Account): string {
+  if (account.charges_enabled && account.payouts_enabled) return 'connected'
+  if (
+    !account.details_submitted ||
+    account.requirements?.disabled_reason ||
+    (account.requirements?.currently_due?.length ?? 0) > 0
+  ) {
+    return 'action_required'
+  }
+  return 'restricted'
 }
