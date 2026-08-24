@@ -2,6 +2,7 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { AdapterConfig, ProviderKey } from './adapters/paymentAdapter'
 import { getStripePlatformClient } from './stripe/server'
+import { StripeIntegrationError } from './stripe/errors'
 
 export interface ProviderInfo {
   providerKey: ProviderKey
@@ -47,6 +48,14 @@ async function resolveConfig(
         accountId: account.provider_account_id,
       },
     }
+  }
+
+  if (providerKey === 'stripe') {
+    throw new StripeIntegrationError(
+      'ACCOUNT_RESTRICTED',
+      'Stripe requires an active OAuth connected account.',
+      'account_restricted'
+    )
   }
 
   if (account?.access_token && account?.connection_method === 'oauth') {

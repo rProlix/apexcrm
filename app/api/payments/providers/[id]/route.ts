@@ -16,7 +16,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Verify the provider belongs to this tenant
   const { data: existing } = await supabase
     .from('payment_providers')
-    .select('id, tenant_id, config')
+    .select('id, tenant_id, provider_key, config')
     .eq('id', (await params).id)
     .maybeSingle()
 
@@ -27,7 +27,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -44,14 +46,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
-  // Allow updating credentials
+  if (
+    existing.provider_key === 'stripe' &&
+    (body.secret_key || body.webhook_secret || body.account_id)
+  ) {
+    return NextResponse.json(
+      { error: 'Stripe connections must be managed through secure OAuth.' },
+      { status: 400 }
+    )
+  }
+
+  // Preserve the existing Square credential workflow. Stripe is OAuth-only.
   if (body.secret_key || body.webhook_secret || body.account_id) {
     const existingConfig = (existing.config ?? {}) as Record<string, unknown>
     updates.config = {
       ...existingConfig,
-      ...(body.secret_key    ? { secretKey: body.secret_key }         : {}),
+      ...(body.secret_key ? { secretKey: body.secret_key } : {}),
       ...(body.webhook_secret ? { webhookSecret: body.webhook_secret } : {}),
-      ...(body.account_id    ? { accountId: body.account_id }         : {}),
+      ...(body.account_id ? { accountId: body.account_id } : {}),
     }
   }
 
@@ -79,7 +91,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { data: existing } = await supabaseDel
     .from('payment_providers')
-    .select('id, tenant_id')
+    .select('id, tenant_id, provider_key')
     .eq('id', (await params).id)
     .maybeSingle()
 
@@ -87,6 +99,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   if (user.role !== 'owner' && existing.tenant_id !== user.tenant_id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  if (existing.provider_key === 'stripe') {
+    return NextResponse.json(
+      { error: 'Disconnect Stripe through the provider connection controls.' },
+      { status: 400 }
+    )
   }
 
   const { error } = await supabaseDel

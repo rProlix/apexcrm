@@ -168,6 +168,10 @@ test('OAuth tokens do not appear in browser-facing provider responses', () => {
   const api = source('app/api/payments/providers/route.ts')
   assert.doesNotMatch(api, /\.select\([^)]*access_token/)
   assert.doesNotMatch(api, /\.select\([^)]*refresh_token/)
+  const purge = source('supabase/migrations/20260823213000_purge_legacy_stripe_credentials.sql')
+  assert.match(purge, /WHERE provider_key = 'stripe'/)
+  assert.match(purge, /SET access_token = NULL/)
+  assert.match(purge, /- 'secretKey' - 'webhookSecret'/)
 })
 
 test('secret-bearing Stripe configuration stays out of the client component', () => {
