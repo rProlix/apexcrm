@@ -1,6 +1,9 @@
 import { z } from 'zod'
 
 export const SCROLL_EXPERIENCE_PROCESSING_VERSION = 'scroll-video-v1'
+export const SCROLL_EXPERIENCE_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+export const SCROLL_EXPERIENCE_SOURCE_BUCKET = 'scroll-experience-sources'
+export const SCROLL_EXPERIENCE_MEDIA_BUCKET = 'scroll-experience-media'
 
 export const scrollExperienceJobSchema = z.object({
   version: z.literal('1'),

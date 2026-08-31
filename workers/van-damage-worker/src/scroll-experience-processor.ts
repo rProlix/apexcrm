@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs'
-import { mkdtemp, open, rm, stat, statfs } from 'node:fs/promises'
+import { mkdtemp, open, rm, stat, statfs, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
@@ -10,6 +10,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
   buildScrollExperienceObjectKey,
   isMp4Signature,
+  SCROLL_EXPERIENCE_MEDIA_BUCKET,
   scrollExperienceJobSchema,
   type ScrollExperienceJobV1,
 } from '../../../lib/website-scroll-experience/contracts.js'
@@ -211,7 +212,7 @@ async function createPoster(input: string, output: string, duration: number) {
   ])
 }
 
-async function download(client: S3Client, bucket: string, key: string, target: string) {
+async function downloadS3(client: S3Client, bucket: string, key: string, target: string) {
   const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }))
   if (!response.Body) throw new Error('SOURCE_MISSING')
   const body = response.Body as Readable
@@ -223,7 +224,18 @@ async function download(client: S3Client, bucket: string, key: string, target: s
   )
 }
 
-async function upload(
+async function downloadSupabase(
+  client: SupabaseClient,
+  bucket: string,
+  key: string,
+  target: string
+) {
+  const { data, error } = await client.storage.from(bucket).download(key)
+  if (error || !data) throw new Error('SOURCE_MISSING')
+  await writeFile(target, Buffer.from(await data.arrayBuffer()), { flag: 'wx' })
+}
+
+async function uploadS3(
   client: S3Client,
   input: {
     bucket: string
@@ -259,6 +271,22 @@ async function upload(
       }).toString(),
     })
   )
+  return fileStat.size
+}
+
+async function uploadSupabase(
+  client: SupabaseClient,
+  input: { bucket: string; key: string; file: string; contentType: string }
+) {
+  const fileStat = await stat(input.file)
+  const { error } = await client.storage
+    .from(input.bucket)
+    .upload(input.key, createReadStream(input.file), {
+      contentType: input.contentType,
+      cacheControl: '31536000',
+      upsert: true,
+    })
+  if (error) throw new Error('SUPABASE_STORAGE_UPLOAD_FAILED')
   return fileStat.size
 }
 
@@ -385,7 +413,7 @@ async function process(
 
     const { data: source } = await db
       .from('website_scroll_experience_assets')
-      .select('id,bucket,object_key,bytes')
+      .select('id,storage_provider,bucket,object_key,bytes')
       .eq('id', job.sourceAssetId)
       .eq('tenant_id', job.tenantId)
       .eq('experience_id', job.experienceId)
@@ -400,7 +428,12 @@ async function process(
     const mobileFile = join(workDir, 'mobile.mp4')
     const posterFile = join(workDir, 'poster.webp')
     const s3 = new S3Client({ region: config.awsRegion, maxAttempts: 3 })
-    await download(s3, source.bucket, source.object_key, sourceFile)
+    const storageProvider = source.storage_provider === 'supabase' ? 'supabase' : 's3'
+    if (storageProvider === 'supabase') {
+      await downloadSupabase(db, source.bucket, source.object_key, sourceFile)
+    } else {
+      await downloadS3(s3, source.bucket, source.object_key, sourceFile)
+    }
     if (!isMp4Signature(await readSignature(sourceFile))) throw new Error('UNSUPPORTED_CONTAINER')
 
     await setStage(db, job, 'INSPECTING')
@@ -446,35 +479,40 @@ async function process(
         kind: 'poster',
       }),
     }
+    const derivativeBucket =
+      storageProvider === 'supabase' ? SCROLL_EXPERIENCE_MEDIA_BUCKET : source.bucket
+    const uploadDerivative = (input: {
+      key: string
+      file: string
+      contentType: string
+      kind: string
+    }) =>
+      storageProvider === 'supabase'
+        ? uploadSupabase(db, { ...input, bucket: derivativeBucket })
+        : uploadS3(s3, {
+            ...input,
+            bucket: derivativeBucket,
+            tenantId: job.tenantId,
+            experienceId: job.experienceId,
+            versionId: job.experienceVersionId,
+          })
     const [desktopBytes, mobileBytes, posterBytes] = await Promise.all([
-      upload(s3, {
-        bucket: source.bucket,
+      uploadDerivative({
         key: keys.desktop,
         file: desktopFile,
         contentType: 'video/mp4',
-        tenantId: job.tenantId,
-        experienceId: job.experienceId,
-        versionId: job.experienceVersionId,
         kind: 'desktop',
       }),
-      upload(s3, {
-        bucket: source.bucket,
+      uploadDerivative({
         key: keys.mobile,
         file: mobileFile,
         contentType: 'video/mp4',
-        tenantId: job.tenantId,
-        experienceId: job.experienceId,
-        versionId: job.experienceVersionId,
         kind: 'mobile',
       }),
-      upload(s3, {
-        bucket: source.bucket,
+      uploadDerivative({
         key: keys.poster,
         file: posterFile,
         contentType: 'image/webp',
-        tenantId: job.tenantId,
-        experienceId: job.experienceId,
-        versionId: job.experienceVersionId,
         kind: 'poster',
       }),
     ])
@@ -508,7 +546,8 @@ async function process(
           experience_id: job.experienceId,
           experience_version_id: job.experienceVersionId,
           kind: asset.kind,
-          bucket: source.bucket,
+          storage_provider: storageProvider,
+          bucket: derivativeBucket,
           object_key: asset.key,
           content_type: asset.contentType,
           bytes: asset.bytes,
@@ -560,19 +599,17 @@ async function process(
       .update({ status: 'COMPLETED', completed_at: completedAt, last_error_category: null })
       .eq('id', row.id)
       .eq('tenant_id', job.tenantId)
-    await db
-      .from('website_scroll_experience_audit')
-      .insert({
-        tenant_id: job.tenantId,
-        experience_id: job.experienceId,
-        event_name: 'SCROLL_VIDEO_PROCESSING_COMPLETED',
-        metadata: {
-          processing_duration_ms: processingDurationMs,
-          desktop_bytes: desktopBytes,
-          mobile_bytes: mobileBytes,
-          poster_bytes: posterBytes,
-        },
-      })
+    await db.from('website_scroll_experience_audit').insert({
+      tenant_id: job.tenantId,
+      experience_id: job.experienceId,
+      event_name: 'SCROLL_VIDEO_PROCESSING_COMPLETED',
+      metadata: {
+        processing_duration_ms: processingDurationMs,
+        desktop_bytes: desktopBytes,
+        mobile_bytes: mobileBytes,
+        poster_bytes: posterBytes,
+      },
+    })
     logger.info('Scroll Experience processing completed', {
       ...context,
       durationMs: processingDurationMs,
@@ -600,14 +637,12 @@ async function process(
         .update({ status: 'FAILED', last_error_category: category })
         .eq('id', row.id)
         .eq('tenant_id', job.tenantId),
-      db
-        .from('website_scroll_experience_audit')
-        .insert({
-          tenant_id: job.tenantId,
-          experience_id: job.experienceId,
-          event_name: 'SCROLL_VIDEO_PROCESSING_FAILED',
-          metadata: { category },
-        }),
+      db.from('website_scroll_experience_audit').insert({
+        tenant_id: job.tenantId,
+        experience_id: job.experienceId,
+        event_name: 'SCROLL_VIDEO_PROCESSING_FAILED',
+        metadata: { category },
+      }),
     ])
     logger.error('Scroll Experience processing failed', {
       ...context,

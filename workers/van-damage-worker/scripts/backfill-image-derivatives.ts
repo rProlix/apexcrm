@@ -66,7 +66,7 @@ const workerConfig = {
   maxGeminiRawBytes: 12 * 1024 * 1024,
   scrollProcessingConcurrency: 1,
   scrollMaxDurationSeconds: 180,
-  scrollMaxUploadBytes: 512 * 1024 * 1024,
+  scrollMaxUploadBytes: 10 * 1024 * 1024,
   scrollMaxSourceWidth: 3840,
   scrollMaxSourceHeight: 3840,
   scrollDesktopMaxWidth: 1920,

@@ -5,6 +5,9 @@ import {
   buildScrollExperienceIdempotencyKey,
   buildScrollExperienceObjectKey,
   isMp4Signature,
+  SCROLL_EXPERIENCE_MAX_UPLOAD_BYTES,
+  SCROLL_EXPERIENCE_MEDIA_BUCKET,
+  SCROLL_EXPERIENCE_SOURCE_BUCKET,
   scrollExperienceJobSchema,
 } from '../contracts'
 import { normalizeScrollExperienceContent, safeScrollLink } from '../types'
@@ -81,6 +84,29 @@ test('MP4 validation uses container magic bytes rather than extension', () => {
     isMp4Signature(Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 74, 70, 73, 70, 0, 0, 0, 0])),
     false
   )
+})
+
+test('Scroll MP4 uses private Supabase Storage with a hard 10 MB source limit', () => {
+  assert.equal(SCROLL_EXPERIENCE_MAX_UPLOAD_BYTES, 10 * 1024 * 1024)
+  assert.equal(SCROLL_EXPERIENCE_SOURCE_BUCKET, 'scroll-experience-sources')
+  assert.equal(SCROLL_EXPERIENCE_MEDIA_BUCKET, 'scroll-experience-media')
+
+  const migration = readFileSync(
+    'supabase/migrations/20260831053000_scroll_experience_supabase_storage.sql',
+    'utf8'
+  )
+  const server = readFileSync('lib/website-scroll-experience/server.ts', 'utf8')
+  const worker = readFileSync(
+    'workers/van-damage-worker/src/scroll-experience-processor.ts',
+    'utf8'
+  )
+  assert.match(migration, /scroll-experience-sources/)
+  assert.match(migration, /10485760/)
+  assert.match(migration, /public, file_size_limit/)
+  assert.match(server, /createSignedUploadUrl/)
+  assert.match(server, /storage_provider: 'supabase'/)
+  assert.match(worker, /downloadSupabase/)
+  assert.match(worker, /uploadSupabase/)
 })
 
 test('scroll mapping clamps, trims and reverses', () => {
@@ -174,6 +200,7 @@ test('the Website Builder exposes Scroll MP4 as a prominent upload workflow', ()
   const sectionsPanel = readFileSync('components/website/SectionsPanel.tsx', 'utf8')
   assert.match(navigation, /href: '\/website\/scroll-video'/)
   assert.match(workspace, /Choose MP4 video/)
+  assert.match(workspace, /Up to 10 MB/)
   assert.match(workspace, /Add to page/)
   assert.match(sectionsPanel, /Open Scroll MP4/)
 })

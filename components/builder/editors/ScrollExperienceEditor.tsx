@@ -10,6 +10,8 @@ import {
 } from '@/lib/website-scroll-experience/types'
 import { Select, Textarea, Toggle, inputStyle } from './FormFields'
 
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
 type Experience = {
   id: string
   name: string
@@ -122,9 +124,20 @@ export function ScrollExperienceEditor({ sectionId }: { sectionId: string }) {
 
   const upload = async (file: File) => {
     if (!tenantId || !section) return
+    if (!file.name.toLowerCase().endsWith('.mp4') || file.size <= 0) {
+      setError('Choose a valid MP4 video.')
+      return
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError('The MP4 must be 10 MB or smaller.')
+      return
+    }
     setUploading(true)
     setError(null)
     try {
+      const storageFile = ['video/mp4', 'application/mp4'].includes(file.type)
+        ? file
+        : new File([file], file.name, { type: 'video/mp4', lastModified: file.lastModified })
       const start = await fetch('/api/website-builder/scroll-experiences', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -142,17 +155,30 @@ export function ScrollExperienceEditor({ sectionId }: { sectionId: string }) {
         ok?: boolean
         error?: string
         uploadUrl?: string
+        uploadToken?: string
+        objectKey?: string
+        storageBucket?: string
         experienceId?: string
         experienceVersionId?: string
       }
-      if (!start.ok || !session.uploadUrl || !session.experienceId || !session.experienceVersionId)
+      if (
+        !start.ok ||
+        !session.uploadUrl ||
+        !session.uploadToken ||
+        !session.objectKey ||
+        !session.storageBucket ||
+        !session.experienceId ||
+        !session.experienceVersionId
+      )
         throw new Error(session.error || 'Could not start upload.')
-      const direct = await fetch(session.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'video/mp4' },
-        body: file,
-      })
-      if (!direct.ok) throw new Error('The direct video upload failed. Please try again.')
+      const { createClient } = await import('@/lib/supabase/browser')
+      const supabase = createClient()
+      const { error: directError } = await supabase.storage
+        .from(session.storageBucket)
+        .uploadToSignedUrl(session.objectKey, session.uploadToken, storageFile, {
+          contentType: 'video/mp4',
+        })
+      if (directError) throw new Error('The direct video upload failed. Please try again.')
       const complete = await fetch(
         `/api/website-builder/scroll-experiences/${encodeURIComponent(session.experienceId)}/complete`,
         {
@@ -238,7 +264,7 @@ export function ScrollExperienceEditor({ sectionId }: { sectionId: string }) {
           {uploading ? 'Uploading video' : 'Upload MP4'}
         </span>
         <span style={{ color: '#71717a', fontSize: 11 }}>
-          The file uploads directly to private storage.
+          MP4 only, up to 10 MB. Stored privately in Supabase Storage.
         </span>
         <input
           disabled={uploading}

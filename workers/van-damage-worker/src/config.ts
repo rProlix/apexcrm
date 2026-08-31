@@ -29,7 +29,7 @@ const schema = z.object({
     .number()
     .int()
     .positive()
-    .default(512 * 1024 * 1024),
+    .default(10 * 1024 * 1024),
   SCROLL_VIDEO_MAX_SOURCE_WIDTH: z.coerce.number().int().min(320).default(3840),
   SCROLL_VIDEO_MAX_SOURCE_HEIGHT: z.coerce.number().int().min(320).default(3840),
   SCROLL_VIDEO_DESKTOP_MAX_WIDTH: z.coerce.number().int().min(320).default(1920),
@@ -93,7 +93,7 @@ export function getConfig(): WorkerConfig {
     maxGeminiRawBytes: env.VAN_DAMAGE_MAX_GEMINI_RAW_BYTES,
     scrollProcessingConcurrency: env.SCROLL_VIDEO_PROCESSING_CONCURRENCY,
     scrollMaxDurationSeconds: env.SCROLL_VIDEO_MAX_DURATION_SECONDS,
-    scrollMaxUploadBytes: env.SCROLL_VIDEO_MAX_UPLOAD_BYTES,
+    scrollMaxUploadBytes: Math.min(env.SCROLL_VIDEO_MAX_UPLOAD_BYTES, 10 * 1024 * 1024),
     scrollMaxSourceWidth: env.SCROLL_VIDEO_MAX_SOURCE_WIDTH,
     scrollMaxSourceHeight: env.SCROLL_VIDEO_MAX_SOURCE_HEIGHT,
     scrollDesktopMaxWidth: env.SCROLL_VIDEO_DESKTOP_MAX_WIDTH,

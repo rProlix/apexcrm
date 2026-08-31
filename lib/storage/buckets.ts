@@ -33,6 +33,10 @@ export const STORAGE_BUCKETS = {
   IMPORT_ASSETS: 'import-assets',
   /** Private. Draft AI images, pending uploads, processing files. */
   TEMP_ASSETS: 'temp-assets',
+  /** Private. Original MP4 uploads for Scroll Experiences. */
+  SCROLL_EXPERIENCE_SOURCES: 'scroll-experience-sources',
+  /** Private. Processed desktop/mobile MP4s and posters for Scroll Experiences. */
+  SCROLL_EXPERIENCE_MEDIA: 'scroll-experience-media',
 } as const
 
 export type StorageBucket = (typeof STORAGE_BUCKETS)[keyof typeof STORAGE_BUCKETS]
@@ -54,6 +58,8 @@ export const PRIVATE_BUCKETS: ReadonlySet<StorageBucket> = new Set([
   STORAGE_BUCKETS.DOCUMENT_ASSETS,
   STORAGE_BUCKETS.IMPORT_ASSETS,
   STORAGE_BUCKETS.TEMP_ASSETS,
+  STORAGE_BUCKETS.SCROLL_EXPERIENCE_SOURCES,
+  STORAGE_BUCKETS.SCROLL_EXPERIENCE_MEDIA,
 ])
 
 export function isPublicBucket(bucket: string): boolean {
@@ -78,6 +84,8 @@ export const ALLOWED_MIME_TYPES: Record<StorageBucket, string[]> = {
   'document-assets':         ['application/pdf', 'text/plain', 'application/json', 'image/jpeg', 'image/png', 'image/webp'],
   'import-assets':           ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'text/plain', 'application/json'],
   'temp-assets':             ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'application/pdf', 'text/plain'],
+  'scroll-experience-sources': ['video/mp4', 'application/mp4'],
+  'scroll-experience-media':   ['video/mp4', 'image/webp'],
 }
 
 // ─── Max file sizes per bucket (bytes) ───────────────────────────────────────
@@ -94,6 +102,8 @@ export const MAX_FILE_SIZE_BYTES: Record<StorageBucket, number> = {
   'document-assets':          25 * 1024 * 1024,   // 25 MB
   'import-assets':            30 * 1024 * 1024,   // 30 MB
   'temp-assets':              20 * 1024 * 1024,   // 20 MB
+  'scroll-experience-sources':10 * 1024 * 1024,   // 10 MB
+  'scroll-experience-media': 100 * 1024 * 1024,   // processed derivatives
 }
 
 // ─── Path helpers ─────────────────────────────────────────────────────────────

@@ -10,9 +10,9 @@ The editor supports start/end time metadata, 150-1000vh narrative distance, dire
 
 ## Website Builder workflow
 
-Open **Website Builder > Scroll MP4**, choose an MP4 up to 512 MB, and wait for the video to reach Ready. Select a website page and choose **Add to page**. You can also open **Pages**, add **Scroll Experience (MP4)**, edit that section, and choose **Open Scroll MP4** to connect a ready video directly to it.
+Open **Website Builder > Scroll MP4**, choose an MP4 up to 10 MB, and wait for the video to reach Ready. Select a website page and choose **Add to page**. You can also open **Pages**, add **Scroll Experience (MP4)**, edit that section, and choose **Open Scroll MP4** to connect a ready video directly to it.
 
-The upload is sent directly to tenant-scoped private storage. The processing worker must be running for queued uploads to produce the desktop, mobile, and poster derivatives required for publishing.
+The upload is sent directly to the tenant-scoped private `scroll-experience-sources` Supabase Storage bucket. Processed desktop/mobile MP4s and WebP posters are stored in the private `scroll-experience-media` bucket. The processing worker must be running for queued uploads to produce the derivatives required for publishing.
 
 ## Draft and publish
 

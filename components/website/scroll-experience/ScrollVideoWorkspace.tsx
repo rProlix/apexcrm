@@ -42,7 +42,7 @@ type Experience = {
 type Notice = { tone: 'success' | 'error' | 'info'; message: string }
 
 const TERMINAL_STATUSES = new Set(['READY', 'FAILED', 'ARCHIVED'])
-const MAX_UPLOAD_BYTES = 512 * 1024 * 1024
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 function versionFor(experience: Experience) {
   const relation = experience.website_scroll_experience_versions
@@ -70,11 +70,15 @@ function formatBytes(value?: number | null) {
   return `${(value / 1024 / 1024).toFixed(value >= 100 * 1024 * 1024 ? 0 : 1)} MB`
 }
 
-function putFile(url: string, file: File, onProgress: (progress: number) => void): Promise<void> {
+function putSupabaseFile(
+  url: string,
+  file: File,
+  onProgress: (progress: number) => void
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
     request.open('PUT', url)
-    request.setRequestHeader('Content-Type', 'video/mp4')
+    request.setRequestHeader('x-upsert', 'false')
     request.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100))
     })
@@ -85,7 +89,10 @@ function putFile(url: string, file: File, onProgress: (progress: number) => void
     request.addEventListener('error', () =>
       reject(new Error('The video upload was interrupted. Please try again.'))
     )
-    request.send(file)
+    const body = new FormData()
+    body.append('cacheControl', '3600')
+    body.append('', file)
+    request.send(body)
   })
 }
 
@@ -150,7 +157,7 @@ export function ScrollVideoWorkspace({
       return
     }
     if (file.size <= 0 || file.size > MAX_UPLOAD_BYTES) {
-      setNotice({ tone: 'error', message: 'The MP4 must be smaller than 512 MB.' })
+      setNotice({ tone: 'error', message: 'The MP4 must be 10 MB or smaller.' })
       return
     }
 
@@ -158,6 +165,9 @@ export function ScrollVideoWorkspace({
     setUploadProgress(0)
     setNotice({ tone: 'info', message: 'Creating a secure upload session.' })
     try {
+      const storageFile = ['video/mp4', 'application/mp4'].includes(file.type)
+        ? file
+        : new File([file], file.name, { type: 'video/mp4', lastModified: file.lastModified })
       const start = await fetch('/api/website-builder/scroll-experiences', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -184,8 +194,8 @@ export function ScrollVideoWorkspace({
         throw new Error(session.error || 'Could not create the upload session.')
       }
 
-      setNotice({ tone: 'info', message: 'Uploading directly to private storage.' })
-      await putFile(session.uploadUrl, file, setUploadProgress)
+      setNotice({ tone: 'info', message: 'Uploading directly to private Supabase Storage.' })
+      await putSupabaseFile(session.uploadUrl, storageFile, setUploadProgress)
 
       const complete = await fetch(
         `/api/website-builder/scroll-experiences/${encodeURIComponent(session.experienceId)}/complete`,
@@ -311,8 +321,8 @@ export function ScrollVideoWorkspace({
               {uploading ? 'Uploading MP4' : 'Choose MP4 video'}
             </span>
             <span className="max-w-md text-xs leading-relaxed text-white/40">
-              Up to 512 MB. The source stays private and never passes through the browser app
-              server.
+              Up to 10 MB. The source stays private in Supabase Storage and never passes through the
+              browser app server.
             </span>
           </button>
           <input
@@ -331,7 +341,7 @@ export function ScrollVideoWorkspace({
           <div className="space-y-3 text-sm">
             <h2 className="font-semibold text-white">What happens next</h2>
             <ol className="space-y-2 text-xs leading-relaxed text-white/45">
-              <li>1. The MP4 uploads directly to tenant-scoped private storage.</li>
+              <li>1. The MP4 uploads directly to tenant-scoped private Supabase Storage.</li>
               <li>2. The worker validates and creates short-GOP desktop and mobile versions.</li>
               <li>3. Choose a page and add the ready Scroll Experience.</li>
             </ol>

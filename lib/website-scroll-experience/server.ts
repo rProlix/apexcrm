@@ -1,27 +1,24 @@
 import 'server-only'
 
 import { randomUUID } from 'node:crypto'
-import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UserContext } from '@/lib/auth/types'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { getScrollExperienceAwsEnv, getScrollExperienceLimits } from '@/lib/server/env'
+import { getScrollExperienceLimits, getScrollExperienceQueueEnv } from '@/lib/server/env'
 import {
   buildScrollExperienceIdempotencyKey,
   buildScrollExperienceObjectKey,
   isMp4Signature,
+  SCROLL_EXPERIENCE_SOURCE_BUCKET,
   scrollExperienceJobSchema,
 } from './contracts'
 
-let s3: S3Client | null = null
 let sqs: SQSClient | null = null
 
-function clients(region: string) {
-  s3 ??= new S3Client({ region, maxAttempts: 3 })
+function queueClient(region: string) {
   sqs ??= new SQSClient({ region, maxAttempts: 3 })
-  return { s3, sqs }
+  return sqs
 }
 
 function db(): SupabaseClient {
@@ -123,32 +120,18 @@ export async function createScrollExperienceUpload(input: {
     .eq('id', experienceId)
     .eq('tenant_id', input.tenantId)
 
-  const config = getScrollExperienceAwsEnv()
   const objectKey = buildScrollExperienceObjectKey({
     tenantId: input.tenantId,
     experienceId,
     experienceVersionId,
     kind: 'source',
   })
-  const command = new PutObjectCommand({
-    Bucket: config.bucket,
-    Key: objectKey,
-    ContentType: 'video/mp4',
-    ContentLength: input.bytes,
-    Metadata: {
-      tenant_id: input.tenantId,
-      experience_id: experienceId,
-      experience_version_id: experienceVersionId,
-      asset_kind: 'source',
-    },
-    Tagging: new URLSearchParams({
-      'tenant-id': input.tenantId,
-      'asset-type': 'scroll-source',
-      'retention-class': 'source',
-      'legal-hold': 'false',
-    }).toString(),
-  })
-  const uploadUrl = await getSignedUrl(clients(config.region).s3, command, { expiresIn: 15 * 60 })
+  const { data: signedUpload, error: signedUploadError } = await database.storage
+    .from(SCROLL_EXPERIENCE_SOURCE_BUCKET)
+    .createSignedUploadUrl(objectKey)
+  if (signedUploadError || !signedUpload) {
+    throw new Error('Could not create the Supabase Storage upload session.')
+  }
 
   await recordScrollAudit(
     input.tenantId,
@@ -168,18 +151,12 @@ export async function createScrollExperienceUpload(input: {
     experienceId,
     experienceVersionId,
     objectKey,
-    uploadUrl,
-    expiresInSeconds: 900,
+    uploadUrl: signedUpload.signedUrl,
+    uploadToken: signedUpload.token,
+    storageBucket: SCROLL_EXPERIENCE_SOURCE_BUCKET,
+    expiresInSeconds: 7200,
     maxUploadBytes: limits.maxUploadBytes,
   }
-}
-
-async function bodyBytes(body: unknown): Promise<Uint8Array> {
-  if (!body || typeof body !== 'object' || !('transformToByteArray' in body))
-    return new Uint8Array()
-  const transform = (body as { transformToByteArray: () => Promise<Uint8Array> })
-    .transformToByteArray
-  return transform.call(body)
 }
 
 export async function completeScrollExperienceUpload(input: {
@@ -214,20 +191,31 @@ export async function completeScrollExperienceUpload(input: {
     }
   }
 
-  const config = getScrollExperienceAwsEnv()
   const objectKey = buildScrollExperienceObjectKey({ ...input, kind: 'source' })
-  const storage = clients(config.region).s3
-  const head = await storage.send(new HeadObjectCommand({ Bucket: config.bucket, Key: objectKey }))
-  const bytes = Number(head.ContentLength ?? 0)
+  const sourceStorage = database.storage.from(SCROLL_EXPERIENCE_SOURCE_BUCKET)
+  const { data: fileInfo, error: fileInfoError } = await sourceStorage.info(objectKey)
+  if (fileInfoError || !fileInfo)
+    throw new Error('Uploaded video was not found in Supabase Storage.')
+  const bytes = Number(fileInfo.size ?? 0)
   if (bytes <= 0 || bytes !== Number(version.source_bytes))
     throw new Error('Uploaded video size does not match the upload session.')
-  if (!['video/mp4', 'application/mp4'].includes(String(head.ContentType)))
+  const storedContentType = String(fileInfo.contentType ?? fileInfo.metadata?.mimetype ?? '')
+    .toLowerCase()
+    .split(';')[0]
+  if (!['video/mp4', 'application/mp4'].includes(storedContentType))
     throw new Error('Uploaded file is not an MP4 video.')
-  const signature = await storage.send(
-    new GetObjectCommand({ Bucket: config.bucket, Key: objectKey, Range: 'bytes=0-15' })
+  const { data: signatureUrl, error: signatureUrlError } = await sourceStorage.createSignedUrl(
+    objectKey,
+    60
   )
-  if (!isMp4Signature(await bodyBytes(signature.Body)))
-    throw new Error('Uploaded file is not a valid MP4 container.')
+  if (signatureUrlError || !signatureUrl) throw new Error('Could not validate the uploaded video.')
+  const signatureResponse = await fetch(signatureUrl.signedUrl, {
+    headers: { Range: 'bytes=0-15' },
+    cache: 'no-store',
+  })
+  if (!signatureResponse.ok) throw new Error('Could not validate the uploaded video.')
+  const signature = new Uint8Array((await signatureResponse.arrayBuffer()).slice(0, 16))
+  if (!isMp4Signature(signature)) throw new Error('Uploaded file is not a valid MP4 container.')
 
   const { data: asset, error: assetError } = await database
     .from('website_scroll_experience_assets')
@@ -237,11 +225,12 @@ export async function completeScrollExperienceUpload(input: {
         experience_id: input.experienceId,
         experience_version_id: input.experienceVersionId,
         kind: 'source',
-        bucket: config.bucket,
+        storage_provider: 'supabase',
+        bucket: SCROLL_EXPERIENCE_SOURCE_BUCKET,
         object_key: objectKey,
         content_type: 'video/mp4',
         bytes,
-        metadata: { etag: head.ETag?.replaceAll('"', '') ?? null },
+        metadata: { etag: fileInfo.etag ?? null },
       },
       { onConflict: 'tenant_id,experience_version_id,kind' }
     )
@@ -284,7 +273,8 @@ export async function completeScrollExperienceUpload(input: {
   })
   let messageId = job.queue_message_id as string | null
   if (!messageId) {
-    const queued = await clients(config.region).sqs.send(
+    const config = getScrollExperienceQueueEnv()
+    const queued = await queueClient(config.region).send(
       new SendMessageCommand({
         QueueUrl: config.queueUrl,
         MessageBody: JSON.stringify(payload),

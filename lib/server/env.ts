@@ -62,13 +62,23 @@ export function getScrollExperienceAwsEnv() {
   return finish('scroll-experience', missing, { region, queueUrl, bucket })
 }
 
+export function getScrollExperienceQueueEnv() {
+  const missing: Missing = []
+  const region = required('AWS_REGION', missing)
+  const queueUrl = requiredAny(['VAN_DAMAGE_SQS_QUEUE_URL', 'SQS_QUEUE_URL'], missing)
+  return finish('scroll-experience-queue', missing, { region, queueUrl })
+}
+
 export function getScrollExperienceLimits() {
   const number = (name: string, fallback: number) => {
     const parsed = Number(process.env[name])
     return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
   }
   return {
-    maxUploadBytes: number('SCROLL_VIDEO_MAX_UPLOAD_BYTES', 512 * 1024 * 1024),
+    maxUploadBytes: Math.min(
+      number('SCROLL_VIDEO_MAX_UPLOAD_BYTES', 10 * 1024 * 1024),
+      10 * 1024 * 1024
+    ),
     maxDurationSeconds: number('SCROLL_VIDEO_MAX_DURATION_SECONDS', 180),
     maxSourceWidth: number('SCROLL_VIDEO_MAX_SOURCE_WIDTH', 3840),
     maxSourceHeight: number('SCROLL_VIDEO_MAX_SOURCE_HEIGHT', 3840),

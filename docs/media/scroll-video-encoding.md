@@ -8,4 +8,4 @@ Mobile output uses H.264/libx264, slow preset, CRF 23, yuv420p, GOP/keyint 4, sc
 
 The poster is one WebP selected from a short thumbnail sample near the beginning, avoiding reliance on a black frame at time zero. Poster generation is the only routine frame extraction. Runtime delivery always scrubs an MP4; no JPEG/PNG/WebP frame sequence is generated.
 
-Derived object keys are immutable by experience version. Public media resolution checks the active published binding, then issues a short-lived signed S3 redirect with immutable response caching and byte-range support. Small derivatives may be fetched as a Blob; large derivatives stream directly.
+Derived object keys are immutable by experience version. New source uploads and derivatives live in private Supabase Storage buckets. Public media resolution checks the active published binding, then issues a short-lived signed Supabase Storage URL with immutable response caching and byte-range support. Legacy S3-backed assets remain readable. Small derivatives may be fetched as a Blob; large derivatives stream directly.

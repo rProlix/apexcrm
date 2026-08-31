@@ -8,6 +8,6 @@ Processing stages are INSPECTING, PROCESSING_DESKTOP, PROCESSING_MOBILE, GENERAT
 
 Each job uses an isolated `nexora-scroll-*` directory under the system temporary directory. A disk-space preflight runs before download, and cleanup runs after success or failure. The EC2 installer installs and verifies `ffmpeg` and `ffprobe`. Deployment keeps the existing systemd release-and-rollback process.
 
-Required existing configuration is AWS region, private bucket, routed queue, Supabase URL, and service role. Scroll Experience deliberately shares the existing queue and bucket so one worker continues to serve every registered job type. Never place AWS access keys in the environment file; the instance role is authoritative.
+Required configuration is the existing routed SQS queue, AWS region, Supabase URL, and service role. New Scroll Experience sources and derivatives use private Supabase Storage buckets created by migration. The worker retains S3 compatibility for existing assets and continues sharing the registered job queue with the other worker job types. Never place AWS access keys in the environment file; the instance role is authoritative for legacy S3 access and SQS.
 
 Retry is idempotent and reuses the source asset and derivative keys. Owner-scoped reprocessing can advance `SCROLL_VIDEO_PROCESSING_VERSION` without changing schema.

@@ -27,24 +27,33 @@ export async function GET(
   if (!binding) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const { data: asset } = await db
     .from('website_scroll_experience_assets')
-    .select('bucket,object_key,content_type')
+    .select('storage_provider,bucket,object_key,content_type')
     .eq('experience_version_id', experienceVersionId)
     .eq('tenant_id', binding.tenant_id)
     .eq('kind', kind)
     .maybeSingle()
   if (!asset) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  const config = getScrollExperienceAwsEnv()
-  const signedUrl = await getSignedUrl(
-    new S3Client({ region: config.region, maxAttempts: 2 }),
-    new GetObjectCommand({
-      Bucket: asset.bucket,
-      Key: asset.object_key,
-      ResponseContentType: asset.content_type,
-      ResponseCacheControl: 'public, max-age=31536000, immutable',
-      ResponseContentDisposition: 'inline',
-    }),
-    { expiresIn: 10 * 60 }
-  )
+  let signedUrl: string
+  if (asset.storage_provider === 'supabase') {
+    const { data, error } = await db.storage
+      .from(asset.bucket)
+      .createSignedUrl(asset.object_key, 600)
+    if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    signedUrl = data.signedUrl
+  } else {
+    const config = getScrollExperienceAwsEnv()
+    signedUrl = await getSignedUrl(
+      new S3Client({ region: config.region, maxAttempts: 2 }),
+      new GetObjectCommand({
+        Bucket: asset.bucket,
+        Key: asset.object_key,
+        ResponseContentType: asset.content_type,
+        ResponseCacheControl: 'public, max-age=31536000, immutable',
+        ResponseContentDisposition: 'inline',
+      }),
+      { expiresIn: 10 * 60 }
+    )
+  }
   return NextResponse.redirect(signedUrl, {
     status: 307,
     headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=300' },
