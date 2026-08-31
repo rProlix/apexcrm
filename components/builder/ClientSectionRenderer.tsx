@@ -9,21 +9,22 @@
 // Wraps every section in PremiumSectionFrame so builder preview
 // matches the public site design output.
 
-import { HeroSection }         from '@/components/site/sections/HeroSection'
-import { FeatureGridSection }  from '@/components/site/sections/FeatureGridSection'
+import { HeroSection } from '@/components/site/sections/HeroSection'
+import { FeatureGridSection } from '@/components/site/sections/FeatureGridSection'
 import { TestimonialsSection } from '@/components/site/sections/TestimonialsSection'
-import { FaqSection }          from '@/components/site/sections/FaqSection'
-import { CtaSection }          from '@/components/site/sections/CtaSection'
-import { RichTextSection }     from '@/components/site/sections/RichTextSection'
-import { BannerSection }       from '@/components/site/sections/BannerSection'
-import { ContactSection }      from '@/components/site/sections/ContactSection'
-import { AboutSection }        from '@/components/site/sections/AboutSection'
+import { FaqSection } from '@/components/site/sections/FaqSection'
+import { CtaSection } from '@/components/site/sections/CtaSection'
+import { RichTextSection } from '@/components/site/sections/RichTextSection'
+import { BannerSection } from '@/components/site/sections/BannerSection'
+import { ContactSection } from '@/components/site/sections/ContactSection'
+import { AboutSection } from '@/components/site/sections/AboutSection'
 import { Premium3DScrollHeroClient } from '@/components/website/3d/Premium3DScrollHeroClient'
 import { normalizeScrollHeroContent } from '@/lib/website/premium3d/types'
+import { ScrollExperience } from '@/components/website/scroll-experience/ScrollExperience'
 import { PremiumSectionFrame } from '@/components/site/PremiumSectionFrame'
 import { normalizeSectionDesign } from '@/lib/website/design/normalizeDesignSystem'
 import type { BuilderSection } from '@/lib/builder/types'
-import type { SectionDesign }  from '@/lib/website/design/types'
+import type { SectionDesign } from '@/lib/website/design/types'
 
 interface Props {
   section: BuilderSection
@@ -33,10 +34,18 @@ interface Props {
 function extractDesign(section: BuilderSection): Partial<SectionDesign> | null {
   try {
     const sc = section.style_config
-    if (sc && typeof sc === 'object' && 'design' in sc && sc.design && typeof sc.design === 'object') {
+    if (
+      sc &&
+      typeof sc === 'object' &&
+      'design' in sc &&
+      sc.design &&
+      typeof sc.design === 'object'
+    ) {
       return normalizeSectionDesign(sc.design, {} as never)
     }
-  } catch { /* non-critical */ }
+  } catch {
+    /* non-critical */
+  }
   return null
 }
 
@@ -87,14 +96,16 @@ export function ClientSectionRenderer({ section }: Props) {
 
     case 'product_grid':
       inner = (
-        <div style={{
-          padding:    '4rem 1.5rem',
-          textAlign:  'center',
-          background: 'var(--color-surface)',
-          border:     '2px dashed var(--color-border)',
-          borderRadius: '0.5rem',
-          margin:     '1rem 1.5rem',
-        }}>
+        <div
+          style={{
+            padding: '4rem 1.5rem',
+            textAlign: 'center',
+            background: 'var(--color-surface)',
+            border: '2px dashed var(--color-border)',
+            borderRadius: '0.5rem',
+            margin: '1rem 1.5rem',
+          }}
+        >
           <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🛍️</div>
           <p style={{ color: 'var(--color-text)', fontWeight: 600, margin: '0 0 0.25rem' }}>
             {(c.headline as string) || 'Product Grid'}
@@ -108,14 +119,16 @@ export function ClientSectionRenderer({ section }: Props) {
 
     case 'image_gallery':
       inner = (
-        <div style={{
-          padding:    '4rem 1.5rem',
-          textAlign:  'center',
-          background: 'var(--color-surface)',
-          border:     '2px dashed var(--color-border)',
-          borderRadius: '0.5rem',
-          margin:     '1rem 1.5rem',
-        }}>
+        <div
+          style={{
+            padding: '4rem 1.5rem',
+            textAlign: 'center',
+            background: 'var(--color-surface)',
+            border: '2px dashed var(--color-border)',
+            borderRadius: '0.5rem',
+            margin: '1rem 1.5rem',
+          }}
+        >
           <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🖼️</div>
           <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem', margin: 0 }}>
             Image Gallery — upload images in the sidebar →
@@ -126,16 +139,25 @@ export function ClientSectionRenderer({ section }: Props) {
 
     case 'product_360_viewer':
       inner = (
-        <div style={{
-          padding:      '3rem 1.5rem',
-          textAlign:    'center',
-          background:   'linear-gradient(135deg, #0f0a1e 0%, #1a0a2e 100%)',
-          border:       '2px dashed #4c1d95',
-          borderRadius: '0.5rem',
-          margin:       '1rem 1.5rem',
-        }}>
+        <div
+          style={{
+            padding: '3rem 1.5rem',
+            textAlign: 'center',
+            background: 'linear-gradient(135deg, #0f0a1e 0%, #1a0a2e 100%)',
+            border: '2px dashed #4c1d95',
+            borderRadius: '0.5rem',
+            margin: '1rem 1.5rem',
+          }}
+        >
           <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🔄</div>
-          <p style={{ color: '#c4b5fd', fontWeight: 600, margin: '0 0 0.25rem', fontSize: '0.9375rem' }}>
+          <p
+            style={{
+              color: '#c4b5fd',
+              fontWeight: 600,
+              margin: '0 0 0.25rem',
+              fontSize: '0.9375rem',
+            }}
+          >
             360° Product Viewer
           </p>
           <p style={{ color: '#7c3aed', fontSize: '0.8125rem', margin: 0 }}>
@@ -148,12 +170,11 @@ export function ClientSectionRenderer({ section }: Props) {
       break
 
     case 'premium_3d_scroll_hero':
-      inner = (
-        <Premium3DScrollHeroClient
-          content={normalizeScrollHeroContent(c)}
-          isPreview
-        />
-      )
+      inner = <Premium3DScrollHeroClient content={normalizeScrollHeroContent(c)} isPreview />
+      break
+
+    case 'scroll_experience':
+      inner = <ScrollExperience content={c} componentInstanceId={section.id} mode="preview" />
       break
 
     default:
@@ -164,10 +185,7 @@ export function ClientSectionRenderer({ section }: Props) {
   if (!sectionDesign) return <>{inner}</>
 
   return (
-    <PremiumSectionFrame
-      sectionDesign={sectionDesign}
-      sectionType={section.section_type}
-    >
+    <PremiumSectionFrame sectionDesign={sectionDesign} sectionType={section.section_type}>
       {inner}
     </PremiumSectionFrame>
   )

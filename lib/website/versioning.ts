@@ -3,6 +3,7 @@
 // Never throws raw DB errors to the UI.
 
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   WebsiteSnapshot,
   WebsiteSnapshotPage,
@@ -56,7 +57,7 @@ function normalizeAuthUserId(value: unknown): string | null {
  */
 export async function getCurrentWebsiteSnapshot(
   tenantId: string,
-  clientPageOverride?: ClientPageSections,
+  clientPageOverride?: ClientPageSections
 ): Promise<VersionResult<WebsiteSnapshot>> {
   try {
     const db = getDB()
@@ -96,7 +97,9 @@ export async function getCurrentWebsiteSnapshot(
       try {
         const { data: imgData } = await db
           .from('website_section_images')
-          .select('id,section_id,image_url,public_url,storage_path,alt_text,prompt,aspect_ratio,slot_key,is_active,is_archived,metadata,created_at')
+          .select(
+            'id,section_id,image_url,public_url,storage_path,alt_text,prompt,aspect_ratio,slot_key,is_active,is_archived,metadata,created_at'
+          )
           .in('page_id', pageIds)
           .eq('is_archived', false)
           .order('created_at', { ascending: true })
@@ -112,27 +115,28 @@ export async function getCurrentWebsiteSnapshot(
       (acc, img) => {
         const sid = img.section_id as string
         if (!acc[sid]) acc[sid] = []
-        const activeImgId = sectionImages
-          .filter((i) => i.section_id === sid && i.is_active === true)
-          .map((i) => i.id as string)[0] ?? null
+        const activeImgId =
+          sectionImages
+            .filter((i) => i.section_id === sid && i.is_active === true)
+            .map((i) => i.id as string)[0] ?? null
         acc[sid].push({
-          id:          img.id as string,
-          sectionId:   sid,
-          url:         (img.image_url as string) || (img.public_url as string) || '',
+          id: img.id as string,
+          sectionId: sid,
+          url: (img.image_url as string) || (img.public_url as string) || '',
           storagePath: (img.storage_path as string | null) ?? null,
-          alt:         (img.alt_text as string | null) ?? null,
-          prompt:      (img.prompt as string | null) ?? null,
+          alt: (img.alt_text as string | null) ?? null,
+          prompt: (img.prompt as string | null) ?? null,
           aspectRatio: (img.aspect_ratio as string | null) ?? null,
-          slotKey:     (img.slot_key as string) ?? 'primary',
-          isActive:    Boolean(img.is_active),
-          metadata:    (img.metadata as Record<string, unknown>) ?? {},
-          createdAt:   img.created_at as string,
+          slotKey: (img.slot_key as string) ?? 'primary',
+          isActive: Boolean(img.is_active),
+          metadata: (img.metadata as Record<string, unknown>) ?? {},
+          createdAt: img.created_at as string,
         })
         // attach activeImageId on a separate pass below
         void activeImgId
         return acc
       },
-      {},
+      {}
     )
 
     // Determine active image id per section
@@ -143,7 +147,7 @@ export async function getCurrentWebsiteSnapshot(
         }
         return acc
       },
-      {},
+      {}
     )
 
     // Group DB sections by page_id
@@ -154,7 +158,7 @@ export async function getCurrentWebsiteSnapshot(
         acc[pid].push(s)
         return acc
       },
-      {},
+      {}
     )
 
     const snapshotPages: WebsiteSnapshotPage[] = pages.map((p) => {
@@ -164,78 +168,84 @@ export async function getCurrentWebsiteSnapshot(
       if (clientPageOverride && clientPageOverride.pageId === pid) {
         const clientSections = clientPageOverride.sections
           .sort((a, b) => a.sort_order - b.sort_order)
-          .map((s): WebsiteSnapshotSection => ({
-            id:               s.id,
-            section_type:     s.section_type,
-            section_key:      s.section_key ?? null,
-            sort_order:       s.sort_order,
-            content:          s.content ?? {},
-            style_config:     s.style_config ?? null,
-            animation_config: s.animation_config ?? null,
-            is_visible:       s.is_visible,
-            images:           imagesBySectionId[s.id] ?? [],
-            activeImageId:    activeImageIdBySectionId[s.id] ?? null,
-            created_at:       s.created_at ?? new Date().toISOString(),
-            updated_at:       s.updated_at ?? new Date().toISOString(),
-          }))
+          .map(
+            (s): WebsiteSnapshotSection => ({
+              id: s.id,
+              section_type: s.section_type,
+              section_key: s.section_key ?? null,
+              sort_order: s.sort_order,
+              content: s.content ?? {},
+              style_config: s.style_config ?? null,
+              animation_config: s.animation_config ?? null,
+              is_visible: s.is_visible,
+              images: imagesBySectionId[s.id] ?? [],
+              activeImageId: activeImageIdBySectionId[s.id] ?? null,
+              created_at: s.created_at ?? new Date().toISOString(),
+              updated_at: s.updated_at ?? new Date().toISOString(),
+            })
+          )
 
         return {
-          id:               pid,
-          slug:             p.slug as string,
-          title:            (p.title as string | null) ?? null,
+          id: pid,
+          slug: p.slug as string,
+          title: (p.title as string | null) ?? null,
           meta_description: (p.meta_description as string | null) ?? null,
-          page_type:        (p.page_type as string) ?? 'page',
-          status:           (p.status as string) ?? 'draft',
-          sort_order:       (p.sort_order as number) ?? 0,
-          seo:              (p.seo as Record<string, unknown>) ?? {},
-          sections:         clientSections,
+          page_type: (p.page_type as string) ?? 'page',
+          status: (p.status as string) ?? 'draft',
+          sort_order: (p.sort_order as number) ?? 0,
+          seo: (p.seo as Record<string, unknown>) ?? {},
+          sections: clientSections,
         }
       }
 
       // Otherwise use DB sections for this page
-      const pageSections = (sectionsByPage[pid] ?? []).map((s): WebsiteSnapshotSection => ({
-        id:               s.id as string,
-        section_type:     s.section_type as string,
-        section_key:      (s.section_key as string | null) ?? null,
-        sort_order:       (s.sort_order as number) ?? 0,
-        content:          (s.content as Record<string, unknown>) ?? {},
-        style_config:     (s.style_config as Record<string, unknown> | null) ?? null,
-        animation_config: (s.animation_config as Record<string, unknown> | null) ?? null,
-        is_visible:       (s.is_visible as boolean) ?? true,
-        images:           imagesBySectionId[s.id as string] ?? [],
-        activeImageId:    activeImageIdBySectionId[s.id as string] ?? null,
-        created_at:       s.created_at as string,
-        updated_at:       s.updated_at as string,
-      }))
+      const pageSections = (sectionsByPage[pid] ?? []).map(
+        (s): WebsiteSnapshotSection => ({
+          id: s.id as string,
+          section_type: s.section_type as string,
+          section_key: (s.section_key as string | null) ?? null,
+          sort_order: (s.sort_order as number) ?? 0,
+          content: (s.content as Record<string, unknown>) ?? {},
+          style_config: (s.style_config as Record<string, unknown> | null) ?? null,
+          animation_config: (s.animation_config as Record<string, unknown> | null) ?? null,
+          is_visible: (s.is_visible as boolean) ?? true,
+          images: imagesBySectionId[s.id as string] ?? [],
+          activeImageId: activeImageIdBySectionId[s.id as string] ?? null,
+          created_at: s.created_at as string,
+          updated_at: s.updated_at as string,
+        })
+      )
 
       return {
-        id:               pid,
-        slug:             p.slug as string,
-        title:            (p.title as string | null) ?? null,
+        id: pid,
+        slug: p.slug as string,
+        title: (p.title as string | null) ?? null,
         meta_description: (p.meta_description as string | null) ?? null,
-        page_type:        (p.page_type as string) ?? 'page',
-        status:           (p.status as string) ?? 'draft',
-        sort_order:       (p.sort_order as number) ?? 0,
-        seo:              (p.seo as Record<string, unknown>) ?? {},
-        sections:         pageSections,
+        page_type: (p.page_type as string) ?? 'page',
+        status: (p.status as string) ?? 'draft',
+        sort_order: (p.sort_order as number) ?? 0,
+        seo: (p.seo as Record<string, unknown>) ?? {},
+        sections: pageSections,
       }
     })
 
     const snapshot: WebsiteSnapshot = {
       schemaVersion: 1,
       tenantId,
-      capturedAt:    new Date().toISOString(),
-      source:        'manual',
-      settings:      (settingsRes.data ?? {}) as Record<string, unknown>,
-      navigation:    ((navRes.data ?? []) as unknown as WebsiteSnapshotNavItem[]),
-      pages:         snapshotPages,
+      capturedAt: new Date().toISOString(),
+      source: 'manual',
+      settings: (settingsRes.data ?? {}) as Record<string, unknown>,
+      navigation: (navRes.data ?? []) as unknown as WebsiteSnapshotNavItem[],
+      pages: snapshotPages,
     }
 
     if (process.env.NODE_ENV === 'development') {
       const totalSections = snapshotPages.reduce((sum, p) => sum + p.sections.length, 0)
       console.log(
         `[versioning] snapshot captured: ${snapshotPages.length} pages, ${totalSections} sections` +
-        (clientPageOverride ? ` (page ${clientPageOverride.pageId} from client)` : ' (all from DB)'),
+          (clientPageOverride
+            ? ` (page ${clientPageOverride.pageId} from client)`
+            : ' (all from DB)')
       )
     }
 
@@ -250,7 +260,7 @@ export async function getCurrentWebsiteSnapshot(
 // ── 2. createWebsiteVersion ───────────────────────────────────────────────────
 
 export async function createWebsiteVersion(
-  input: CreateVersionInput,
+  input: CreateVersionInput
 ): Promise<VersionResult<WebsiteVersionSummary>> {
   try {
     const db = getDB()
@@ -263,7 +273,7 @@ export async function createWebsiteVersion(
     }
 
     // Recalculate counts from the actual snapshot
-    const pageCount    = snapshot.pages.length
+    const pageCount = snapshot.pages.length
     const sectionCount = snapshot.pages.reduce((sum, p) => sum + p.sections.length, 0)
 
     // Get next version number via RPC
@@ -276,22 +286,22 @@ export async function createWebsiteVersion(
     const { data, error } = await db
       .from('site_versions')
       .insert({
-        tenant_id:                 input.tenantId,
-        version_number:            versionNumber,
-        version_name:              input.label ?? null,
-        label:                     input.label ?? null,
-        description:               input.description ?? null,
-        status:                    input.status ?? 'draft',
-        source:                    input.source ?? 'manual',
+        tenant_id: input.tenantId,
+        version_number: versionNumber,
+        version_name: input.label ?? null,
+        label: input.label ?? null,
+        description: input.description ?? null,
+        status: input.status ?? 'draft',
+        source: input.source ?? 'manual',
         snapshot,
-        page_count:                pageCount,
-        section_count:             sectionCount,
+        page_count: pageCount,
+        section_count: sectionCount,
         // normalizeAuthUserId guards against accidentally passing public.users.id
         // (ctx.id) instead of auth.users.id (ctx.auth_id). A wrong UUID would
         // violate the FK constraint and abort the entire insert.
-        created_by:                normalizeAuthUserId(input.createdBy),
-        restored_from_version_id:  input.restoredFromVersionId ?? null,
-        published_at:              input.status === 'published' ? now : null,
+        created_by: normalizeAuthUserId(input.createdBy),
+        restored_from_version_id: input.restoredFromVersionId ?? null,
+        published_at: input.status === 'published' ? now : null,
       })
       .select('*')
       .single()
@@ -299,19 +309,23 @@ export async function createWebsiteVersion(
     if (error) return { data: null, error: error.message }
 
     // Log version event
-    await db.from('website_version_events').insert({
-      tenant_id:  input.tenantId,
-      version_id: data.id,
-      event_type: 'created',
-      metadata:   {
-        source:        input.source ?? 'manual',
-        pageCount,
-        sectionCount,
-        snapshotCapturedAt: snapshot.capturedAt,
-        fromClientSnapshot: !!input.snapshot,
-      },
-      created_by: normalizeAuthUserId(input.createdBy),
-    }).then(() => null).catch(() => null) // non-blocking
+    await db
+      .from('website_version_events')
+      .insert({
+        tenant_id: input.tenantId,
+        version_id: data.id,
+        event_type: 'created',
+        metadata: {
+          source: input.source ?? 'manual',
+          pageCount,
+          sectionCount,
+          snapshotCapturedAt: snapshot.capturedAt,
+          fromClientSnapshot: !!input.snapshot,
+        },
+        created_by: normalizeAuthUserId(input.createdBy),
+      })
+      .then(() => null)
+      .catch(() => null) // non-blocking
 
     return { data: normalizeVersionRow(data) as WebsiteVersionSummary, error: null }
   } catch (err) {
@@ -325,13 +339,15 @@ export async function createWebsiteVersion(
 
 export async function getWebsiteVersions(
   tenantId: string,
-  limit = 50,
+  limit = 50
 ): Promise<VersionResult<WebsiteVersionSummary[]>> {
   try {
     const db = getDB()
     const { data, error } = await db
       .from('site_versions')
-      .select('id,tenant_id,version_number,label,version_name,description,status,source,page_count,section_count,snapshot,created_by,restored_from_version_id,published_at,created_at,updated_at')
+      .select(
+        'id,tenant_id,version_number,label,version_name,description,status,source,page_count,section_count,snapshot,created_by,restored_from_version_id,published_at,created_at,updated_at'
+      )
       .eq('tenant_id', tenantId)
       .order('version_number', { ascending: false })
       .limit(limit)
@@ -345,10 +361,12 @@ export async function getWebsiteVersions(
         try {
           const snap = row.snapshot as WebsiteSnapshot
           if (snap?.pages?.length) {
-            summary.page_count    = snap.pages.length
+            summary.page_count = snap.pages.length
             summary.section_count = snap.pages.reduce((s, p) => s + p.sections.length, 0)
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
       return summary
     }) as WebsiteVersionSummary[]
@@ -364,7 +382,7 @@ export async function getWebsiteVersions(
 
 export async function getWebsiteVersion(
   tenantId: string,
-  versionId: string,
+  versionId: string
 ): Promise<VersionResult<WebsiteVersionFull>> {
   try {
     const db = getDB()
@@ -376,14 +394,14 @@ export async function getWebsiteVersion(
       .maybeSingle()
 
     if (error) return { data: null, error: error.message }
-    if (!data)  return { data: null, error: 'Version not found' }
+    if (!data) return { data: null, error: 'Version not found' }
 
     const summary = normalizeVersionRow(data)
     const snapshot = data.snapshot as WebsiteSnapshot
 
     // Recompute counts if missing
     if ((summary.page_count === 0 || summary.section_count === 0) && snapshot?.pages?.length) {
-      summary.page_count    = snapshot.pages.length
+      summary.page_count = snapshot.pages.length
       summary.section_count = snapshot.pages.reduce((s, p) => s + p.sections.length, 0)
     }
 
@@ -399,7 +417,7 @@ export async function getWebsiteVersion(
 export async function restoreWebsiteVersion(
   tenantId: string,
   versionId: string,
-  userId: string,
+  userId: string
 ): Promise<VersionResult<WebsiteVersionSummary>> {
   try {
     // 1. Load the target version
@@ -414,11 +432,11 @@ export async function restoreWebsiteVersion(
     // 2. Save a "before restore" checkpoint of the current live state
     await createWebsiteVersion({
       tenantId,
-      label:       `Before restoring v${targetResult.data.version_number}`,
+      label: `Before restoring v${targetResult.data.version_number}`,
       description: `Auto-saved before restoring to version #${targetResult.data.version_number}`,
-      source:      'restore',
-      status:      'autosave',
-      createdBy:   userId,
+      source: 'restore',
+      status: 'autosave',
+      createdBy: userId,
     })
 
     // 3. Apply the target snapshot back into live tables
@@ -431,13 +449,13 @@ export async function restoreWebsiteVersion(
     // 5. Create a new "restored" version record (history stays intact)
     const newVersionResult = await createWebsiteVersion({
       tenantId,
-      label:                  `Restored from v${targetResult.data.version_number}`,
-      description:            `Restored from version #${targetResult.data.version_number}`,
-      source:                 'restore',
-      status:                 'restored',
-      createdBy:              userId,
-      snapshot:               targetSnapshot,
-      restoredFromVersionId:  versionId,
+      label: `Restored from v${targetResult.data.version_number}`,
+      description: `Restored from version #${targetResult.data.version_number}`,
+      source: 'restore',
+      status: 'restored',
+      createdBy: userId,
+      snapshot: targetSnapshot,
+      restoredFromVersionId: versionId,
     })
 
     return newVersionResult
@@ -453,7 +471,7 @@ export async function restoreWebsiteVersion(
 export async function publishWebsiteVersion(
   tenantId: string,
   versionId: string,
-  userId: string,
+  userId: string
 ): Promise<VersionResult<WebsiteVersionSummary>> {
   try {
     const db = getDB()
@@ -466,6 +484,15 @@ export async function publishWebsiteVersion(
     if (!snap?.pages) {
       return { data: null, error: 'Version snapshot is invalid or empty' }
     }
+
+    const { validateScrollExperienceBindings, activateScrollExperienceBindings } =
+      await import('@/lib/website-scroll-experience/publishing')
+    const scrollValidation = await validateScrollExperienceBindings(
+      db as SupabaseClient,
+      tenantId,
+      snap
+    )
+    if (!scrollValidation.ok) return { data: null, error: scrollValidation.error }
 
     // Apply snapshot to live tables
     const applyResult = await applySnapshotToWebsiteTables(tenantId, snap, userId)
@@ -499,17 +526,27 @@ export async function publishWebsiteVersion(
       .from('website_builder_drafts')
       .upsert(
         { tenant_id: tenantId, dirty: false, draft_snapshot: snap, base_version_id: versionId },
-        { onConflict: 'tenant_id' },
+        { onConflict: 'tenant_id' }
       )
 
+    await activateScrollExperienceBindings(
+      db as SupabaseClient,
+      tenantId,
+      versionId,
+      scrollValidation.bindings
+    )
+
     // Log event (non-blocking)
-    db.from('website_version_events').insert({
-      tenant_id:  tenantId,
-      version_id: versionId,
-      event_type: 'published',
-      metadata:   { published_at: now },
-      created_by: normalizeAuthUserId(userId),
-    }).then(() => null).catch(() => null)
+    db.from('website_version_events')
+      .insert({
+        tenant_id: tenantId,
+        version_id: versionId,
+        event_type: 'published',
+        metadata: { published_at: now },
+        created_by: normalizeAuthUserId(userId),
+      })
+      .then(() => null)
+      .catch(() => null)
 
     return { data: normalizeVersionRow(data) as WebsiteVersionSummary, error: null }
   } catch (err) {
@@ -523,7 +560,7 @@ export async function publishWebsiteVersion(
 
 export async function createAutosaveVersion(
   tenantId: string,
-  userId: string,
+  userId: string
 ): Promise<VersionResult<WebsiteVersionSummary>> {
   try {
     const db = getDB()
@@ -552,9 +589,9 @@ export async function createAutosaveVersion(
 
     return createWebsiteVersion({
       tenantId,
-      label:     'Autosave',
-      source:    'autosave',
-      status:    'autosave',
+      label: 'Autosave',
+      source: 'autosave',
+      status: 'autosave',
       createdBy: userId,
       snapshot,
     })
@@ -569,22 +606,20 @@ export async function createAutosaveVersion(
 export async function updateDraftSnapshot(
   tenantId: string,
   snapshot: WebsiteSnapshot,
-  userId: string,
+  userId: string
 ): Promise<VersionResult<boolean>> {
   try {
     const db = getDB()
-    const { error } = await db
-      .from('website_builder_drafts')
-      .upsert(
-        {
-          tenant_id:         tenantId,
-          draft_snapshot:    snapshot,
-          dirty:             true,
-          last_autosaved_at: new Date().toISOString(),
-          updated_by:        normalizeAuthUserId(userId),
-        },
-        { onConflict: 'tenant_id' },
-      )
+    const { error } = await db.from('website_builder_drafts').upsert(
+      {
+        tenant_id: tenantId,
+        draft_snapshot: snapshot,
+        dirty: true,
+        last_autosaved_at: new Date().toISOString(),
+        updated_by: normalizeAuthUserId(userId),
+      },
+      { onConflict: 'tenant_id' }
+    )
 
     if (error) return { data: null, error: error.message }
     return { data: true, error: null }
@@ -596,9 +631,7 @@ export async function updateDraftSnapshot(
 
 // ── 9. getDraftSnapshot ───────────────────────────────────────────────────────
 
-export async function getDraftSnapshot(
-  tenantId: string,
-): Promise<VersionResult<WebsiteSnapshot>> {
+export async function getDraftSnapshot(tenantId: string): Promise<VersionResult<WebsiteSnapshot>> {
   try {
     const db = getDB()
     const { data } = await db
@@ -633,7 +666,7 @@ export async function getDraftSnapshot(
 export async function applySnapshotToWebsiteTables(
   tenantId: string,
   snapshot: WebsiteSnapshot,
-  _userId: string,
+  _userId: string
 ): Promise<VersionResult<{ pagesApplied: number; sectionsApplied: number }>> {
   let pagesApplied = 0
   let sectionsApplied = 0
@@ -643,21 +676,19 @@ export async function applySnapshotToWebsiteTables(
 
     for (const page of snapshot.pages) {
       // Upsert page
-      const { error: pageErr } = await db
-        .from('site_pages')
-        .upsert(
-          {
-            id:               page.id,
-            tenant_id:        tenantId,
-            slug:             page.slug,
-            title:            page.title,
-            meta_description: page.meta_description,
-            page_type:        page.page_type,
-            status:           page.status === 'published' ? 'published' : 'draft',
-            sort_order:       page.sort_order,
-          },
-          { onConflict: 'id' },
-        )
+      const { error: pageErr } = await db.from('site_pages').upsert(
+        {
+          id: page.id,
+          tenant_id: tenantId,
+          slug: page.slug,
+          title: page.title,
+          meta_description: page.meta_description,
+          page_type: page.page_type,
+          status: page.status === 'published' ? 'published' : 'draft',
+          sort_order: page.sort_order,
+        },
+        { onConflict: 'id' }
+      )
 
       if (pageErr) {
         console.error('[versioning] applySnapshot page upsert error:', pageErr.message)
@@ -671,23 +702,21 @@ export async function applySnapshotToWebsiteTables(
       for (let i = 0; i < page.sections.length; i++) {
         const s = page.sections[i]
 
-        const { error: secErr } = await db
-          .from('site_sections')
-          .upsert(
-            {
-              id:               s.id,
-              tenant_id:        tenantId,
-              page_id:          page.id,
-              section_type:     s.section_type,
-              section_key:      s.section_key,
-              sort_order:       i, // exact order from snapshot
-              content:          s.content ?? {},
-              style_config:     s.style_config ?? {},
-              animation_config: s.animation_config ?? {},
-              is_visible:       s.is_visible,
-            },
-            { onConflict: 'id' },
-          )
+        const { error: secErr } = await db.from('site_sections').upsert(
+          {
+            id: s.id,
+            tenant_id: tenantId,
+            page_id: page.id,
+            section_type: s.section_type,
+            section_key: s.section_key,
+            sort_order: i, // exact order from snapshot
+            content: s.content ?? {},
+            style_config: s.style_config ?? {},
+            animation_config: s.animation_config ?? {},
+            is_visible: s.is_visible,
+          },
+          { onConflict: 'id' }
+        )
 
         if (secErr) {
           console.error('[versioning] applySnapshot section upsert error:', secErr.message)
@@ -754,7 +783,7 @@ export async function applySnapshotToWebsiteTables(
       .from('website_builder_drafts')
       .upsert(
         { tenant_id: tenantId, dirty: false, draft_snapshot: snapshot },
-        { onConflict: 'tenant_id' },
+        { onConflict: 'tenant_id' }
       )
 
     return { data: { pagesApplied, sectionsApplied }, error: null }
@@ -770,15 +799,15 @@ export async function applySnapshotToWebsiteTables(
 export async function logVersionEvent(
   tenantId: string,
   eventType: string,
-  options: { versionId?: string; metadata?: Record<string, unknown>; createdBy?: string } = {},
+  options: { versionId?: string; metadata?: Record<string, unknown>; createdBy?: string } = {}
 ): Promise<void> {
   try {
     const db = getDB()
     await db.from('website_version_events').insert({
-      tenant_id:  tenantId,
+      tenant_id: tenantId,
       version_id: options.versionId ?? null,
       event_type: eventType,
-      metadata:   options.metadata ?? {},
+      metadata: options.metadata ?? {},
       created_by: normalizeAuthUserId(options.createdBy),
     })
   } catch (err) {
@@ -791,7 +820,7 @@ export async function logVersionEvent(
 function simpleHash(str: string): number {
   let hash = 0
   for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i)
+    hash = (hash << 5) - hash + str.charCodeAt(i)
     hash |= 0
   }
   return hash
@@ -799,19 +828,19 @@ function simpleHash(str: string): number {
 
 export function normalizeVersionRow(row: Record<string, unknown>): WebsiteVersionSummary {
   return {
-    id:                       row.id as string,
-    tenant_id:                row.tenant_id as string,
-    version_number:           (row.version_number as number | null) ?? 0,
-    label:                    (row.label as string | null) ?? (row.version_name as string | null) ?? null,
-    description:              (row.description as string | null) ?? null,
-    status:                   (row.status as WebsiteVersionStatus) ?? 'draft',
-    source:                   (row.source as WebsiteVersionSource) ?? 'manual',
-    page_count:               (row.page_count as number | null) ?? 0,
-    section_count:            (row.section_count as number | null) ?? 0,
-    created_by:               (row.created_by as string | null) ?? null,
+    id: row.id as string,
+    tenant_id: row.tenant_id as string,
+    version_number: (row.version_number as number | null) ?? 0,
+    label: (row.label as string | null) ?? (row.version_name as string | null) ?? null,
+    description: (row.description as string | null) ?? null,
+    status: (row.status as WebsiteVersionStatus) ?? 'draft',
+    source: (row.source as WebsiteVersionSource) ?? 'manual',
+    page_count: (row.page_count as number | null) ?? 0,
+    section_count: (row.section_count as number | null) ?? 0,
+    created_by: (row.created_by as string | null) ?? null,
     restored_from_version_id: (row.restored_from_version_id as string | null) ?? null,
-    published_at:             (row.published_at as string | null) ?? null,
-    created_at:               row.created_at as string,
-    updated_at:               (row.updated_at as string | null) ?? (row.created_at as string),
+    published_at: (row.published_at as string | null) ?? null,
+    created_at: row.created_at as string,
+    updated_at: (row.updated_at as string | null) ?? (row.created_at as string),
   }
 }

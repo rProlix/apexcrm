@@ -9,6 +9,12 @@ import { applySnapshotToWebsiteTables } from '@/lib/website/versioning'
 import { createWebsiteSnapshotForTenant } from '@/lib/website/snapshot/createWebsiteSnapshotForTenant'
 import type { ClientPageSections } from '@/lib/website/versionTypes'
 import { revalidatePath, revalidateTag } from 'next/cache'
+import {
+  activateScrollExperienceBindings,
+  deactivateScrollExperienceBindings,
+  validateScrollExperienceBindings,
+} from '@/lib/website-scroll-experience/publishing'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DB = any
@@ -38,7 +44,16 @@ export function revalidateTenantPublicRoutes(tenantId: string, tenantSlug: strin
     if (tenantSlug) {
       revalidatePath(`/sites/${tenantSlug}`)
       revalidatePath(`/sites/${tenantSlug}/`)
-      for (const slug of ['about', 'services', 'menu', 'shop', 'contact', 'faq', 'book', 'reviews']) {
+      for (const slug of [
+        'about',
+        'services',
+        'menu',
+        'shop',
+        'contact',
+        'faq',
+        'book',
+        'reviews',
+      ]) {
         revalidatePath(`/sites/${tenantSlug}/${slug}`)
       }
       revalidateTag(`website:${tenantSlug}:public`)
@@ -47,7 +62,10 @@ export function revalidateTenantPublicRoutes(tenantId: string, tenantSlug: strin
     revalidatePath('/website')
     revalidatePath('/website/sites')
   } catch (err) {
-    console.warn('[publishSite] cache revalidation error:', err instanceof Error ? err.message : err)
+    console.warn(
+      '[publishSite] cache revalidation error:',
+      err instanceof Error ? err.message : err
+    )
   }
 }
 
@@ -58,9 +76,11 @@ async function tenantSlugFor(db: DB, tenantId: string): Promise<string | null> {
 
 export async function unpublishTenantSite(tenantId: string): Promise<PublishResult> {
   const db = getSupabaseServerClient() as DB
-  const { error } = await db.from('site_settings')
+  const { error } = await db
+    .from('site_settings')
     .upsert({ tenant_id: tenantId, is_published: false }, { onConflict: 'tenant_id' })
   if (error) return { ok: false, error: error.message, step: 'settings_update' }
+  await deactivateScrollExperienceBindings(db as SupabaseClient, tenantId)
   revalidateTenantPublicRoutes(tenantId, await tenantSlugFor(db, tenantId))
   return { ok: true, published: false }
 }
@@ -90,12 +110,34 @@ export async function publishTenantSite(params: {
     preferClientSnapshot: !!params.clientSnapshot,
     forPublish: true,
   })
-  if (!snapResult.ok) return { ok: false, error: snapResult.error, details: snapResult.details, step: snapResult.step }
+  if (!snapResult.ok)
+    return {
+      ok: false,
+      error: snapResult.error,
+      details: snapResult.details,
+      step: snapResult.step,
+    }
 
   const { snapshot, pageCount, sectionCount } = snapResult
+  const scrollValidation = await validateScrollExperienceBindings(
+    db as SupabaseClient,
+    tenantId,
+    snapshot
+  )
+  if (!scrollValidation.ok) {
+    return { ok: false, error: scrollValidation.error, step: 'scroll_experience_validation' }
+  }
 
-  const { data: nextNumData, error: nextNumErr } = await db.rpc('get_next_site_version_number', { p_tenant_id: tenantId })
-  if (nextNumErr) return { ok: false, error: 'Failed to get version number', details: nextNumErr.message, step: 'version_number' }
+  const { data: nextNumData, error: nextNumErr } = await db.rpc('get_next_site_version_number', {
+    p_tenant_id: tenantId,
+  })
+  if (nextNumErr)
+    return {
+      ok: false,
+      error: 'Failed to get version number',
+      details: nextNumErr.message,
+      step: 'version_number',
+    }
   const versionNumber = (nextNumData as number | null) ?? 1
 
   const now = new Date().toISOString()
@@ -123,51 +165,117 @@ export async function publishTenantSite(params: {
   if (versionErr) {
     const e = versionErr as Record<string, unknown>
     return {
-      ok: false, error: 'CHECKPOINT_SAVE_FAILED', step: 'version_insert',
-      checkpointError: { code: e.code ?? null, message: e.message ?? null, details: e.details ?? null, hint: e.hint ?? null },
+      ok: false,
+      error: 'CHECKPOINT_SAVE_FAILED',
+      step: 'version_insert',
+      checkpointError: {
+        code: e.code ?? null,
+        message: e.message ?? null,
+        details: e.details ?? null,
+        hint: e.hint ?? null,
+      },
     }
   }
 
   const versionId = versionRow.id as string
 
   const applyResult = await applySnapshotToWebsiteTables(tenantId, snapshot, userId ?? '')
-  if (!applyResult.data) return { ok: false, error: 'Failed to apply snapshot to live tables', details: applyResult.error ?? '', step: 'publish_apply' }
+  if (!applyResult.data)
+    return {
+      ok: false,
+      error: 'Failed to apply snapshot to live tables',
+      details: applyResult.error ?? '',
+      step: 'publish_apply',
+    }
 
-  await db.from('site_versions').update({ status: 'archived' }).eq('tenant_id', tenantId).eq('status', 'published')
-  await db.from('site_versions').update({ status: 'published', published_at: now }).eq('id', versionId)
+  await db
+    .from('site_versions')
+    .update({ status: 'archived' })
+    .eq('tenant_id', tenantId)
+    .eq('status', 'published')
+  await db
+    .from('site_versions')
+    .update({ status: 'published', published_at: now })
+    .eq('id', versionId)
 
   const snapshotSettings = (snapshot.settings ?? {}) as Record<string, unknown>
   const settingsUpdate: Record<string, unknown> = {
-    tenant_id: tenantId, is_published: true, published_at: now,
-    last_published_version_id: versionId, has_unpublished_changes: false,
+    tenant_id: tenantId,
+    is_published: true,
+    published_at: now,
+    last_published_version_id: versionId,
+    has_unpublished_changes: false,
   }
-  for (const key of ['design_system', 'theme', 'template_config', 'brand_colors', 'fonts'] as const) {
-    if (snapshotSettings[key] && typeof snapshotSettings[key] === 'object') settingsUpdate[key] = snapshotSettings[key]
+  for (const key of [
+    'design_system',
+    'theme',
+    'template_config',
+    'brand_colors',
+    'fonts',
+  ] as const) {
+    if (snapshotSettings[key] && typeof snapshotSettings[key] === 'object')
+      settingsUpdate[key] = snapshotSettings[key]
   }
-  if (snapshotSettings.active_template_key) settingsUpdate.active_template_key = snapshotSettings.active_template_key
-  if (snapshotSettings.active_template_id) settingsUpdate.active_template_id = snapshotSettings.active_template_id
+  if (snapshotSettings.active_template_key)
+    settingsUpdate.active_template_key = snapshotSettings.active_template_key
+  if (snapshotSettings.active_template_id)
+    settingsUpdate.active_template_id = snapshotSettings.active_template_id
 
-  const { error: settingsErr } = await db.from('site_settings').upsert(settingsUpdate, { onConflict: 'tenant_id' })
+  const { error: settingsErr } = await db
+    .from('site_settings')
+    .upsert(settingsUpdate, { onConflict: 'tenant_id' })
   if (settingsErr) console.warn('[publishSite] site_settings update failed:', settingsErr.message)
 
-  await db.from('site_pages').update({ status: 'published', updated_at: now })
-    .eq('tenant_id', tenantId).eq('status', 'draft')
+  await db
+    .from('site_pages')
+    .update({ status: 'published', updated_at: now })
+    .eq('tenant_id', tenantId)
+    .eq('status', 'draft')
 
-  await db.from('website_builder_drafts').upsert(
-    { tenant_id: tenantId, dirty: false, draft_snapshot: snapshot, base_version_id: versionId },
-    { onConflict: 'tenant_id' },
-  )
+  await db
+    .from('website_builder_drafts')
+    .upsert(
+      { tenant_id: tenantId, dirty: false, draft_snapshot: snapshot, base_version_id: versionId },
+      { onConflict: 'tenant_id' }
+    )
+
+  try {
+    await activateScrollExperienceBindings(
+      db as SupabaseClient,
+      tenantId,
+      versionId,
+      scrollValidation.bindings
+    )
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Scroll Experience publish failed.',
+      step: 'scroll_experience_bindings',
+    }
+  }
 
   revalidateTenantPublicRoutes(tenantId, tenantSlug)
 
-  db.from('website_version_events').insert({
-    tenant_id: tenantId, version_id: versionId, event_type: 'published',
-    metadata: { pageCount, sectionCount, publishedAt: now }, created_by: userId ?? null,
-  }).then(() => null).catch(() => null)
+  db.from('website_version_events')
+    .insert({
+      tenant_id: tenantId,
+      version_id: versionId,
+      event_type: 'published',
+      metadata: { pageCount, sectionCount, publishedAt: now },
+      created_by: userId ?? null,
+    })
+    .then(() => null)
+    .catch(() => null)
 
   return {
-    ok: true, published: true, versionId, versionNumber, pageCount, sectionCount,
-    publishedAt: now, liveUrl: tenantSlug ? `/sites/${tenantSlug}` : null,
+    ok: true,
+    published: true,
+    versionId,
+    versionNumber,
+    pageCount,
+    sectionCount,
+    publishedAt: now,
+    liveUrl: tenantSlug ? `/sites/${tenantSlug}` : null,
     warnings: snapResult.warnings ?? [],
   }
 }

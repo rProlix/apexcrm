@@ -1,6 +1,8 @@
 import { HeadBucketCommand, S3Client } from '@aws-sdk/client-s3'
 import { GetQueueAttributesCommand, SQSClient } from '@aws-sdk/client-sqs'
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import { getTokenEncryptionKey } from '../../../lib/server/crypto/encrypt-token.js'
 import { getConfig } from './config.js'
 import { assertGeminiInitialized } from './gemini-damage-analysis.js'
@@ -9,21 +11,25 @@ import { SupabaseWorker } from './supabase-worker.js'
 
 export type HealthStatus = 'Healthy' | 'Warning' | 'Unhealthy'
 type Check = { ok: boolean; required: boolean; detail: string }
+const execFileAsync = promisify(execFile)
 
 async function check(
   name: string,
   required: boolean,
-  fn: () => Promise<string | void> | string | void,
+  fn: () => Promise<string | void> | string | void
 ): Promise<[string, Check]> {
   try {
     const detail = await fn()
     return [name, { ok: true, required, detail: detail || 'Connection verified' }]
   } catch (error) {
-    return [name, {
-      ok: false,
-      required,
-      detail: error instanceof Error ? error.message : String(error),
-    }]
+    return [
+      name,
+      {
+        ok: false,
+        required,
+        detail: error instanceof Error ? error.message : String(error),
+      },
+    ]
   }
 }
 
@@ -39,7 +45,9 @@ export async function runHealth() {
       return identity.Account ? `Authenticated to AWS account ${identity.Account}` : undefined
     }),
     check('sqs', true, async () => {
-      await sqs.send(new GetQueueAttributesCommand({ QueueUrl: config.queueUrl, AttributeNames: ['QueueArn'] }))
+      await sqs.send(
+        new GetQueueAttributesCommand({ QueueUrl: config.queueUrl, AttributeNames: ['QueueArn'] })
+      )
       return 'Queue attributes retrieved'
     }),
     check('s3', true, async () => {
@@ -49,6 +57,20 @@ export async function runHealth() {
     check('supabase', true, async () => {
       const contract = await supabase.checkSchemaCompatibility()
       return `Connected; schema ${contract.version}`
+    }),
+    check('ffmpeg', true, async () => {
+      const { stdout } = await execFileAsync('ffmpeg', ['-version'], {
+        timeout: 5_000,
+        maxBuffer: 64_000,
+      })
+      return stdout.split('\n')[0] || 'FFmpeg is runnable'
+    }),
+    check('ffprobe', true, async () => {
+      const { stdout } = await execFileAsync('ffprobe', ['-version'], {
+        timeout: 5_000,
+        maxBuffer: 64_000,
+      })
+      return stdout.split('\n')[0] || 'FFprobe is runnable'
     }),
     check('aiAnalysis', true, () => assertGeminiInitialized(config)),
     check('slack', true, () => {
@@ -73,16 +95,24 @@ export async function runHealth() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runHealth().then((report) => {
-    console.log(JSON.stringify(report, null, 2))
-    process.exitCode = report.status === 'Unhealthy' ? 1 : 0
-  }).catch((error) => {
-    console.error(JSON.stringify({
-      status: 'Unhealthy',
-      reason: error instanceof Error ? error.message : String(error),
-      ok: false,
-      checks: {},
-    }, null, 2))
-    process.exitCode = 1
-  })
+  runHealth()
+    .then((report) => {
+      console.log(JSON.stringify(report, null, 2))
+      process.exitCode = report.status === 'Unhealthy' ? 1 : 0
+    })
+    .catch((error) => {
+      console.error(
+        JSON.stringify(
+          {
+            status: 'Unhealthy',
+            reason: error instanceof Error ? error.message : String(error),
+            ok: false,
+            checks: {},
+          },
+          null,
+          2
+        )
+      )
+      process.exitCode = 1
+    })
 }

@@ -2,6 +2,7 @@
 
 import type { Premium3DScrollHeroContent } from './premium3d/types'
 import { defaultPremium3DScrollHeroContent } from './premium3d/types'
+import { defaultScrollExperienceContent } from '@/lib/website-scroll-experience/types'
 import type { WebsiteDesignSystem } from './design/types'
 
 // Re-export so callers can import the Premium 3D Scroll Hero content type from
@@ -39,6 +40,7 @@ export type SectionType =
   | 'about'
   | 'product_360_viewer'
   | 'premium_3d_scroll_hero'
+  | 'scroll_experience'
   | 'custom'
 
 export type NavLocation = 'header' | 'footer'
@@ -540,6 +542,13 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
     description: 'Scroll-driven 3D model or video-scrub cinematic hero',
     icon: 'box',
     defaultContent: defaultPremium3DScrollHeroContent() as unknown as SectionContent,
+  },
+  scroll_experience: {
+    type: 'scroll_experience',
+    label: 'Scroll Experience',
+    description: 'Scroll-controlled cinematic MP4 with accessible content overlays',
+    icon: 'film',
+    defaultContent: defaultScrollExperienceContent() as unknown as SectionContent,
   },
   custom: {
     type: 'custom',

@@ -10,5 +10,12 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts", "../../lib/van-damage/contracts.ts", "../../lib/server/crypto/encrypt-token.ts"]
+  "include": [
+    "src/**/*.ts",
+    "scripts/**/*.ts",
+    "test/**/*.ts",
+    "../../lib/van-damage/contracts.ts",
+    "../../lib/website-scroll-experience/contracts.ts",
+    "../../lib/server/crypto/encrypt-token.ts"
+  ]
 }

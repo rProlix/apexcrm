@@ -23,6 +23,22 @@ const schema = z.object({
     .int()
     .positive()
     .default(12 * 1024 * 1024),
+  SCROLL_VIDEO_PROCESSING_CONCURRENCY: z.coerce.number().int().min(1).max(2).default(1),
+  SCROLL_VIDEO_MAX_DURATION_SECONDS: z.coerce.number().int().min(1).default(180),
+  SCROLL_VIDEO_MAX_UPLOAD_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(512 * 1024 * 1024),
+  SCROLL_VIDEO_MAX_SOURCE_WIDTH: z.coerce.number().int().min(320).default(3840),
+  SCROLL_VIDEO_MAX_SOURCE_HEIGHT: z.coerce.number().int().min(320).default(3840),
+  SCROLL_VIDEO_DESKTOP_MAX_WIDTH: z.coerce.number().int().min(320).default(1920),
+  SCROLL_VIDEO_MOBILE_MAX_WIDTH: z.coerce.number().int().min(320).default(720),
+  SCROLL_VIDEO_MIN_FREE_DISK_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(2 * 1024 * 1024 * 1024),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 })
 
@@ -40,6 +56,14 @@ export type WorkerConfig = {
   visibilityTimeoutSeconds: number
   maxImageBytes: number
   maxGeminiRawBytes: number
+  scrollProcessingConcurrency: number
+  scrollMaxDurationSeconds: number
+  scrollMaxUploadBytes: number
+  scrollMaxSourceWidth: number
+  scrollMaxSourceHeight: number
+  scrollDesktopMaxWidth: number
+  scrollMobileMaxWidth: number
+  scrollMinFreeDiskBytes: number
   logLevel: 'debug' | 'info' | 'warn' | 'error'
 }
 
@@ -67,6 +91,14 @@ export function getConfig(): WorkerConfig {
     visibilityTimeoutSeconds: env.VAN_DAMAGE_VISIBILITY_TIMEOUT_SECONDS,
     maxImageBytes: env.VAN_DAMAGE_MAX_IMAGE_BYTES,
     maxGeminiRawBytes: env.VAN_DAMAGE_MAX_GEMINI_RAW_BYTES,
+    scrollProcessingConcurrency: env.SCROLL_VIDEO_PROCESSING_CONCURRENCY,
+    scrollMaxDurationSeconds: env.SCROLL_VIDEO_MAX_DURATION_SECONDS,
+    scrollMaxUploadBytes: env.SCROLL_VIDEO_MAX_UPLOAD_BYTES,
+    scrollMaxSourceWidth: env.SCROLL_VIDEO_MAX_SOURCE_WIDTH,
+    scrollMaxSourceHeight: env.SCROLL_VIDEO_MAX_SOURCE_HEIGHT,
+    scrollDesktopMaxWidth: env.SCROLL_VIDEO_DESKTOP_MAX_WIDTH,
+    scrollMobileMaxWidth: env.SCROLL_VIDEO_MOBILE_MAX_WIDTH,
+    scrollMinFreeDiskBytes: env.SCROLL_VIDEO_MIN_FREE_DISK_BYTES,
     logLevel: env.LOG_LEVEL,
   }
   return cached

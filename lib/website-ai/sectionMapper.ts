@@ -3,6 +3,7 @@
 
 import type { GeminiSuggestion } from './types'
 import { recommendScrollHero } from './recommendScrollHero'
+import { defaultScrollExperienceContent } from '@/lib/website-scroll-experience/types'
 import type {
   SectionType,
   HeroContent,
@@ -18,7 +19,7 @@ import type {
 
 export interface MappedSection {
   section_type: SectionType
-  content:      unknown
+  content: unknown
 }
 
 /**
@@ -86,6 +87,24 @@ export function mapSuggestionToSection(suggestion: GeminiSuggestion): MappedSect
         content: mapScrollHero(ps, suggestion.data),
       }
 
+    case 'scroll_experience':
+      return {
+        section_type: 'scroll_experience',
+        content: {
+          ...defaultScrollExperienceContent(),
+          experienceId: str(ps.experienceId, '') || undefined,
+          experienceVersionId: str(ps.experienceVersionId, '') || undefined,
+          heading: str(ps.heading ?? ps.headline, 'Your story in motion'),
+          body: str(ps.body ?? ps.subheading, ''),
+          scrollDistanceVh: Math.max(150, Math.min(900, num(ps.scrollDistanceVh, 400))),
+          startTime: Math.max(0, num(ps.startTime, 0)),
+          endTime: num(ps.endTime, 0) || undefined,
+          mobileFit: ['contain', 'center_crop'].includes(String(ps.mobileFit))
+            ? ps.mobileFit
+            : 'cover',
+        },
+      }
+
     case 'seo':
     case 'policies':
     case 'social_links':
@@ -106,20 +125,20 @@ export function mapSuggestionToSection(suggestion: GeminiSuggestion): MappedSect
 
 function mapHero(ps: Record<string, unknown>): HeroContent {
   return {
-    headline:       str(ps.headline, 'Welcome'),
-    subheadline:    str(ps.subheadline, ''),
-    ctaLabel:       str(ps.ctaLabel, 'Learn More'),
-    ctaHref:        str(ps.ctaHref, '/'),
-    overlay:        bool(ps.overlay, true),
+    headline: str(ps.headline, 'Welcome'),
+    subheadline: str(ps.subheadline, ''),
+    ctaLabel: str(ps.ctaLabel, 'Learn More'),
+    ctaHref: str(ps.ctaHref, '/'),
+    overlay: bool(ps.overlay, true),
     overlayOpacity: num(ps.overlayOpacity, 50),
-    align:          align(ps.align),
+    align: align(ps.align),
   }
 }
 
 function mapAbout(ps: Record<string, unknown>): AboutContent {
   return {
     headline: str(ps.heading ?? ps.headline, 'About Us'),
-    body:     str(ps.body ?? ps.subheading, ''),
+    body: str(ps.body ?? ps.subheading, ''),
   }
 }
 
@@ -130,10 +149,10 @@ function mapTestimonials(ps: Record<string, unknown>): TestimonialsContent {
     items: rawItems.map((item: unknown) => {
       const i = asObj(item)
       return {
-        name:   str(i.name, 'Customer'),
-        role:   str(i.role, '') || undefined,
+        name: str(i.name, 'Customer'),
+        role: str(i.role, '') || undefined,
         avatar: str(i.avatar, '') || undefined,
-        text:   str(i.text ?? i.quote, ''),
+        text: str(i.text ?? i.quote, ''),
         rating: num(i.rating, 5),
       }
     }),
@@ -144,45 +163,50 @@ function mapFaq(ps: Record<string, unknown>): FaqContent {
   const rawItems = Array.isArray(ps.items) ? ps.items : []
   return {
     headline: str(ps.heading ?? ps.headline, 'Frequently Asked Questions'),
-    items: rawItems.map((item: unknown) => {
-      const i = asObj(item)
-      return {
-        question: str(i.question, ''),
-        answer:   str(i.answer, ''),
-      }
-    }).filter((i) => i.question),
+    items: rawItems
+      .map((item: unknown) => {
+        const i = asObj(item)
+        return {
+          question: str(i.question, ''),
+          answer: str(i.answer, ''),
+        }
+      })
+      .filter((i) => i.question),
   }
 }
 
 function mapContact(ps: Record<string, unknown>, data: Record<string, unknown>): ContactContent {
   return {
     headline: str(ps.heading ?? ps.headline, 'Get In Touch'),
-    body:     str(ps.body ?? ps.subheading, ''),
-    email:    str(data.email ?? ps.email, '') || undefined,
-    phone:    str(data.phone ?? ps.phone, '') || undefined,
-    address:  str(data.address ?? ps.address, '') || undefined,
+    body: str(ps.body ?? ps.subheading, ''),
+    email: str(data.email ?? ps.email, '') || undefined,
+    phone: str(data.phone ?? ps.phone, '') || undefined,
+    address: str(data.address ?? ps.address, '') || undefined,
     showForm: false,
   }
 }
 
-function mapServices(ps: Record<string, unknown>, data: Record<string, unknown>): FeatureGridContent {
+function mapServices(
+  ps: Record<string, unknown>,
+  data: Record<string, unknown>
+): FeatureGridContent {
   const rawServices = Array.isArray(data.services) ? data.services : []
-  const psItems     = Array.isArray(ps.items) ? ps.items : []
+  const psItems = Array.isArray(ps.items) ? ps.items : []
 
   const items = rawServices.length
     ? rawServices.map((s: unknown) => {
         const svc = asObj(s)
         const price = str(svc.price, '')
-        const desc  = str(svc.description, '')
+        const desc = str(svc.description, '')
         return {
-          title:       str(svc.name, 'Service'),
+          title: str(svc.name, 'Service'),
           description: price ? `${price}${desc ? ` — ${desc}` : ''}` : desc,
         }
       })
     : psItems.map((item: unknown) => {
         const i = asObj(item)
         return {
-          title:       str(i.title, 'Service'),
+          title: str(i.title, 'Service'),
           description: str(i.description, ''),
         }
       })
@@ -190,28 +214,28 @@ function mapServices(ps: Record<string, unknown>, data: Record<string, unknown>)
   return {
     headline: str(ps.heading ?? ps.headline, 'Our Services'),
     subtitle: str(ps.subheading ?? ps.subtitle, ''),
-    columns:  3,
+    columns: 3,
     items,
   }
 }
 
 function mapProductGrid(ps: Record<string, unknown>): ProductGridContent {
   return {
-    headline:     str(ps.heading ?? ps.headline, 'Our Products'),
-    subtitle:     str(ps.subheading ?? ps.subtitle, ''),
-    limit:        8,
-    showAll:      true,
-    allHref:      '/shop',
+    headline: str(ps.heading ?? ps.headline, 'Our Products'),
+    subtitle: str(ps.subheading ?? ps.subtitle, ''),
+    limit: 8,
+    showAll: true,
+    allHref: '/shop',
     filterActive: false,
   }
 }
 
 function mapBanner(ps: Record<string, unknown>): BannerContent {
   return {
-    text:        str(ps.text, 'Special offer — limited time only!'),
-    ctaLabel:    str(ps.ctaLabel, '') || undefined,
-    ctaHref:     str(ps.ctaHref, '') || undefined,
-    variant:     'promo',
+    text: str(ps.text, 'Special offer — limited time only!'),
+    ctaLabel: str(ps.ctaLabel, '') || undefined,
+    ctaHref: str(ps.ctaHref, '') || undefined,
+    variant: 'promo',
     dismissible: true,
   }
 }
@@ -219,19 +243,19 @@ function mapBanner(ps: Record<string, unknown>): BannerContent {
 function mapScrollHero(ps: Record<string, unknown>, data: Record<string, unknown>): unknown {
   const businessType = str(data.businessType ?? ps.businessType ?? ps.industry, '')
   const rec = recommendScrollHero(businessType || null, {
-    headline:    str(ps.heading ?? ps.headline, 'Experience It In Motion'),
+    headline: str(ps.heading ?? ps.headline, 'Experience It In Motion'),
     subheadline: str(ps.subheading ?? ps.subheadline, 'Scroll to explore every detail.'),
-    eyebrow:     str(ps.eyebrow, 'Premium'),
-    renderMode:  ps.renderMode === 'video_scrub' ? 'video_scrub' : undefined,
+    eyebrow: str(ps.eyebrow, 'Premium'),
+    renderMode: ps.renderMode === 'video_scrub' ? 'video_scrub' : undefined,
   })
   // recommendScrollHero never fabricates assets; it returns a safe placeholder.
   return rec.content
 }
 
 function mapRichText(ps: Record<string, unknown>): RichTextContent {
-  const heading  = str(ps.heading ?? ps.headline, '')
+  const heading = str(ps.heading ?? ps.headline, '')
   const bodyText = str(ps.body ?? ps.subheading ?? ps.text, '')
-  const html     = heading
+  const html = heading
     ? `<h2>${heading}</h2>${bodyText ? `<p>${bodyText}</p>` : ''}`
     : bodyText
       ? `<p>${bodyText}</p>`
@@ -268,13 +292,17 @@ function asObj(v: unknown): Record<string, unknown> {
 // ── Duplicate detection helpers ────────────────────────────────────────────────
 
 export function normalizeForDedup(s: string): string {
-  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, ' ').trim()
+  return s
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
 }
 
 export function isDuplicateReview(
   existingItems: Array<{ name?: string; text?: string }>,
-  newName:       string,
-  newText:       string,
+  newName: string,
+  newText: string
 ): boolean {
   const nn = normalizeForDedup(newName)
   const nt = normalizeForDedup(newText)
@@ -285,7 +313,7 @@ export function isDuplicateReview(
 
 export function isDuplicateService(
   existingItems: Array<{ title?: string }>,
-  newTitle:      string,
+  newTitle: string
 ): boolean {
   const nt = normalizeForDedup(newTitle)
   return existingItems.some((i) => normalizeForDedup(i.title ?? '') === nt)
@@ -293,7 +321,7 @@ export function isDuplicateService(
 
 export function isDuplicateFaq(
   existingItems: Array<{ question?: string }>,
-  newQuestion:   string,
+  newQuestion: string
 ): boolean {
   const nq = normalizeForDedup(newQuestion)
   return existingItems.some((i) => normalizeForDedup(i.question ?? '') === nq)

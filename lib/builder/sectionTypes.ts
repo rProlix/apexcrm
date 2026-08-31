@@ -1,6 +1,7 @@
 // lib/builder/sectionTypes.ts — Section type registry for the website builder
 
 import { defaultPremium3DScrollHeroContent } from '@/lib/website/premium3d/types'
+import { defaultScrollExperienceContent } from '@/lib/website-scroll-experience/types'
 
 export const CANONICAL_SECTION_TYPES = [
   'hero',
@@ -16,93 +17,98 @@ export const CANONICAL_SECTION_TYPES = [
   'gallery',
   'product_360',
   'premium_3d_scroll_hero',
+  'scroll_experience',
   'custom',
 ] as const
 
-export type CanonicalSectionType = typeof CANONICAL_SECTION_TYPES[number]
+export type CanonicalSectionType = (typeof CANONICAL_SECTION_TYPES)[number]
 
 /** Maps raw AI/legacy names to canonical section types */
 const SECTION_TYPE_ALIASES: Record<string, CanonicalSectionType> = {
   // Hero variants
-  'hero banner':        'hero',
-  'hero_banner':        'hero',
-  'herobanner':         'hero',
-  'banner_hero':        'hero',
-  'header':             'hero',
+  'hero banner': 'hero',
+  hero_banner: 'hero',
+  herobanner: 'hero',
+  banner_hero: 'hero',
+  header: 'hero',
 
   // About variants
-  'about section':      'about',
-  'about_section':      'about',
-  'aboutsection':       'about',
-  'about us':           'about',
-  'about_us':           'about',
+  'about section': 'about',
+  about_section: 'about',
+  aboutsection: 'about',
+  'about us': 'about',
+  about_us: 'about',
 
   // Feature grid variants
-  'feature grid':       'feature_grid',
-  'feature_grid':       'feature_grid',
-  'featuregrid':        'feature_grid',
-  'features':           'feature_grid',
-  'feature section':    'feature_grid',
-  'feature_section':    'feature_grid',
+  'feature grid': 'feature_grid',
+  feature_grid: 'feature_grid',
+  featuregrid: 'feature_grid',
+  features: 'feature_grid',
+  'feature section': 'feature_grid',
+  feature_section: 'feature_grid',
 
   // Testimonials variants
-  'testimonial':        'testimonials',
+  testimonial: 'testimonials',
   'testimonials section': 'testimonials',
-  'reviews':            'testimonials',
-  'review section':     'testimonials',
+  reviews: 'testimonials',
+  'review section': 'testimonials',
 
   // FAQ variants
-  'faq section':        'faq',
-  'faq_section':        'faq',
-  'faqs':               'faq',
-  'frequently asked':   'faq',
+  'faq section': 'faq',
+  faq_section: 'faq',
+  faqs: 'faq',
+  'frequently asked': 'faq',
 
   // Contact variants
-  'contact section':    'contact',
-  'contact_section':    'contact',
-  'contactsection':     'contact',
-  'contact form':       'contact',
+  'contact section': 'contact',
+  contact_section: 'contact',
+  contactsection: 'contact',
+  'contact form': 'contact',
 
   // Product grid variants
-  'product grid':       'product_grid',
-  'productgrid':        'product_grid',
-  'products':           'product_grid',
-  'shop':               'product_grid',
+  'product grid': 'product_grid',
+  productgrid: 'product_grid',
+  products: 'product_grid',
+  shop: 'product_grid',
 
   // Rich text variants
-  'rich_text':          'rich_text',
-  'richtext':           'rich_text',
-  'text':               'rich_text',
-  'content':            'rich_text',
+  rich_text: 'rich_text',
+  richtext: 'rich_text',
+  text: 'rich_text',
+  content: 'rich_text',
 
   // Banner variants
-  'announcement':       'banner',
-  'promo banner':       'banner',
+  announcement: 'banner',
+  'promo banner': 'banner',
 
   // CTA variants
-  'call to action':     'cta',
-  'call_to_action':     'cta',
+  'call to action': 'cta',
+  call_to_action: 'cta',
 
   // Gallery variants
-  'image gallery':      'gallery',
-  'image_gallery':      'gallery',
-  'photo gallery':      'gallery',
+  'image gallery': 'gallery',
+  image_gallery: 'gallery',
+  'photo gallery': 'gallery',
 
   // 360 viewer variants
-  'product_360_viewer': 'product_360',
-  'product360viewer':   'product_360',
-  '360_viewer':         'product_360',
-  '360 viewer':         'product_360',
-  'product360':         'product_360',
+  product_360_viewer: 'product_360',
+  product360viewer: 'product_360',
+  '360_viewer': 'product_360',
+  '360 viewer': 'product_360',
+  product360: 'product_360',
 
   // Premium 3D Scroll Hero variants
   'premium 3d scroll hero': 'premium_3d_scroll_hero',
-  'premium_3d_hero':        'premium_3d_scroll_hero',
-  'scroll hero':            'premium_3d_scroll_hero',
-  'scroll_hero':            'premium_3d_scroll_hero',
-  '3d hero':                'premium_3d_scroll_hero',
-  'parallax hero':          'premium_3d_scroll_hero',
-  'cinematic hero':         'premium_3d_scroll_hero',
+  premium_3d_hero: 'premium_3d_scroll_hero',
+  'scroll hero': 'premium_3d_scroll_hero',
+  scroll_hero: 'premium_3d_scroll_hero',
+  '3d hero': 'premium_3d_scroll_hero',
+  'parallax hero': 'premium_3d_scroll_hero',
+  'cinematic hero': 'premium_3d_scroll_hero',
+
+  'scroll experience': 'scroll_experience',
+  'cinematic scroll': 'scroll_experience',
+  'video scroll': 'scroll_experience',
 }
 
 /** Normalise a raw section type string to a canonical type */
@@ -119,20 +125,21 @@ export function normalizeSectionType(input: string): CanonicalSectionType {
 export function getSectionDisplayName(type: string): string {
   const canonical = normalizeSectionType(type)
   const names: Record<CanonicalSectionType, string> = {
-    hero:          'Hero Banner',
-    about:         'About',
-    feature_grid:  'Feature Grid',
-    testimonials:  'Testimonials',
-    faq:           'FAQ',
-    contact:       'Contact',
-    product_grid:  'Product Grid',
-    rich_text:     'Rich Text',
-    banner:        'Banner',
-    cta:           'Call to Action',
-    gallery:       'Gallery',
-    product_360:   '360° Product Viewer',
+    hero: 'Hero Banner',
+    about: 'About',
+    feature_grid: 'Feature Grid',
+    testimonials: 'Testimonials',
+    faq: 'FAQ',
+    contact: 'Contact',
+    product_grid: 'Product Grid',
+    rich_text: 'Rich Text',
+    banner: 'Banner',
+    cta: 'Call to Action',
+    gallery: 'Gallery',
+    product_360: '360° Product Viewer',
     premium_3d_scroll_hero: 'Premium 3D Scroll Hero',
-    custom:        'Custom Section',
+    scroll_experience: 'Scroll Experience',
+    custom: 'Custom Section',
   }
   return names[canonical] ?? type
 }
@@ -141,20 +148,21 @@ export function getSectionDisplayName(type: string): string {
 export function getSectionIconName(type: string): string {
   const canonical = normalizeSectionType(type)
   const icons: Record<CanonicalSectionType, string> = {
-    hero:          '🏠',
-    about:         '👤',
-    feature_grid:  '⚡',
-    testimonials:  '💬',
-    faq:           '❓',
-    contact:       '✉️',
-    product_grid:  '🛍️',
-    rich_text:     '📝',
-    banner:        '📣',
-    cta:           '🎯',
-    gallery:       '🖼️',
-    product_360:   '🔄',
+    hero: '🏠',
+    about: '👤',
+    feature_grid: '⚡',
+    testimonials: '💬',
+    faq: '❓',
+    contact: '✉️',
+    product_grid: '🛍️',
+    rich_text: '📝',
+    banner: '📣',
+    cta: '🎯',
+    gallery: '🖼️',
+    product_360: '🔄',
     premium_3d_scroll_hero: '🎬',
-    custom:        '🧩',
+    scroll_experience: '◫',
+    custom: '🧩',
   }
   return icons[canonical] ?? '📄'
 }
@@ -178,16 +186,29 @@ export function getDefaultSectionContent(type: string): Record<string, unknown> 
     },
     about: {
       title: 'About Us',
-      description: 'Tell your story here. Share your mission, values, and what makes your business unique.',
+      description:
+        'Tell your story here. Share your mission, values, and what makes your business unique.',
       image_url: null,
     },
     feature_grid: {
       title: 'Why Choose Us',
       subtitle: 'Here are the key features that set us apart.',
       features: [
-        { icon: '⚡', title: 'Fast & Reliable', description: 'We deliver results quickly and consistently.' },
-        { icon: '🛡️', title: 'Trusted & Secure', description: 'Your data and privacy are always protected.' },
-        { icon: '💡', title: 'Innovative', description: 'We stay ahead with cutting-edge solutions.' },
+        {
+          icon: '⚡',
+          title: 'Fast & Reliable',
+          description: 'We deliver results quickly and consistently.',
+        },
+        {
+          icon: '🛡️',
+          title: 'Trusted & Secure',
+          description: 'Your data and privacy are always protected.',
+        },
+        {
+          icon: '💡',
+          title: 'Innovative',
+          description: 'We stay ahead with cutting-edge solutions.',
+        },
       ],
     },
     testimonials: {
@@ -200,7 +221,10 @@ export function getDefaultSectionContent(type: string): Record<string, unknown> 
     faq: {
       title: 'Frequently Asked Questions',
       faqs: [
-        { question: 'How do I get started?', answer: 'Simply contact us and we will guide you through the process.' },
+        {
+          question: 'How do I get started?',
+          answer: 'Simply contact us and we will guide you through the process.',
+        },
         { question: 'What are your hours?', answer: 'We are available Monday–Friday, 9am–6pm.' },
       ],
     },
@@ -219,7 +243,8 @@ export function getDefaultSectionContent(type: string): Record<string, unknown> 
       show_prices: true,
     },
     rich_text: {
-      content: '<p>Enter your content here. Use the editor to format text, add links, and more.</p>',
+      content:
+        '<p>Enter your content here. Use the editor to format text, add links, and more.</p>',
     },
     banner: {
       message: 'Special offer! Use code WELCOME10 for 10% off your first order.',
@@ -244,7 +269,11 @@ export function getDefaultSectionContent(type: string): Record<string, unknown> 
       title: '360° Product Viewer',
       product_id: null,
     },
-    premium_3d_scroll_hero: defaultPremium3DScrollHeroContent() as unknown as Record<string, unknown>,
+    premium_3d_scroll_hero: defaultPremium3DScrollHeroContent() as unknown as Record<
+      string,
+      unknown
+    >,
+    scroll_experience: defaultScrollExperienceContent() as unknown as Record<string, unknown>,
     custom: {
       html: '',
     },

@@ -24,31 +24,32 @@ export type CanonicalSectionType =
   | 'gallery'
   | 'product_360'
   | 'premium_3d_scroll_hero'
+  | 'scroll_experience'
   | 'unknown'
 
 export interface NormalizedSection {
   /** DB primary key */
-  id:         string
+  id: string
   /** Canonical section type used by the registry */
-  type:       CanonicalSectionType
+  type: CanonicalSectionType
   /** The raw value stored in the database (for debugging) */
-  rawType:    string
+  rawType: string
   /** The page_id this section belongs to */
-  pageId:     string
+  pageId: string
   /** Content object — never null, always a plain object */
-  content:    Record<string, unknown>
+  content: Record<string, unknown>
   /** Config/settings object — never null */
-  config:     Record<string, unknown>
+  config: Record<string, unknown>
   /** Style overrides — never null */
-  styles:     Record<string, unknown>
+  styles: Record<string, unknown>
   /** Sort position */
-  sortOrder:  number
+  sortOrder: number
   /** Whether the section should be rendered publicly */
-  isVisible:  boolean
+  isVisible: boolean
   /** Status stored in DB */
-  status:     string
+  status: string
   /** Reference to the original raw row (for editor use) */
-  raw:        Record<string, unknown>
+  raw: Record<string, unknown>
 }
 
 // ── Type alias map ────────────────────────────────────────────────────────────
@@ -56,116 +57,120 @@ export interface NormalizedSection {
 
 const TYPE_ALIASES: Record<string, CanonicalSectionType> = {
   // ── Hero ──
-  hero:         'hero',
-  hero_banner:  'hero',
+  hero: 'hero',
+  hero_banner: 'hero',
   hero_banners: 'hero',
-  'hero banner':  'hero',
-  herobanner:   'hero',
-  'hero-banner':  'hero',
-  banner_hero:  'hero',
+  'hero banner': 'hero',
+  herobanner: 'hero',
+  'hero-banner': 'hero',
+  banner_hero: 'hero',
   landing_hero: 'hero',
 
   // ── About ──
-  about:           'about',
-  about_section:   'about',
+  about: 'about',
+  about_section: 'about',
   'about section': 'about',
-  aboutsection:    'about',
+  aboutsection: 'about',
   'about-section': 'about',
-  business_about:  'about',
+  business_about: 'about',
 
   // ── Feature Grid ──
-  feature_grid:     'feature_grid',
-  features:         'feature_grid',
-  feature:          'feature_grid',
-  'feature grid':   'feature_grid',
-  featuregrid:      'feature_grid',
-  'feature-grid':   'feature_grid',
-  services:         'feature_grid',
-  service_grid:     'feature_grid',
-  modules_grid:     'feature_grid',
-  highlights:       'feature_grid',
+  feature_grid: 'feature_grid',
+  features: 'feature_grid',
+  feature: 'feature_grid',
+  'feature grid': 'feature_grid',
+  featuregrid: 'feature_grid',
+  'feature-grid': 'feature_grid',
+  services: 'feature_grid',
+  service_grid: 'feature_grid',
+  modules_grid: 'feature_grid',
+  highlights: 'feature_grid',
 
   // ── Testimonials ──
-  testimonials:        'testimonials',
-  testimonial:         'testimonials',
+  testimonials: 'testimonials',
+  testimonial: 'testimonials',
   testimonial_section: 'testimonials',
-  reviews:             'testimonials',
-  review_grid:         'testimonials',
-  customer_reviews:    'testimonials',
+  reviews: 'testimonials',
+  review_grid: 'testimonials',
+  customer_reviews: 'testimonials',
 
   // ── FAQ ──
-  faq:               'faq',
-  faqs:              'faq',
-  faq_section:       'faq',
-  questions:         'faq',
-  common_questions:  'faq',
+  faq: 'faq',
+  faqs: 'faq',
+  faq_section: 'faq',
+  questions: 'faq',
+  common_questions: 'faq',
 
   // ── Contact ──
-  contact:          'contact',
-  contact_section:  'contact',
+  contact: 'contact',
+  contact_section: 'contact',
   'contact section': 'contact',
-  contactsection:   'contact',
+  contactsection: 'contact',
   'contact-section': 'contact',
-  contact_form:     'contact',
+  contact_form: 'contact',
   business_contact: 'contact',
 
   // ── Product Grid ──
-  product_grid:     'product_grid',
-  products:         'product_grid',
-  store:            'product_grid',
-  shop:             'product_grid',
-  ecommerce:        'product_grid',
-  'product grid':   'product_grid',
+  product_grid: 'product_grid',
+  products: 'product_grid',
+  store: 'product_grid',
+  shop: 'product_grid',
+  ecommerce: 'product_grid',
+  'product grid': 'product_grid',
   'store products': 'product_grid',
 
   // ── Rich Text ──
-  rich_text:      'rich_text',
-  text:           'rich_text',
-  content:        'rich_text',
-  paragraph:      'rich_text',
-  'rich text':    'rich_text',
+  rich_text: 'rich_text',
+  text: 'rich_text',
+  content: 'rich_text',
+  paragraph: 'rich_text',
+  'rich text': 'rich_text',
   custom_content: 'rich_text',
 
   // ── Banner ──
-  banner:               'banner',
-  announcement:         'banner',
-  announcement_banner:  'banner',
-  promo_banner:         'banner',
+  banner: 'banner',
+  announcement: 'banner',
+  announcement_banner: 'banner',
+  promo_banner: 'banner',
 
   // ── CTA ──
-  cta:               'cta',
-  call_to_action:    'cta',
-  'call to action':  'cta',
-  calltoaction:      'cta',
-  conversion:        'cta',
+  cta: 'cta',
+  call_to_action: 'cta',
+  'call to action': 'cta',
+  calltoaction: 'cta',
+  conversion: 'cta',
 
   // ── Gallery ──
-  gallery:         'gallery',
-  image_gallery:   'gallery',
-  images:          'gallery',
-  media:           'gallery',
-  photo_gallery:   'gallery',
+  gallery: 'gallery',
+  image_gallery: 'gallery',
+  images: 'gallery',
+  media: 'gallery',
+  photo_gallery: 'gallery',
 
   // ── Product 360 ──
-  product_360:          'product_360',
-  product360:           'product_360',
-  product_360_viewer:   'product_360',
-  '360_product':        'product_360',
-  '360_spin':           'product_360',
+  product_360: 'product_360',
+  product360: 'product_360',
+  product_360_viewer: 'product_360',
+  '360_product': 'product_360',
+  '360_spin': 'product_360',
   'product 360 viewer': 'product_360',
-  '360 spin':           'product_360',
-  product_spin:         'product_360',
-  interactive_product:  'product_360',
+  '360 spin': 'product_360',
+  product_spin: 'product_360',
+  interactive_product: 'product_360',
 
   // ── Premium 3D Scroll Hero ──
   premium_3d_scroll_hero: 'premium_3d_scroll_hero',
-  premium_3d_hero:        'premium_3d_scroll_hero',
-  scroll_hero:            'premium_3d_scroll_hero',
-  scroll_story:           'premium_3d_scroll_hero',
-  '3d_scroll_hero':       'premium_3d_scroll_hero',
-  three_scroll_hero:      'premium_3d_scroll_hero',
-  parallax_hero:          'premium_3d_scroll_hero',
-  cinematic_hero:         'premium_3d_scroll_hero',
+  premium_3d_hero: 'premium_3d_scroll_hero',
+  scroll_hero: 'premium_3d_scroll_hero',
+  scroll_story: 'premium_3d_scroll_hero',
+  '3d_scroll_hero': 'premium_3d_scroll_hero',
+  three_scroll_hero: 'premium_3d_scroll_hero',
+  parallax_hero: 'premium_3d_scroll_hero',
+  cinematic_hero: 'premium_3d_scroll_hero',
+
+  scroll_experience: 'scroll_experience',
+  cinematic_scroll: 'scroll_experience',
+  video_scroll: 'scroll_experience',
 
   // ── Custom / fallback ──
   custom: 'rich_text', // treat custom as rich_text so it renders
@@ -181,9 +186,9 @@ export function normalizeSectionType(input: unknown): CanonicalSectionType {
   const slug = input
     .trim()
     .toLowerCase()
-    .replace(/[\s\-]+/g, '_')      // spaces and dashes → underscores
-    .replace(/_+/g, '_')           // collapse duplicate underscores
-    .replace(/^_|_$/g, '')         // trim leading/trailing underscores
+    .replace(/[\s\-]+/g, '_') // spaces and dashes → underscores
+    .replace(/_+/g, '_') // collapse duplicate underscores
+    .replace(/^_|_$/g, '') // trim leading/trailing underscores
 
   return TYPE_ALIASES[slug] ?? TYPE_ALIASES[input.trim().toLowerCase()] ?? 'unknown'
 }
@@ -192,10 +197,10 @@ export function normalizeSectionType(input: unknown): CanonicalSectionType {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.getPrototypeOf(value) === Object.prototype ||
+    (typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value) &&
+      Object.getPrototypeOf(value) === Object.prototype) ||
     (typeof value === 'object' && value !== null && !Array.isArray(value))
   )
 }
@@ -206,7 +211,9 @@ function safeObject(value: unknown): Record<string, unknown> {
     try {
       const parsed = JSON.parse(value)
       if (isPlainObject(parsed)) return parsed
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
   return {}
 }
@@ -218,7 +225,7 @@ function safeNumber(value: unknown, fallback = 0): number {
 
 function safeBoolean(value: unknown, fallback = true): boolean {
   if (value === false || value === 'false' || value === 0) return false
-  if (value === true  || value === 'true'  || value === 1) return true
+  if (value === true || value === 'true' || value === 1) return true
   return fallback
 }
 
@@ -241,7 +248,7 @@ export function normalizeSection(raw: unknown): NormalizedSection {
   // --- type ---
   const rawType = safeString(
     row.section_type ?? row.type ?? row.name ?? row.label ?? row.title,
-    'unknown',
+    'unknown'
   )
   const type = normalizeSectionType(rawType)
 
@@ -249,31 +256,22 @@ export function normalizeSection(raw: unknown): NormalizedSection {
   const pageId = safeString(row.page_id ?? row.pageId, '')
 
   // --- content: try multiple field names ---
-  const content = safeObject(
-    row.content ?? row.data ?? row.props ?? row.body ?? {},
-  )
+  const content = safeObject(row.content ?? row.data ?? row.props ?? row.body ?? {})
 
   // --- config ---
-  const config = safeObject(
-    row.config ?? row.settings ?? row.metadata ?? {},
-  )
+  const config = safeObject(row.config ?? row.settings ?? row.metadata ?? {})
 
   // --- styles ---
-  const styles = safeObject(
-    row.styles ?? row.theme ?? {},
-  )
+  const styles = safeObject(row.styles ?? row.theme ?? {})
 
   // --- sortOrder: try multiple field names ---
   const sortOrder = safeNumber(
     row.sort_order ?? row.position ?? row.display_order ?? row.order_index ?? 0,
-    0,
+    0
   )
 
   // --- isVisible: default true unless explicitly false ---
-  const isVisible = safeBoolean(
-    row.is_visible ?? row.visible ?? row.enabled,
-    true,
-  )
+  const isVisible = safeBoolean(row.is_visible ?? row.visible ?? row.enabled, true)
 
   // --- status ---
   const status = safeString(row.status, 'published')

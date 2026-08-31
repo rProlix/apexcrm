@@ -29,12 +29,12 @@ install_node_lts() {
 
   if command -v apt-get >/dev/null 2>&1; then
     apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl git gnupg unzip
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl ffmpeg git gnupg unzip
     curl --fail --silent --show-error --location https://deb.nodesource.com/setup_lts.x --output "${setup_script}"
     bash "${setup_script}"
     DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
   elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y ca-certificates git unzip
+    dnf install -y ca-certificates ffmpeg git unzip
     command -v curl >/dev/null
     curl --fail --silent --show-error --location https://rpm.nodesource.com/setup_lts.x --output "${setup_script}"
     bash "${setup_script}"
@@ -76,6 +76,8 @@ command -v git >/dev/null
 command -v node >/dev/null
 command -v npm >/dev/null
 command -v aws >/dev/null
+command -v ffmpeg >/dev/null
+command -v ffprobe >/dev/null
 
 if ! getent group nexoranow >/dev/null; then
   groupadd --system nexoranow

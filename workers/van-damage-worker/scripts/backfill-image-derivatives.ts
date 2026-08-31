@@ -4,10 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { S3Storage } from '../src/s3-storage.js'
 import type { WorkerConfig } from '../src/config.js'
 import { downloadSlackImage, getSlackFileInfo } from '../src/slack-client.js'
-import {
-  decryptSecret,
-  type EncryptedSecret,
-} from '../../../lib/server/crypto/encrypt-token.js'
+import { decryptSecret, type EncryptedSecret } from '../../../lib/server/crypto/encrypt-token.js'
 import {
   DERIVATIVE_RENDER_VERSION,
   resolveImageRetentionPolicy,
@@ -44,12 +41,12 @@ const required = {
   awsRegion: requireEnv('AWS_REGION', process.env.AWS_REGION),
   bucket: requireEnv(
     'VAN_DAMAGE_S3_BUCKET',
-    process.env.VAN_DAMAGE_S3_BUCKET ?? process.env.S3_BUCKET,
+    process.env.VAN_DAMAGE_S3_BUCKET ?? process.env.S3_BUCKET
   ),
   supabaseUrl: requireEnv('SUPABASE_URL', process.env.SUPABASE_URL),
   supabaseServiceRoleKey: requireEnv(
     'SUPABASE_SERVICE_ROLE_KEY',
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   ),
 }
 
@@ -67,6 +64,14 @@ const workerConfig = {
   visibilityTimeoutSeconds: 300,
   maxImageBytes: 30 * 1024 * 1024,
   maxGeminiRawBytes: 12 * 1024 * 1024,
+  scrollProcessingConcurrency: 1,
+  scrollMaxDurationSeconds: 180,
+  scrollMaxUploadBytes: 512 * 1024 * 1024,
+  scrollMaxSourceWidth: 3840,
+  scrollMaxSourceHeight: 3840,
+  scrollDesktopMaxWidth: 1920,
+  scrollMobileMaxWidth: 720,
+  scrollMinFreeDiskBytes: 2 * 1024 * 1024 * 1024,
   logLevel: 'info',
 } satisfies WorkerConfig
 
@@ -81,7 +86,7 @@ async function main() {
   const { data: images, error: imageError } = await db
     .from('van_damage_images')
     .select(
-      'id,tenant_id,business_id,inspection_id,s3_bucket,s3_key,content_type,file_size_bytes,width,height,original_sha256,slack_file_id',
+      'id,tenant_id,business_id,inspection_id,s3_bucket,s3_key,content_type,file_size_bytes,width,height,original_sha256,slack_file_id'
     )
     .not('s3_bucket', 'is', null)
     .not('s3_key', 'is', null)
@@ -104,10 +109,7 @@ async function main() {
         .select('image_id,derivative_profile,status')
         .in('image_id', imageIds)
         .eq('status', 'active'),
-      db
-        .from('van_damage_inspections')
-        .select('id,van_id,slack_team_id')
-        .in('id', inspectionIds),
+      db.from('van_damage_inspections').select('id,van_id,slack_team_id').in('id', inspectionIds),
     ])
   if (assetError) throw new Error(assetError.message)
   if (inspectionError) throw new Error(inspectionError.message)
@@ -124,11 +126,9 @@ async function main() {
       String(inspection.id),
       {
         vanId: inspection.van_id ? String(inspection.van_id) : null,
-        slackTeamId: inspection.slack_team_id
-          ? String(inspection.slack_team_id)
-          : null,
+        slackTeamId: inspection.slack_team_id ? String(inspection.slack_team_id) : null,
       },
-    ]),
+    ])
   )
   const tenantIds = [...new Set(missingTenantIds(imageRows))]
   const { data: integrations, error: integrationError } = await db
@@ -146,7 +146,7 @@ async function main() {
     }
   }
   const missing = imageRows.filter((image) =>
-    profiles.some((profile) => !existing.get(image.id)?.has(profile)),
+    profiles.some((profile) => !existing.get(image.id)?.has(profile))
   )
 
   console.log(
@@ -156,7 +156,7 @@ async function main() {
       imagesMissingDerivatives: missing.length,
       profiles,
       concurrency,
-    }),
+    })
   )
   if (!execute || !missing.length) return
 
@@ -174,7 +174,7 @@ async function main() {
           sourceByInspection.get(image.inspection_id) ?? {
             vanId: null,
             slackTeamId: null,
-          },
+          }
         )
         completed += 1
         console.log(`Backfilled ${completed}/${missing.length}`)
@@ -275,13 +275,9 @@ async function backfillImage(image: ImageRow, inspection: InspectionSource) {
     }
   })
 
-  const { error } = await db.from('van_damage_image_assets').upsert(
-    [original, ...derivativeRows],
-    {
-      onConflict:
-        'tenant_id,image_id,asset_type,derivative_profile,derivative_version',
-    },
-  )
+  const { error } = await db.from('van_damage_image_assets').upsert([original, ...derivativeRows], {
+    onConflict: 'tenant_id,image_id,asset_type,derivative_profile,derivative_version',
+  })
   if (error) throw new Error(error.message)
   if (!image.original_sha256) {
     await db
@@ -295,7 +291,7 @@ async function backfillImage(image: ImageRow, inspection: InspectionSource) {
 async function loadSourceImage(image: ImageRow, inspection: InspectionSource) {
   try {
     const response = await s3.send(
-      new GetObjectCommand({ Bucket: image.s3_bucket, Key: image.s3_key }),
+      new GetObjectCommand({ Bucket: image.s3_bucket, Key: image.s3_key })
     )
     if (!response.Body) throw new Error('Original image body is missing')
     const body = Buffer.from(await response.Body.transformToByteArray())
@@ -316,9 +312,7 @@ async function loadSourceImage(image: ImageRow, inspection: InspectionSource) {
   if (!image.slack_file_id || !inspection.slackTeamId) {
     throw new Error('Original S3 object is missing and Slack recovery data is incomplete')
   }
-  const encryptedToken = tokenByWorkspace.get(
-    `${image.tenant_id}:${inspection.slackTeamId}`,
-  )
+  const encryptedToken = tokenByWorkspace.get(`${image.tenant_id}:${inspection.slackTeamId}`)
   if (!encryptedToken) {
     throw new Error('Original S3 object is missing and no connected Slack workspace is available')
   }

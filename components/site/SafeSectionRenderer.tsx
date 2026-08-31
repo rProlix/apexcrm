@@ -33,16 +33,16 @@ import type { SectionDesign } from '@/lib/website/design/types'
 import { normalizeSectionDesign } from '@/lib/website/design/normalizeDesignSystem'
 
 // Section components (all must be defensive — see each file)
-import { HeroSection }         from './sections/HeroSection'
-import { AboutSection }        from './sections/AboutSection'
-import { FeatureGridSection }  from './sections/FeatureGridSection'
+import { HeroSection } from './sections/HeroSection'
+import { AboutSection } from './sections/AboutSection'
+import { FeatureGridSection } from './sections/FeatureGridSection'
 import { TestimonialsSection } from './sections/TestimonialsSection'
-import { FaqSection }          from './sections/FaqSection'
-import { ContactSection }      from './sections/ContactSection'
-import { ProductGridSection }  from './sections/ProductGridSection'
-import { RichTextSection }     from './sections/RichTextSection'
-import { BannerSection }       from './sections/BannerSection'
-import { CtaSection }          from './sections/CtaSection'
+import { FaqSection } from './sections/FaqSection'
+import { ContactSection } from './sections/ContactSection'
+import { ProductGridSection } from './sections/ProductGridSection'
+import { RichTextSection } from './sections/RichTextSection'
+import { BannerSection } from './sections/BannerSection'
+import { CtaSection } from './sections/CtaSection'
 import { ImageGallerySection } from './sections/ImageGallerySection'
 
 // Type alias for the component animations map passed to section renderers
@@ -50,10 +50,10 @@ export type SectionComponentAnimations = Record<string, ComponentAnimEntry>
 
 interface Props {
   /** Raw DB row or already-normalized section */
-  section:   unknown
-  tenantId:  string
-  index?:    number
-  mode?:     'public' | 'preview' | 'editor'
+  section: unknown
+  tenantId: string
+  index?: number
+  mode?: 'public' | 'preview' | 'editor'
 }
 
 /**
@@ -71,8 +71,14 @@ export async function SafeSectionRenderer({
   try {
     normalized = normalizeSection(rawSection)
   } catch (err) {
-    console.error('[SafeSectionRenderer] normalize error at index', index, err instanceof Error ? err.stack : err)
-    return mode === 'public' ? null : <BrokenSectionCard raw={rawSection} index={index} message="Failed to normalize section" />
+    console.error(
+      '[SafeSectionRenderer] normalize error at index',
+      index,
+      err instanceof Error ? err.stack : err
+    )
+    return mode === 'public' ? null : (
+      <BrokenSectionCard raw={rawSection} index={index} message="Failed to normalize section" />
+    )
   }
 
   // Public visibility check
@@ -112,14 +118,17 @@ export async function SafeSectionRenderer({
   }
 
   try {
-    const content = await renderSection(normalized, tenantId, mode, componentAnimations, sectionDesign)
+    const content = await renderSection(
+      normalized,
+      tenantId,
+      mode,
+      componentAnimations,
+      sectionDesign
+    )
 
     // Wrap in PremiumSectionFrame for premium styling (backgrounds, dividers, overlays)
     const framed = (
-      <PremiumSectionFrame
-        sectionDesign={sectionDesign}
-        sectionType={normalized.type}
-      >
+      <PremiumSectionFrame sectionDesign={sectionDesign} sectionType={normalized.type}>
         {content}
       </PremiumSectionFrame>
     )
@@ -129,11 +138,7 @@ export async function SafeSectionRenderer({
     // with the DnD overlay system in EditableSectionList.
     if (mode !== 'editor' && animationConfig?.enabled) {
       return (
-        <AnimatedSection
-          animationConfig={animationConfig}
-          as="div"
-          key={normalized.id}
-        >
+        <AnimatedSection animationConfig={animationConfig} as="div" key={normalized.id}>
           {framed}
         </AnimatedSection>
       )
@@ -147,7 +152,7 @@ export async function SafeSectionRenderer({
     console.error(
       `[SafeSectionRenderer] render error — type="${normalized.rawType}" canonical="${normalized.type}" id="${normalized.id}" index=${index}:`,
       msg,
-      stack,
+      stack
     )
 
     if (mode === 'public') return null
@@ -166,18 +171,20 @@ export async function SafeSectionRenderer({
 // ── Dispatcher ────────────────────────────────────────────────────────────────
 
 async function renderSection(
-  section:             NormalizedSection,
-  tenantId:            string,
-  mode:                'public' | 'preview' | 'editor',
+  section: NormalizedSection,
+  tenantId: string,
+  mode: 'public' | 'preview' | 'editor',
   componentAnimations: SectionComponentAnimations | undefined,
-  sectionDesign?:      Partial<SectionDesign> | null,
+  sectionDesign?: Partial<SectionDesign> | null
 ): Promise<React.ReactNode> {
-  const c  = section.content
-  const ca = componentAnimations  // shorthand
+  const c = section.content
+  const ca = componentAnimations // shorthand
 
   switch (section.type as CanonicalSectionType) {
     case 'hero':
-      return <HeroSection content={c as never} componentAnimations={ca} sectionDesign={sectionDesign} />
+      return (
+        <HeroSection content={c as never} componentAnimations={ca} sectionDesign={sectionDesign} />
+      )
 
     case 'about':
       return <AboutSection content={c as never} componentAnimations={ca} />
@@ -195,7 +202,9 @@ async function renderSection(
       return <ContactSection content={c as never} componentAnimations={ca} />
 
     case 'product_grid':
-      return <ProductGridSection content={c as never} tenantId={tenantId} componentAnimations={ca} />
+      return (
+        <ProductGridSection content={c as never} tenantId={tenantId} componentAnimations={ca} />
+      )
 
     case 'rich_text':
       return <RichTextSection content={c as never} componentAnimations={ca} />
@@ -212,13 +221,25 @@ async function renderSection(
     case 'product_360': {
       // Lazy-import to avoid bundling Three.js on the server
       const { Product360ViewerSection } = await import('./sections/Product360ViewerSection')
-      return <Product360ViewerSection content={c as never} tenantId={tenantId} componentAnimations={ca} />
+      return (
+        <Product360ViewerSection
+          content={c as never}
+          tenantId={tenantId}
+          componentAnimations={ca}
+        />
+      )
     }
 
     case 'premium_3d_scroll_hero': {
       // Server-safe wrapper; heavy WebGL/video loads client-side only.
       const { Premium3DScrollHero } = await import('@/components/website/3d/Premium3DScrollHero')
       return <Premium3DScrollHero content={c} mode={mode} />
+    }
+
+    case 'scroll_experience': {
+      const { ScrollExperience } =
+        await import('@/components/website/scroll-experience/ScrollExperience')
+      return <ScrollExperience content={c} componentInstanceId={section.id} mode={mode} />
     }
 
     case 'unknown':
@@ -230,47 +251,70 @@ async function renderSection(
 // ── Editor-mode broken section card ──────────────────────────────────────────
 
 function BrokenSectionCard({
-  raw, index, message, sectionId,
+  raw,
+  index,
+  message,
+  sectionId,
 }: {
-  raw:        unknown
-  index:      number
-  message:    string
+  raw: unknown
+  index: number
+  message: string
   sectionId?: string
 }) {
   const rawStr = (() => {
-    try { return JSON.stringify(raw, null, 2) } catch { return String(raw) }
+    try {
+      return JSON.stringify(raw, null, 2)
+    } catch {
+      return String(raw)
+    }
   })()
 
   return (
-    <div style={{
-      margin:       '0.5rem 1.5rem',
-      padding:      '1.25rem',
-      background:   '#1e0000',
-      border:       '2px solid #7f1d1d',
-      borderRadius: '0.75rem',
-      fontFamily:   'Inter, system-ui, sans-serif',
-    }}>
+    <div
+      style={{
+        margin: '0.5rem 1.5rem',
+        padding: '1.25rem',
+        background: '#1e0000',
+        border: '2px solid #7f1d1d',
+        borderRadius: '0.75rem',
+        fontFamily: 'Inter, system-ui, sans-serif',
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
         <span style={{ fontSize: '1.1rem' }}>💥</span>
         <strong style={{ color: '#fca5a5', fontSize: '0.875rem' }}>
-          Section render error (index {index}{sectionId ? `, id: ${sectionId}` : ''})
+          Section render error (index {index}
+          {sectionId ? `, id: ${sectionId}` : ''})
         </strong>
       </div>
-      <p style={{ color: '#f87171', fontSize: '0.8125rem', margin: '0 0 0.5rem', fontFamily: 'monospace' }}>
+      <p
+        style={{
+          color: '#f87171',
+          fontSize: '0.8125rem',
+          margin: '0 0 0.5rem',
+          fontFamily: 'monospace',
+        }}
+      >
         {message}
       </p>
       <details>
-        <summary style={{ color: '#71717a', fontSize: '0.75rem', cursor: 'pointer' }}>Raw section data</summary>
-        <pre style={{
-          margin:    '0.5rem 0 0',
-          padding:   '0.5rem',
-          background: '#0a0000',
-          borderRadius: '0.375rem',
-          color:     '#fca5a5',
-          fontSize:  '0.6875rem',
-          overflow:  'auto',
-          maxHeight: 200,
-        }}>{rawStr}</pre>
+        <summary style={{ color: '#71717a', fontSize: '0.75rem', cursor: 'pointer' }}>
+          Raw section data
+        </summary>
+        <pre
+          style={{
+            margin: '0.5rem 0 0',
+            padding: '0.5rem',
+            background: '#0a0000',
+            borderRadius: '0.375rem',
+            color: '#fca5a5',
+            fontSize: '0.6875rem',
+            overflow: 'auto',
+            maxHeight: 200,
+          }}
+        >
+          {rawStr}
+        </pre>
       </details>
     </div>
   )

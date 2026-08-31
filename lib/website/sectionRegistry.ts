@@ -23,22 +23,21 @@ export type SectionRendererComponent = (props: {
  * Import the actual components lazily from here so we can keep this module
  * free of async imports at the top level (some renderers are server components).
  */
-export function getSectionRendererType(
-  type: CanonicalSectionType,
-): string | null {
+export function getSectionRendererType(type: CanonicalSectionType): string | null {
   const MAP: Partial<Record<CanonicalSectionType, string>> = {
-    hero:         'hero',
-    about:        'about',
+    hero: 'hero',
+    about: 'about',
     feature_grid: 'feature_grid',
     testimonials: 'testimonials',
-    faq:          'faq',
-    contact:      'contact',
+    faq: 'faq',
+    contact: 'contact',
     product_grid: 'product_grid',
-    rich_text:    'rich_text',
-    banner:       'banner',
-    cta:          'cta',
-    gallery:      'gallery',
-    product_360:  'product_360',
+    rich_text: 'rich_text',
+    banner: 'banner',
+    cta: 'cta',
+    gallery: 'gallery',
+    product_360: 'product_360',
+    scroll_experience: 'scroll_experience',
   }
   return MAP[type] ?? null
 }

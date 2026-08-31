@@ -38,6 +38,8 @@ if ! id --user nexoranow >/dev/null 2>&1; then
   echo "Missing nexoranow system user; run install-worker.sh first." >&2
   exit 1
 fi
+command -v ffmpeg >/dev/null
+command -v ffprobe >/dev/null
 
 build_root="$(mktemp -d "${APP_ROOT}/.van-damage-build.XXXXXX")"
 build_worker="${build_root}/workers/van-damage-worker"

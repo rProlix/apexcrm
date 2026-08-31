@@ -17,6 +17,7 @@ import { analyzeVanDamage, getDamagePromptVersion } from './gemini-damage-analys
 import { SupabaseWorker, type WorkerVanProfile } from './supabase-worker.js'
 import { extractVanNumber } from './van-number-parser.js'
 import { sha256Hex } from '../../../lib/van-damage/image-lifecycle.js'
+import { processScrollExperienceJob } from './scroll-experience-processor.js'
 
 export type ProcessResult = 'success' | 'retry'
 export type JobRuntimeMetadata = {
@@ -65,6 +66,14 @@ export async function processMessageBody(
       return null
     }
   })()
+  if (
+    parsedJson &&
+    typeof parsedJson === 'object' &&
+    !Array.isArray(parsedJson) &&
+    (parsedJson as Record<string, unknown>).jobType === 'scroll_experience_video'
+  ) {
+    return processScrollExperienceJob(parsedJson, dependencies?.config ?? getConfig(), metadata)
+  }
   const parsed = vanDamageJobSchema.safeParse(parsedJson)
   if (!parsed.success) {
     logger.error('Invalid SQS message payload', {

@@ -3,10 +3,7 @@
 
 import type { TenantContext } from './types'
 
-export function buildGeminiPrompt(
-  rawInput:      string,
-  tenantContext: TenantContext,
-): string {
+export function buildGeminiPrompt(rawInput: string, tenantContext: TenantContext): string {
   const existingPageList = tenantContext.existingPages
     .map((p) => `  - "${p.title ?? p.slug}" (type: ${p.page_type}, slug: /${p.slug})`)
     .join('\n')
@@ -56,7 +53,8 @@ INSTRUCTIONS:
 - Analyze every sentence and paragraph in the pasted content.
 - Detect what type of content it is: reviews, services, products, menu items, business hours, contact info, about copy, hero text, FAQs, policies, social links, promotions, gallery captions, or SEO metadata.
 - Return structured website content suggestions that can be directly applied to a website builder.
-- Each suggestion must map to one of these section types: hero, about, services, products, menu, reviews, testimonials, faq, contact, hours, gallery, policies, social_links, navigation, page, section, seo, promotion, unknown.
+- Each suggestion must map to one of these section types: hero, about, services, products, menu, reviews, testimonials, faq, contact, hours, gallery, policies, social_links, navigation, page, section, seo, promotion, scroll_experience, unknown.
+- Use scroll_experience only when the input explicitly asks for a cinematic or scroll-controlled video and eligible READY experienceId and experienceVersionId values are present in supplied context. Never invent media IDs or storage URLs.
 - Each suggestion must have one of these actions: create, update, append, replace, ignore.
 - For action "append": content will be added to an existing section of the same type.
 - For action "create": a new section will be created.
