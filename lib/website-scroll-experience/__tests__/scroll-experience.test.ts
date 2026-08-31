@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import {
   buildScrollExperienceIdempotencyKey,
@@ -9,6 +10,7 @@ import {
 import { normalizeScrollExperienceContent, safeScrollLink } from '../types'
 import { clampProgress, mapScrollProgressToTime, shouldUseBlobMode } from '../runtime'
 import { collectScrollExperienceBindings } from '../bindings'
+import { SECTION_TYPES } from '@/lib/builder/defaults'
 
 const tenantId = '11111111-1111-4111-8111-111111111111'
 const experienceId = '22222222-2222-4222-8222-222222222222'
@@ -158,4 +160,20 @@ test('story links reject executable and protocol-relative URLs', () => {
   assert.equal(safeScrollLink('//attacker.example/path'), '')
   assert.equal(safeScrollLink('/contact'), '/contact')
   assert.equal(safeScrollLink('https://example.com/contact'), 'https://example.com/contact')
+})
+
+test('the Website Builder exposes Scroll MP4 as a prominent upload workflow', () => {
+  assert.equal(SECTION_TYPES[1]?.type, 'scroll_experience')
+  assert.match(SECTION_TYPES[1]?.label ?? '', /MP4/)
+
+  const navigation = readFileSync('components/website/WebsiteBuilderNav.tsx', 'utf8')
+  const workspace = readFileSync(
+    'components/website/scroll-experience/ScrollVideoWorkspace.tsx',
+    'utf8'
+  )
+  const sectionsPanel = readFileSync('components/website/SectionsPanel.tsx', 'utf8')
+  assert.match(navigation, /href: '\/website\/scroll-video'/)
+  assert.match(workspace, /Choose MP4 video/)
+  assert.match(workspace, /Add to page/)
+  assert.match(sectionsPanel, /Open Scroll MP4/)
 })

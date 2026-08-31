@@ -8,6 +8,12 @@ The uploaded video must already contain the movement the business wants. Scroll 
 
 The editor supports start/end time metadata, 150-1000vh narrative distance, direct/smooth/cinematic response, forward/reverse playback, cover/contain/mobile crop presentation, overlay styling, accessible HTML copy and CTA, optional story beats, optional chapter navigation, and a reduced-motion poster fallback. Preview interaction is off by default so editor scrolling remains usable.
 
+## Website Builder workflow
+
+Open **Website Builder > Scroll MP4**, choose an MP4 up to 512 MB, and wait for the video to reach Ready. Select a website page and choose **Add to page**. You can also open **Pages**, add **Scroll Experience (MP4)**, edit that section, and choose **Open Scroll MP4** to connect a ready video directly to it.
+
+The upload is sent directly to tenant-scoped private storage. The processing worker must be running for queued uploads to produce the desktop, mobile, and poster derivatives required for publishing.
+
 ## Draft and publish
 
 Each source replacement creates an immutable processing version. Section content stores `experienceId` and `experienceVersionId`; website snapshots therefore pin the selected media version. Publishing validates that every visible Scroll Experience references a READY version owned by the same tenant. The publisher deactivates old media bindings and creates active bindings for the new site version. Public media routes return only desktop, mobile, or poster derivatives from an active binding. Originals are never exposed.

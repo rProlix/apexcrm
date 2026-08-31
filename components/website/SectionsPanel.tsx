@@ -1,9 +1,11 @@
 'use client'
 // components/website/SectionsPanel.tsx
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Trash2, Eye, EyeOff, GripVertical, X, Check, AlertTriangle, ChevronDown, ChevronUp,
+  Film, Upload,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
@@ -21,9 +23,13 @@ interface Props {
   tenantId: string
 }
 
-const SECTION_OPTIONS = Object.values(SECTION_TYPE_META).map((m) => ({
-  value: m.type, label: m.label, description: m.description,
-}))
+const SECTION_OPTIONS = Object.values(SECTION_TYPE_META)
+  .map((m) => ({ value: m.type, label: m.label, description: m.description }))
+  .sort((a, b) => {
+    if (a.value === 'scroll_experience') return -1
+    if (b.value === 'scroll_experience') return 1
+    return 0
+  })
 
 export function SectionsPanel({ pageId, tenantId: _tenantId }: Props) {
   const [sections,      setSections]      = useState<SiteSection[]>([])
@@ -345,6 +351,27 @@ function SectionContentEditor({ section, onUpdate }: EditorProps) {
         {SECTION_TYPE_META[section.section_type]?.label} Content
       </p>
 
+      {section.section_type === 'scroll_experience' && (
+        <div className="rounded-xl border border-gold-500/25 bg-gold-500/[0.045] p-3.5">
+          <div className="flex items-start gap-3">
+            <Film className="mt-0.5 h-4 w-4 shrink-0 text-gold-400" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-white">Upload or choose an MP4</p>
+              <p className="mt-1 text-2xs leading-relaxed text-white/40">
+                Open the Scroll MP4 workspace to process a video and connect it to this section.
+              </p>
+              <Link
+                href={`/website/scroll-video?section_id=${encodeURIComponent(section.id)}`}
+                className="mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-gold-500 px-3 text-xs font-semibold text-brand-foreground transition hover:bg-gold-400 focus-ring"
+              >
+                <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+                Open Scroll MP4
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {fields.map((field) => (
         <div key={field.key}>
           <label className={label}>{field.label}</label>
@@ -440,6 +467,12 @@ function buildFieldsForType(type: SectionType, _content: Record<string, unknown>
       { key: 'headline', label: 'Section Headline', placeholder: 'Featured Products' },
       { key: 'subtitle', label: 'Subtitle', placeholder: 'Optional subtitle' },
       { key: 'allHref',  label: 'View All Link', placeholder: '/shop' },
+    ],
+    scroll_experience: [
+      { key: 'heading', label: 'Heading', placeholder: 'Your story, paced by every scroll' },
+      { key: 'body', label: 'Body', type: 'textarea', placeholder: 'Optional supporting copy' },
+      { key: 'buttonLabel', label: 'Button Label', placeholder: 'Learn more' },
+      { key: 'buttonHref', label: 'Button Link', placeholder: '/about' },
     ],
   }
 

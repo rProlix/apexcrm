@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import {
   Globe, FileText, Navigation, Palette, Settings,
   CheckCircle2, Clock, ExternalLink, Zap, Eye, Sparkles, ArrowRight, Wand,
-  Camera,
+  Camera, Film,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { fadeUp, staggerContainer } from '@/lib/motion'
@@ -150,6 +150,30 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
               <p className="text-xs text-white/40 leading-relaxed">Business, Creative, Invitation, or a POV Event App — a private event camera with a next-day gallery reveal.</p>
             </div>
             <ArrowRight className="h-4 w-4 text-emerald-400/50 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all duration-150 shrink-0" />
+          </div>
+        </div>
+      </Link>
+
+      <Link href="/website/scroll-video">
+        <div className="group relative overflow-hidden rounded-2xl border border-gold-500/25 bg-graphite-800/60 px-5 py-4 transition-all duration-200 hover:border-gold-400/45 hover:shadow-panel cursor-pointer">
+          <div className="flex items-center gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gold-500/25 bg-gold-500/10">
+              <Film className="h-5 w-5 text-gold-400" strokeWidth={1.75} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="mb-0.5 flex items-center gap-2">
+                <p className="text-sm font-semibold text-white transition-colors group-hover:text-gold-300">
+                  Scroll MP4 Experience
+                </p>
+                <span className="rounded bg-gold-500/15 px-1.5 py-0.5 text-2xs font-bold uppercase tracking-wide text-gold-400">
+                  New
+                </span>
+              </div>
+              <p className="text-xs leading-relaxed text-white/40">
+                Upload an MP4 and add a Scroll World-style cinematic section to a business website page.
+              </p>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-gold-400/50 transition-all duration-150 group-hover:translate-x-1 group-hover:text-gold-400" />
           </div>
         </div>
       </Link>

@@ -21,6 +21,13 @@ export const SECTION_TYPES: SectionTypeDef[] = [
     },
   },
   {
+    type: 'scroll_experience',
+    label: 'Scroll Experience (MP4)',
+    description: 'Upload an MP4 for an immersive Scroll World-style video effect',
+    icon: '◫',
+    defaultContent: defaultScrollExperienceContent() as unknown as Record<string, unknown>,
+  },
+  {
     type: 'feature_grid',
     label: 'Feature Grid',
     description: 'Highlight key features or services',
@@ -162,13 +169,6 @@ export const SECTION_TYPES: SectionTypeDef[] = [
       showLabel: false,
       layout: 'card',
     },
-  },
-  {
-    type: 'scroll_experience',
-    label: 'Scroll Experience',
-    description: 'Turn a video into an immersive scroll-controlled cinematic section.',
-    icon: '◫',
-    defaultContent: defaultScrollExperienceContent() as unknown as Record<string, unknown>,
   },
   {
     type: 'premium_3d_scroll_hero',
