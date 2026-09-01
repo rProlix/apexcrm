@@ -29,12 +29,18 @@ install_node_lts() {
 
   if command -v apt-get >/dev/null 2>&1; then
     apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl ffmpeg git gnupg unzip
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl git gnupg unzip
+    if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+      DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg
+    fi
     curl --fail --silent --show-error --location https://deb.nodesource.com/setup_lts.x --output "${setup_script}"
     bash "${setup_script}"
     DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
   elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y ca-certificates ffmpeg git unzip
+    dnf install -y ca-certificates git unzip
+    if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+      dnf install -y ffmpeg
+    fi
     command -v curl >/dev/null
     curl --fail --silent --show-error --location https://rpm.nodesource.com/setup_lts.x --output "${setup_script}"
     bash "${setup_script}"
