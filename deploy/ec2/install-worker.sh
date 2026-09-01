@@ -9,6 +9,7 @@ readonly SERVICE_DEST="/etc/systemd/system/van-damage-worker.service"
 readonly ENV_DIR="/etc/nexoranow"
 readonly ENV_DEST="${ENV_DIR}/van-damage-worker.env"
 readonly APP_ROOT="/opt/nexoranow"
+readonly WORK_DIR="${APP_ROOT}/van-damage-worker-tmp"
 readonly LOG_DIR="/var/log/nexoranow/van-damage-worker"
 
 if [[ "${EUID}" -ne 0 ]]; then
@@ -97,6 +98,7 @@ if ! id --user nexoranow >/dev/null 2>&1; then
 fi
 
 install -d -o nexoranow -g nexoranow -m 0755 "${APP_ROOT}"
+install -d -o nexoranow -g nexoranow -m 0700 "${WORK_DIR}"
 install -d -o nexoranow -g nexoranow -m 0755 "${LOG_DIR}"
 install -d -o root -g nexoranow -m 0750 "${ENV_DIR}"
 install -o root -g root -m 0644 "${SERVICE_SOURCE}" "${SERVICE_DEST}"

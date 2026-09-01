@@ -9,6 +9,7 @@ User=nexoranow
 Group=nexoranow
 WorkingDirectory=/opt/nexoranow/van-damage-worker
 EnvironmentFile=/etc/nexoranow/van-damage-worker.env
+Environment=TMPDIR=/opt/nexoranow/van-damage-worker-tmp
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=5
@@ -19,6 +20,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
+ReadWritePaths=/opt/nexoranow/van-damage-worker-tmp
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=van-damage-worker
