@@ -7,6 +7,7 @@ Copyright (c) 2026 cyw
 Licensed under the MIT License.
 
 Source: https://github.com/oso95/scroll-world
+Upstream reviewed at commit: 71cc36d3bb150248ae36a2c552f9cbf88802a79c
 
 Nexora's Scroll Experience runtime adapts the project's documented scroll-to-video-time, seek coalescing, poster-first, mobile, and reduced-motion techniques.
 

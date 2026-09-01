@@ -41,6 +41,8 @@ export function ScrollExperiencePlayer({
   const rootRef = useRef<HTMLElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const beatRefs = useRef<Array<HTMLDivElement | null>>([])
+  const progressBarRef = useRef<HTMLSpanElement>(null)
+  const scrollHintRef = useRef<HTMLDivElement>(null)
   const progressRef = useRef(0)
   const targetProgressRef = useRef(0)
   const pendingSeekRef = useRef<number | null>(null)
@@ -85,19 +87,31 @@ export function ScrollExperiencePlayer({
 
   useEffect(() => {
     const motion = matchMedia('(prefers-reduced-motion: reduce)')
-    const mobile = matchMedia('(max-width: 767px)')
+    const mobile = matchMedia('(max-width: 860px)')
+    const coarse = matchMedia('(hover: none) and (pointer: coarse)')
     const update = () => {
       setReducedMotion(motion.matches)
-      setIsMobile(mobile.matches)
+      setIsMobile(mobile.matches || coarse.matches)
     }
     update()
     motion.addEventListener('change', update)
     mobile.addEventListener('change', update)
+    coarse.addEventListener('change', update)
     return () => {
       motion.removeEventListener('change', update)
       mobile.removeEventListener('change', update)
+      coarse.removeEventListener('change', update)
     }
   }, [])
+
+  useEffect(() => {
+    setPainted(false)
+    setFailed(false)
+    progressRef.current = 0
+    targetProgressRef.current = 0
+    pendingSeekRef.current = null
+    lastSeekRef.current = -1
+  }, [selectedSrc])
 
   useEffect(() => {
     const root = rootRef.current
@@ -150,7 +164,7 @@ export function ScrollExperiencePlayer({
   useEffect(() => {
     const video = videoRef.current
     if (!video || !effectiveInteractive) return
-    const paint = () => {
+    const paintSoughtFrame = () => {
       const requestFrame = (
         video as HTMLVideoElement & { requestVideoFrameCallback?: (callback: () => void) => number }
       ).requestVideoFrameCallback
@@ -158,7 +172,7 @@ export function ScrollExperiencePlayer({
       else setPainted(true)
     }
     const applyPending = () => {
-      paint()
+      paintSoughtFrame()
       const pending = pendingSeekRef.current
       pendingSeekRef.current = null
       if (pending != null && Math.abs(pending - video.currentTime) > 0.015) {
@@ -170,17 +184,17 @@ export function ScrollExperiencePlayer({
         }
       }
     }
+    const handleError = () => setFailed(true)
     video.addEventListener('seeked', applyPending)
-    video.addEventListener('loadeddata', paint)
-    video.addEventListener('error', () => setFailed(true), { once: true })
+    video.addEventListener('error', handleError, { once: true })
     return () => {
       video.removeEventListener('seeked', applyPending)
-      video.removeEventListener('loadeddata', paint)
+      video.removeEventListener('error', handleError)
     }
   }, [effectiveInteractive])
 
   useEffect(() => {
-    if (!effectiveInteractive) return
+    if (!effectiveInteractive || !isMobile) return
     const prime = () => {
       const video = videoRef.current
       if (!video) return
@@ -195,7 +209,7 @@ export function ScrollExperiencePlayer({
       document.removeEventListener('pointerdown', prime)
       document.removeEventListener('touchstart', prime)
     }
-  }, [effectiveInteractive])
+  }, [effectiveInteractive, isMobile])
 
   useEffect(() => {
     if (!effectiveInteractive) return
@@ -216,12 +230,14 @@ export function ScrollExperiencePlayer({
           endTime: content.endTime,
           reverse: content.direction === 'reverse',
         })
-        if (Math.abs(desired - lastSeekRef.current) > 0.015) {
-          if (video.seeking) pendingSeekRef.current = desired
+        const seekTarget = Math.min(desired, Math.max(0, video.duration - 0.001))
+        const seekTolerance = isMobile ? 0.02 : 0.008
+        if (Math.abs(seekTarget - lastSeekRef.current) > seekTolerance) {
+          if (video.seeking) pendingSeekRef.current = seekTarget
           else {
             try {
-              video.currentTime = desired
-              lastSeekRef.current = desired
+              video.currentTime = seekTarget
+              lastSeekRef.current = seekTarget
             } catch {
               /* metadata race */
             }
@@ -236,6 +252,14 @@ export function ScrollExperiencePlayer({
           element.style.transform = visible ? 'translate3d(0,0,0)' : 'translate3d(0,18px,0)'
           element.style.pointerEvents = visible ? 'auto' : 'none'
         })
+        if (progressBarRef.current) {
+          progressBarRef.current.style.transform = `scaleX(${progressRef.current.toFixed(4)})`
+        }
+        if (scrollHintRef.current) {
+          const hintOpacity = Math.max(0, Math.min(1, 1 - progressRef.current / 0.12))
+          scrollHintRef.current.style.opacity = String(hintOpacity)
+          scrollHintRef.current.style.transform = `translate3d(-50%, ${progressRef.current * 12}px, 0)`
+        }
         if (progressRef.current > 0.01) sendEvent('scroll_experience_started')
         if (progressRef.current >= 0.25) sendEvent('scroll_experience_25')
         if (progressRef.current >= 0.5) sendEvent('scroll_experience_50')
@@ -253,6 +277,7 @@ export function ScrollExperiencePlayer({
     content.smoothing,
     content.startTime,
     effectiveInteractive,
+    isMobile,
     sendEvent,
   ])
 
@@ -282,6 +307,7 @@ export function ScrollExperiencePlayer({
       ref={rootRef}
       data-section="scroll-experience"
       data-media-mode={sourceMode}
+      data-scroll-active={effectiveInteractive ? 'true' : 'false'}
       style={{
         position: 'relative',
         minHeight: effectiveInteractive ? `${content.scrollDistanceVh}vh` : '100svh',
@@ -292,6 +318,31 @@ export function ScrollExperiencePlayer({
       <div
         style={{ position: 'sticky', top: 0, height: '100svh', minHeight: 520, overflow: 'hidden' }}
       >
+        {effectiveInteractive ? (
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: '0 0 auto',
+              zIndex: 5,
+              height: 3,
+              background: 'rgba(255,255,255,.14)',
+            }}
+          >
+            <span
+              ref={progressBarRef}
+              style={{
+                display: 'block',
+                width: '100%',
+                height: '100%',
+                transform: 'scaleX(0)',
+                transformOrigin: 'left center',
+                background: 'rgba(255,255,255,.92)',
+                willChange: 'transform',
+              }}
+            />
+          </div>
+        ) : null}
         {posterSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -327,7 +378,7 @@ export function ScrollExperiencePlayer({
               objectFit: isMobile && content.mobileFit === 'contain' ? 'contain' : content.fit,
               objectPosition,
               opacity: painted ? 1 : 0,
-              transition: 'opacity 240ms ease',
+              transition: 'opacity 240ms cubic-bezier(.23,1,.32,1)',
             }}
           />
         ) : null}
@@ -396,7 +447,8 @@ export function ScrollExperiencePlayer({
                   bottom: beat.position === 'bottom' ? '12%' : 'auto',
                   transform: 'translate3d(0,18px,0)',
                   opacity: 0,
-                  transition: 'opacity 320ms ease, transform 420ms cubic-bezier(.16,1,.3,1)',
+                  transition:
+                    'opacity 240ms cubic-bezier(.23,1,.32,1), transform 240ms cubic-bezier(.23,1,.32,1)',
                   textAlign: beat.alignment ?? content.textAlign,
                 }}
               >
@@ -559,6 +611,33 @@ export function ScrollExperiencePlayer({
               />
             ))}
           </nav>
+        ) : null}
+        {effectiveInteractive ? (
+          <div
+            ref={scrollHintRef}
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              left: '50%',
+              bottom: 'max(1.25rem, env(safe-area-inset-bottom))',
+              zIndex: 4,
+              transform: 'translate3d(-50%,0,0)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              color: 'rgba(255,255,255,.78)',
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '.14em',
+              textTransform: 'uppercase',
+              textShadow: '0 1px 12px rgba(0,0,0,.55)',
+              willChange: 'opacity, transform',
+              pointerEvents: 'none',
+            }}
+          >
+            <span>Scroll to explore</span>
+            <span style={{ fontSize: 16, lineHeight: 1 }}>↓</span>
+          </div>
         ) : null}
       </div>
     </section>

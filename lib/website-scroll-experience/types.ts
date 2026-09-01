@@ -71,7 +71,7 @@ export function defaultScrollExperienceContent(): ScrollExperienceContent {
     beats: [],
     showProgressNavigation: false,
     reducedMotionMode: 'poster',
-    previewInteraction: false,
+    previewInteraction: true,
   }
 }
 
@@ -182,6 +182,6 @@ export function normalizeScrollExperienceContent(value: unknown): ScrollExperien
       ['poster', 'fade', 'none'] as const,
       defaults.reducedMotionMode
     ),
-    previewInteraction: raw.previewInteraction === true,
+    previewInteraction: raw.previewInteraction !== false,
   }
 }

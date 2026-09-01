@@ -144,9 +144,17 @@ test('content normalization clamps unsafe values and preserves accessible beats'
   assert.equal(value.scrollDistanceVh, 1000)
   assert.equal(value.overlayOpacity, 0)
   assert.equal(value.direction, 'reverse')
+  assert.equal(value.previewInteraction, true)
   assert.deepEqual(
     value.beats.map((beat) => [beat.id, beat.startProgress, beat.endProgress, beat.title]),
     [['intro', 0, 1, 'Intro']]
+  )
+})
+
+test('live preview can still be explicitly disabled', () => {
+  assert.equal(
+    normalizeScrollExperienceContent({ previewInteraction: false }).previewInteraction,
+    false
   )
 })
 

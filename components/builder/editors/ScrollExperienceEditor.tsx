@@ -193,6 +193,7 @@ export function ScrollExperienceEditor({ sectionId }: { sectionId: string }) {
         experienceId: session.experienceId,
         experienceVersionId: session.experienceVersionId,
         status: result.status || 'QUEUED',
+        previewInteraction: true,
       })
       await load()
     } catch (cause) {
@@ -213,6 +214,7 @@ export function ScrollExperienceEditor({ sectionId }: { sectionId: string }) {
       duration: Number(version.duration_seconds ?? 0) || undefined,
       desktopBytes: Number(version.desktop_bytes ?? 0) || undefined,
       mobileBytes: Number(version.mobile_bytes ?? 0) || undefined,
+      previewInteraction: true,
     })
   }
 
@@ -387,10 +389,14 @@ export function ScrollExperienceEditor({ sectionId }: { sectionId: string }) {
         />
       </div>
       <Toggle
-        label="Preview interaction"
+        label="Enable live scroll preview"
         value={content.previewInteraction === true}
         onChange={(value) => patch({ previewInteraction: value })}
       />
+      <p style={{ margin: '-8px 0 16px', color: '#71717a', fontSize: 11, lineHeight: 1.5 }}>
+        Scroll World scrubs the MP4 timeline. For a 3D fly-through, the camera movement must already
+        be rendered into the uploaded video.
+      </p>
 
       <h4 style={heading}>Layout and overlay</h4>
       <div style={group}>
