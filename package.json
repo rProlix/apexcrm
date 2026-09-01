@@ -18,6 +18,7 @@
     "test:command-center": "tsx --test lib/command-center/__tests__/*.test.ts",
     "test:payments": "tsx --test lib/payments/__tests__/*.test.ts",
     "test:scroll-experience": "tsx --test lib/website-scroll-experience/__tests__/*.test.ts",
+    "repair:van-images": "tsx scripts/restore-missing-van-images.ts",
     "worker:van:build": "npm --prefix workers/van-damage-worker run build",
     "worker:van:start": "npm --prefix workers/van-damage-worker run start",
     "worker:van:dev": "npm --prefix workers/van-damage-worker run dev",
