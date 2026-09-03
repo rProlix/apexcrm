@@ -6,7 +6,7 @@ Scroll Experience is the Website Builder component with canonical section type `
 
 The uploaded video must already contain the movement the business wants. Scroll Experience controls the timeline. It does not create a new 3D camera move or alter objects inside a stationary video.
 
-The editor supports start/end time metadata, 150-1000vh narrative distance, direct/smooth/cinematic response, forward/reverse playback, cover/contain/mobile crop presentation, overlay styling, accessible HTML copy and CTA, optional story beats, optional chapter navigation, and a reduced-motion poster fallback. Preview interaction is off by default so editor scrolling remains usable.
+The editor supports start/end time metadata, 150-900vh narrative distance, direct/smooth/cinematic response, forward/reverse playback, cover/contain/mobile crop presentation, overlay styling, accessible HTML copy and CTA, optional story beats, optional chapter navigation, and a reduced-motion poster fallback. Preview interaction is enabled automatically after an upload or ready-video selection and can be disabled while editing when normal Builder scrolling is preferred.
 
 ## Website Builder workflow
 
@@ -20,6 +20,6 @@ Each source replacement creates an immutable processing version. Section content
 
 ## Performance and accessibility
 
-The poster occupies the stage immediately. An IntersectionObserver starts media loading near the viewport. Derivatives up to the Blob threshold use an object URL and revoke it on cleanup; larger media uses S3 range-capable delivery through a short-lived redirect. The player uses refs and requestAnimationFrame without per-frame React state. It coalesces seeks, keeps the latest desired target, primes muted inline video after the first user interaction on iOS, and keeps readable HTML content when media fails. `prefers-reduced-motion` disables scrubbing.
+The poster occupies the stage immediately. An IntersectionObserver starts media loading near the viewport. Derivatives up to the Blob threshold use an object URL and revoke it on cleanup; larger media uses direct range-capable delivery through a short-lived Supabase Storage or legacy S3 redirect. The player uses refs and requestAnimationFrame without per-frame React state. It coalesces seeks, keeps the latest desired target, primes muted inline video after the first user interaction on iOS, and keeps readable HTML content when media fails. `prefers-reduced-motion` disables scrubbing.
 
 Analytics are guarded once per session, component, and milestone: view, started, 25, 50, 75, completed, and CTA clicked.
