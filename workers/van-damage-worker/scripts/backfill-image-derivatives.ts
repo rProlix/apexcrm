@@ -65,6 +65,7 @@ const workerConfig = {
   maxImageBytes: 30 * 1024 * 1024,
   maxGeminiRawBytes: 12 * 1024 * 1024,
   scrollProcessingConcurrency: 1,
+  scrollMaxRetries: 5,
   scrollMaxDurationSeconds: 180,
   scrollMaxUploadBytes: 10 * 1024 * 1024,
   scrollMaxSourceWidth: 3840,

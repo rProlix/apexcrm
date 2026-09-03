@@ -39,6 +39,12 @@ sudo deploy/ec2/deploy-worker.sh
 
 The installer provisions Node LTS, Git, AWS CLI, the `nexoranow` system account, directories, environment file, and systemd unit. The deployment script stops the service, backs up the current release, builds in isolation, installs production dependencies, verifies both built entrypoints, swaps releases, starts and enables the service, and restores the previous release if deployment fails.
 
+Scroll video processing defaults to one concurrent encode. When that slot is busy, another
+message is released back to SQS on a short retry visibility window instead of being held
+invisibly in memory for the full processing timeout. Retryable video
+failures stop after `SCROLL_VIDEO_MAX_RETRIES` attempts (default `5`) so a resource-starved
+host cannot leave a job cycling indefinitely.
+
 Run the detailed health report with the service environment loaded:
 
 ```bash

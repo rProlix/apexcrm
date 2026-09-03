@@ -24,6 +24,7 @@ const schema = z.object({
     .positive()
     .default(12 * 1024 * 1024),
   SCROLL_VIDEO_PROCESSING_CONCURRENCY: z.coerce.number().int().min(1).max(2).default(1),
+  SCROLL_VIDEO_MAX_RETRIES: z.coerce.number().int().min(1).max(20).default(5),
   SCROLL_VIDEO_MAX_DURATION_SECONDS: z.coerce.number().int().min(1).default(180),
   SCROLL_VIDEO_MAX_UPLOAD_BYTES: z.coerce
     .number()
@@ -57,6 +58,7 @@ export type WorkerConfig = {
   maxImageBytes: number
   maxGeminiRawBytes: number
   scrollProcessingConcurrency: number
+  scrollMaxRetries: number
   scrollMaxDurationSeconds: number
   scrollMaxUploadBytes: number
   scrollMaxSourceWidth: number
@@ -92,6 +94,7 @@ export function getConfig(): WorkerConfig {
     maxImageBytes: env.VAN_DAMAGE_MAX_IMAGE_BYTES,
     maxGeminiRawBytes: env.VAN_DAMAGE_MAX_GEMINI_RAW_BYTES,
     scrollProcessingConcurrency: env.SCROLL_VIDEO_PROCESSING_CONCURRENCY,
+    scrollMaxRetries: env.SCROLL_VIDEO_MAX_RETRIES,
     scrollMaxDurationSeconds: env.SCROLL_VIDEO_MAX_DURATION_SECONDS,
     scrollMaxUploadBytes: Math.min(env.SCROLL_VIDEO_MAX_UPLOAD_BYTES, 10 * 1024 * 1024),
     scrollMaxSourceWidth: env.SCROLL_VIDEO_MAX_SOURCE_WIDTH,

@@ -217,3 +217,12 @@ test('the Website Builder exposes Scroll Experience as a prominent upload workfl
   assert.match(sidebar, /label: 'Scroll Experience'/)
   assert.match(sidebar, /href: '\/website\/scroll-video'/)
 })
+
+test('published Scroll Experience keeps sticky positioning compatible wrappers', () => {
+  const frame = readFileSync('components/site/PremiumSectionFrame.tsx', 'utf8')
+  const renderer = readFileSync('components/site/SafeSectionRenderer.tsx', 'utf8')
+
+  assert.match(frame, /isScrollExperience \? 'visible' : 'hidden'/)
+  assert.match(frame, /isScrollExperience \|\|/)
+  assert.match(renderer, /normalized\.type !== 'scroll_experience'/)
+})

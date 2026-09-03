@@ -136,7 +136,9 @@ export async function SafeSectionRenderer({
     // Wrap in AnimatedSection (client component, fail-safe)
     // Animate in public AND preview modes; skip in editor mode to avoid conflicts
     // with the DnD overlay system in EditableSectionList.
-    if (mode !== 'editor' && animationConfig?.enabled) {
+    // A transformed ancestor changes the containing block for the sticky video
+    // stage. Scroll Experience owns its own motion and must stay unwrapped.
+    if (normalized.type !== 'scroll_experience' && mode !== 'editor' && animationConfig?.enabled) {
       return (
         <AnimatedSection animationConfig={animationConfig} as="div" key={normalized.id}>
           {framed}

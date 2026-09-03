@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { parseProbe, scaleFilter } from '../src/scroll-experience-processor.js'
+import {
+  parseProbe,
+  scaleFilter,
+  withScrollProcessingSlot,
+} from '../src/scroll-experience-processor.js'
 
 test('ffprobe metadata parses duration, rotation and audio', () => {
   const metadata = parseProbe({
@@ -28,4 +32,16 @@ test('ffprobe metadata parses duration, rotation and audio', () => {
 
 test('encode filter never upscales and uses one MP4, not a frame sequence', () => {
   assert.equal(scaleFilter(720), "scale=w='min(iw,720)':h=-2:flags=lanczos")
+})
+
+test('a busy encoder releases additional queue work instead of waiting invisibly', async () => {
+  let release!: () => void
+  const active = withScrollProcessingSlot(
+    1,
+    () => new Promise<void>((resolve) => (release = resolve))
+  )
+  const queued = await withScrollProcessingSlot(1, async () => 'should-not-run')
+  assert.equal(queued, null)
+  release()
+  assert.equal(await active, undefined)
 })

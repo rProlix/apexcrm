@@ -36,16 +36,19 @@ type VideoMetadata = {
 }
 
 let activeScrollJobs = 0
-const scrollWaiters: Array<() => void> = []
 
-async function withScrollSlot<T>(limit: number, work: () => Promise<T>): Promise<T> {
-  if (activeScrollJobs >= limit) await new Promise<void>((resolve) => scrollWaiters.push(resolve))
+export async function withScrollProcessingSlot<T>(
+  limit: number,
+  work: () => Promise<T>
+): Promise<T | null> {
+  // Do not hold an SQS message invisible while it waits behind a long encode.
+  // Returning null lets the queue make it visible again for a later receive.
+  if (activeScrollJobs >= limit) return null
   activeScrollJobs++
   try {
     return await work()
   } finally {
     activeScrollJobs--
-    scrollWaiters.shift()?.()
   }
 }
 
@@ -339,9 +342,17 @@ export async function processScrollExperienceJob(
     })
     return 'retry'
   }
-  return withScrollSlot(config.scrollProcessingConcurrency, () =>
+  const result = await withScrollProcessingSlot(config.scrollProcessingConcurrency, () =>
     process(parsed.data, config, metadata)
   )
+  if (result === null) {
+    logger.info('Scroll Experience processing slot busy; releasing message for retry', {
+      jobId: parsed.data.idempotencyKey,
+      messageId: metadata.sqsMessageId,
+    })
+    return 'retry'
+  }
+  return result
 }
 
 async function process(
@@ -649,7 +660,18 @@ async function process(
       category,
       durationMs: Date.now() - startedAt,
     })
-    return category === 'INSUFFICIENT_DISK' ? 'retry' : 'success'
+    const retryable = category === 'INSUFFICIENT_DISK'
+    const attempt = (metadata.retryCount ?? 0) + 1
+    if (retryable && attempt < config.scrollMaxRetries) return 'retry'
+    if (retryable) {
+      logger.error('Scroll Experience retry limit reached; discarding message', {
+        ...context,
+        category,
+        attempt,
+        maxRetries: config.scrollMaxRetries,
+      })
+    }
+    return 'success'
   } finally {
     if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => undefined)
   }

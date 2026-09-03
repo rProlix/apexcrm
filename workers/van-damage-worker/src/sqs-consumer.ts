@@ -125,14 +125,34 @@ export class VanDamageSqsConsumer {
           retryCount: metadata.retryCount,
         })
       } else {
+        await this.releaseForRetry(message)
         logger.warn('SQS message retained for retry', {
           ...messageIdentifiers(message.Body),
           messageId: message.MessageId,
           retryCount: metadata.retryCount,
         })
       }
+    } catch (error) {
+      await this.releaseForRetry(message)
+      logger.error('SQS message processing failed before completion', {
+        ...messageIdentifiers(message.Body),
+        messageId: message.MessageId,
+        retryCount: metadata.retryCount,
+        error: error instanceof Error ? error.message : String(error),
+      })
     } finally {
       clearInterval(heartbeat)
     }
+  }
+
+  private async releaseForRetry(message: Message) {
+    if (!message.ReceiptHandle) return
+    await this.client.send(
+      new ChangeMessageVisibilityCommand({
+        QueueUrl: this.config.queueUrl,
+        ReceiptHandle: message.ReceiptHandle,
+        VisibilityTimeout: Math.min(30, this.config.visibilityTimeoutSeconds),
+      })
+    )
   }
 }

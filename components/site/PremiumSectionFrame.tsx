@@ -115,7 +115,12 @@ export function PremiumSectionFrame({ sectionDesign, children, className, sectio
   const bgColorForDivider = extractSolidColor(bg)
 
   // For hero sections — full-bleed, no padding override
-  const isHero = sectionType === 'hero' || sectionType === 'banner' || d?.layoutVariant === 'hero'
+  const isScrollExperience = sectionType === 'scroll_experience'
+  const isHero =
+    sectionType === 'hero' ||
+    sectionType === 'banner' ||
+    isScrollExperience ||
+    d?.layoutVariant === 'hero'
 
   // Section shadow
   const hasShadow = d?.shadow && d.shadow !== 'none'
@@ -140,7 +145,9 @@ export function PremiumSectionFrame({ sectionDesign, children, className, sectio
   const wrapperStyle: React.CSSProperties = {
     position: 'relative',
     background: bg,
-    overflow: 'hidden',
+    // A scroll experience contains a sticky viewport inside a taller scroll
+    // runway. Clipping this ancestor disables sticky positioning in browsers.
+    overflow: isScrollExperience ? 'visible' : 'hidden',
     padding: isHero ? undefined : padding,
     boxShadow: sectionShadow,
     borderRadius: sectionRadius,
