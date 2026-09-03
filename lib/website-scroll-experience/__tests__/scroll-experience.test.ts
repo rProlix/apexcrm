@@ -12,7 +12,7 @@ import {
 } from '../contracts'
 import { normalizeScrollExperienceContent, safeScrollLink } from '../types'
 import { clampProgress, mapScrollProgressToTime, shouldUseBlobMode } from '../runtime'
-import { collectScrollExperienceBindings } from '../bindings'
+import { collectScrollExperienceBindings, findScrollExperienceBinding } from '../bindings'
 import { SECTION_TYPES } from '@/lib/builder/defaults'
 
 const tenantId = '11111111-1111-4111-8111-111111111111'
@@ -159,7 +159,7 @@ test('live preview can still be explicitly disabled', () => {
 })
 
 test('published bindings only come from visible Scroll Experience sections', () => {
-  const bindings = collectScrollExperienceBindings({
+  const snapshot = {
     pages: [
       {
         sections: [
@@ -183,10 +183,13 @@ test('published bindings only come from visible Scroll Experience sections', () 
         ],
       },
     ],
-  })
+  }
+  const bindings = collectScrollExperienceBindings(snapshot)
   assert.deepEqual(bindings, [
     { experienceId, experienceVersionId: versionId, componentInstanceId: 'component-a' },
   ])
+  assert.deepEqual(findScrollExperienceBinding(snapshot, versionId, 'component-a'), bindings[0])
+  assert.equal(findScrollExperienceBinding(snapshot, versionId, 'component-b'), null)
 })
 
 test('story links reject executable and protocol-relative URLs', () => {

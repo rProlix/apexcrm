@@ -485,14 +485,24 @@ export async function publishWebsiteVersion(
       return { data: null, error: 'Version snapshot is invalid or empty' }
     }
 
-    const { validateScrollExperienceBindings, activateScrollExperienceBindings } =
-      await import('@/lib/website-scroll-experience/publishing')
+    const {
+      validateScrollExperienceBindings,
+      prepareScrollExperienceBindings,
+      finalizeScrollExperienceBindings,
+    } = await import('@/lib/website-scroll-experience/publishing')
     const scrollValidation = await validateScrollExperienceBindings(
       db as SupabaseClient,
       tenantId,
       snap
     )
     if (!scrollValidation.ok) return { data: null, error: scrollValidation.error }
+
+    await prepareScrollExperienceBindings(
+      db as SupabaseClient,
+      tenantId,
+      versionId,
+      scrollValidation.bindings
+    )
 
     // Apply snapshot to live tables
     const applyResult = await applySnapshotToWebsiteTables(tenantId, snap, userId)
@@ -529,7 +539,7 @@ export async function publishWebsiteVersion(
         { onConflict: 'tenant_id' }
       )
 
-    await activateScrollExperienceBindings(
+    await finalizeScrollExperienceBindings(
       db as SupabaseClient,
       tenantId,
       versionId,

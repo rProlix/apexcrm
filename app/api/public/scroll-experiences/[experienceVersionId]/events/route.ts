@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { resolvePublicScrollExperienceBinding } from '@/lib/website-scroll-experience/public-binding'
 
 const EVENTS = new Set([
   'scroll_experience_view',
@@ -30,13 +31,11 @@ export async function POST(
     return NextResponse.json({ ok: false }, { status: 400 })
   }
   const db = getSupabaseServerClient() as SupabaseClient
-  const { data: binding } = await db
-    .from('website_scroll_published_bindings')
-    .select('tenant_id,experience_id')
-    .eq('experience_version_id', experienceVersionId)
-    .eq('component_instance_id', componentInstanceId)
-    .eq('active', true)
-    .maybeSingle()
+  const binding = await resolvePublicScrollExperienceBinding(
+    db,
+    experienceVersionId,
+    componentInstanceId
+  )
   if (!binding) return NextResponse.json({ ok: false }, { status: 404 })
   const day = new Date().toISOString().slice(0, 10)
   const sessionHash = createHash('sha256')

@@ -173,6 +173,9 @@ export function CinematicRenderer({
   const manualProgressRef = useRef(manualProgress)
   manualProgressRef.current = manualProgress
   const activeClipRef = useRef(-1)
+  const pendingSeekRef = useRef<number | null>(null)
+  const pendingProgressRef = useRef<number | null>(null)
+  const lastSeekRef = useRef(-1)
   const [near, setNear] = useState(editorMode)
   const [mobile, setMobile] = useState(false)
   const [tablet, setTablet] = useState(false)
@@ -336,6 +339,9 @@ export function CinematicRenderer({
           const mapped = mapProgressToClip(clips, progress)
           if (media && mapped && activeClipRef.current !== mapped.index) {
             activeClipRef.current = mapped.index
+            pendingProgressRef.current = mapped.localProgress
+            pendingSeekRef.current = null
+            lastSeekRef.current = -1
             media.src = selectCinematicSource(mapped.clip, mobile)
             media.load()
             if (mapped.next) {
@@ -349,8 +355,17 @@ export function CinematicRenderer({
               media.duration - 0.001,
               Math.max(0, mapped.localProgress * media.duration)
             )
-            if (!media.seeking && Math.abs(media.currentTime - target) > 0.012)
-              media.currentTime = target
+            if (Math.abs(target - lastSeekRef.current) > 0.012) {
+              if (media.seeking) pendingSeekRef.current = target
+              else {
+                try {
+                  media.currentTime = target
+                  lastSeekRef.current = target
+                } catch {
+                  pendingSeekRef.current = target
+                }
+              }
+            }
             const seam = mapped.clip.seamOverlap
             const entering = mapped.index > 0 && mapped.localProgress < seam
             const leaving = Boolean(mapped.next) && mapped.localProgress > 1 - seam
@@ -400,6 +415,37 @@ export function CinematicRenderer({
       cleanup()
     }
   }, [clips, config, editorMode, manualMode, mobile, near, reduced])
+
+  useEffect(() => {
+    const media = videoRef.current
+    if (!media) return
+    const seek = (target: number) => {
+      if (!Number.isFinite(media.duration) || media.duration <= 0) return
+      const bounded = Math.min(media.duration - 0.001, Math.max(0, target))
+      try {
+        media.currentTime = bounded
+        lastSeekRef.current = bounded
+      } catch {
+        pendingSeekRef.current = bounded
+      }
+    }
+    const applyMetadataProgress = () => {
+      const progress = pendingProgressRef.current
+      pendingProgressRef.current = null
+      if (progress != null) seek(progress * media.duration)
+    }
+    const applyPendingSeek = () => {
+      const target = pendingSeekRef.current
+      pendingSeekRef.current = null
+      if (target != null && Math.abs(target - media.currentTime) > 0.012) seek(target)
+    }
+    media.addEventListener('loadedmetadata', applyMetadataProgress)
+    media.addEventListener('seeked', applyPendingSeek)
+    return () => {
+      media.removeEventListener('loadedmetadata', applyMetadataProgress)
+      media.removeEventListener('seeked', applyPendingSeek)
+    }
+  }, [near, reduced, selectedSrc])
 
   useEffect(() => {
     if (manualProgress != null) applyProgressRef.current(manualProgress)

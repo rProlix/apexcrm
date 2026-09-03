@@ -34,24 +34,14 @@ export async function validateScrollExperienceBindings(
   return { ok: true as const, bindings }
 }
 
-export async function activateScrollExperienceBindings(
+export async function prepareScrollExperienceBindings(
   db: SupabaseClient,
   tenantId: string,
   siteVersionId: string,
   bindings: ScrollPublishedBinding[]
 ) {
-  if (bindings.length === 0) {
-    const { error } = await db
-      .from('website_scroll_published_bindings')
-      .update({ active: false })
-      .eq('tenant_id', tenantId)
-      .eq('active', true)
-    if (error) throw new Error('Could not deactivate Scroll Experience bindings.')
-    return
-  }
+  if (bindings.length === 0) return
 
-  // Make the new version addressable before retiring the previous binding so
-  // a failed insert cannot break media for the currently published site.
   const { error } = await db.from('website_scroll_published_bindings').upsert(
     bindings.map((binding) => ({
       tenant_id: tenantId,
@@ -64,6 +54,14 @@ export async function activateScrollExperienceBindings(
     { onConflict: 'site_version_id,component_instance_id' }
   )
   if (error) throw new Error('Could not publish Scroll Experience bindings.')
+}
+
+export async function finalizeScrollExperienceBindings(
+  db: SupabaseClient,
+  tenantId: string,
+  siteVersionId: string,
+  bindings: ScrollPublishedBinding[]
+) {
   const { error: deactivateError } = await db
     .from('website_scroll_published_bindings')
     .update({ active: false })
@@ -71,17 +69,28 @@ export async function activateScrollExperienceBindings(
     .eq('active', true)
     .neq('site_version_id', siteVersionId)
   if (deactivateError) throw new Error('Could not retire the previous Scroll Experience binding.')
-  await db.from('website_scroll_experience_audit').insert(
-    bindings.map((binding) => ({
-      tenant_id: tenantId,
-      experience_id: binding.experienceId,
-      event_name: 'SCROLL_EXPERIENCE_PUBLISHED',
-      metadata: {
-        site_version_id: siteVersionId,
-        component_instance_id: binding.componentInstanceId,
-      },
-    }))
-  )
+  if (bindings.length > 0)
+    await db.from('website_scroll_experience_audit').insert(
+      bindings.map((binding) => ({
+        tenant_id: tenantId,
+        experience_id: binding.experienceId,
+        event_name: 'SCROLL_EXPERIENCE_PUBLISHED',
+        metadata: {
+          site_version_id: siteVersionId,
+          component_instance_id: binding.componentInstanceId,
+        },
+      }))
+    )
+}
+
+export async function activateScrollExperienceBindings(
+  db: SupabaseClient,
+  tenantId: string,
+  siteVersionId: string,
+  bindings: ScrollPublishedBinding[]
+) {
+  await prepareScrollExperienceBindings(db, tenantId, siteVersionId, bindings)
+  await finalizeScrollExperienceBindings(db, tenantId, siteVersionId, bindings)
 }
 
 export async function deactivateScrollExperienceBindings(db: SupabaseClient, tenantId: string) {

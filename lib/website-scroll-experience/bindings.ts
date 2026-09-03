@@ -35,3 +35,17 @@ export function collectScrollExperienceBindings(snapshot: unknown): ScrollPublis
   }
   return bindings
 }
+
+export function findScrollExperienceBinding(
+  snapshot: unknown,
+  experienceVersionId: string,
+  componentInstanceId?: string
+): ScrollPublishedBinding | null {
+  return (
+    collectScrollExperienceBindings(snapshot).find(
+      (binding) =>
+        binding.experienceVersionId === experienceVersionId &&
+        (!componentInstanceId || binding.componentInstanceId === componentInstanceId)
+    ) ?? null
+  )
+}

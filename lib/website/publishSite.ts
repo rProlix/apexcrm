@@ -10,8 +10,9 @@ import { createWebsiteSnapshotForTenant } from '@/lib/website/snapshot/createWeb
 import type { ClientPageSections } from '@/lib/website/versionTypes'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import {
-  activateScrollExperienceBindings,
   deactivateScrollExperienceBindings,
+  finalizeScrollExperienceBindings,
+  prepareScrollExperienceBindings,
   validateScrollExperienceBindings,
 } from '@/lib/website-scroll-experience/publishing'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -179,6 +180,21 @@ export async function publishTenantSite(params: {
 
   const versionId = versionRow.id as string
 
+  try {
+    await prepareScrollExperienceBindings(
+      db as SupabaseClient,
+      tenantId,
+      versionId,
+      scrollValidation.bindings
+    )
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Scroll Experience publish failed.',
+      step: 'scroll_experience_bindings',
+    }
+  }
+
   const applyResult = await applySnapshotToWebsiteTables(tenantId, snapshot, userId ?? '')
   if (!applyResult.data)
     return {
@@ -240,7 +256,7 @@ export async function publishTenantSite(params: {
     )
 
   try {
-    await activateScrollExperienceBindings(
+    await finalizeScrollExperienceBindings(
       db as SupabaseClient,
       tenantId,
       versionId,

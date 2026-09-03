@@ -7,6 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getScrollExperienceAwsEnv } from '@/lib/server/env'
+import { resolvePublicScrollExperienceBinding } from '@/lib/website-scroll-experience/public-binding'
 
 const PUBLIC_KINDS = new Set(['desktop', 'mobile', 'poster'])
 
@@ -17,13 +18,7 @@ export async function GET(
   const { experienceVersionId, kind } = await context.params
   if (!PUBLIC_KINDS.has(kind)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const db = getSupabaseServerClient() as SupabaseClient
-  const { data: binding } = await db
-    .from('website_scroll_published_bindings')
-    .select('tenant_id')
-    .eq('experience_version_id', experienceVersionId)
-    .eq('active', true)
-    .limit(1)
-    .maybeSingle()
+  const binding = await resolvePublicScrollExperienceBinding(db, experienceVersionId)
   if (!binding) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const { data: asset } = await db
     .from('website_scroll_experience_assets')
