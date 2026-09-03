@@ -3,6 +3,7 @@
 import type { Premium3DScrollHeroContent } from './premium3d/types'
 import { defaultPremium3DScrollHeroContent } from './premium3d/types'
 import { defaultScrollExperienceContent } from '@/lib/website-scroll-experience/types'
+import { getCinematicPreset } from '@/lib/website-cinematic/presets'
 import type { WebsiteDesignSystem } from './design/types'
 
 // Re-export so callers can import the Premium 3D Scroll Hero content type from
@@ -545,10 +546,13 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
   },
   scroll_experience: {
     type: 'scroll_experience',
-    label: 'Scroll Experience',
-    description: 'Turn a video into an immersive scroll-controlled cinematic section',
+    label: 'Cinematic Scroll',
+    description: 'Build with animated layers, scroll video, or a synchronized hybrid',
     icon: 'film',
-    defaultContent: defaultScrollExperienceContent() as unknown as SectionContent,
+    defaultContent: {
+      ...defaultScrollExperienceContent(),
+      cinematic: getCinematicPreset('Product Reveal'),
+    } as unknown as SectionContent,
   },
   custom: {
     type: 'custom',

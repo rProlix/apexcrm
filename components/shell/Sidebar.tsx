@@ -310,7 +310,7 @@ export function Sidebar({
                       { label: 'Overview', href: '/website', icon: LayoutGrid, exact: true },
                       { label: 'Pages', href: '/website/pages', icon: List, exact: false },
                       {
-                        label: 'Scroll Experience',
+                        label: 'Cinematic Scroll',
                         href: '/website/scroll-video',
                         icon: Film,
                         exact: false,

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { defaultScrollExperienceContent } from '@/lib/website-scroll-experience/types'
+import { getCinematicPreset } from '@/lib/website-cinematic/presets'
 
 type PageOption = {
   id: string
@@ -232,6 +233,7 @@ export function ScrollVideoWorkspace({
     try {
       const content = {
         ...defaultScrollExperienceContent(),
+        cinematic: getCinematicPreset('Video Scroll'),
         experienceId: experience.id,
         experienceVersionId: version.id,
         status: 'READY',

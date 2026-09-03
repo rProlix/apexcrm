@@ -1,5 +1,7 @@
 import { ScrollExperiencePlayer } from './ScrollExperiencePlayer'
 import { normalizeScrollExperienceContent } from '@/lib/website-scroll-experience/types'
+import { normalizeCinematicConfig } from '@/lib/website-cinematic/schema'
+import { CinematicRenderer } from '@/components/website/cinematic/CinematicRenderer'
 
 export function ScrollExperience({
   content,
@@ -11,6 +13,7 @@ export function ScrollExperience({
   mode?: 'public' | 'preview' | 'editor'
 }) {
   const normalized = normalizeScrollExperienceContent(content)
+  const cinematic = normalizeCinematicConfig(normalized.cinematic)
   const versionId = normalized.experienceVersionId
   const experienceId = normalized.experienceId
   const base = versionId
@@ -22,6 +25,16 @@ export function ScrollExperience({
     : null
   const query =
     mode === 'public' || !versionId ? '' : `?version_id=${encodeURIComponent(versionId)}`
+  if (cinematic) {
+    return (
+      <CinematicRenderer
+        config={cinematic}
+        desktopSrc={base ? `${base}/desktop${query}` : undefined}
+        mobileSrc={base ? `${base}/mobile${query}` : undefined}
+        posterSrc={base ? `${base}/poster${query}` : normalized.posterUrl}
+      />
+    )
+  }
   return (
     <ScrollExperiencePlayer
       content={normalized}

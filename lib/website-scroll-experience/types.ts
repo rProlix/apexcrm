@@ -17,6 +17,7 @@ export type ScrollExperienceBeat = {
 }
 
 export type ScrollExperienceContent = {
+  cinematic?: unknown
   experienceId?: string
   experienceVersionId?: string
   status?: string
@@ -132,6 +133,7 @@ export function normalizeScrollExperienceContent(value: unknown): ScrollExperien
     choices.includes(raw[key] as T) ? (raw[key] as T) : fallback
   return {
     ...defaults,
+    cinematic: raw.cinematic,
     experienceId: typeof raw.experienceId === 'string' ? raw.experienceId : undefined,
     experienceVersionId:
       typeof raw.experienceVersionId === 'string' ? raw.experienceVersionId : undefined,

@@ -2,12 +2,15 @@ import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { collectScrollExperienceBindings, type ScrollPublishedBinding } from './bindings'
+import { validateCinematicConfigs } from '@/lib/website-cinematic/publishing'
 
 export async function validateScrollExperienceBindings(
   db: SupabaseClient,
   tenantId: string,
   snapshot: unknown
 ) {
+  const cinematic = validateCinematicConfigs(snapshot)
+  if (!cinematic.ok) return cinematic
   const bindings = collectScrollExperienceBindings(snapshot)
   if (bindings.length === 0) return { ok: true as const, bindings }
   const ids = [...new Set(bindings.map((item) => item.experienceVersionId))]

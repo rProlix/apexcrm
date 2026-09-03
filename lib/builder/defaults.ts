@@ -3,6 +3,7 @@
 import type { SectionTypeDef } from './types'
 import { defaultPremium3DScrollHeroContent } from '@/lib/website/premium3d/types'
 import { defaultScrollExperienceContent } from '@/lib/website-scroll-experience/types'
+import { getCinematicPreset } from '@/lib/website-cinematic/presets'
 
 export const SECTION_TYPES: SectionTypeDef[] = [
   {
@@ -22,10 +23,13 @@ export const SECTION_TYPES: SectionTypeDef[] = [
   },
   {
     type: 'scroll_experience',
-    label: 'Scroll Experience',
-    description: 'Turn a video into an immersive scroll-controlled cinematic section',
+    label: 'Cinematic Scroll',
+    description: 'Build with animated layers, scroll video, or a synchronized hybrid',
     icon: '◫',
-    defaultContent: defaultScrollExperienceContent() as unknown as Record<string, unknown>,
+    defaultContent: {
+      ...defaultScrollExperienceContent(),
+      cinematic: getCinematicPreset('Product Reveal'),
+    } as unknown as Record<string, unknown>,
   },
   {
     type: 'feature_grid',

@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { cinematicConfigSchema } from '@/lib/website-cinematic/schema'
+import { assertScrollExperienceEntitlement } from '@/lib/website-scroll-experience/server'
 
 function forbidden() {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -59,6 +61,22 @@ export async function POST(req: NextRequest) {
   const { section_type, section_key, content, sort_order, is_visible } = body
 
   if (!section_type) return NextResponse.json({ error: 'section_type required' }, { status: 422 })
+  if (section_type === 'scroll_experience') {
+    try {
+      await assertScrollExperienceEntitlement(page.tenant_id)
+      if (content?.cinematic && !cinematicConfigSchema.safeParse(content.cinematic).success) {
+        return NextResponse.json(
+          { error: 'Invalid Cinematic Scroll configuration.' },
+          { status: 422 }
+        )
+      }
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Cinematic Scroll is unavailable.' },
+        { status: 403 }
+      )
+    }
+  }
 
   const { data, error } = await db
     .from('site_sections')

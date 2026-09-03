@@ -8,6 +8,8 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { cinematicConfigSchema } from '@/lib/website-cinematic/schema'
+import { assertScrollExperienceEntitlement } from '@/lib/website-scroll-experience/server'
 
 type RouteContext = {
   params: Promise<{ sectionId: string }>
@@ -57,6 +59,23 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   const patch: Record<string, unknown> = {}
   for (const key of allowed) {
     if (key in body) patch[key] = body[key]
+  }
+  if (patch.content && typeof patch.content === 'object' && 'cinematic' in patch.content) {
+    const cinematic = (patch.content as Record<string, unknown>).cinematic
+    if (!cinematicConfigSchema.safeParse(cinematic).success) {
+      return NextResponse.json(
+        { error: 'Invalid Cinematic Scroll configuration.' },
+        { status: 422 }
+      )
+    }
+    try {
+      await assertScrollExperienceEntitlement(tenantId)
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Cinematic Scroll is unavailable.' },
+        { status: 403 }
+      )
+    }
   }
 
   // When style_config is a partial update containing only `design`, merge with existing

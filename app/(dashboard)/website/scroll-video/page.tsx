@@ -5,8 +5,9 @@ import { requireRole } from '@/lib/auth/requireRole'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveWebsiteTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { ScrollVideoWorkspace } from '@/components/website/scroll-experience/ScrollVideoWorkspace'
+import { CinematicStudio } from '@/components/website/cinematic/CinematicStudio'
 
-export const metadata = { title: 'Scroll Experience - Website Builder' }
+export const metadata = { title: 'Cinematic Scroll - Website Builder' }
 
 export default async function ScrollVideoPage({
   searchParams,
@@ -29,7 +30,7 @@ export default async function ScrollVideoPage({
     requestedSectionId
       ? db
           .from('site_sections')
-          .select('id,page_id,section_type')
+          .select('id,page_id,section_type,content')
           .eq('id', requestedSectionId)
           .eq('tenant_id', tenantId)
           .eq('section_type', 'scroll_experience')
@@ -37,15 +38,20 @@ export default async function ScrollVideoPage({
       : Promise.resolve({ data: null }),
   ])
 
+  if (sectionResult.data) {
+    return (
+      <CinematicStudio
+        sectionId={sectionResult.data.id}
+        initialContent={(sectionResult.data.content ?? {}) as Record<string, unknown>}
+      />
+    )
+  }
+
   return (
     <ScrollVideoWorkspace
       tenantId={tenantId}
       pages={pagesResult.data ?? []}
-      targetSection={
-        sectionResult.data
-          ? { id: sectionResult.data.id, pageId: sectionResult.data.page_id }
-          : undefined
-      }
+      targetSection={undefined}
     />
   )
 }

@@ -37,7 +37,7 @@ const TABS: Tab[] = [
   { href: '/website', label: 'Overview', icon: LayoutGrid, exact: true },
   {
     href: '/website/scroll-video',
-    label: 'Scroll Experience',
+    label: 'Cinematic Scroll',
     icon: Film,
     badge: 'NEW',
   },

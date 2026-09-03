@@ -44,8 +44,8 @@ export async function assertScrollExperienceEntitlement(tenantId: string) {
   if (data?.enabled === false) throw new Error('Website Builder is not enabled for this business.')
   const config =
     data?.config && typeof data.config === 'object' ? (data.config as Record<string, unknown>) : {}
-  if (config.scroll_experience_enabled === false) {
-    throw new Error('Scroll Experience is not included in this package.')
+  if (config.cinematic_scroll_enabled === false || config.scroll_experience_enabled === false) {
+    throw new Error('Cinematic Scroll is not included in this package.')
   }
 }
 
