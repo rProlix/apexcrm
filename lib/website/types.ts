@@ -545,8 +545,8 @@ export const SECTION_TYPE_META: Record<SectionType, SectionTypeMeta> = {
   },
   scroll_experience: {
     type: 'scroll_experience',
-    label: 'Scroll Experience (MP4)',
-    description: 'Upload an MP4 for a Scroll World-style cinematic effect',
+    label: 'Scroll Experience',
+    description: 'Turn a video into an immersive scroll-controlled cinematic section',
     icon: 'film',
     defaultContent: defaultScrollExperienceContent() as unknown as SectionContent,
   },

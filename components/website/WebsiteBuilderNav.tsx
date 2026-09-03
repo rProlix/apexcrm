@@ -35,12 +35,17 @@ interface Tab {
 
 const TABS: Tab[] = [
   { href: '/website', label: 'Overview', icon: LayoutGrid, exact: true },
+  {
+    href: '/website/scroll-video',
+    label: 'Scroll Experience',
+    icon: Film,
+    badge: 'NEW',
+  },
   { href: '/website/sites', label: 'My Sites & Apps', icon: Globe, badge: 'NEW' },
   { href: '/website/create', label: 'App Type', icon: LayoutTemplate },
   { href: '/website/pov', label: 'POV Apps', icon: Camera, badge: 'NEW' },
   { href: '/website/canva', label: 'Canva Import', icon: Sparkles, badge: 'NEW' },
   { href: '/website/pages', label: 'Pages', icon: FileText },
-  { href: '/website/scroll-video', label: 'Scroll MP4', icon: Film, badge: 'NEW' },
   { href: '/website/navigation', label: 'Navigation', icon: Navigation },
   { href: '/website/theme', label: 'Theme', icon: Palette },
   { href: '/website/settings', label: 'Settings', icon: Settings },

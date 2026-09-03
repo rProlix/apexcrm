@@ -384,14 +384,14 @@ function SectionContentEditor({ section, onUpdate }: EditorProps) {
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-white">Upload or choose an MP4</p>
               <p className="mt-1 text-2xs leading-relaxed text-white/40">
-                Open the Scroll MP4 workspace to process a video and connect it to this section.
+                Open Scroll Experience to process a video and connect it to this section.
               </p>
               <Link
                 href={`/website/scroll-video?section_id=${encodeURIComponent(section.id)}`}
                 className="mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-gold-500 px-3 text-xs font-semibold text-brand-foreground transition hover:bg-gold-400 focus-ring"
               >
                 <Upload className="h-3.5 w-3.5" aria-hidden="true" />
-                Open Scroll MP4
+                Open Scroll Experience
               </Link>
             </div>
           </div>

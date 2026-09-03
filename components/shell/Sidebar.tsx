@@ -34,6 +34,7 @@ import {
   Boxes,
   ClipboardCheck,
   HardDrive,
+  Film,
   PanelLeftClose,
   PanelLeftOpen,
   X,
@@ -293,6 +294,43 @@ export function Sidebar({
                           {label === 'Availability' && !subActive && (
                             <span className="ml-auto h-1 w-1 rounded-full bg-gold-400/60" />
                           )}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+                {mod.key === 'website' && isActive('/website') && (
+                  <div
+                    className={cn(
+                      'ml-4 mt-0.5 space-y-0.5 border-l border-gold-500/20 pl-3',
+                      isCollapsed && 'md:hidden'
+                    )}
+                  >
+                    {[
+                      { label: 'Overview', href: '/website', icon: LayoutGrid, exact: true },
+                      { label: 'Pages', href: '/website/pages', icon: List, exact: false },
+                      {
+                        label: 'Scroll Experience',
+                        href: '/website/scroll-video',
+                        icon: Film,
+                        exact: false,
+                      },
+                    ].map(({ label, href, icon: Icon, exact }) => {
+                      const subActive = exact ? pathname === href : pathname.startsWith(href)
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={handleLinkClick}
+                          className={cn(
+                            'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+                            subActive
+                              ? 'bg-gold-500/10 text-gold-400'
+                              : 'text-white/35 hover:bg-graphite-700/50 hover:text-white/70'
+                          )}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          {label}
                         </Link>
                       )
                     })}

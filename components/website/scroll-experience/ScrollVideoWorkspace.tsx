@@ -123,7 +123,7 @@ export function ScrollVideoWorkspace({
       experiences?: Experience[]
       error?: string
     }
-    if (!response.ok) throw new Error(body.error || 'Could not load Scroll MP4 videos.')
+    if (!response.ok) throw new Error(body.error || 'Could not load Scroll Experiences.')
     setExperiences(body.experiences ?? [])
   }, [tenantId])
 
@@ -132,7 +132,7 @@ export function ScrollVideoWorkspace({
       .catch((error) =>
         setNotice({
           tone: 'error',
-          message: error instanceof Error ? error.message : 'Could not load Scroll MP4 videos.',
+          message: error instanceof Error ? error.message : 'Could not load Scroll Experiences.',
         })
       )
       .finally(() => setLoading(false))
@@ -285,9 +285,9 @@ export function ScrollVideoWorkspace({
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-gold-400">
             <Film className="h-4 w-4" aria-hidden="true" />
-            Scroll World video effect
+            Interactive video
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Scroll MP4</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Scroll Experience</h1>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-white/45">
             Upload one MP4. Nexora prepares scrub-ready desktop and mobile videos plus a poster,
             then lets you add the experience to any business website page.
@@ -406,7 +406,7 @@ export function ScrollVideoWorkspace({
         ) : experiences.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/10 px-5 py-10 text-center">
             <Film className="mx-auto h-6 w-6 text-white/25" aria-hidden="true" />
-            <p className="mt-3 text-sm font-medium text-white/65">No Scroll MP4 videos yet</p>
+            <p className="mt-3 text-sm font-medium text-white/65">No Scroll Experiences yet</p>
             <p className="mt-1 text-xs text-white/35">Upload your first MP4 above.</p>
           </div>
         ) : (

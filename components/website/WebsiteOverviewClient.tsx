@@ -204,15 +204,15 @@ export function WebsiteOverviewClient({
             <div className="min-w-0 flex-1">
               <div className="mb-0.5 flex items-center gap-2">
                 <p className="text-sm font-semibold text-white transition-colors group-hover:text-gold-300">
-                  Scroll MP4 Experience
+                  Scroll Experience
                 </p>
                 <span className="rounded bg-gold-500/15 px-1.5 py-0.5 text-2xs font-bold uppercase tracking-wide text-gold-400">
                   New
                 </span>
               </div>
               <p className="text-xs leading-relaxed text-white/40">
-                Upload an MP4 and add a Scroll World-style cinematic section to a business website
-                page.
+                Turn an MP4 into a cinematic section whose timeline responds to the visitor's
+                scroll.
               </p>
             </div>
             <ArrowRight className="h-4 w-4 shrink-0 text-gold-400/50 transition-all duration-150 group-hover:translate-x-1 group-hover:text-gold-400" />

@@ -196,9 +196,9 @@ test('story links reject executable and protocol-relative URLs', () => {
   assert.equal(safeScrollLink('https://example.com/contact'), 'https://example.com/contact')
 })
 
-test('the Website Builder exposes Scroll MP4 as a prominent upload workflow', () => {
+test('the Website Builder exposes Scroll Experience as a prominent upload workflow', () => {
   assert.equal(SECTION_TYPES[1]?.type, 'scroll_experience')
-  assert.match(SECTION_TYPES[1]?.label ?? '', /MP4/)
+  assert.equal(SECTION_TYPES[1]?.label, 'Scroll Experience')
 
   const navigation = readFileSync('components/website/WebsiteBuilderNav.tsx', 'utf8')
   const workspace = readFileSync(
@@ -207,8 +207,13 @@ test('the Website Builder exposes Scroll MP4 as a prominent upload workflow', ()
   )
   const sectionsPanel = readFileSync('components/website/SectionsPanel.tsx', 'utf8')
   assert.match(navigation, /href: '\/website\/scroll-video'/)
+  assert.match(navigation, /label: 'Scroll Experience'/)
   assert.match(workspace, /Choose MP4 video/)
   assert.match(workspace, /Up to 10 MB/)
   assert.match(workspace, /Add to page/)
-  assert.match(sectionsPanel, /Open Scroll MP4/)
+  assert.match(sectionsPanel, /Open Scroll Experience/)
+
+  const sidebar = readFileSync('components/shell/Sidebar.tsx', 'utf8')
+  assert.match(sidebar, /label: 'Scroll Experience'/)
+  assert.match(sidebar, /href: '\/website\/scroll-video'/)
 })

@@ -6,7 +6,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveWebsiteTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { ScrollVideoWorkspace } from '@/components/website/scroll-experience/ScrollVideoWorkspace'
 
-export const metadata = { title: 'Scroll MP4 - Website Builder' }
+export const metadata = { title: 'Scroll Experience - Website Builder' }
 
 export default async function ScrollVideoPage({
   searchParams,

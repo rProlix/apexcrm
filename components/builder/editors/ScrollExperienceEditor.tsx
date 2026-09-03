@@ -394,8 +394,8 @@ export function ScrollExperienceEditor({ sectionId }: { sectionId: string }) {
         onChange={(value) => patch({ previewInteraction: value })}
       />
       <p style={{ margin: '-8px 0 16px', color: '#71717a', fontSize: 11, lineHeight: 1.5 }}>
-        Scroll World scrubs the MP4 timeline. For a 3D fly-through, the camera movement must already
-        be rendered into the uploaded video.
+        Visitor scrolling scrubs the MP4 timeline. For a 3D fly-through, the camera movement must
+        already be rendered into the uploaded video.
       </p>
 
       <h4 style={heading}>Layout and overlay</h4>
