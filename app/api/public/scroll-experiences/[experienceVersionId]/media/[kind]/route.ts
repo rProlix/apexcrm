@@ -19,7 +19,10 @@ export async function GET(
   if (!PUBLIC_KINDS.has(kind)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const db = getSupabaseServerClient() as SupabaseClient
   const binding = await resolvePublicScrollExperienceBinding(db, experienceVersionId)
-  if (!binding) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (!binding) {
+    console.warn('[scroll-media] public binding unavailable', { experienceVersionId, kind })
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
   const { data: asset } = await db
     .from('website_scroll_experience_assets')
     .select('storage_provider,bucket,object_key,content_type')
@@ -27,13 +30,19 @@ export async function GET(
     .eq('tenant_id', binding.tenant_id)
     .eq('kind', kind)
     .maybeSingle()
-  if (!asset) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (!asset) {
+    console.warn('[scroll-media] processed asset unavailable', { experienceVersionId, kind })
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
   let signedUrl: string
   if (asset.storage_provider === 'supabase') {
     const { data, error } = await db.storage
       .from(asset.bucket)
       .createSignedUrl(asset.object_key, 600)
-    if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (error || !data) {
+      console.warn('[scroll-media] Supabase signing failed', { experienceVersionId, kind })
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
     signedUrl = data.signedUrl
   } else {
     const config = getScrollExperienceAwsEnv()
