@@ -13,7 +13,7 @@ function getClient(cfg: EmailConfig): SESv2Client {
     _client = new SESv2Client({
       region: cfg.sesRegion!,
       credentials: {
-        accessKeyId:     cfg.sesAccessKeyId!,
+        accessKeyId: cfg.sesAccessKeyId!,
         secretAccessKey: cfg.sesSecretAccessKey!,
       },
     })
@@ -21,28 +21,25 @@ function getClient(cfg: EmailConfig): SESv2Client {
   return _client
 }
 
-export async function sendViaSES(
-  payload: EmailPayload,
-  cfg:     EmailConfig,
-): Promise<EmailResult> {
+export async function sendViaSES(payload: EmailPayload, cfg: EmailConfig): Promise<EmailResult> {
   if (!cfg.sesRegion || !cfg.sesAccessKeyId || !cfg.sesSecretAccessKey) {
     const missing: string[] = []
-    if (!cfg.sesRegion)          missing.push('AWS_SES_REGION')
-    if (!cfg.sesAccessKeyId)     missing.push('AWS_SES_ACCESS_KEY_ID')
+    if (!cfg.sesRegion) missing.push('AWS_SES_REGION')
+    if (!cfg.sesAccessKeyId) missing.push('AWS_SES_ACCESS_KEY_ID')
     if (!cfg.sesSecretAccessKey) missing.push('AWS_SES_SECRET_ACCESS_KEY')
     return {
-      success:  false,
+      success: false,
       provider: 'ses',
-      error:    `Amazon SES is not configured: missing ${missing.join(', ')}.`,
+      error: `Amazon SES is not configured: missing ${missing.join(', ')}.`,
     }
   }
 
   const client = getClient(cfg)
 
-  const fromName    = payload.fromName    ?? cfg.fromName
+  const fromName = payload.fromName ?? cfg.fromName
   const fromAddress = payload.fromAddress ?? cfg.fromAddress
-  const replyTo     = payload.replyTo     ?? cfg.replyTo
-  const to          = Array.isArray(payload.to) ? payload.to : [payload.to]
+  const replyTo = payload.replyTo ?? cfg.replyTo
+  const to = Array.isArray(payload.to) ? payload.to : [payload.to]
 
   const cmd = new SendEmailCommand({
     Destination: { ToAddresses: to },
@@ -53,8 +50,8 @@ export async function sendViaSES(
       Simple: {
         Subject: { Data: payload.subject, Charset: 'UTF-8' },
         Body: {
-          Html: { Data: payload.html,        Charset: 'UTF-8' },
-          Text: { Data: payload.text ?? '',  Charset: 'UTF-8' },
+          Html: { Data: payload.html, Charset: 'UTF-8' },
+          Text: { Data: payload.text ?? '', Charset: 'UTF-8' },
         },
       },
     },
@@ -64,10 +61,10 @@ export async function sendViaSES(
   try {
     const res = await client.send(cmd)
     return {
-      success:   true,
-      provider:  'ses',
+      success: true,
+      provider: 'ses',
       messageId: res.MessageId,
-      raw:       res,
+      raw: res,
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown SES error'

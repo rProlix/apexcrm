@@ -16,10 +16,10 @@
 //
 // 3. updatedAt is returned so the client can detect and discard stale responses.
 
-import { NextRequest, NextResponse }   from 'next/server'
-import { resolveP360ApiUser }          from '@/lib/product-360/auth'
-import { getSupabaseServerClient }     from '@/lib/supabase/server'
-import { reconcilePackageProgress }    from '@/lib/product-360/reconcile'
+import { NextRequest, NextResponse } from 'next/server'
+import { resolveP360ApiUser } from '@/lib/product-360/auth'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { reconcilePackageProgress } from '@/lib/product-360/reconcile'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,24 +42,33 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   // ── Load package ──────────────────────────────────────────────────────────
   const { data: pkg } = await db
     .from('product_360_packages')
-    .select([
-      'id', 'status', 'frame_count', 'target_frame_count',
-      'frames_done', 'progress_percent',
-      'preview_image_url', 'cover_frame_url',
-      'generation_error', 'last_error_type', 'next_retry_at',
-      'updated_at',
-    ].join(', '))
+    .select(
+      [
+        'id',
+        'status',
+        'frame_count',
+        'target_frame_count',
+        'frames_done',
+        'progress_percent',
+        'preview_image_url',
+        'cover_frame_url',
+        'generation_error',
+        'last_error_type',
+        'next_retry_at',
+        'updated_at',
+      ].join(', ')
+    )
     .eq('id', packageId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
   if (!pkg) return NextResponse.json({ error: 'Package not found' }, { status: 404 })
 
-  const p           = pkg as Record<string, unknown>
-  const status      = p.status as string
-  const framesDone  = (p.frames_done       as number) ?? 0
+  const p = pkg as Record<string, unknown>
+  const status = p.status as string
+  const framesDone = (p.frames_done as number) ?? 0
   const targetCount = (p.target_frame_count as number) ?? (p.frame_count as number) ?? 0
-  const updatedAt   = p.updated_at as string
+  const updatedAt = p.updated_at as string
 
   // ── Load all frame rows ────────────────────────────────────────────────────
   // This is the source of truth for progress.
@@ -83,32 +92,34 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   // Monotonically correct: never lower than what the package column says
   const framesCompleted = Math.max(framesDone, actualFramesCompleted)
 
-  const progressPercent = targetCount > 0
-    ? Math.min(100, Math.floor((framesCompleted / targetCount) * 100))
-    : (p.progress_percent as number) ?? 0
+  const progressPercent =
+    targetCount > 0
+      ? Math.min(100, Math.floor((framesCompleted / targetCount) * 100))
+      : ((p.progress_percent as number) ?? 0)
 
   // Completed frame URLs for the sequence preview (in-progress live scrubbing)
   const completedFrameUrls = frameRows
-    .filter(f => !!f.image_url)
-    .map(f => f.image_url as string)
+    .filter((f) => !!f.image_url)
+    .map((f) => f.image_url as string)
 
-  const previewUrl = (p.preview_image_url as string | null)
-    ?? (p.cover_frame_url as string | null)
-    ?? completedFrameUrls[0]    // first frame as fallback
-    ?? null
+  const previewUrl =
+    (p.preview_image_url as string | null) ??
+    (p.cover_frame_url as string | null) ??
+    completedFrameUrls[0] ?? // first frame as fallback
+    null
 
   // ── Auto-reconcile if the package looks stuck ──────────────────────────────
   const inProgressStatus = ['queued', 'generating', 'processing'].includes(status)
-  const updatedAtMs      = new Date(updatedAt).getTime()
-  const msSinceUpdate    = Date.now() - updatedAtMs
-  const looksStuck       = inProgressStatus && msSinceUpdate > 10 * 60 * 1000
+  const updatedAtMs = new Date(updatedAt).getTime()
+  const msSinceUpdate = Date.now() - updatedAtMs
+  const looksStuck = inProgressStatus && msSinceUpdate > 10 * 60 * 1000
 
   if (looksStuck) {
     console.warn(
-      `[p360:status] pkg=${packageId} looks stuck (${status}, ${msSinceUpdate / 1000 | 0}s ago) — scheduling reconcile`,
+      `[p360:status] pkg=${packageId} looks stuck (${status}, ${(msSinceUpdate / 1000) | 0}s ago) — scheduling reconcile`
     )
-    reconcilePackageProgress(packageId).catch(err =>
-      console.warn(`[p360:status] reconcile error for pkg=${packageId}:`, err),
+    reconcilePackageProgress(packageId).catch((err) =>
+      console.warn(`[p360:status] reconcile error for pkg=${packageId}:`, err)
     )
   }
 
@@ -129,11 +140,11 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     progressPercent,
     previewUrl,
     completedFrameUrls,
-    frames:    frameRows,
+    frames: frameRows,
     updatedAt,
-    error:     p.generation_error    ?? null,
-    errorType: p.last_error_type     ?? null,
-    retryAt:   p.next_retry_at       ?? null,
+    error: p.generation_error ?? null,
+    errorType: p.last_error_type ?? null,
+    retryAt: p.next_retry_at ?? null,
     latestJob: job ?? null,
   })
 }

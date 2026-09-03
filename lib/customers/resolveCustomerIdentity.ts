@@ -33,7 +33,7 @@ export async function resolveCustomerIdentity(
     .from('customer_identities')
     .insert({
       email: normalised,
-      name:  opts?.name  ?? null,
+      name: opts?.name ?? null,
       phone: opts?.phone ?? null,
     })
     .select('id')

@@ -18,10 +18,5 @@ export default async function PaymentSettingsPage() {
   // Don't pass webhook_secret to client
   const { webhook_secret: _, ...safeSettings } = settings
 
-  return (
-    <ProviderSettingsForm
-      settings={safeSettings}
-      tenantId={tenantId}
-    />
-  )
+  return <ProviderSettingsForm settings={safeSettings} tenantId={tenantId} />
 }

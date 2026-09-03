@@ -12,7 +12,11 @@ function forbidden() {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 }
 
-function resolveTenantId(role: string, ctxTenant: string | null, hint?: string | null): string | null {
+function resolveTenantId(
+  role: string,
+  ctxTenant: string | null,
+  hint?: string | null
+): string | null {
   const self = ctxTenant && ctxTenant.trim() ? ctxTenant.trim() : null
   const h = hint && hint.trim() ? hint.trim() : null
   if (role === 'owner') return h ?? self
@@ -24,7 +28,11 @@ export async function GET(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin', 'staff'].includes(ctx.role)) return forbidden()
 
-  const tenantId = resolveTenantId(ctx.role, ctx.tenant_id, req.nextUrl.searchParams.get('tenant_id'))
+  const tenantId = resolveTenantId(
+    ctx.role,
+    ctx.tenant_id,
+    req.nextUrl.searchParams.get('tenant_id')
+  )
   if (!tenantId) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
 
   const { data, error } = await povDb()
@@ -41,7 +49,7 @@ export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const tenantId = resolveTenantId(ctx.role, ctx.tenant_id, body.tenant_id as string | undefined)
   if (!tenantId) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
 

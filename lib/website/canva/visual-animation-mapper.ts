@@ -25,11 +25,15 @@ export type VisualAnimationPreset = (typeof VISUAL_ANIMATION_PRESETS)[number]
 export type VisualLayerKind = 'background' | 'image' | 'graphic' | 'character' | 'decorative'
 
 const KIND_PRESET: Record<VisualLayerKind, Record<AnimationLevel, VisualAnimationPreset>> = {
-  background:  { subtle: 'fadeIn', balanced: 'softZoomIn', premium_cinematic: 'softZoomIn' },
-  image:       { subtle: 'fadeIn', balanced: 'imageReveal', premium_cinematic: 'imageReveal' },
-  graphic:     { subtle: 'fadeIn', balanced: 'graphicFadeUp', premium_cinematic: 'sparkleIn' },
-  character:   { subtle: 'fadeIn', balanced: 'characterPopIn', premium_cinematic: 'characterFloatIn' },
-  decorative:  { subtle: 'fadeIn', balanced: 'decorativeFloat', premium_cinematic: 'sparkleIn' },
+  background: { subtle: 'fadeIn', balanced: 'softZoomIn', premium_cinematic: 'softZoomIn' },
+  image: { subtle: 'fadeIn', balanced: 'imageReveal', premium_cinematic: 'imageReveal' },
+  graphic: { subtle: 'fadeIn', balanced: 'graphicFadeUp', premium_cinematic: 'sparkleIn' },
+  character: {
+    subtle: 'fadeIn',
+    balanced: 'characterPopIn',
+    premium_cinematic: 'characterFloatIn',
+  },
+  decorative: { subtle: 'fadeIn', balanced: 'decorativeFloat', premium_cinematic: 'sparkleIn' },
 }
 
 export interface VisualLayerAnimation {
@@ -47,7 +51,13 @@ const TIMING: Record<AnimationLevel, { duration: number; baseDelay: number }> = 
 
 export function inferVisualLayerKind(label?: string, type?: string): VisualLayerKind {
   const t = `${type ?? ''} ${label ?? ''}`.toLowerCase()
-  if (t.includes('character') || t.includes('person') || t.includes('people') || t.includes('illustration')) return 'character'
+  if (
+    t.includes('character') ||
+    t.includes('person') ||
+    t.includes('people') ||
+    t.includes('illustration')
+  )
+    return 'character'
   if (t.includes('decor') || t.includes('ornament') || t.includes('sparkle')) return 'decorative'
   if (t.includes('graphic') || t.includes('icon') || t.includes('shape')) return 'graphic'
   if (t.includes('background') || t.includes('page')) return 'background'
@@ -59,12 +69,13 @@ export function mapVisualLayerAnimation(
   kind: VisualLayerKind,
   level: AnimationLevel,
   index = 0,
-  aiHint?: string,
+  aiHint?: string
 ): VisualLayerAnimation {
   const timing = TIMING[level]
-  const preset = (aiHint && VISUAL_ANIMATION_PRESETS.includes(aiHint as VisualAnimationPreset))
-    ? (aiHint as VisualAnimationPreset)
-    : KIND_PRESET[kind][level]
+  const preset =
+    aiHint && VISUAL_ANIMATION_PRESETS.includes(aiHint as VisualAnimationPreset)
+      ? (aiHint as VisualAnimationPreset)
+      : KIND_PRESET[kind][level]
   return {
     preset,
     delay: Math.min(index * timing.baseDelay, 0.45),

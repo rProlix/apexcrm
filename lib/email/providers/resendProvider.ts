@@ -13,7 +13,7 @@ let _clientApiKey: string | null = null
 /** Get or (re)create the Resend client if the API key changed. */
 function getClient(apiKey: string): Resend {
   if (!_client || _clientApiKey !== apiKey) {
-    _client    = new Resend(apiKey)
+    _client = new Resend(apiKey)
     _clientApiKey = apiKey
   }
   return _client
@@ -66,7 +66,10 @@ function humanizeResendError(message: string): string {
   if (m.includes('invalid email') || m.includes('invalid_to') || m.includes('recipient')) {
     return 'The recipient email address is invalid or was rejected by Resend.'
   }
-  if (m.includes('from') && (m.includes('invalid') || m.includes('not allowed') || m.includes('not permitted'))) {
+  if (
+    m.includes('from') &&
+    (m.includes('invalid') || m.includes('not allowed') || m.includes('not permitted'))
+  ) {
     return (
       `Resend rejected the from address. Make sure your sending domain is verified at ` +
       `https://resend.com/domains and that RESEND_FROM_EMAIL matches a verified sender.`
@@ -76,21 +79,18 @@ function humanizeResendError(message: string): string {
   return `Resend error: ${message}`
 }
 
-export async function sendViaResend(
-  payload: EmailPayload,
-  cfg:     EmailConfig,
-): Promise<EmailResult> {
+export async function sendViaResend(payload: EmailPayload, cfg: EmailConfig): Promise<EmailResult> {
   if (!cfg.resendApiKey) {
     return {
-      success:  false,
+      success: false,
       provider: 'resend',
-      error:    'Resend API key is missing. Add RESEND_API_KEY to your environment variables.',
+      error: 'Resend API key is missing. Add RESEND_API_KEY to your environment variables.',
     }
   }
 
   if (!cfg.fromAddress) {
     return {
-      success:  false,
+      success: false,
       provider: 'resend',
       error:
         'Sender address is not configured. Set RESEND_FROM_EMAIL (or EMAIL_FROM_ADDRESS) ' +
@@ -100,9 +100,9 @@ export async function sendViaResend(
 
   const client = getClient(cfg.resendApiKey)
 
-  const fromName    = payload.fromName    ?? cfg.fromName
+  const fromName = payload.fromName ?? cfg.fromName
   const fromAddress = payload.fromAddress ?? cfg.fromAddress
-  const replyTo     = payload.replyTo     ?? cfg.replyTo
+  const replyTo = payload.replyTo ?? cfg.replyTo
 
   // Bare address for reply-to
   const replyToEmail = replyTo ? extractEmail(replyTo) : undefined
@@ -121,8 +121,8 @@ export async function sendViaResend(
       from,
       to,
       subject: payload.subject,
-      html:    payload.html,
-      text:    payload.text,
+      html: payload.html,
+      text: payload.text,
       replyTo: replyToEmail,
       tags,
     })
@@ -130,23 +130,23 @@ export async function sendViaResend(
     if (error) {
       const safeMsg = humanizeResendError(error.message ?? 'Unknown Resend error')
       console.error('[resendProvider] send failed:', {
-        error:       error.message,
-        name:        error.name,
-        from:        from.replace(/[^@\s<>]+@[^\s>]+/, '***@***'),
-        to:          to.map(a => a.replace(/[^@\s]+@/, '***@')),
-        subject:     payload.subject,
+        error: error.message,
+        name: error.name,
+        from: from.replace(/[^@\s<>]+@[^\s>]+/, '***@***'),
+        to: to.map((a) => a.replace(/[^@\s]+@/, '***@')),
+        subject: payload.subject,
       })
       return {
-        success:  false,
+        success: false,
         provider: 'resend',
-        error:    safeMsg,
-        raw:      { name: error.name },
+        error: safeMsg,
+        raw: { name: error.name },
       }
     }
 
     return {
-      success:   true,
-      provider:  'resend',
+      success: true,
+      provider: 'resend',
       messageId: data?.id,
     }
   } catch (err) {

@@ -34,7 +34,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ eventSlug:
     metadata: { source: 'canva_pdf_rsvp', eventSlug },
   })
 
-  if (error) return NextResponse.json({ ok: false, error: `Could not save RSVP: ${error.message}` }, { status: 500 })
+  if (error)
+    return NextResponse.json(
+      { ok: false, error: `Could not save RSVP: ${error.message}` },
+      { status: 500 }
+    )
   return NextResponse.json({ ok: true })
 }
 
@@ -52,7 +56,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ eventSlug:
   }
 
   const db = getSupabaseServerClient() as DB
-  const { data, error } = await db.from('event_rsvps')
+  const { data, error } = await db
+    .from('event_rsvps')
     .select('id,name,email,phone,attending,guest_count,message,created_at')
     .eq('website_id', site.id)
     .order('created_at', { ascending: false })

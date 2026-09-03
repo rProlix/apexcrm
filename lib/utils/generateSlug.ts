@@ -8,16 +8,18 @@
  * "My Great Store!" → "mygreatstore"
  */
 export function slugifyBusinessName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD')                         // decompose accented chars
-    .replace(/[\u0300-\u036f]/g, '')          // strip diacritics
-    .replace(/[^a-z0-9\s-]/g, '')            // remove non-alphanumeric
-    .replace(/\s+/g, '')                      // collapse spaces (no hyphens between words)
-    .replace(/-+/g, '-')                      // collapse hyphens
-    .replace(/^-|-$/g, '')                    // trim leading/trailing hyphens
-    .slice(0, 48)                             // max length
-    || 'tenant'                               // fallback
+  return (
+    name
+      .toLowerCase()
+      .normalize('NFD') // decompose accented chars
+      .replace(/[\u0300-\u036f]/g, '') // strip diacritics
+      .replace(/[^a-z0-9\s-]/g, '') // remove non-alphanumeric
+      .replace(/\s+/g, '') // collapse spaces (no hyphens between words)
+      .replace(/-+/g, '-') // collapse hyphens
+      .replace(/^-|-$/g, '') // trim leading/trailing hyphens
+      .slice(0, 48) || // max length
+    'tenant'
+  ) // fallback
 }
 
 /**
@@ -31,11 +33,11 @@ export function slugifyBusinessName(name: string): string {
  * @param maxAttempts  bail-out after this many retries
  */
 export async function resolveUniqueSlug(
-  checkExists:  (slug: string) => Promise<boolean>,
-  baseSlug:     string,
-  maxAttempts = 10,
+  checkExists: (slug: string) => Promise<boolean>,
+  baseSlug: string,
+  maxAttempts = 10
 ): Promise<string> {
-  let slug    = baseSlug
+  let slug = baseSlug
   let attempt = 0
 
   while (attempt < maxAttempts) {

@@ -39,11 +39,15 @@ export function mapPageVisualAnimation(
   pageNumber: number,
   pageText: string,
   level: AnimationLevel,
-  aiHint?: string,
+  aiHint?: string
 ): PageVisualAnimation {
   const timing = TIMING[level]
   if (aiHint && PAGE_VISUAL_ANIMATION_PRESETS.includes(aiHint as PageVisualAnimationPreset)) {
-    return { preset: aiHint as PageVisualAnimationPreset, delay: timing.baseDelay, duration: timing.duration }
+    return {
+      preset: aiHint as PageVisualAnimationPreset,
+      delay: timing.baseDelay,
+      duration: timing.duration,
+    }
   }
   const illustrationHeavy = /\b(character|illustration|cartoon|mascot|invite)\b/i.test(pageText)
   if (pageNumber === 1) {
@@ -56,10 +60,18 @@ export function mapPageVisualAnimation(
   if (illustrationHeavy) {
     return { preset: 'characterPopIn', delay: timing.baseDelay, duration: timing.duration }
   }
-  return { preset: 'fadeUp', delay: Math.min(pageNumber * timing.baseDelay, 0.35), duration: timing.duration }
+  return {
+    preset: 'fadeUp',
+    delay: Math.min(pageNumber * timing.baseDelay, 0.35),
+    duration: timing.duration,
+  }
 }
 
-export function mapButtonAnimation(index: number, level: AnimationLevel, actionType?: string): ButtonAnimation {
+export function mapButtonAnimation(
+  index: number,
+  level: AnimationLevel,
+  actionType?: string
+): ButtonAnimation {
   const timing = TIMING[level]
   const preset = actionType === 'gallery' || actionType === 'event_camera' ? 'floating' : 'fadeUp'
   return {

@@ -11,9 +11,9 @@ function forbidden() {
 }
 
 const createJobSchema = z.object({
-  tenant_id:   z.string().uuid(),
+  tenant_id: z.string().uuid(),
   source_urls: z.array(z.string().url()).min(1).max(10),
-  notes:       z.string().max(1000).optional(),
+  notes: z.string().max(1000).optional(),
 })
 
 // ── GET /api/website-import/jobs ─────────────────────────────────────────────
@@ -30,12 +30,14 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await db
     .from('website_import_jobs')
-    .select(`
+    .select(
+      `
       id, tenant_id, status, progress, source_urls, notes,
       target_site_id, error_message, started_at, completed_at,
       created_at, updated_at,
       website_import_sources(id, source_url, source_type, fetched_status, confidence_score, page_title)
-    `)
+    `
+    )
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .limit(50)
@@ -59,7 +61,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Validation failed', details: parsed.error.flatten() },
-      { status: 422 },
+      { status: 422 }
     )
   }
 
@@ -74,14 +76,14 @@ export async function POST(req: NextRequest) {
   if (urlErrors.length > 0) {
     return NextResponse.json(
       { error: 'Invalid URLs detected', details: urlErrors },
-      { status: 422 },
+      { status: 422 }
     )
   }
 
   try {
     const { job, sources } = await createImportJob({
-      tenantId:   tenant_id,
-      createdBy:  ctx.id,
+      tenantId: tenant_id,
+      createdBy: ctx.id,
       sourceUrls: source_urls,
       notes,
     })

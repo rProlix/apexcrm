@@ -6,55 +6,61 @@ import { X, Receipt, Send } from 'lucide-react'
 import { InvoiceItemEditor, type InvoiceItem } from './InvoiceItemEditor'
 
 interface Customer {
-  id:         string
+  id: string
   first_name: string
-  last_name:  string
-  email:      string
+  last_name: string
+  email: string
 }
 
 interface Props {
-  onClose:   () => void
+  onClose: () => void
   customers: Customer[]
-  currency:  string
+  currency: string
   onCreated: (invoice: Record<string, unknown>) => void
 }
 
 export function InvoiceForm({ onClose, customers, currency, onCreated }: Props) {
   const [form, setForm] = useState({
     customer_id: '',
-    title:       '',
+    title: '',
     description: '',
-    due_date:    '',
+    due_date: '',
     currency,
   })
-  const [items,   setItems]   = useState<InvoiceItem[]>([{ name: '', quantity: 1, unit_price: 0 }])
+  const [items, setItems] = useState<InvoiceItem[]>([{ name: '', quantity: 1, unit_price: 0 }])
   const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [sendLink, setSendLink] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.title.trim()) { setError('Title is required'); return }
+    if (!form.title.trim()) {
+      setError('Title is required')
+      return
+    }
 
     const validItems = items.filter((i) => i.name.trim() && i.unit_price >= 0)
-    if (validItems.length === 0) { setError('At least one valid item is required'); return }
+    if (validItems.length === 0) {
+      setError('At least one valid item is required')
+      return
+    }
 
     setLoading(true)
     setError(null)
 
     try {
       const res = await fetch('/api/payments/invoices', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer_id: form.customer_id || undefined,
-          title:       form.title.trim(),
+          title: form.title.trim(),
           description: form.description.trim() || undefined,
-          currency:    form.currency,
-          due_date:    form.due_date  || undefined,
-          items:       validItems.map((i) => ({
-            name:       i.name,
-            quantity:   i.quantity,
+          currency: form.currency,
+          due_date: form.due_date || undefined,
+          items: validItems.map((i) => ({
+            name: i.name,
+            quantity: i.quantity,
             unit_price: i.unit_price,
           })),
         }),
@@ -88,12 +94,14 @@ export function InvoiceForm({ onClose, customers, currency, onCreated }: Props) 
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 16 }}
-          animate={{ opacity: 1, scale: 1,    y: 0  }}
-          exit={{ opacity: 0, scale: 0.96,    y: 8  }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 8 }}
           className="w-full max-w-2xl max-h-[90vh] overflow-y-auto premium-panel premium-border rounded-2xl shadow-2xl"
         >
           {/* Modal header */}
@@ -114,12 +122,16 @@ export function InvoiceForm({ onClose, customers, currency, onCreated }: Props) 
 
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
             {error && (
-              <div className="p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">{error}</div>
+              <div className="p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">
+                {error}
+              </div>
             )}
 
             {/* Customer */}
             <div>
-              <label className="block text-xs font-medium text-white/50 mb-2">Customer (optional)</label>
+              <label className="block text-xs font-medium text-white/50 mb-2">
+                Customer (optional)
+              </label>
               <select
                 value={form.customer_id}
                 onChange={(e) => setForm({ ...form, customer_id: e.target.value })}
@@ -151,7 +163,9 @@ export function InvoiceForm({ onClose, customers, currency, onCreated }: Props) 
 
             {/* Description */}
             <div>
-              <label className="block text-xs font-medium text-white/50 mb-2">Description (optional)</label>
+              <label className="block text-xs font-medium text-white/50 mb-2">
+                Description (optional)
+              </label>
               <textarea
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -164,7 +178,9 @@ export function InvoiceForm({ onClose, customers, currency, onCreated }: Props) 
             {/* Due date + currency */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-2">Due Date (optional)</label>
+                <label className="block text-xs font-medium text-white/50 mb-2">
+                  Due Date (optional)
+                </label>
                 <input
                   type="date"
                   value={form.due_date}
@@ -180,7 +196,9 @@ export function InvoiceForm({ onClose, customers, currency, onCreated }: Props) 
                   className="store-input w-full text-sm"
                 >
                   {['USD', 'EUR', 'GBP', 'CAD', 'AUD'].map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -189,11 +207,7 @@ export function InvoiceForm({ onClose, customers, currency, onCreated }: Props) 
             {/* Items */}
             <div>
               <label className="block text-xs font-medium text-white/50 mb-3">Line Items</label>
-              <InvoiceItemEditor
-                items={items}
-                onChange={setItems}
-                currency={form.currency}
-              />
+              <InvoiceItemEditor items={items} onChange={setItems} currency={form.currency} />
             </div>
 
             {/* Send link toggle */}

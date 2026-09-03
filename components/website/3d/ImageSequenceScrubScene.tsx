@@ -11,9 +11,9 @@ import type { Premium3DScrollHeroContent } from '@/lib/website/premium3d/types'
 import { useImageSequenceScrub } from './useImageSequenceScrub'
 
 interface Props {
-  content:     Premium3DScrollHeroContent
+  content: Premium3DScrollHeroContent
   progressRef: React.RefObject<number>
-  active:      boolean
+  active: boolean
 }
 
 export default function ImageSequenceScrubScene({ content, progressRef, active }: Props) {

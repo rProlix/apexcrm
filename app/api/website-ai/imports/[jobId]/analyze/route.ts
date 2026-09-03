@@ -21,7 +21,8 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
   const ctx = await getUserContext()
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!['owner', 'admin'].includes(ctx.role)) return forbidden('You do not have permission to use AI Autofill for this website.')
+  if (!['owner', 'admin'].includes(ctx.role))
+    return forbidden('You do not have permission to use AI Autofill for this website.')
 
   const access = await requireAiAutofillAccess()
   if (!access) return forbidden('You do not have permission to use AI Autofill for this website.')
@@ -29,7 +30,10 @@ export async function POST(_req: NextRequest, { params }: Params) {
   const { tenantId } = access
 
   if (!(await verifyJobAccess(jobId, tenantId))) {
-    return NextResponse.json({ error: 'This import does not belong to your business.' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'This import does not belong to your business.' },
+      { status: 403 }
+    )
   }
 
   const db = getSupabaseServerClient()
@@ -57,10 +61,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
   }
 
   // Mark as analyzing
-  await db
-    .from('website_ai_import_jobs')
-    .update({ status: 'analyzing' })
-    .eq('id', jobId)
+  await db.from('website_ai_import_jobs').update({ status: 'analyzing' }).eq('id', jobId)
 
   // Load tenant context
   const tenantContext = await loadTenantContext(tenantId)
@@ -73,14 +74,18 @@ export async function POST(_req: NextRequest, { params }: Params) {
     await db
       .from('website_ai_import_jobs')
       .update({
-        status:        'failed',
-        error_message: 'AI analysis is temporarily unavailable. The content can be reviewed manually.',
-        token_usage:   geminiResult.tokenUsage as never,
+        status: 'failed',
+        error_message:
+          'AI analysis is temporarily unavailable. The content can be reviewed manually.',
+        token_usage: geminiResult.tokenUsage as never,
       })
       .eq('id', jobId)
 
     return NextResponse.json(
-      { error: 'AI analysis is temporarily unavailable. Your content was saved and can be reviewed manually.' },
+      {
+        error:
+          'AI analysis is temporarily unavailable. Your content was saved and can be reviewed manually.',
+      },
       { status: 502 }
     )
   }
@@ -89,23 +94,21 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
   // Insert suggestions
   const suggestionRows = result.suggestions.map((s) => ({
-    tenant_id:        tenantId,
-    job_id:           jobId,
-    suggestion_type:  s.type as string,
-    action:           s.action as string,
-    title:            s.title,
-    description:      s.reason,
-    reason:           s.reason,
-    extracted_data:   s.data as never,
+    tenant_id: tenantId,
+    job_id: jobId,
+    suggestion_type: s.type as string,
+    action: s.action as string,
+    title: s.title,
+    description: s.reason,
+    reason: s.reason,
+    extracted_data: s.data as never,
     proposed_section: s.proposedSection as never,
-    confidence:       s.confidence,
-    status:           'pending',
+    confidence: s.confidence,
+    status: 'pending',
   }))
 
   if (suggestionRows.length > 0) {
-    const { error: insertErr } = await db
-      .from('website_ai_suggestions')
-      .insert(suggestionRows)
+    const { error: insertErr } = await db.from('website_ai_suggestions').insert(suggestionRows)
 
     if (insertErr) {
       await db
@@ -121,16 +124,16 @@ export async function POST(_req: NextRequest, { params }: Params) {
   const { data: updatedJob } = await db
     .from('website_ai_import_jobs')
     .update({
-      status:                 'ready',
-      summary:                result.summary,
+      status: 'ready',
+      summary: result.summary,
       detected_business_type: result.detectedBusinessType,
       detected_content_types: result.detectedContentTypes,
-      confidence:             result.overallConfidence,
-      token_usage:            geminiResult.tokenUsage as never,
-      metadata:               {
-        warnings:             result.warnings,
+      confidence: result.overallConfidence,
+      token_usage: geminiResult.tokenUsage as never,
+      metadata: {
+        warnings: result.warnings,
         missingInfoQuestions: result.missingInfoQuestions,
-        designSystem:         result.designSystem ?? null,
+        designSystem: result.designSystem ?? null,
       } as never,
     })
     .eq('id', jobId)
@@ -146,9 +149,9 @@ export async function POST(_req: NextRequest, { params }: Params) {
     .order('created_at')
 
   return NextResponse.json({
-    job:         updatedJob,
+    job: updatedJob,
     suggestions: suggestions ?? [],
-    warnings:    result.warnings,
+    warnings: result.warnings,
     missingInfoQuestions: result.missingInfoQuestions,
   })
 }
@@ -162,28 +165,39 @@ async function loadTenantContext(tenantId: string): Promise<TenantContext> {
     await Promise.all([
       db.from('tenants').select('id, name').eq('id', tenantId).maybeSingle(),
       db.from('site_settings').select('site_name').eq('tenant_id', tenantId).maybeSingle(),
-      db.from('site_pages').select('slug, title, page_type').eq('tenant_id', tenantId).neq('status', 'archived').order('sort_order').limit(20),
-      db.from('tenant_modules').select('enabled').eq('tenant_id', tenantId).eq('module_key', 'store').maybeSingle(),
+      db
+        .from('site_pages')
+        .select('slug, title, page_type')
+        .eq('tenant_id', tenantId)
+        .neq('status', 'archived')
+        .order('sort_order')
+        .limit(20),
+      db
+        .from('tenant_modules')
+        .select('enabled')
+        .eq('tenant_id', tenantId)
+        .eq('module_key', 'store')
+        .maybeSingle(),
       db.from('products').select('name').eq('tenant_id', tenantId).limit(50),
     ])
 
-  const tenant      = tenantResult.data
-  const settings    = settingsResult.data
-  const pages       = pagesResult.data ?? []
-  const hasStore    = storeModuleResult.data?.enabled === true
+  const tenant = tenantResult.data
+  const settings = settingsResult.data
+  const pages = pagesResult.data ?? []
+  const hasStore = storeModuleResult.data?.enabled === true
   const productNames = (productsResult.data ?? []).map((p: { name: string }) => p.name)
 
-  const businessType = null  // Could be extended via tenant branding/metadata
+  const businessType = null // Could be extended via tenant branding/metadata
 
   return {
     tenantId,
-    tenantName:   tenant?.name ?? 'Business',
+    tenantName: tenant?.name ?? 'Business',
     businessType,
     hasStore,
-    siteName:     settings?.site_name ?? null,
+    siteName: settings?.site_name ?? null,
     existingPages: pages.map((p: { slug: string; title: string | null; page_type: string }) => ({
-      slug:      p.slug,
-      title:     p.title,
+      slug: p.slug,
+      title: p.title,
       page_type: p.page_type,
     })),
     existingProductNames: productNames,

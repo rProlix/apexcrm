@@ -7,33 +7,33 @@ import { PaymentLinkForm } from './PaymentLinkForm'
 import { formatCurrency } from '@/lib/payments/formatCurrency'
 
 interface PaymentLink {
-  id:              string
-  title:           string | null
-  amount:          number
-  currency:        string
-  provider_key:    string
-  url:             string | null
-  status:          string
-  created_at:      string
+  id: string
+  title: string | null
+  amount: number
+  currency: string
+  provider_key: string
+  url: string | null
+  status: string
+  created_at: string
 }
 
 interface Invoice {
-  id:             string
+  id: string
   invoice_number: string
-  title:          string
-  amount:         number
-  currency:       string
-  status:         string
+  title: string
+  amount: number
+  currency: string
+  status: string
 }
 
 interface Props {
   initialLinks: PaymentLink[]
-  invoices:     Invoice[]
-  tenantId:     string
+  invoices: Invoice[]
+  tenantId: string
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  active:  'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+  active: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
   expired: 'text-white/30 bg-white/4 border-white/8',
   canceled: 'text-red-400 bg-red-400/10 border-red-400/20',
 }
@@ -41,17 +41,19 @@ const STATUS_STYLES: Record<string, string> = {
 const PROVIDER_NAMES: Record<string, string> = { stripe: 'Stripe', square: 'Square' }
 
 export function PaymentLinkList({ initialLinks, invoices, tenantId: _tenantId }: Props) {
-  const [links,    setLinks]    = useState<PaymentLink[]>(initialLinks)
+  const [links, setLinks] = useState<PaymentLink[]>(initialLinks)
   const [showForm, setShowForm] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [error,    setError]    = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   async function copyLink(id: string, url: string) {
     try {
       await navigator.clipboard.writeText(url)
       setCopiedId(id)
       setTimeout(() => setCopiedId(null), 2000)
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   async function cancelLink(id: string) {
@@ -59,13 +61,13 @@ export function PaymentLinkList({ initialLinks, invoices, tenantId: _tenantId }:
 
     try {
       const res = await fetch(`/api/payments/payment-links/${id}`, {
-        method:  'PATCH',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'canceled' }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setLinks((prev) => prev.map((l) => l.id === id ? { ...l, status: 'canceled' } : l))
+      setLinks((prev) => prev.map((l) => (l.id === id ? { ...l, status: 'canceled' } : l)))
     } catch (err) {
       setError((err as Error).message)
     }
@@ -90,7 +92,9 @@ export function PaymentLinkList({ initialLinks, invoices, tenantId: _tenantId }:
       </div>
 
       {error && (
-        <div className="p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">{error}</div>
+        <div className="p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">
+          {error}
+        </div>
       )}
 
       {links.length === 0 ? (
@@ -99,7 +103,9 @@ export function PaymentLinkList({ initialLinks, invoices, tenantId: _tenantId }:
             <Zap className="h-7 w-7 text-gold-400/40" strokeWidth={1.5} />
           </div>
           <h3 className="text-base font-semibold text-white mb-1">No payment links yet</h3>
-          <p className="text-sm text-white/35">Create a payment link to share with your customers</p>
+          <p className="text-sm text-white/35">
+            Create a payment link to share with your customers
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -138,7 +144,9 @@ export function PaymentLinkList({ initialLinks, invoices, tenantId: _tenantId }:
                     <p className="text-base font-bold text-gold-400">
                       {formatCurrency(Number(link.amount), link.currency)}
                     </p>
-                    <span className={`inline-block text-xs px-2 py-0.5 mt-1 rounded-full border ${STATUS_STYLES[link.status] ?? STATUS_STYLES.expired}`}>
+                    <span
+                      className={`inline-block text-xs px-2 py-0.5 mt-1 rounded-full border ${STATUS_STYLES[link.status] ?? STATUS_STYLES.expired}`}
+                    >
                       {link.status}
                     </span>
                   </div>
@@ -151,7 +159,11 @@ export function PaymentLinkList({ initialLinks, invoices, tenantId: _tenantId }:
                           title="Copy link"
                           className="h-7 w-7 rounded-lg flex items-center justify-center text-white/30 hover:text-gold-400 hover:bg-gold-400/8 transition-colors"
                         >
-                          {copiedId === link.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                          {copiedId === link.id ? (
+                            <Check className="h-3.5 w-3.5" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
                         </button>
                         <a
                           href={link.url}

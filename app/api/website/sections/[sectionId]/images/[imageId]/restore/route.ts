@@ -17,9 +17,11 @@ type RouteContext = {
 }
 
 function wsiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
-  return (supabase as unknown as {
-    from: (t: 'website_section_images') => ReturnType<typeof supabase.from>
-  }).from('website_section_images') as ReturnType<typeof supabase.from>
+  return (
+    supabase as unknown as {
+      from: (t: 'website_section_images') => ReturnType<typeof supabase.from>
+    }
+  ).from('website_section_images') as ReturnType<typeof supabase.from>
 }
 
 export async function POST(req: NextRequest, context: RouteContext) {
@@ -58,13 +60,22 @@ export async function POST(req: NextRequest, context: RouteContext) {
   if (shouldActivate) {
     // Deactivate all other images for same slot, then activate + restore this one
     await wsiFrom(supabase)
-      .update({ is_active: false, status: 'generated', updated_at: new Date().toISOString() } as never)
+      .update({
+        is_active: false,
+        status: 'generated',
+        updated_at: new Date().toISOString(),
+      } as never)
       .eq('tenant_id', tenantId)
       .eq('section_id', sectionId)
       .eq('slot_key', image.slot_key)
 
     await wsiFrom(supabase)
-      .update({ is_archived: false, is_active: true, status: 'active', updated_at: new Date().toISOString() } as never)
+      .update({
+        is_archived: false,
+        is_active: true,
+        status: 'active',
+        updated_at: new Date().toISOString(),
+      } as never)
       .eq('id', imageId)
 
     const imageUrl = image.image_url || image.public_url || ''
@@ -87,7 +98,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         image.image_role ?? 'primary',
         imageUrl,
         image.alt_text ?? '',
-        image.plan_id ?? '',
+        image.plan_id ?? ''
       )
 
       const merged = mergeImageIntoContent(sectionContent, contentPatch)
@@ -105,22 +116,22 @@ export async function POST(req: NextRequest, context: RouteContext) {
   } else {
     // Just restore without activating
     await wsiFrom(supabase)
-      .update({ is_archived: false, status: 'generated', updated_at: new Date().toISOString() } as never)
+      .update({
+        is_archived: false,
+        status: 'generated',
+        updated_at: new Date().toISOString(),
+      } as never)
       .eq('id', imageId)
   }
 
-  const { data: restoredData } = await wsiFrom(supabase)
-    .select('*')
-    .eq('id', imageId)
-    .single()
+  const { data: restoredData } = await wsiFrom(supabase).select('*').eq('id', imageId).single()
 
   return NextResponse.json({
-    success:       true,
-    restored:      (restoredData as WebsiteGeneratedImage | null),
-    activated:     shouldActivate,
+    success: true,
+    restored: restoredData as WebsiteGeneratedImage | null,
+    activated: shouldActivate,
     updatedSection,
     sectionId,
     imageId,
   })
 }
-

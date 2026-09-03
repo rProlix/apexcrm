@@ -13,12 +13,12 @@ import { Trash2, RefreshCw, AlertCircle, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
-  memberId:        string
-  memberRole:      string
-  invitedBy:       string | null
-  currentUserId:   string
+  memberId: string
+  memberRole: string
+  invitedBy: string | null
+  currentUserId: string
   currentUserRole: string
-  onRemoved:       () => void
+  onRemoved: () => void
 }
 
 export function StaffActions({
@@ -29,21 +29,21 @@ export function StaffActions({
   currentUserRole,
   onRemoved,
 }: Props) {
-  const [removing,   setRemoving]   = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
+  const [removing, setRemoving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
 
   // ── Client-side permission gates ──────────────────────────────────────────
 
   // Hard blocks: never show action for owner rows or self
-  if (memberRole === 'owner')      return null
-  if (memberId === currentUserId)  return null
+  if (memberRole === 'owner') return null
+  if (memberId === currentUserId) return null
 
   // Admin: can only remove staff they personally invited
   // (invitedBy null/undefined = legacy record, allow deletion)
   const adminCanDelete =
     currentUserRole === 'owner' ||
-    currentUserRole === 'admin' && (!invitedBy || invitedBy === currentUserId)
+    (currentUserRole === 'admin' && (!invitedBy || invitedBy === currentUserId))
 
   if (!adminCanDelete) {
     return (
@@ -59,9 +59,10 @@ export function StaffActions({
   // ── Delete flow ───────────────────────────────────────────────────────────
 
   async function handleRemove() {
-    setRemoving(true); setError(null)
+    setRemoving(true)
+    setError(null)
     try {
-      const res  = await fetch(`/api/staff/${memberId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/staff/${memberId}`, { method: 'DELETE' })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Failed to remove member')
       onRemoved()
@@ -85,7 +86,10 @@ export function StaffActions({
           {removing ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Yes'}
         </button>
         <button
-          onClick={() => { setConfirming(false); setError(null) }}
+          onClick={() => {
+            setConfirming(false)
+            setError(null)
+          }}
           className="text-white/30 hover:text-white/60 transition-colors"
         >
           <X className="h-3.5 w-3.5" />
@@ -106,13 +110,14 @@ export function StaffActions({
       title="Remove staff member"
       className={cn(
         'text-white/20 hover:text-red-400 transition-colors disabled:opacity-50 shrink-0',
-        removing && 'animate-pulse',
+        removing && 'animate-pulse'
       )}
     >
-      {removing
-        ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-        : <Trash2 className="h-3.5 w-3.5" />
-      }
+      {removing ? (
+        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Trash2 className="h-3.5 w-3.5" />
+      )}
     </button>
   )
 }

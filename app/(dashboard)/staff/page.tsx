@@ -70,11 +70,7 @@ export default async function StaffPage() {
       </div>
 
       {/* Staff list */}
-      <StaffList
-        initialStaff={staff}
-        currentUserId={ctx.id}
-        currentUserRole={ctx.role}
-      />
+      <StaffList initialStaff={staff} currentUserId={ctx.id} currentUserRole={ctx.role} />
     </div>
   )
 }

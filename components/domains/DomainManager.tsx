@@ -2,18 +2,18 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence }           from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Globe, Loader2, RefreshCw, AlertCircle } from 'lucide-react'
-import { DomainCard }        from './DomainCard'
-import { DomainInput }       from './DomainInput'
-import { SubdomainDisplay }  from './SubdomainDisplay'
+import { DomainCard } from './DomainCard'
+import { DomainInput } from './DomainInput'
+import { SubdomainDisplay } from './SubdomainDisplay'
 import { DomainPreviewCard } from './DomainPreviewCard'
-import type { DomainEntry }  from './DomainCard'
+import type { DomainEntry } from './DomainCard'
 
 interface DomainManagerProps {
-  tenantId:   string
-  slug:       string
-  userRole:   'owner' | 'admin'
+  tenantId: string
+  slug: string
+  userRole: 'owner' | 'admin'
   showVercel?: boolean
 }
 
@@ -23,19 +23,19 @@ export function DomainManager({
   userRole,
   showVercel = false,
 }: DomainManagerProps) {
-  const [domains,   setDomains]   = useState<DomainEntry[]>([])
-  const [loading,   setLoading]   = useState(true)
-  const [error,     setError]     = useState<string | null>(null)
+  const [domains, setDomains] = useState<DomainEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [newDomain, setNewDomain] = useState('')
-  const [adding,    setAdding]    = useState(false)
-  const [addError,  setAddError]  = useState<string | null>(null)
-  const [syncing,   setSyncing]   = useState(false)
+  const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
 
   const fetchDomains = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const qs  = userRole === 'owner' ? `?tenant_id=${tenantId}` : ''
+      const qs = userRole === 'owner' ? `?tenant_id=${tenantId}` : ''
       const res = await fetch(`/api/domains${qs}`)
       const data: { domains?: DomainEntry[]; error?: string } = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to load domains')
@@ -47,19 +47,24 @@ export function DomainManager({
     }
   }, [tenantId, userRole])
 
-  useEffect(() => { fetchDomains() }, [fetchDomains])
+  useEffect(() => {
+    fetchDomains()
+  }, [fetchDomains])
 
   const addDomain = async () => {
     setAdding(true)
     setAddError(null)
     try {
-      const res  = await fetch('/api/domains', {
-        method:  'POST',
+      const res = await fetch('/api/domains', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ domain: newDomain, tenant_id: tenantId }),
+        body: JSON.stringify({ domain: newDomain, tenant_id: tenantId }),
       })
       const data = await res.json()
-      if (!res.ok) { setAddError(data.error ?? 'Failed to add domain'); return }
+      if (!res.ok) {
+        setAddError(data.error ?? 'Failed to add domain')
+        return
+      }
       setNewDomain('')
       await fetchDomains()
     } catch {
@@ -73,9 +78,9 @@ export function DomainManager({
     setSyncing(true)
     try {
       await fetch('/api/domains/sync-vercel', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ tenant_id: tenantId }),
+        body: JSON.stringify({ tenant_id: tenantId }),
       })
       await fetchDomains()
     } finally {
@@ -83,8 +88,8 @@ export function DomainManager({
     }
   }
 
-  const customDomains   = domains.filter((d) => d.domain_type === 'custom')
-  const verifiedCustom  = customDomains.find((d) => d.is_verified)
+  const customDomains = domains.filter((d) => d.domain_type === 'custom')
+  const verifiedCustom = customDomains.find((d) => d.is_verified)
 
   return (
     <div className="space-y-6">
@@ -125,7 +130,11 @@ export function DomainManager({
                 whileTap={{ scale: 0.97 }}
                 className="flex items-center gap-1.5 rounded-lg border border-zinc-700/50 bg-zinc-800/30 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-zinc-800/60"
               >
-                {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Globe className="h-3 w-3" />}
+                {syncing ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Globe className="h-3 w-3" />
+                )}
                 Sync Vercel
               </motion.button>
             )}

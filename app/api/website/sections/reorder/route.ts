@@ -25,10 +25,7 @@ export async function POST(req: NextRequest) {
 
   // Verify all sections belong to the caller's tenant (security check)
   const ids = sections.map((s) => s.id)
-  const { data: existing } = await db
-    .from('site_sections')
-    .select('id, tenant_id')
-    .in('id', ids)
+  const { data: existing } = await db.from('site_sections').select('id, tenant_id').in('id', ids)
 
   if (!existing || existing.length !== ids.length) {
     return NextResponse.json({ error: 'Some sections not found' }, { status: 404 })
@@ -43,18 +40,15 @@ export async function POST(req: NextRequest) {
   // Batch update using individual PATCH calls (Supabase JS doesn't support bulk update elegantly)
   const updates = await Promise.allSettled(
     sections.map(({ id, sort_order }) =>
-      db
-        .from('site_sections')
-        .update({ sort_order })
-        .eq('id', id),
-    ),
+      db.from('site_sections').update({ sort_order }).eq('id', id)
+    )
   )
 
   const failed = updates.filter((r) => r.status === 'rejected').length
   if (failed > 0) {
     return NextResponse.json(
       { error: `${failed} of ${sections.length} updates failed` },
-      { status: 500 },
+      { status: 500 }
     )
   }
 

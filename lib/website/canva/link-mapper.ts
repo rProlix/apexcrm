@@ -64,15 +64,23 @@ function safeExternalUrl(url: string): string | null {
   return null
 }
 
-export function routeForAction(action: LinkActionType, ctx: EventRouteContext, externalUrl?: string): { href: string; dead?: boolean; warning?: string } {
+export function routeForAction(
+  action: LinkActionType,
+  ctx: EventRouteContext,
+  externalUrl?: string
+): { href: string; dead?: boolean; warning?: string } {
   const slug = ctx.eventSlug
   switch (action) {
     case 'rsvp':
       return { href: `/events/${slug}/rsvp` }
     case 'event_camera':
-      return ctx.povEnabled ? { href: `/events/${slug}/camera` } : { href: '#', dead: true, warning: 'Event Camera is not enabled for this site.' }
+      return ctx.povEnabled
+        ? { href: `/events/${slug}/camera` }
+        : { href: '#', dead: true, warning: 'Event Camera is not enabled for this site.' }
     case 'gallery':
-      return ctx.povEnabled ? { href: `/events/${slug}/gallery` } : { href: '#', dead: true, warning: 'Gallery is not enabled for this site.' }
+      return ctx.povEnabled
+        ? { href: `/events/${slug}/gallery` }
+        : { href: '#', dead: true, warning: 'Gallery is not enabled for this site.' }
     case 'login':
       return { href: `/events/${slug}` }
     case 'details':
@@ -82,12 +90,20 @@ export function routeForAction(action: LinkActionType, ctx: EventRouteContext, e
     case 'url': {
       const ext = externalUrl ? safeExternalUrl(externalUrl) : null
       if (ext) return { href: ext }
-      return { href: '#', dead: true, warning: 'Button detected but no destination was found. Assign a link in Link Mapping.' }
+      return {
+        href: '#',
+        dead: true,
+        warning: 'Button detected but no destination was found. Assign a link in Link Mapping.',
+      }
     }
     default: {
       const ext = externalUrl ? safeExternalUrl(externalUrl) : null
       if (ext) return { href: ext }
-      return { href: '#', dead: true, warning: 'Button detected but no destination was found. Assign a link in Link Mapping.' }
+      return {
+        href: '#',
+        dead: true,
+        warning: 'Button detected but no destination was found. Assign a link in Link Mapping.',
+      }
     }
   }
 }
@@ -95,7 +111,7 @@ export function routeForAction(action: LinkActionType, ctx: EventRouteContext, e
 export function mapExtractedPdfLink(
   link: { label?: string; url?: string; pageNumber?: number },
   ctx: EventRouteContext,
-  index: number,
+  index: number
 ): MappedLink {
   const label = (link.label || link.url || `Link ${index + 1}`).trim()
   const external = link.url ? safeExternalUrl(link.url) : null
@@ -117,7 +133,7 @@ export function mapExtractedPdfLink(
 export function mapAiDetectedButton(
   btn: { label?: string; href?: string; actionType?: string; pageNumber?: number },
   ctx: EventRouteContext,
-  index: number,
+  index: number
 ): MappedLink {
   const label = String(btn.label ?? `Button ${index + 1}`).trim()
   const actionRaw = String(btn.actionType ?? '').toLowerCase()
@@ -127,7 +143,7 @@ export function mapAiDetectedButton(
   else if (actionRaw.includes('gallery')) action = 'gallery'
   else if (actionRaw.includes('login')) action = 'login'
   else if (actionRaw.includes('details')) action = 'details'
-  const external = btn.href ? safeExternalUrl(btn.href) ?? undefined : undefined
+  const external = btn.href ? (safeExternalUrl(btn.href) ?? undefined) : undefined
   const routed = routeForAction(action, ctx, external)
   return {
     id: `ai-btn-${index}`,
@@ -144,7 +160,7 @@ export function mapAiDetectedButton(
 export function buildLinkMapping(
   pdfLinks: Array<{ label?: string; url?: string; pageNumber?: number }>,
   aiButtons: Array<{ label?: string; href?: string; actionType?: string; pageNumber?: number }>,
-  ctx: EventRouteContext,
+  ctx: EventRouteContext
 ): MappedLink[] {
   const mapped: MappedLink[] = []
   const seen = new Set<string>()
@@ -164,12 +180,18 @@ export function buildLinkMapping(
   }
   if (ctx.povEnabled) {
     mapped.push({
-      id: 'native-camera', label: 'Open Event Camera', actionType: 'event_camera',
-      href: `/events/${ctx.eventSlug}/camera`, source: 'native_pov',
+      id: 'native-camera',
+      label: 'Open Event Camera',
+      actionType: 'event_camera',
+      href: `/events/${ctx.eventSlug}/camera`,
+      source: 'native_pov',
     })
     mapped.push({
-      id: 'native-gallery', label: 'View Gallery', actionType: 'gallery',
-      href: `/events/${ctx.eventSlug}/gallery`, source: 'native_pov',
+      id: 'native-gallery',
+      label: 'View Gallery',
+      actionType: 'gallery',
+      href: `/events/${ctx.eventSlug}/gallery`,
+      source: 'native_pov',
     })
   }
   return mapped

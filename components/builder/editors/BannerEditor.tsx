@@ -14,22 +14,47 @@ export function BannerEditor({ sectionId }: { sectionId: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <Field label="Banner Text">
-        <input type="text" value={(c.text as string) ?? ''} onChange={(e) => set('text', e.target.value)} style={inputStyle} />
+        <input
+          type="text"
+          value={(c.text as string) ?? ''}
+          onChange={(e) => set('text', e.target.value)}
+          style={inputStyle}
+        />
       </Field>
       <Field label="CTA Label (optional)">
-        <input type="text" value={(c.ctaLabel as string) ?? ''} onChange={(e) => set('ctaLabel', e.target.value)} style={inputStyle} placeholder="e.g. Shop Now" />
+        <input
+          type="text"
+          value={(c.ctaLabel as string) ?? ''}
+          onChange={(e) => set('ctaLabel', e.target.value)}
+          style={inputStyle}
+          placeholder="e.g. Shop Now"
+        />
       </Field>
       <Field label="CTA Link">
-        <input type="text" value={(c.ctaHref as string) ?? ''} onChange={(e) => set('ctaHref', e.target.value)} style={inputStyle} placeholder="/shop" />
+        <input
+          type="text"
+          value={(c.ctaHref as string) ?? ''}
+          onChange={(e) => set('ctaHref', e.target.value)}
+          style={inputStyle}
+          placeholder="/shop"
+        />
       </Field>
       <Field label="Style">
         <Select
           value={(c.variant as string) ?? 'promo'}
           onChange={(v) => set('variant', v)}
-          options={[{ value: 'promo', label: 'Promo (Gold)' }, { value: 'info', label: 'Info (Blue)' }, { value: 'warning', label: 'Warning (Amber)' }]}
+          options={[
+            { value: 'promo', label: 'Promo (Gold)' },
+            { value: 'info', label: 'Info (Blue)' },
+            { value: 'warning', label: 'Warning (Amber)' },
+          ]}
         />
       </Field>
-      <Toggle label="Dismissible" value={Boolean(c.dismissible)} onChange={(v) => set('dismissible', v)} />
+      <Toggle
+        label="Dismissible"
+        value={Boolean(c.dismissible)}
+        onChange={(v) => set('dismissible', v)}
+      />
     </div>
   )
 }

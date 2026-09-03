@@ -48,9 +48,7 @@ export async function getSignedPrivateMediaUrl({
     signal: controller.signal,
   }).then(async (response) => {
     if (!response.ok) {
-      throw new Error(
-        response.status === 409 ? 'Media is still processing' : 'Media unavailable',
-      )
+      throw new Error(response.status === 409 ? 'Media is still processing' : 'Media unavailable')
     }
     const result = (await response.json()) as {
       url?: string

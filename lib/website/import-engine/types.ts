@@ -109,13 +109,23 @@ export interface ReconstructedSection {
   section_key: string
   content: Record<string, unknown>
   animation?: Record<string, unknown>
-  responsive?: { desktop?: Record<string, unknown>; tablet?: Record<string, unknown>; mobile?: Record<string, unknown> }
+  responsive?: {
+    desktop?: Record<string, unknown>
+    tablet?: Record<string, unknown>
+    mobile?: Record<string, unknown>
+  }
 }
 
 export interface DesignImportReconstruction {
   theme: Record<string, unknown>
   pages: Array<{ title: string; slug: string; sections: ReconstructedSection[] }>
-  linkMapping: Array<{ id: string; label: string; href: string; actionType?: string; dead?: boolean }>
+  linkMapping: Array<{
+    id: string
+    label: string
+    href: string
+    actionType?: string
+    dead?: boolean
+  }>
   animations: Record<string, unknown>
   eventMetadata?: Record<string, unknown>
   rsvp?: { enabled: boolean; pageCreated: boolean; pageTitle?: string; route?: string }

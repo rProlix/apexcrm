@@ -1,9 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {
-  reconcileVehicleAreaWithImageRole,
-  resolveImageSide,
-} from '../location-resolution'
+import { reconcileVehicleAreaWithImageRole, resolveImageSide } from '../location-resolution'
 
 test('image roles resolve from vehicle perspective', () => {
   assert.equal(resolveImageSide('driver_side'), 'driver')
@@ -33,10 +30,7 @@ test('generic visible-side regions become side-specific without inventing a pane
     reconcileVehicleAreaWithImageRole('rear bumper', 'passenger_side').vehicleArea,
     'rear_bumper_passenger'
   )
-  assert.equal(
-    reconcileVehicleAreaWithImageRole('door', 'passenger_side').vehicleArea,
-    'door'
-  )
+  assert.equal(reconcileVehicleAreaWithImageRole('door', 'passenger_side').vehicleArea, 'door')
 })
 
 test('front, rear, and unknown roles do not force a vehicle side', () => {

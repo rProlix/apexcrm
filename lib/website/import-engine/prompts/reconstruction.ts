@@ -11,9 +11,10 @@ export function buildReconstructionPrompt(opts: {
   userPrompt?: string
   attempt: number
 }): string {
-  const retryNote = opts.attempt > 1
-    ? `RETRY ${opts.attempt}: Prior pass was incomplete. Rebuild FULL native layout — NOT buttons only. Include hero, backgrounds, images, typography, sections, cards, and visual layers.`
-    : ''
+  const retryNote =
+    opts.attempt > 1
+      ? `RETRY ${opts.attempt}: Prior pass was incomplete. Rebuild FULL native layout — NOT buttons only. Include hero, backgrounds, images, typography, sections, cards, and visual layers.`
+      : ''
 
   return [
     'You are the NexoraNow Universal AI Design Import Engine.',
@@ -30,7 +31,11 @@ export function buildReconstructionPrompt(opts: {
     '- Generate desktop/tablet/mobile responsive hints per section.',
     '- Infer animations (fadeUp, softZoomIn, staggerText, imageReveal) — PDF has NO extracted animations.',
     '- Map RSVP → /events/' + opts.eventSlug + '/rsvp',
-    '- Map Camera → /events/' + opts.eventSlug + '/camera, Gallery → /events/' + opts.eventSlug + '/gallery',
+    '- Map Camera → /events/' +
+      opts.eventSlug +
+      '/camera, Gallery → /events/' +
+      opts.eventSlug +
+      '/gallery',
     '- Preserve Amazon, Target, Registry, Babylist, social, mailto, tel links exactly.',
     '- Do NOT iframe or embed external design tools.',
     '',
@@ -45,10 +50,20 @@ export function buildReconstructionPrompt(opts: {
     JSON.stringify(opts.extraction.links.slice(0, 30)),
     '',
     'Available image assets (use these URLs in sections):',
-    JSON.stringify(opts.extraction.assets.slice(0, 40).map((a) => ({ id: a.id, kind: a.kind, url: a.publicUrl, page: a.pageNumber }))),
+    JSON.stringify(
+      opts.extraction.assets
+        .slice(0, 40)
+        .map((a) => ({ id: a.id, kind: a.kind, url: a.publicUrl, page: a.pageNumber }))
+    ),
     '',
     'Rendered pages:',
-    JSON.stringify(opts.extraction.renderedPages.map((p) => ({ pageNumber: p.pageNumber, url: p.publicUrl, aspectRatio: p.aspectRatio }))),
+    JSON.stringify(
+      opts.extraction.renderedPages.map((p) => ({
+        pageNumber: p.pageNumber,
+        url: p.publicUrl,
+        aspectRatio: p.aspectRatio,
+      }))
+    ),
     '',
     'Return ONLY minified JSON:',
     '{',
@@ -65,5 +80,7 @@ export function buildReconstructionPrompt(opts: {
     '  "rsvp": { "enabled": boolean, "pageCreated": boolean, "pageTitle": string },',
     '  "warnings": []',
     '}',
-  ].filter(Boolean).join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 }

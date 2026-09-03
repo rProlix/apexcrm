@@ -55,21 +55,21 @@ export default async function TenantsPage() {
             </thead>
             <tbody className="divide-y divide-white/4">
               {(tenants ?? []).map((t) => {
-                const sub = (t as unknown as { subscriptions?: Array<{ plans?: { name?: string }; status?: string }> }).subscriptions?.[0]
+                const sub = (
+                  t as unknown as {
+                    subscriptions?: Array<{ plans?: { name?: string }; status?: string }>
+                  }
+                ).subscriptions?.[0]
                 return (
                   <tr key={t.id} className="hover:bg-white/2 transition-colors duration-100">
                     <td className="px-5 py-3 font-medium text-white">{t.name}</td>
                     <td className="px-5 py-3 text-white/50 font-mono text-xs">{t.slug}</td>
                     <td className="px-5 py-3 text-white/40 text-xs">{t.subdomain ?? '—'}</td>
-                    <td className="px-5 py-3 text-white/50 text-xs">
-                      {sub?.plans?.name ?? '—'}
-                    </td>
+                    <td className="px-5 py-3 text-white/50 text-xs">{sub?.plans?.name ?? '—'}</td>
                     <td className="px-5 py-3">
                       <Pill label={t.status} status={t.status} />
                     </td>
-                    <td className="px-5 py-3 text-white/30 text-xs">
-                      {formatDate(t.created_at)}
-                    </td>
+                    <td className="px-5 py-3 text-white/30 text-xs">{formatDate(t.created_at)}</td>
                   </tr>
                 )
               })}

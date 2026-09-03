@@ -2,40 +2,40 @@
 // Server component: resolves package + frames for a product_360_viewer
 // website builder block, then renders the client viewer.
 
-import { getSupabaseServerClient }   from '@/lib/supabase/server'
-import { isPackagePubliclyVisible }  from '@/lib/product-360/visibility'
-import Product360ViewerClient        from './Product360ViewerClient'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { isPackagePubliclyVisible } from '@/lib/product-360/visibility'
+import Product360ViewerClient from './Product360ViewerClient'
 import type { P360Frame, P360Hotspot, P360PublicPayload } from '@/lib/product-360/types'
 
 interface Props {
-  tenantId:      string
-  productId?:    string
-  packageId?:    string
-  autoRotate?:   boolean
-  speed?:        number
+  tenantId: string
+  productId?: string
+  packageId?: string
+  autoRotate?: boolean
+  speed?: number
   showControls?: boolean
   showHotspots?: boolean
-  showLabel?:    boolean
+  showLabel?: boolean
   /** Preview mode (admin builder) — shows draft/disabled packages too */
-  previewMode?:  boolean
+  previewMode?: boolean
 }
 
 export async function Product360BlockRenderer({
   tenantId,
   productId,
   packageId,
-  autoRotate    = false,
-  showControls  = true,
-  showHotspots  = true,
-  showLabel     = false,
-  previewMode   = false,
+  autoRotate = false,
+  showControls = true,
+  showHotspots = true,
+  showLabel = false,
+  previewMode = false,
 }: Props) {
   if (!productId && !packageId) return null
 
   const supabase = getSupabaseServerClient()
 
   let pkg: Record<string, unknown> | null = null
-  let frames:   P360Frame[]   = []
+  let frames: P360Frame[] = []
   let hotspots: P360Hotspot[] = []
 
   // ── Resolve package ───────────────────────────────────────────────────────
@@ -72,12 +72,15 @@ export async function Product360BlockRenderer({
   if (!pkg) return <ViewerFallback />
 
   // In public mode, enforce visibility rules
-  if (!previewMode && !isPackagePubliclyVisible({
-    status:          pkg.status          as string,
-    is_enabled:      pkg.is_enabled      as boolean,
-    promo_starts_at: pkg.promo_starts_at as string | null,
-    promo_ends_at:   pkg.promo_ends_at   as string | null,
-  })) {
+  if (
+    !previewMode &&
+    !isPackagePubliclyVisible({
+      status: pkg.status as string,
+      is_enabled: pkg.is_enabled as boolean,
+      promo_starts_at: pkg.promo_starts_at as string | null,
+      promo_ends_at: pkg.promo_ends_at as string | null,
+    })
+  ) {
     return <ViewerFallback />
   }
 
@@ -108,7 +111,7 @@ export async function Product360BlockRenderer({
 
   const settings = (pkg.settings ?? {}) as P360PublicPayload['viewerSettings']
   const lighting = (pkg.lighting_config ?? {}) as P360PublicPayload['lightingConfig']
-  const camera   = (pkg.camera_config   ?? {}) as P360PublicPayload['cameraConfig']
+  const camera = (pkg.camera_config ?? {}) as P360PublicPayload['cameraConfig']
 
   return (
     <Product360ViewerClient

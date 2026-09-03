@@ -20,15 +20,12 @@ export default async function POSKitchenPage() {
 
   const { data: tickets } = await supabase
     .from('pos_kitchen_tickets')
-    .select(`*, pos_orders(id, order_number, order_type, table_name, guest_count, notes, kitchen_notes, pos_order_items(id, name, quantity, notes, kitchen_notes, fulfillment_status, pos_order_item_modifiers(id, name, modifier_type, quantity)))`)
+    .select(
+      `*, pos_orders(id, order_number, order_type, table_name, guest_count, notes, kitchen_notes, pos_order_items(id, name, quantity, notes, kitchen_notes, fulfillment_status, pos_order_item_modifiers(id, name, modifier_type, quantity)))`
+    )
     .eq('tenant_id', tenantId)
     .in('status', ['new', 'accepted', 'preparing', 'ready'])
     .order('sent_at', { ascending: true })
 
-  return (
-    <POSKitchenDisplay
-      tenantId={tenantId}
-      initialTickets={tickets ?? []}
-    />
-  )
+  return <POSKitchenDisplay tenantId={tenantId} initialTickets={tickets ?? []} />
 }

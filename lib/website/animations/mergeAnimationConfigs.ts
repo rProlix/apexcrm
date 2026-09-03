@@ -11,11 +11,11 @@ import type { ValidatedSectionAnimationConfig } from './validateAnimationConfig'
  */
 export function mergeAnimationConfigs(
   globalRaw: unknown,
-  pageRaw:   unknown,
-  sectionRaw: unknown,
+  pageRaw: unknown,
+  sectionRaw: unknown
 ): ValidatedSectionAnimationConfig | null {
-  const global  = parseSectionAnimationConfig(globalRaw)
-  const page    = parseSectionAnimationConfig(pageRaw)
+  const global = parseSectionAnimationConfig(globalRaw)
+  const page = parseSectionAnimationConfig(pageRaw)
   const section = parseSectionAnimationConfig(sectionRaw)
 
   // If section explicitly disabled, skip all
@@ -25,7 +25,7 @@ export function mergeAnimationConfigs(
 
   // Merge: global baseline, then page, then section on top
   const merged: ValidatedSectionAnimationConfig = {
-    v:       1,
+    v: 1,
     enabled: true,
     animation: {
       ...global?.animation,

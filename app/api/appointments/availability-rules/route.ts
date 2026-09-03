@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const supabase  = getSupabaseServerClient() as any
+  const supabase = getSupabaseServerClient() as any
   const tenant_id = staffUser!.tenant_id
 
   const { data, error } = await supabase
@@ -26,7 +26,7 @@ const supabase  = getSupabaseServerClient() as any
     .select('*')
     .eq('tenant_id', tenant_id)
     .order('day_of_week', { ascending: true })
-    .order('start_time',  { ascending: true })
+    .order('start_time', { ascending: true })
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   }
 
   const repeatType = ['daily', 'weekly', 'custom'].includes(repeat_type as string)
-    ? repeat_type as string
+    ? (repeat_type as string)
     : 'weekly'
 
   if (repeatType === 'custom') {
@@ -90,23 +90,23 @@ export async function POST(req: NextRequest) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const supabase  = getSupabaseServerClient() as any
+  const supabase = getSupabaseServerClient() as any
   const tenant_id = staffUser!.tenant_id
 
   const { data, error } = await supabase
     .from('availability_rules')
     .insert({
       tenant_id,
-      day_of_week:           repeatType === 'weekly' ? Number(day_of_week ?? 1) : null,
+      day_of_week: repeatType === 'weekly' ? Number(day_of_week ?? 1) : null,
       start_time,
       end_time,
       slot_interval_minutes: intervalMins,
       slot_duration_minutes: intervalMins,
-      repeat_type:           repeatType,
-      repeat_days:           repeatType === 'custom' ? repeat_days : null,
-      is_active:             is_active !== false,
-      is_available:          is_active !== false,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      repeat_type: repeatType,
+      repeat_days: repeatType === 'custom' ? repeat_days : null,
+      is_active: is_active !== false,
+      is_available: is_active !== false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
     .select()
     .single()
@@ -140,14 +140,14 @@ export async function PATCH(req: NextRequest) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const supabase  = getSupabaseServerClient() as any
+  const supabase = getSupabaseServerClient() as any
   const tenant_id = staffUser!.tenant_id
 
   // Only patch fields that were provided
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
-  if (body.start_time  !== undefined) patch.start_time  = body.start_time
-  if (body.end_time    !== undefined) patch.end_time    = body.end_time
+  if (body.start_time !== undefined) patch.start_time = body.start_time
+  if (body.end_time !== undefined) patch.end_time = body.end_time
   if (body.day_of_week !== undefined) patch.day_of_week = Number(body.day_of_week)
 
   if (body.slot_interval_minutes !== undefined) {
@@ -163,7 +163,7 @@ const supabase  = getSupabaseServerClient() as any
   if (body.repeat_days !== undefined) patch.repeat_days = body.repeat_days
 
   if (body.is_active !== undefined) {
-    patch.is_active    = body.is_active
+    patch.is_active = body.is_active
     patch.is_available = body.is_active
   }
 
@@ -198,7 +198,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const supabase  = getSupabaseServerClient() as any
+  const supabase = getSupabaseServerClient() as any
   const tenant_id = staffUser!.tenant_id
 
   const { error } = await supabase

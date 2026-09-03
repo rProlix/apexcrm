@@ -18,7 +18,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 

@@ -18,9 +18,11 @@ type RouteContext = {
 }
 
 function wsiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
-  return (supabase as unknown as {
-    from: (t: 'website_section_images') => ReturnType<typeof supabase.from>
-  }).from('website_section_images') as ReturnType<typeof supabase.from>
+  return (
+    supabase as unknown as {
+      from: (t: 'website_section_images') => ReturnType<typeof supabase.from>
+    }
+  ).from('website_section_images') as ReturnType<typeof supabase.from>
 }
 
 export async function POST(req: NextRequest, context: RouteContext) {
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Image not found or access denied' }, { status: 404 })
   }
 
-  const image     = imageData as WebsiteGeneratedImage
+  const image = imageData as WebsiteGeneratedImage
   const wasActive = image.is_active
 
   if (wasActive && !force) {
@@ -64,19 +66,25 @@ export async function POST(req: NextRequest, context: RouteContext) {
     if (!others || (others as unknown[]).length === 0) {
       return NextResponse.json(
         {
-          error: 'This is the only active image for this slot. Use force=true to archive anyway, or generate a new image first.',
-          code:  'ONLY_ACTIVE_IMAGE',
+          error:
+            'This is the only active image for this slot. Use force=true to archive anyway, or generate a new image first.',
+          code: 'ONLY_ACTIVE_IMAGE',
         },
-        { status: 422 },
+        { status: 422 }
       )
     }
   }
 
   await wsiFrom(supabase)
-    .update({ is_archived: true, is_active: false, status: 'archived', updated_at: new Date().toISOString() } as never)
+    .update({
+      is_archived: true,
+      is_active: false,
+      status: 'archived',
+      updated_at: new Date().toISOString(),
+    } as never)
     .eq('id', imageId)
 
-  let newActive      = null
+  let newActive = null
   let updatedSection = null
 
   if (wasActive) {
@@ -94,7 +102,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
       const next = nextData as WebsiteGeneratedImage
 
       await wsiFrom(supabase)
-        .update({ is_active: true, status: 'active', updated_at: new Date().toISOString() } as never)
+        .update({
+          is_active: true,
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        } as never)
         .eq('id', next.id)
 
       newActive = next
@@ -119,7 +131,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
           next.image_role ?? 'primary',
           nextUrl,
           next.alt_text ?? '',
-          next.plan_id ?? '',
+          next.plan_id ?? ''
         )
 
         const merged = mergeImageIntoContent(sectionContent, contentPatch)
@@ -137,6 +149,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
     }
   }
 
-  return NextResponse.json({ success: true, archived: imageId, newActive, updatedSection, sectionId })
+  return NextResponse.json({
+    success: true,
+    archived: imageId,
+    newActive,
+    updatedSection,
+    sectionId,
+  })
 }
-

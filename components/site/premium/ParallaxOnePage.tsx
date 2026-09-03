@@ -8,9 +8,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 export interface ParallaxSection {
-  id:         string
+  id: string
   sectionType: string
-  children:   ReactNode
+  children: ReactNode
   /** Optional parallax depth (0 = no parallax, 1 = full) */
   parallaxDepth?: number
   /** Whether this section should be full-height */
@@ -18,13 +18,17 @@ export interface ParallaxSection {
 }
 
 interface Props {
-  sections:        ParallaxSection[]
+  sections: ParallaxSection[]
   backgroundColor?: string
-  textColor?:       string
+  textColor?: string
 }
 
-export function ParallaxOnePage({ sections, backgroundColor = '#0d0d14', textColor = '#f5f0e8' }: Props) {
-  const [scrollY, setScrollY]             = useState(0)
+export function ParallaxOnePage({
+  sections,
+  backgroundColor = '#0d0d14',
+  textColor = '#f5f0e8',
+}: Props) {
+  const [scrollY, setScrollY] = useState(0)
   const [prefersReduced, setPrefersReduced] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -71,18 +75,24 @@ export function ParallaxOnePage({ sections, backgroundColor = '#0d0d14', textCol
 // ── Individual section wrapper with parallax ──────────────────────────────────
 
 interface WrapperProps {
-  section:       ParallaxSection
-  index:         number
-  scrollY:       number
+  section: ParallaxSection
+  index: number
+  scrollY: number
   prefersReduced: boolean
-  textColor:     string
+  textColor: string
 }
 
-function ParallaxSectionWrapper({ section, index, scrollY, prefersReduced, textColor }: WrapperProps) {
+function ParallaxSectionWrapper({
+  section,
+  index,
+  scrollY,
+  prefersReduced,
+  textColor,
+}: WrapperProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const [offsetTop, setOffsetTop]     = useState(0)
-  const [sectionH, setSectionH]       = useState(0)
-  const [isVisible, setIsVisible]     = useState(false)
+  const [offsetTop, setOffsetTop] = useState(0)
+  const [sectionH, setSectionH] = useState(0)
+  const [isVisible, setIsVisible] = useState(false)
   const [hasRevealed, setHasRevealed] = useState(false)
 
   // Measure position
@@ -100,35 +110,34 @@ function ParallaxSectionWrapper({ section, index, scrollY, prefersReduced, textC
 
   // Intersection observer for reveal animation
   useEffect(() => {
-    if (prefersReduced) { setHasRevealed(true); return }
+    if (prefersReduced) {
+      setHasRevealed(true)
+      return
+    }
     if (!ref.current) return
     const obs = new IntersectionObserver(
       ([entry]) => {
         setIsVisible(entry.isIntersecting)
         if (entry.isIntersecting) setHasRevealed(true)
       },
-      { threshold: 0.15 },
+      { threshold: 0.15 }
     )
     obs.observe(ref.current)
     return () => obs.disconnect()
   }, [prefersReduced])
 
   // Parallax offset for the background layer
-  const depth        = section.parallaxDepth ?? (section.sectionType === 'hero' ? 0.4 : 0.15)
-  const isMobile     = typeof window !== 'undefined' && window.innerWidth < 768
-  const parallaxShift = !prefersReduced && !isMobile
-    ? (scrollY - offsetTop) * depth * -0.5
-    : 0
+  const depth = section.parallaxDepth ?? (section.sectionType === 'hero' ? 0.4 : 0.15)
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+  const parallaxShift = !prefersReduced && !isMobile ? (scrollY - offsetTop) * depth * -0.5 : 0
 
   // Reveal animation
   const revealStyle: React.CSSProperties = prefersReduced
     ? {}
     : {
-        opacity:   hasRevealed ? 1 : 0,
+        opacity: hasRevealed ? 1 : 0,
         transform: hasRevealed ? 'translateY(0)' : 'translateY(32px)',
-        transition: hasRevealed || index === 0
-          ? 'opacity 0.7s ease, transform 0.7s ease'
-          : 'none',
+        transition: hasRevealed || index === 0 ? 'opacity 0.7s ease, transform 0.7s ease' : 'none',
       }
 
   // Divider between sections
@@ -138,8 +147,8 @@ function ParallaxSectionWrapper({ section, index, scrollY, prefersReduced, textC
     <div
       ref={ref}
       style={{
-        position:  'relative',
-        overflow:  'hidden',
+        position: 'relative',
+        overflow: 'hidden',
         minHeight: section.fullHeight ? '100vh' : undefined,
       }}
       data-section-id={section.id}
@@ -151,9 +160,9 @@ function ParallaxSectionWrapper({ section, index, scrollY, prefersReduced, textC
         <div
           aria-hidden="true"
           style={{
-            position:  'absolute',
-            inset:     '-20%',
-            zIndex:    0,
+            position: 'absolute',
+            inset: '-20%',
+            zIndex: 0,
             transform: `translateY(${parallaxShift}px)`,
             transition: isVisible ? 'transform 0.05s linear' : 'none',
             willChange: 'transform',
@@ -162,21 +171,23 @@ function ParallaxSectionWrapper({ section, index, scrollY, prefersReduced, textC
       )}
 
       {/* Top curve divider */}
-      {showDivider && (
-        <SvgCurveDivider position="top" textColor={textColor} />
-      )}
+      {showDivider && <SvgCurveDivider position="top" textColor={textColor} />}
 
       {/* Section content with reveal animation */}
-      <div style={{ position: 'relative', zIndex: 1, ...revealStyle }}>
-        {section.children}
-      </div>
+      <div style={{ position: 'relative', zIndex: 1, ...revealStyle }}>{section.children}</div>
     </div>
   )
 }
 
 // ── SVG curve divider ─────────────────────────────────────────────────────────
 
-function SvgCurveDivider({ position, textColor }: { position: 'top' | 'bottom'; textColor: string }) {
+function SvgCurveDivider({
+  position,
+  textColor,
+}: {
+  position: 'top' | 'bottom'
+  textColor: string
+}) {
   const fill = textColor === '#f5f5f7' ? '#000000' : '#f5f0e8'
   return (
     <svg

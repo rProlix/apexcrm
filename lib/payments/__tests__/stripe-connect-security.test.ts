@@ -226,6 +226,13 @@ test('Stripe integration tables enable RLS and service-only RPC access', () => {
   )
 })
 
+test('database lint repair supplies account metadata and qualifies punch-card status', () => {
+  const migration = source('supabase/migrations/20260902173000_fix_database_lint_errors.sql')
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL/)
+  assert.match(migration, /punch_card\.status = 'active'/)
+  assert.match(migration, /ELSE punch_card\.status/)
+})
+
 test('Stripe platform configuration uses bounded network retries', () => {
   const server = source('lib/payments/stripe/server.ts')
   assert.match(server, /maxNetworkRetries: 2/)

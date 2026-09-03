@@ -15,10 +15,15 @@ export function punchCardProgressPercent(card: RewardPunchCard): number {
  */
 export function punchCardRewardLabel(card: RewardPunchCard): string {
   switch (card.reward_type) {
-    case 'free_item':    return 'Free item'
-    case 'percent_off':  return `${card.reward_value ?? 0}% off`
-    case 'fixed_off':    return `$${card.reward_value ?? 0} off`
-    case 'bonus_points': return `${card.reward_value ?? 0} bonus points`
-    default:             return 'Reward'
+    case 'free_item':
+      return 'Free item'
+    case 'percent_off':
+      return `${card.reward_value ?? 0}% off`
+    case 'fixed_off':
+      return `$${card.reward_value ?? 0} off`
+    case 'bonus_points':
+      return `${card.reward_value ?? 0} bonus points`
+    default:
+      return 'Reward'
   }
 }

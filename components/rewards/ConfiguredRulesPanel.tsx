@@ -7,22 +7,27 @@ import { Zap, CheckCircle2, Package, Gift } from 'lucide-react'
 import type { PunchCardRule, ProductWithRewards } from '@/types/rewards'
 
 interface Props {
-  rules:    PunchCardRule[]
+  rules: PunchCardRule[]
   products: ProductWithRewards[]
 }
 
 function rewardSummary(rule: PunchCardRule): string {
   switch (rule.reward_type) {
-    case 'free_item':    return 'Free item'
-    case 'percent_off':  return `${rule.reward_value ?? 0}% off`
-    case 'fixed_off':    return `$${rule.reward_value ?? 0} off`
-    case 'bonus_points': return `${rule.reward_value ?? 0} bonus pts`
-    default:             return 'Reward'
+    case 'free_item':
+      return 'Free item'
+    case 'percent_off':
+      return `${rule.reward_value ?? 0}% off`
+    case 'fixed_off':
+      return `$${rule.reward_value ?? 0} off`
+    case 'bonus_points':
+      return `${rule.reward_value ?? 0} bonus pts`
+    default:
+      return 'Reward'
   }
 }
 
 export function ConfiguredRulesPanel({ rules, products }: Props) {
-  const active   = rules.filter((r) => r.enabled)
+  const active = rules.filter((r) => r.enabled)
   const disabled = rules.filter((r) => !r.enabled)
 
   return (
@@ -39,7 +44,9 @@ export function ConfiguredRulesPanel({ rules, products }: Props) {
         <div>
           <h2 className="text-sm font-semibold text-white">
             Active Rules — {active.length} enabled
-            {disabled.length > 0 && <span className="text-white/30 font-normal ml-2">({disabled.length} disabled)</span>}
+            {disabled.length > 0 && (
+              <span className="text-white/30 font-normal ml-2">({disabled.length} disabled)</span>
+            )}
           </h2>
           <p className="text-xs text-white/40">
             These rules are live. Customer progress is tracked automatically on every purchase.
@@ -61,21 +68,35 @@ export function ConfiguredRulesPanel({ rules, products }: Props) {
               className={`px-5 py-4 flex items-center gap-4 ${!rule.enabled ? 'opacity-40' : ''}`}
             >
               {/* Icon */}
-              <div className={`h-9 w-9 rounded-xl border flex items-center justify-center flex-shrink-0 ${rule.enabled ? 'bg-gold-400/10 border-gold-400/20' : 'bg-white/4 border-white/8'}`}>
-                {product
-                  ? <Package className={`h-4 w-4 ${rule.enabled ? 'text-gold-400' : 'text-white/30'}`} strokeWidth={1.75} />
-                  : <Zap className={`h-4 w-4 ${rule.enabled ? 'text-gold-400' : 'text-white/30'}`} strokeWidth={1.75} />
-                }
+              <div
+                className={`h-9 w-9 rounded-xl border flex items-center justify-center flex-shrink-0 ${rule.enabled ? 'bg-gold-400/10 border-gold-400/20' : 'bg-white/4 border-white/8'}`}
+              >
+                {product ? (
+                  <Package
+                    className={`h-4 w-4 ${rule.enabled ? 'text-gold-400' : 'text-white/30'}`}
+                    strokeWidth={1.75}
+                  />
+                ) : (
+                  <Zap
+                    className={`h-4 w-4 ${rule.enabled ? 'text-gold-400' : 'text-white/30'}`}
+                    strokeWidth={1.75}
+                  />
+                )}
               </div>
 
               {/* Name + target */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-medium text-white truncate">{rule.name}</p>
-                  {rule.enabled
-                    ? <span className="text-xs px-1.5 py-0.5 rounded-md bg-emerald-400/10 border border-emerald-400/20 text-emerald-400 flex-shrink-0">Active</span>
-                    : <span className="text-xs px-1.5 py-0.5 rounded-md bg-white/4 border border-white/8 text-white/30 flex-shrink-0">Disabled</span>
-                  }
+                  {rule.enabled ? (
+                    <span className="text-xs px-1.5 py-0.5 rounded-md bg-emerald-400/10 border border-emerald-400/20 text-emerald-400 flex-shrink-0">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="text-xs px-1.5 py-0.5 rounded-md bg-white/4 border border-white/8 text-white/30 flex-shrink-0">
+                      Disabled
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-white/40 mt-0.5">
                   {product ? `For: ${product.name}` : 'Applies to any purchase'}
@@ -84,7 +105,9 @@ export function ConfiguredRulesPanel({ rules, products }: Props) {
 
               {/* Goal */}
               <div className="text-center flex-shrink-0">
-                <p className="text-lg font-bold text-amber-400 tabular-nums leading-none">{rule.punch_goal}</p>
+                <p className="text-lg font-bold text-amber-400 tabular-nums leading-none">
+                  {rule.punch_goal}
+                </p>
                 <p className="text-xs text-white/30 mt-0.5">purchases</p>
               </div>
 
@@ -98,7 +121,9 @@ export function ConfiguredRulesPanel({ rules, products }: Props) {
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-gold-400">{rewardSummary(rule)}</p>
-                  <p className="text-xs text-white/30 capitalize">{rule.reward_type.replace('_', ' ')}</p>
+                  <p className="text-xs text-white/30 capitalize">
+                    {rule.reward_type.replace('_', ' ')}
+                  </p>
                 </div>
               </div>
             </motion.div>
@@ -109,8 +134,8 @@ export function ConfiguredRulesPanel({ rules, products }: Props) {
       {/* Footer tip */}
       <div className="px-5 py-3 border-t border-white/6 bg-white/2">
         <p className="text-xs text-white/30">
-          Edit these rules using the form above, then click Save. Changes apply to new purchases immediately.
-          Existing customer progress is preserved.
+          Edit these rules using the form above, then click Save. Changes apply to new purchases
+          immediately. Existing customer progress is preserved.
         </p>
       </div>
     </motion.div>

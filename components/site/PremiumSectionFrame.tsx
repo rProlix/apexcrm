@@ -14,18 +14,18 @@ import { SectionDivider } from './SectionDivider'
 interface Props {
   /** Raw section row (contains style_config) */
   sectionDesign?: Partial<SectionDesign> | null
-  children:       React.ReactNode
-  className?:     string
-  sectionType?:   string
+  children: React.ReactNode
+  className?: string
+  sectionType?: string
 }
 
 // ── Spacing map ────────────────────────────────────────────────────────────────
 
 const PADDING_MAP: Record<string, string> = {
-  compact:  '3rem 1.25rem',
+  compact: '3rem 1.25rem',
   balanced: '5rem 1.5rem',
-  airy:     '6.5rem 1.5rem',
-  luxury:   '8rem 1.5rem',
+  airy: '6.5rem 1.5rem',
+  luxury: '8rem 1.5rem',
 }
 
 // ── Card style → CSS ──────────────────────────────────────────────────────────
@@ -34,46 +34,44 @@ function cardStyleToCss(style: string | undefined): React.CSSProperties {
   switch (style) {
     case 'glass':
       return {
-        background:   'rgba(255,255,255,0.08)',
+        background: 'rgba(255,255,255,0.08)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
-        border:       '1px solid rgba(255,255,255,0.15)',
+        border: '1px solid rgba(255,255,255,0.15)',
         borderRadius: 'var(--radius-card, 1rem)',
-        boxShadow:    '0 8px 32px rgba(0,0,0,0.12)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
       }
     case 'floating':
       return {
-        background:   'var(--ds-surface, var(--color-surface))',
+        background: 'var(--ds-surface, var(--color-surface))',
         borderRadius: 'var(--radius-card, 1rem)',
-        boxShadow:    'var(--shadow-floating, 0 8px 40px rgba(0,0,0,0.12))',
+        boxShadow: 'var(--shadow-floating, 0 8px 40px rgba(0,0,0,0.12))',
       }
     case 'bordered':
       return {
-        background:   'var(--ds-surface, var(--color-surface))',
-        border:       '1px solid var(--ds-border, var(--color-border))',
+        background: 'var(--ds-surface, var(--color-surface))',
+        border: '1px solid var(--ds-border, var(--color-border))',
         borderRadius: 'var(--radius-card, 1rem)',
       }
     case 'editorial':
       return {
-        background:   'transparent',
+        background: 'transparent',
         borderBottom: '2px solid var(--ds-border, var(--color-border))',
         borderRadius: '0',
       }
     case 'soft':
     default:
       return {
-        background:   'var(--ds-surface, var(--color-surface))',
+        background: 'var(--ds-surface, var(--color-surface))',
         borderRadius: 'var(--radius-card, 1rem)',
-        boxShadow:    'var(--shadow-card, 0 2px 14px rgba(0,0,0,0.07))',
+        boxShadow: 'var(--shadow-card, 0 2px 14px rgba(0,0,0,0.07))',
       }
   }
 }
 
 // ── Background builder ────────────────────────────────────────────────────────
 
-function buildBackground(
-  design: Partial<SectionDesign> | null | undefined,
-): string {
+function buildBackground(design: Partial<SectionDesign> | null | undefined): string {
   if (!design?.backgroundType || design.backgroundType === 'solid') {
     return design?.backgroundValue || 'var(--ds-bg, var(--color-bg))'
   }
@@ -96,20 +94,15 @@ function buildBackground(
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function PremiumSectionFrame({
-  sectionDesign,
-  children,
-  className,
-  sectionType,
-}: Props) {
+export function PremiumSectionFrame({ sectionDesign, children, className, sectionType }: Props) {
   const d = sectionDesign
 
   // Background
   const bg = buildBackground(d)
 
   // Padding
-  const spacing    = d?.spacing ?? 'balanced'
-  const padding    = PADDING_MAP[spacing] ?? '5rem 1.5rem'
+  const spacing = d?.spacing ?? 'balanced'
+  const padding = PADDING_MAP[spacing] ?? '5rem 1.5rem'
 
   // Overlay
   const hasOverlay = d?.overlay?.enabled && d.overlay.opacity > 0
@@ -117,7 +110,7 @@ export function PremiumSectionFrame({
   const overlayOpacity = d?.overlay?.opacity ?? 0
 
   // Dividers
-  const divTop    = d?.dividerTop
+  const divTop = d?.dividerTop
   const divBottom = d?.dividerBottom
   const bgColorForDivider = extractSolidColor(bg)
 
@@ -135,28 +128,29 @@ export function PremiumSectionFrame({
     : undefined
 
   // Border radius for entire section (usually 0 unless editorial)
-  const sectionRadius = d?.borderRadius === 'large'
-    ? '1.5rem'
-    : d?.borderRadius === 'organic'
-      ? '2rem'
-      : d?.borderRadius === 'soft'
-        ? '0.5rem'
-        : undefined
+  const sectionRadius =
+    d?.borderRadius === 'large'
+      ? '1.5rem'
+      : d?.borderRadius === 'organic'
+        ? '2rem'
+        : d?.borderRadius === 'soft'
+          ? '0.5rem'
+          : undefined
 
   const wrapperStyle: React.CSSProperties = {
-    position:     'relative',
-    background:   bg,
-    overflow:     'hidden',
-    padding:      isHero ? undefined : padding,
-    boxShadow:    sectionShadow,
+    position: 'relative',
+    background: bg,
+    overflow: 'hidden',
+    padding: isHero ? undefined : padding,
+    boxShadow: sectionShadow,
     borderRadius: sectionRadius,
   }
 
   // Glass section extra
   if (d?.backgroundType === 'glass') {
-    wrapperStyle.backdropFilter         = 'blur(16px)'
-    wrapperStyle.WebkitBackdropFilter   = 'blur(16px)'
-    wrapperStyle.border                 = '1px solid rgba(255,255,255,0.12)'
+    wrapperStyle.backdropFilter = 'blur(16px)'
+    wrapperStyle.WebkitBackdropFilter = 'blur(16px)'
+    wrapperStyle.border = '1px solid rgba(255,255,255,0.12)'
   }
 
   return (
@@ -172,11 +166,12 @@ export function PremiumSectionFrame({
           aria-hidden="true"
           style={{
             position: 'absolute',
-            inset:    0,
-            zIndex:   1,
-            background: d?.overlay?.type === 'scrim'
-              ? `rgba(0,0,0,${overlayOpacity})`
-              : overlayValue || `rgba(0,0,0,${overlayOpacity * 0.7})`,
+            inset: 0,
+            zIndex: 1,
+            background:
+              d?.overlay?.type === 'scrim'
+                ? `rgba(0,0,0,${overlayOpacity})`
+                : overlayValue || `rgba(0,0,0,${overlayOpacity * 0.7})`,
             pointerEvents: 'none',
           }}
         />
@@ -184,25 +179,15 @@ export function PremiumSectionFrame({
 
       {/* Top divider (belongs to THIS section, sits above previous) */}
       {divTop && divTop !== 'none' && (
-        <SectionDivider
-          style={divTop}
-          position="top"
-          fillColor={bgColorForDivider}
-        />
+        <SectionDivider style={divTop} position="top" fillColor={bgColorForDivider} />
       )}
 
       {/* Section content */}
-      <div style={{ position: 'relative', zIndex: 2 }}>
-        {children}
-      </div>
+      <div style={{ position: 'relative', zIndex: 2 }}>{children}</div>
 
       {/* Bottom divider (bleeds into next section) */}
       {divBottom && divBottom !== 'none' && (
-        <SectionDivider
-          style={divBottom}
-          position="bottom"
-          fillColor={bgColorForDivider}
-        />
+        <SectionDivider style={divBottom} position="bottom" fillColor={bgColorForDivider} />
       )}
     </div>
   )
@@ -222,21 +207,17 @@ function extractSolidColor(bg: string): string {
 
 /** Returns inline style props for cards within a section */
 export function getCardStyleProps(
-  design: Partial<SectionDesign> | null | undefined,
+  design: Partial<SectionDesign> | null | undefined
 ): React.CSSProperties {
   return cardStyleToCss(design?.cardStyle)
 }
 
 /** Returns text color from section design (falls back to CSS var) */
-export function getSectionTextColor(
-  design: Partial<SectionDesign> | null | undefined,
-): string {
+export function getSectionTextColor(design: Partial<SectionDesign> | null | undefined): string {
   return design?.textColor || 'var(--ds-text, var(--color-text))'
 }
 
 /** Returns subtext color from section design */
-export function getSectionSubtextColor(
-  design: Partial<SectionDesign> | null | undefined,
-): string {
+export function getSectionSubtextColor(design: Partial<SectionDesign> | null | undefined): string {
   return design?.subtextColor || 'var(--ds-muted, var(--color-muted))'
 }

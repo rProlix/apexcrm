@@ -3,10 +3,7 @@
  * Logs the error with a label so it's easy to find in Vercel Function logs.
  * Returns null on failure instead of crashing the server component.
  */
-export async function safeServer<T>(
-  fn: () => Promise<T>,
-  label: string,
-): Promise<T | null> {
+export async function safeServer<T>(fn: () => Promise<T>, label: string): Promise<T | null> {
   try {
     return await fn()
   } catch (err: unknown) {

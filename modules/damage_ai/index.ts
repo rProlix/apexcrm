@@ -13,35 +13,55 @@ export const damageAiModule: ModuleDefinition = {
   order: 5,
   stats: [
     {
-      key: 'damage_total', label: 'Inspections', category: 'operations', color: 'text-rose-400',
+      key: 'damage_total',
+      label: 'Inspections',
+      category: 'operations',
+      color: 'text-rose-400',
       emptyMessage: 'No inspections yet',
       async getValue(tenantId) {
-        const { count } = await getSupabaseServerClient().from('van_damage_inspections')
-          .select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId)
+        const { count } = await getSupabaseServerClient()
+          .from('van_damage_inspections')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
         return count ?? 0
       },
     },
     {
-      key: 'damage_pending', label: 'Needs Review', category: 'operations', color: 'text-orange-400',
+      key: 'damage_pending',
+      label: 'Needs Review',
+      category: 'operations',
+      color: 'text-orange-400',
       emptyMessage: 'No inspections need review',
       async getValue(tenantId) {
-        const { count } = await getSupabaseServerClient().from('van_damage_inspections')
-          .select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'needs_review')
+        const { count } = await getSupabaseServerClient()
+          .from('van_damage_inspections')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
+          .eq('status', 'needs_review')
         return count ?? 0
       },
     },
     {
-      key: 'damage_completed', label: 'Completed', category: 'usage', color: 'text-emerald-400',
+      key: 'damage_completed',
+      label: 'Completed',
+      category: 'usage',
+      color: 'text-emerald-400',
       emptyMessage: 'No completed inspections',
       async getValue(tenantId) {
-        const { count } = await getSupabaseServerClient().from('van_damage_inspections')
-          .select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'completed')
+        const { count } = await getSupabaseServerClient()
+          .from('van_damage_inspections')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
+          .eq('status', 'completed')
         return count ?? 0
       },
     },
   ],
   async getStats(tenantId) {
-    const { data } = await getSupabaseServerClient().from('van_damage_inspections').select('status').eq('tenant_id', tenantId)
+    const { data } = await getSupabaseServerClient()
+      .from('van_damage_inspections')
+      .select('status')
+      .eq('tenant_id', tenantId)
     const rows = data ?? []
     return [
       { label: 'Inspections', value: rows.length },

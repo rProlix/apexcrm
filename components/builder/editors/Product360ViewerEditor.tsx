@@ -4,22 +4,35 @@
 // Owner/admin only — never ships editor code to customers.
 
 import { useState, useEffect, useCallback } from 'react'
-import { useBuilderStore }                  from '@/lib/builder/store'
-import { Toggle, Field }                    from './FormFields'
-import type { Product360ViewerContent }     from '@/lib/website/types'
+import { useBuilderStore } from '@/lib/builder/store'
+import { Toggle, Field } from './FormFields'
+import type { Product360ViewerContent } from '@/lib/website/types'
 
-interface Product { id: string; name: string }
-interface Package { id: string; name: string; status: string; frames_done: number; target_frame_count: number; is_default: boolean; is_enabled: boolean }
+interface Product {
+  id: string
+  name: string
+}
+interface Package {
+  id: string
+  name: string
+  status: string
+  frames_done: number
+  target_frame_count: number
+  is_default: boolean
+  is_enabled: boolean
+}
 
-interface Props { sectionId: string }
+interface Props {
+  sectionId: string
+}
 
 export function Product360ViewerEditor({ sectionId }: Props) {
   const { sections, updateSectionContent } = useBuilderStore()
-  const section = sections.find(s => s.id === sectionId)
+  const section = sections.find((s) => s.id === sectionId)
   const content = (section?.content ?? {}) as Partial<Product360ViewerContent>
 
-  const [products,        setProducts]        = useState<Product[]>([])
-  const [packages,        setPackages]        = useState<Package[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [packages, setPackages] = useState<Package[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [loadingPackages, setLoadingPackages] = useState(false)
 
@@ -30,8 +43,8 @@ export function Product360ViewerEditor({ sectionId }: Props) {
     setLoadingProducts(true)
     const qs = tenantId ? `?tenantId=${tenantId}` : ''
     fetch(`/api/builder/product-360/packages${qs}`)
-      .then(r => r.json())
-      .then(d => {
+      .then((r) => r.json())
+      .then((d) => {
         setProducts(d.products ?? [])
         setPackages(d.packages ?? [])
       })
@@ -41,30 +54,40 @@ export function Product360ViewerEditor({ sectionId }: Props) {
 
   // Filter packages for selected product
   const productPackages = content.productId
-    ? packages.filter(p => (p as unknown as Record<string, unknown>).product_id === content.productId)
+    ? packages.filter(
+        (p) => (p as unknown as Record<string, unknown>).product_id === content.productId
+      )
     : packages
 
-  const patch = useCallback((key: keyof Product360ViewerContent, value: unknown) => {
-    if (!section) return
-    updateSectionContent(sectionId, { ...section.content, [key]: value })
-  }, [section, sectionId, updateSectionContent])
+  const patch = useCallback(
+    (key: keyof Product360ViewerContent, value: unknown) => {
+      if (!section) return
+      updateSectionContent(sectionId, { ...section.content, [key]: value })
+    },
+    [section, sectionId, updateSectionContent]
+  )
 
   if (!section) return null
 
   const inputStyle = {
-    width:        '100%',
-    padding:      '0.5rem 0.75rem',
+    width: '100%',
+    padding: '0.5rem 0.75rem',
     borderRadius: '0.5rem',
-    border:       '1px solid #3f3f46',
-    background:   '#18181b',
-    color:        '#f4f4f5',
-    fontSize:     '0.8125rem',
-    outline:      'none',
+    border: '1px solid #3f3f46',
+    background: '#18181b',
+    color: '#f4f4f5',
+    fontSize: '0.8125rem',
+    outline: 'none',
   } as React.CSSProperties
 
   const selectStyle = { ...inputStyle }
-  const labelStyle  = { display: 'block', fontSize: '0.75rem', color: '#a1a1aa', marginBottom: '0.375rem' } as React.CSSProperties
-  const groupStyle  = { marginBottom: '1rem' } as React.CSSProperties
+  const labelStyle = {
+    display: 'block',
+    fontSize: '0.75rem',
+    color: '#a1a1aa',
+    marginBottom: '0.375rem',
+  } as React.CSSProperties
+  const groupStyle = { marginBottom: '1rem' } as React.CSSProperties
 
   return (
     <div>
@@ -76,12 +99,17 @@ export function Product360ViewerEditor({ sectionId }: Props) {
         ) : (
           <select
             value={content.productId ?? ''}
-            onChange={e => { patch('productId', e.target.value); patch('packageId', '') }}
+            onChange={(e) => {
+              patch('productId', e.target.value)
+              patch('packageId', '')
+            }}
             style={selectStyle}
           >
             <option value="">— Select product —</option>
-            {products.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
             ))}
           </select>
         )}
@@ -96,20 +124,27 @@ export function Product360ViewerEditor({ sectionId }: Props) {
           ) : productPackages.length === 0 ? (
             <p style={{ fontSize: '0.75rem', color: '#71717a' }}>
               No 360° packages for this product.{' '}
-              <a href="/dashboard/product-360" target="_blank" rel="noreferrer" style={{ color: '#c084fc' }}>
+              <a
+                href="/dashboard/product-360"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: '#c084fc' }}
+              >
                 Create one →
               </a>
             </p>
           ) : (
             <select
               value={content.packageId ?? ''}
-              onChange={e => patch('packageId', e.target.value)}
+              onChange={(e) => patch('packageId', e.target.value)}
               style={selectStyle}
             >
               <option value="">— Use default enabled package —</option>
-              {productPackages.map(p => (
+              {productPackages.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} ({p.status}{p.is_default ? ' · default' : ''}{p.is_enabled ? '' : ' · disabled'})
+                  {p.name} ({p.status}
+                  {p.is_default ? ' · default' : ''}
+                  {p.is_enabled ? '' : ' · disabled'})
                 </option>
               ))}
             </select>
@@ -122,7 +157,7 @@ export function Product360ViewerEditor({ sectionId }: Props) {
         <Toggle
           label="Auto-rotate on load"
           value={content.autoRotate ?? false}
-          onChange={v => patch('autoRotate', v)}
+          onChange={(v) => patch('autoRotate', v)}
         />
       </div>
 
@@ -131,7 +166,7 @@ export function Product360ViewerEditor({ sectionId }: Props) {
         <Toggle
           label="Show viewer controls"
           value={content.showControls ?? true}
-          onChange={v => patch('showControls', v)}
+          onChange={(v) => patch('showControls', v)}
         />
       </div>
 
@@ -140,7 +175,7 @@ export function Product360ViewerEditor({ sectionId }: Props) {
         <Toggle
           label="Show hotspots"
           value={content.showHotspots ?? true}
-          onChange={v => patch('showHotspots', v)}
+          onChange={(v) => patch('showHotspots', v)}
         />
       </div>
 
@@ -149,7 +184,7 @@ export function Product360ViewerEditor({ sectionId }: Props) {
         <Toggle
           label="Show package name label"
           value={content.showLabel ?? false}
-          onChange={v => patch('showLabel', v)}
+          onChange={(v) => patch('showLabel', v)}
         />
       </div>
 
@@ -163,7 +198,7 @@ export function Product360ViewerEditor({ sectionId }: Props) {
             max={100}
             step={5}
             value={content.speed ?? 20}
-            onChange={e => patch('speed', Number(e.target.value))}
+            onChange={(e) => patch('speed', Number(e.target.value))}
             style={{ width: '100%', accentColor: '#c084fc' }}
           />
           <p style={{ fontSize: '0.75rem', color: '#52525b', marginTop: '0.25rem' }}>
@@ -173,19 +208,27 @@ export function Product360ViewerEditor({ sectionId }: Props) {
       )}
 
       {/* Info */}
-      <div style={{
-        padding:      '0.75rem',
-        borderRadius: '0.5rem',
-        background:   '#1e1b4b44',
-        border:       '1px solid #3730a344',
-        fontSize:     '0.75rem',
-        color:        '#c084fc',
-        lineHeight:   1.5,
-      }}>
+      <div
+        style={{
+          padding: '0.75rem',
+          borderRadius: '0.5rem',
+          background: '#1e1b4b44',
+          border: '1px solid #3730a344',
+          fontSize: '0.75rem',
+          color: '#c084fc',
+          lineHeight: 1.5,
+        }}
+      >
         Customers drag to spin the product 360°. Desktop + mobile. Manage packages in{' '}
-        <a href="/dashboard/product-360" target="_blank" rel="noreferrer" style={{ color: '#a78bfa' }}>
+        <a
+          href="/dashboard/product-360"
+          target="_blank"
+          rel="noreferrer"
+          style={{ color: '#a78bfa' }}
+        >
           360 Product Studio
-        </a>.
+        </a>
+        .
       </div>
     </div>
   )

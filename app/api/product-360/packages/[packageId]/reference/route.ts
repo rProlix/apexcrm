@@ -18,7 +18,11 @@ function extFromContentType(contentType: string): string {
   return 'jpg'
 }
 
-async function loadPackage(db: ReturnType<typeof getSupabaseServerClient>, packageId: string, tenantId: string) {
+async function loadPackage(
+  db: ReturnType<typeof getSupabaseServerClient>,
+  packageId: string,
+  tenantId: string
+) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (db as any)
     .from('product_360_packages')
@@ -72,7 +76,9 @@ async function uploadReferenceBuffer(params: {
 
   if (error) throw new Error(`Reference upload failed: ${error.message}`)
 
-  const { data: { publicUrl } } = supabase.storage.from(P360_REFERENCE_BUCKET).getPublicUrl(storagePath)
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(P360_REFERENCE_BUCKET).getPublicUrl(storagePath)
   return { publicUrl, storagePath }
 }
 
@@ -87,7 +93,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const tenantId = user.isOwner
     ? (req.nextUrl.searchParams.get('tenantId') ?? user.tenantId)
     : user.tenantId
-  if (!tenantId) return NextResponse.json({ ok: false, error: 'Could not resolve tenant' }, { status: 400 })
+  if (!tenantId)
+    return NextResponse.json({ ok: false, error: 'Could not resolve tenant' }, { status: 400 })
 
   const supabase = getSupabaseServerClient()
   const { data: pkg, error: pkgErr } = await loadPackage(supabase, packageId, tenantId)
@@ -95,7 +102,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!pkg) return NextResponse.json({ ok: false, error: 'Package not found' }, { status: 404 })
 
   const productId = (pkg as Record<string, unknown>).product_id as string | null
-  if (!productId) return NextResponse.json({ ok: false, error: 'Package has no product assigned.' }, { status: 422 })
+  if (!productId)
+    return NextResponse.json(
+      { ok: false, error: 'Package has no product assigned.' },
+      { status: 422 }
+    )
 
   try {
     const contentType = req.headers.get('content-type') ?? ''
@@ -104,14 +115,23 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       const form = await req.formData()
       const image = form.get('image') ?? form.get('file')
       if (!image || !(image instanceof Blob)) {
-        return NextResponse.json({ ok: false, error: 'No image file provided. Use field "image".' }, { status: 400 })
+        return NextResponse.json(
+          { ok: false, error: 'No image file provided. Use field "image".' },
+          { status: 400 }
+        )
       }
       const imageType = image.type || 'image/jpeg'
       if (!ALLOWED_TYPES.has(imageType)) {
-        return NextResponse.json({ ok: false, error: `Image must be JPEG, PNG, or WebP. Got: ${imageType}` }, { status: 400 })
+        return NextResponse.json(
+          { ok: false, error: `Image must be JPEG, PNG, or WebP. Got: ${imageType}` },
+          { status: 400 }
+        )
       }
       if (image.size > MAX_FILE_SIZE_BYTES) {
-        return NextResponse.json({ ok: false, error: 'Reference image must be under 10 MB.' }, { status: 400 })
+        return NextResponse.json(
+          { ok: false, error: 'Reference image must be under 10 MB.' },
+          { status: 400 }
+        )
       }
 
       const uploaded = await uploadReferenceBuffer({
@@ -121,11 +141,24 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         buffer: await image.arrayBuffer(),
         contentType: imageType,
       })
-      await saveReferenceMetadata({ packageId, tenantId, publicUrl: uploaded.publicUrl, storagePath: uploaded.storagePath, source: 'upload' })
-      return NextResponse.json({ ok: true, data: { referenceImageUrl: uploaded.publicUrl, referenceStoragePath: uploaded.storagePath, referenceSource: 'upload' } })
+      await saveReferenceMetadata({
+        packageId,
+        tenantId,
+        publicUrl: uploaded.publicUrl,
+        storagePath: uploaded.storagePath,
+        source: 'upload',
+      })
+      return NextResponse.json({
+        ok: true,
+        data: {
+          referenceImageUrl: uploaded.publicUrl,
+          referenceStoragePath: uploaded.storagePath,
+          referenceSource: 'upload',
+        },
+      })
     }
 
-    const body = await req.json().catch(() => ({})) as Record<string, unknown>
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
     const source = body.source === 'product_image' ? 'product_image' : 'url'
     let imageUrl = typeof body.imageUrl === 'string' ? body.imageUrl : ''
 
@@ -141,13 +174,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       imageUrl = (imageRows?.[0]?.image_url as string | undefined) ?? ''
     }
 
-    if (!imageUrl) return NextResponse.json({ ok: false, error: 'imageUrl is required.' }, { status: 400 })
+    if (!imageUrl)
+      return NextResponse.json({ ok: false, error: 'imageUrl is required.' }, { status: 400 })
 
     const res = await fetch(imageUrl, { signal: AbortSignal.timeout(30_000) })
     if (!res.ok) throw new Error(`Could not download reference image: HTTP ${res.status}`)
     const downloadedType = res.headers.get('content-type') ?? ''
     if (!downloadedType.toLowerCase().startsWith('image/')) {
-      throw new Error(`Reference URL did not return an image. Content-Type: ${downloadedType || 'unknown'}`)
+      throw new Error(
+        `Reference URL did not return an image. Content-Type: ${downloadedType || 'unknown'}`
+      )
     }
 
     const uploaded = await uploadReferenceBuffer({
@@ -157,8 +193,21 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       buffer: await res.arrayBuffer(),
       contentType: downloadedType,
     })
-    await saveReferenceMetadata({ packageId, tenantId, publicUrl: uploaded.publicUrl, storagePath: uploaded.storagePath, source })
-    return NextResponse.json({ ok: true, data: { referenceImageUrl: uploaded.publicUrl, referenceStoragePath: uploaded.storagePath, referenceSource: source } })
+    await saveReferenceMetadata({
+      packageId,
+      tenantId,
+      publicUrl: uploaded.publicUrl,
+      storagePath: uploaded.storagePath,
+      source,
+    })
+    return NextResponse.json({
+      ok: true,
+      data: {
+        referenceImageUrl: uploaded.publicUrl,
+        referenceStoragePath: uploaded.storagePath,
+        referenceSource: source,
+      },
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ ok: false, error: message }, { status: 500 })

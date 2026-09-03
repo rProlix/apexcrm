@@ -6,57 +6,57 @@ import { Button } from '@/components/ui/Button'
 import { X } from 'lucide-react'
 
 const productSchema = z.object({
-  name:            z.string().min(1, 'Name is required').max(200),
-  description:     z.string().max(2000).optional(),
-  price:           z.number({ invalid_type_error: 'Price must be a number' }).min(0, 'Price must be ≥ 0'),
-  currency:        z.string().length(3).default('USD'),
+  name: z.string().min(1, 'Name is required').max(200),
+  description: z.string().max(2000).optional(),
+  price: z.number({ invalid_type_error: 'Price must be a number' }).min(0, 'Price must be ≥ 0'),
+  currency: z.string().length(3).default('USD'),
   inventory_count: z.number().int().min(0, 'Inventory must be ≥ 0').default(0),
-  is_active:       z.boolean().default(true),
+  is_active: z.boolean().default(true),
 })
 
 type ProductFormData = z.infer<typeof productSchema>
 
 export interface ProductFormValues {
-  id?:             string
-  name:            string
-  description:     string | null
-  price:           number
-  currency:        string
+  id?: string
+  name: string
+  description: string | null
+  price: number
+  currency: string
   inventory_count: number
-  is_active:       boolean
+  is_active: boolean
 }
 
 interface Props {
-  tenantId:  string
-  product?:  ProductFormValues
+  tenantId: string
+  product?: ProductFormValues
   onSuccess: (product: ProductFormValues) => void
-  onCancel:  () => void
+  onCancel: () => void
 }
 
 export function ProductForm({ tenantId, product, onSuccess, onCancel }: Props) {
   const isEdit = Boolean(product?.id)
 
   const [form, setForm] = useState<{
-    name:            string
-    description:     string
-    price:           string
-    currency:        string
+    name: string
+    description: string
+    price: string
+    currency: string
     inventory_count: string
-    is_active:       boolean
+    is_active: boolean
   }>({
-    name:            product?.name            ?? '',
-    description:     product?.description     ?? '',
-    price:           product?.price != null   ? String(product.price) : '',
-    currency:        product?.currency        ?? 'USD',
+    name: product?.name ?? '',
+    description: product?.description ?? '',
+    price: product?.price != null ? String(product.price) : '',
+    currency: product?.currency ?? 'USD',
     inventory_count: product?.inventory_count != null ? String(product.inventory_count) : '0',
-    is_active:       product?.is_active       ?? true,
+    is_active: product?.is_active ?? true,
   })
 
-  const [errors,  setErrors]  = useState<Partial<Record<keyof ProductFormData, string>>>({})
+  const [errors, setErrors] = useState<Partial<Record<keyof ProductFormData, string>>>({})
   const [loading, setLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
 
-  function update<K extends keyof typeof form>(key: K, value: typeof form[K]) {
+  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
     setErrors((prev) => ({ ...prev, [key]: undefined }))
   }
@@ -66,12 +66,12 @@ export function ProductForm({ tenantId, product, onSuccess, onCancel }: Props) {
     setApiError(null)
 
     const parsed = productSchema.safeParse({
-      name:            form.name,
-      description:     form.description || undefined,
-      price:           parseFloat(form.price),
-      currency:        form.currency,
+      name: form.name,
+      description: form.description || undefined,
+      price: parseFloat(form.price),
+      currency: form.currency,
       inventory_count: parseInt(form.inventory_count, 10),
-      is_active:       form.is_active,
+      is_active: form.is_active,
     })
 
     if (!parsed.success) {
@@ -87,7 +87,7 @@ export function ProductForm({ tenantId, product, onSuccess, onCancel }: Props) {
     setLoading(true)
 
     try {
-      const url    = isEdit ? `/api/store/products/${product!.id}` : '/api/store/products'
+      const url = isEdit ? `/api/store/products/${product!.id}` : '/api/store/products'
       const method = isEdit ? 'PATCH' : 'POST'
 
       const res = await fetch(url, {
@@ -228,12 +228,7 @@ export function ProductForm({ tenantId, product, onSuccess, onCancel }: Props) {
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              className="flex-1"
-              loading={loading}
-            >
+            <Button type="submit" variant="primary" className="flex-1" loading={loading}>
               {isEdit ? 'Save Changes' : 'Create Product'}
             </Button>
           </div>

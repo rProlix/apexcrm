@@ -7,20 +7,20 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { List, Plus, Download } from 'lucide-react'
-import { AppointmentList }  from '@/components/appointments/AppointmentList'
+import { AppointmentList } from '@/components/appointments/AppointmentList'
 import { AppointmentModal } from '@/components/appointments/AppointmentModal'
 import type { Appointment } from '@/lib/appointments/types'
 
 export default function AppointmentsListPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [loading,      setLoading]      = useState(true)
-  const [modalOpen,    setModalOpen]    = useState(false)
-  const [editing,      setEditing]      = useState<Appointment | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<Appointment | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res  = await fetch('/api/appointments?limit=500')
+      const res = await fetch('/api/appointments?limit=500')
       const data = await res.json()
       setAppointments(data.appointments ?? [])
     } finally {
@@ -28,7 +28,9 @@ export default function AppointmentsListPage() {
     }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   function openEdit(appt: Appointment) {
     setEditing(appt)
@@ -36,12 +38,12 @@ export default function AppointmentsListPage() {
   }
 
   async function handleSave(data: Partial<Appointment> & { customer_id?: string }) {
-    const url    = editing ? `/api/appointments/${editing.id}` : '/api/appointments'
+    const url = editing ? `/api/appointments/${editing.id}` : '/api/appointments'
     const method = editing ? 'PATCH' : 'POST'
-    const res    = await fetch(url, {
+    const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(data),
+      body: JSON.stringify(data),
     })
     const json = await res.json()
     if (!res.ok) throw new Error(json.error ?? 'Failed to save')
@@ -55,9 +57,9 @@ export default function AppointmentsListPage() {
 
   async function handleConfirm(appt: Appointment) {
     await fetch(`/api/appointments/${appt.id}`, {
-      method:  'PATCH',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ status: 'confirmed' }),
+      body: JSON.stringify({ status: 'confirmed' }),
     })
     await load()
     setModalOpen(false)
@@ -65,9 +67,9 @@ export default function AppointmentsListPage() {
 
   async function handleComplete(appt: Appointment) {
     await fetch(`/api/appointments/${appt.id}`, {
-      method:  'PATCH',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ status: 'completed' }),
+      body: JSON.stringify({ status: 'completed' }),
     })
     await load()
     setModalOpen(false)
@@ -75,20 +77,24 @@ export default function AppointmentsListPage() {
 
   function exportCSV() {
     const header = 'Title,Customer,Date,Start,End,Status,Location\n'
-    const rows   = appointments.map((a) => [
-      `"${a.title}"`,
-      `"${a.customer?.name ?? ''}"`,
-      `"${a.starts_at.slice(0, 10)}"`,
-      `"${new Date(a.starts_at).toLocaleTimeString()}"`,
-      `"${new Date(a.ends_at).toLocaleTimeString()}"`,
-      `"${a.status}"`,
-      `"${a.location ?? ''}"`,
-    ].join(',')).join('\n')
+    const rows = appointments
+      .map((a) =>
+        [
+          `"${a.title}"`,
+          `"${a.customer?.name ?? ''}"`,
+          `"${a.starts_at.slice(0, 10)}"`,
+          `"${new Date(a.starts_at).toLocaleTimeString()}"`,
+          `"${new Date(a.ends_at).toLocaleTimeString()}"`,
+          `"${a.status}"`,
+          `"${a.location ?? ''}"`,
+        ].join(',')
+      )
+      .join('\n')
 
     const blob = new Blob([header + rows], { type: 'text/csv' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
     a.download = `appointments-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
@@ -122,7 +128,10 @@ export default function AppointmentsListPage() {
             Export
           </button>
           <button
-            onClick={() => { setEditing(null); setModalOpen(true) }}
+            onClick={() => {
+              setEditing(null)
+              setModalOpen(true)
+            }}
             className="flex items-center gap-2 h-9 px-4 rounded-xl bg-gold-gradient text-graphite-900 text-sm font-semibold hover:shadow-glow-gold transition-shadow"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -150,7 +159,10 @@ export default function AppointmentsListPage() {
         open={modalOpen}
         appointment={editing}
         isAdmin
-        onClose={() => { setModalOpen(false); setEditing(null) }}
+        onClose={() => {
+          setModalOpen(false)
+          setEditing(null)
+        }}
         onSave={handleSave}
         onDelete={handleDelete}
         onConfirm={handleConfirm}

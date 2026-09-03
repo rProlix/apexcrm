@@ -2,9 +2,9 @@
 // GET /api/domains/status?domain_id=xxx — fetch Vercel DNS/SSL status for a domain.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getSupabaseServerClient }   from '@/lib/supabase/server'
-import { getUserContext }             from '@/lib/auth/getUserContext'
-import { getDomainStatusFromVercel }  from '@/lib/vercel/getDomainStatus'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { getDomainStatusFromVercel } from '@/lib/vercel/getDomainStatus'
 
 export async function GET(req: NextRequest) {
   const ctx = await getUserContext()
@@ -37,18 +37,18 @@ export async function GET(req: NextRequest) {
     await db
       .from('tenant_domains')
       .update({
-        ssl_status:       vercelStatus.sslStatus,
-        is_verified:      vercelStatus.verified,
-        verified:         vercelStatus.verified,
+        ssl_status: vercelStatus.sslStatus,
+        is_verified: vercelStatus.verified,
+        verified: vercelStatus.verified,
         last_verified_at: new Date().toISOString(),
       })
       .eq('id', domainRow.id)
   }
 
   return NextResponse.json({
-    domain:     domainRow.hostname,
+    domain: domainRow.hostname,
     is_verified: vercelStatus.verified,
-    ssl_status:  vercelStatus.sslStatus,
-    vercel:      vercelStatus,
+    ssl_status: vercelStatus.sslStatus,
+    vercel: vercelStatus,
   })
 }

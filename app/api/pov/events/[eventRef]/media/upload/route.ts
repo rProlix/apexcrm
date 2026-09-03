@@ -9,10 +9,15 @@ import { getGuestFromSession } from '@/lib/pov/guestSession'
 import { povDb } from '@/lib/pov/db'
 import { uploadPovMedia, detectMediaType, deletePovMediaObject } from '@/lib/pov/media'
 import {
-  POV_ALLOWED_MIME, POV_MAX_BYTES, POV_MEDIA_TYPES, type PovMediaType,
+  POV_ALLOWED_MIME,
+  POV_MAX_BYTES,
+  POV_MEDIA_TYPES,
+  type PovMediaType,
 } from '@/lib/pov/types'
 
-interface RouteCtx { params: Promise<{ eventRef: string }> }
+interface RouteCtx {
+  params: Promise<{ eventRef: string }>
+}
 
 // Small grace margin so a "15s" clip recorded at 15.4s isn't rejected.
 const DURATION_GRACE = 2.5
@@ -35,8 +40,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
   if (!file) return NextResponse.json({ error: 'No file provided.' }, { status: 400 })
 
   const caption = form.get('caption') ? String(form.get('caption')).slice(0, 500) : null
-  const clientDuration = form.get('duration_seconds')
-    ? Number(form.get('duration_seconds')) : null
+  const clientDuration = form.get('duration_seconds') ? Number(form.get('duration_seconds')) : null
 
   // Determine media type — explicit field wins, else infer from mime.
   let mediaType = String(form.get('media_type') ?? '') as PovMediaType
@@ -53,25 +57,33 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: 'Photos are turned off for this event.' }, { status: 403 })
   }
   if (mediaType === 'video' && !event.allow_videos) {
-    return NextResponse.json({ error: 'Video clips are turned off for this event.' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'Video clips are turned off for this event.' },
+      { status: 403 }
+    )
   }
   if (mediaType === 'audio' && !event.allow_audio) {
-    return NextResponse.json({ error: 'Audio messages are turned off for this event.' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'Audio messages are turned off for this event.' },
+      { status: 403 }
+    )
   }
 
   // Server-side type validation.
   if (!POV_ALLOWED_MIME[mediaType].includes(file.type)) {
     return NextResponse.json(
       { error: `Unsupported ${mediaType} format "${file.type}".` },
-      { status: 415 },
+      { status: 415 }
     )
   }
 
   // Server-side size validation.
   if (file.size > POV_MAX_BYTES[mediaType]) {
     return NextResponse.json(
-      { error: `File is too large. Max ${(POV_MAX_BYTES[mediaType] / 1024 / 1024).toFixed(0)} MB.` },
-      { status: 413 },
+      {
+        error: `File is too large. Max ${(POV_MAX_BYTES[mediaType] / 1024 / 1024).toFixed(0)} MB.`,
+      },
+      { status: 413 }
     )
   }
 
@@ -81,7 +93,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     if (clientDuration > event.video_max_seconds + DURATION_GRACE) {
       return NextResponse.json(
         { error: `Video must be ${event.video_max_seconds} seconds or less.` },
-        { status: 422 },
+        { status: 422 }
       )
     }
   }
@@ -89,7 +101,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     if (clientDuration > event.audio_max_seconds + DURATION_GRACE) {
       return NextResponse.json(
         { error: `Audio must be ${event.audio_max_seconds} seconds or less.` },
-        { status: 422 },
+        { status: 422 }
       )
     }
   }
@@ -98,38 +110,38 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
   let uploaded
   try {
     uploaded = await uploadPovMedia({
-      tenantId:  event.tenant_id,
-      eventId:   event.id,
-      guestId:   guest.id,
+      tenantId: event.tenant_id,
+      eventId: event.id,
+      guestId: guest.id,
       mediaType,
-      fileName:  file.name || `${mediaType}`,
-      buffer:    await file.arrayBuffer(),
-      mimeType:  file.type,
+      fileName: file.name || `${mediaType}`,
+      buffer: await file.arrayBuffer(),
+      mimeType: file.type,
     })
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Upload failed.' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 
   const { data: media, error } = await povDb()
     .from('pov_media')
     .insert({
-      tenant_id:        event.tenant_id,
-      event_id:         event.id,
-      guest_id:         guest.id,
-      media_type:       mediaType,
+      tenant_id: event.tenant_id,
+      event_id: event.id,
+      guest_id: guest.id,
+      media_type: mediaType,
       storage_provider: 'supabase',
-      bucket:           uploaded.bucket,
-      storage_path:     uploaded.path,
-      public_url:       uploaded.publicUrl,
-      mime_type:        uploaded.mimeType,
-      file_size_bytes:  uploaded.sizeBytes,
+      bucket: uploaded.bucket,
+      storage_path: uploaded.path,
+      public_url: uploaded.publicUrl,
+      mime_type: uploaded.mimeType,
+      file_size_bytes: uploaded.sizeBytes,
       duration_seconds: clientDuration ?? null,
       caption,
-      status:           'approved',
-      metadata:         {
+      status: 'approved',
+      metadata: {
         original_name: file.name,
         // Duration is measured client-side (recorder elapsed / <video> metadata)
         // and re-validated server-side above. Full server-side probing would need

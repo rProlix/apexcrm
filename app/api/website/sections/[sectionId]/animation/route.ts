@@ -31,36 +31,43 @@ export async function POST(req: NextRequest, context: RouteContext) {
     .eq('id', sectionId)
     .maybeSingle()
 
-  if (!sectionRow)
-    return NextResponse.json({ error: 'Section not found.' }, { status: 404 })
+  if (!sectionRow) return NextResponse.json({ error: 'Section not found.' }, { status: 404 })
 
   if (ctx.role !== 'owner' && ctx.tenant_id !== sectionRow.tenant_id)
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
 
   // Parse body
   let body: { animation_config?: unknown; style_config?: unknown }
-  try { body = await req.json() }
-  catch { return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 }) }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
+  }
 
   // Validate animation config with Zod
   const rawAnimConfig = body.animation_config ?? {}
-  const parsedResult  = sectionAnimationConfigSchema.safeParse(rawAnimConfig)
+  const parsedResult = sectionAnimationConfigSchema.safeParse(rawAnimConfig)
   if (!parsedResult.success) {
-    return NextResponse.json({
-      error:  'Invalid animation_config.',
-      detail: parsedResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
-    }, { status: 400 })
+    return NextResponse.json(
+      {
+        error: 'Invalid animation_config.',
+        detail: parsedResult.error.errors
+          .map((e) => `${e.path.join('.')}: ${e.message}`)
+          .join('; '),
+      },
+      { status: 400 }
+    )
   }
 
   const validatedConfig = parsedResult.data
 
   // Load existing style_config so we can merge — never clobber style_config.design
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existingRow } = await (supabase as any)
+  const { data: existingRow } = (await (supabase as any)
     .from('site_sections')
     .select('style_config')
     .eq('id', sectionId)
-    .single() as { data: { style_config?: Record<string, unknown> } | null; error: unknown }
+    .single()) as { data: { style_config?: Record<string, unknown> } | null; error: unknown }
 
   const existingStyleConfig =
     existingRow?.style_config && typeof existingRow.style_config === 'object'
@@ -80,8 +87,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .update({
       animation_config: validatedConfig as never,
-      style_config:     mergedStyleConfig as never,
-      updated_at:       new Date().toISOString(),
+      style_config: mergedStyleConfig as never,
+      updated_at: new Date().toISOString(),
     } as never)
     .eq('id', sectionId)
     .select('id, section_type, animation_config, style_config')
@@ -112,9 +119,12 @@ export async function GET(_req: NextRequest, context: RouteContext) {
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!data)  return NextResponse.json({ error: 'Section not found.' }, { status: 404 })
+  if (!data) return NextResponse.json({ error: 'Section not found.' }, { status: 404 })
 
-  if (ctx.role !== 'owner' && ctx.tenant_id !== (data as unknown as Record<string, unknown>).tenant_id)
+  if (
+    ctx.role !== 'owner' &&
+    ctx.tenant_id !== (data as unknown as Record<string, unknown>).tenant_id
+  )
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
 
   return NextResponse.json({ section: data })

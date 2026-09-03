@@ -5,24 +5,24 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
 interface ChecklistItem {
-  id:       string
-  label:    string
-  href:     string
-  done?:    boolean
+  id: string
+  label: string
+  href: string
+  done?: boolean
 }
 
 interface ChecklistGroup {
-  module:  string
-  icon:    string
-  title:   string
-  items:   ChecklistItem[]
+  module: string
+  icon: string
+  title: string
+  items: ChecklistItem[]
 }
 
 interface DashboardSetupChecklistProps {
   /** Module keys that are enabled for this tenant */
   enabledModules: string[]
   /** Tenancy identifier (for marking items complete in future) */
-  tenantId?:      string
+  tenantId?: string
 }
 
 /** Dynamic setup checklist based on enabled tenant modules */
@@ -35,14 +35,20 @@ export function DashboardSetupChecklist({ enabledModules }: DashboardSetupCheckl
     try {
       const stored = localStorage.getItem('setupChecklist:completed')
       if (stored) setCompletedIds(new Set(JSON.parse(stored) as string[]))
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [])
 
   function markDone(id: string) {
     setCompletedIds((prev) => {
       const next = new Set(prev)
       next.add(id)
-      try { localStorage.setItem('setupChecklist:completed', JSON.stringify(Array.from(next))) } catch { /* ignore */ }
+      try {
+        localStorage.setItem('setupChecklist:completed', JSON.stringify(Array.from(next)))
+      } catch {
+        /* ignore */
+      }
       return next
     })
   }
@@ -50,12 +56,12 @@ export function DashboardSetupChecklist({ enabledModules }: DashboardSetupCheckl
   if (dismissed) return null
 
   const enabled = new Set(enabledModules)
-  const groups  = buildChecklistGroups(enabled)
+  const groups = buildChecklistGroups(enabled)
   if (groups.length === 0) return null
 
-  const totalItems     = groups.flatMap((g) => g.items).length
+  const totalItems = groups.flatMap((g) => g.items).length
   const completedCount = groups.flatMap((g) => g.items).filter((i) => completedIds.has(i.id)).length
-  const allDone        = completedCount >= totalItems
+  const allDone = completedCount >= totalItems
 
   if (allDone) return null
 
@@ -64,9 +70,7 @@ export function DashboardSetupChecklist({ enabledModules }: DashboardSetupCheckl
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-graphite-700">
         <div>
-          <h3 className="text-sm font-semibold text-white">
-            Setup checklist
-          </h3>
+          <h3 className="text-sm font-semibold text-white">Setup checklist</h3>
           <p className="text-xs text-white/40 mt-0.5">
             {completedCount} of {totalItems} steps complete
           </p>
@@ -75,9 +79,19 @@ export function DashboardSetupChecklist({ enabledModules }: DashboardSetupCheckl
           {/* Progress ring */}
           <div className="relative h-8 w-8">
             <svg className="h-8 w-8 -rotate-90" viewBox="0 0 32 32">
-              <circle cx="16" cy="16" r="12" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3" />
               <circle
-                cx="16" cy="16" r="12" fill="none"
+                cx="16"
+                cy="16"
+                r="12"
+                fill="none"
+                stroke="rgba(255,255,255,0.08)"
+                strokeWidth="3"
+              />
+              <circle
+                cx="16"
+                cy="16"
+                r="12"
+                fill="none"
                 stroke="#c9a84c"
                 strokeWidth="3"
                 strokeDasharray={`${75.4 * (completedCount / totalItems)} 75.4`}
@@ -115,11 +129,13 @@ export function DashboardSetupChecklist({ enabledModules }: DashboardSetupCheckl
 }
 
 function ChecklistGroupSection({
-  group, completedIds, onMarkDone,
+  group,
+  completedIds,
+  onMarkDone,
 }: {
-  group:        ChecklistGroup
+  group: ChecklistGroup
   completedIds: Set<string>
-  onMarkDone:   (id: string) => void
+  onMarkDone: (id: string) => void
 }) {
   const [open, setOpen] = useState(true)
   const done = group.items.filter((i) => completedIds.has(i.id)).length
@@ -133,11 +149,20 @@ function ChecklistGroupSection({
         className="w-full flex items-center gap-3 px-5 py-3 hover:bg-graphite-800/40 transition-colors"
       >
         <span className="text-base">{group.icon}</span>
-        <span className={cn('flex-1 text-left text-sm font-medium', allDone ? 'text-white/40 line-through' : 'text-white')}>
+        <span
+          className={cn(
+            'flex-1 text-left text-sm font-medium',
+            allDone ? 'text-white/40 line-through' : 'text-white'
+          )}
+        >
           {group.title}
         </span>
-        <span className="text-xs text-white/30">{done}/{group.items.length}</span>
-        <span className={cn('text-white/30 text-xs transition-transform', open ? 'rotate-90' : '')}>›</span>
+        <span className="text-xs text-white/30">
+          {done}/{group.items.length}
+        </span>
+        <span className={cn('text-white/30 text-xs transition-transform', open ? 'rotate-90' : '')}>
+          ›
+        </span>
       </button>
 
       {open && (
@@ -157,7 +182,13 @@ function ChecklistGroupSection({
                   )}
                 >
                   {isDone && (
-                    <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <svg
+                      className="h-3 w-3 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   )}
@@ -187,92 +218,112 @@ function buildChecklistGroups(enabledModules: Set<string>): ChecklistGroup[] {
 
   if (enabledModules.has('appointments')) {
     groups.push({
-      module: 'appointments', icon: '📅', title: 'Set up Appointments',
+      module: 'appointments',
+      icon: '📅',
+      title: 'Set up Appointments',
       items: [
-        { id: 'appt:hours',       label: 'Set your business hours',          href: '/settings/hours' },
-        { id: 'appt:services',    label: 'Add your services',                href: '/appointments/services' },
-        { id: 'appt:availability',label: 'Configure availability blocks',    href: '/appointments/availability' },
-        { id: 'appt:staff',       label: 'Add professionals / staff',        href: '/staff' },
+        { id: 'appt:hours', label: 'Set your business hours', href: '/settings/hours' },
+        { id: 'appt:services', label: 'Add your services', href: '/appointments/services' },
+        {
+          id: 'appt:availability',
+          label: 'Configure availability blocks',
+          href: '/appointments/availability',
+        },
+        { id: 'appt:staff', label: 'Add professionals / staff', href: '/staff' },
       ],
     })
   }
 
   if (enabledModules.has('website')) {
     groups.push({
-      module: 'website', icon: '🌐', title: 'Build Your Website',
+      module: 'website',
+      icon: '🌐',
+      title: 'Build Your Website',
       items: [
-        { id: 'web:generate',   label: 'Generate your website',              href: '/website' },
-        { id: 'web:images',     label: 'Add business photos and images',     href: '/website/images' },
-        { id: 'web:publish',    label: 'Publish your website',               href: '/website/publish' },
-        { id: 'web:domain',     label: 'Connect your domain',                href: '/settings/domain' },
+        { id: 'web:generate', label: 'Generate your website', href: '/website' },
+        { id: 'web:images', label: 'Add business photos and images', href: '/website/images' },
+        { id: 'web:publish', label: 'Publish your website', href: '/website/publish' },
+        { id: 'web:domain', label: 'Connect your domain', href: '/settings/domain' },
       ],
     })
   }
 
   if (enabledModules.has('payments')) {
     groups.push({
-      module: 'payments', icon: '💳', title: 'Set Up Payments',
+      module: 'payments',
+      icon: '💳',
+      title: 'Set Up Payments',
       items: [
-        { id: 'pay:connect',    label: 'Connect Stripe or Square',           href: '/payments/setup' },
-        { id: 'pay:invoice',    label: 'Create your first invoice',          href: '/payments/invoices' },
+        { id: 'pay:connect', label: 'Connect Stripe or Square', href: '/payments/setup' },
+        { id: 'pay:invoice', label: 'Create your first invoice', href: '/payments/invoices' },
       ],
     })
   }
 
   if (enabledModules.has('store')) {
     groups.push({
-      module: 'store', icon: '🛍️', title: 'Launch Your Store',
+      module: 'store',
+      icon: '🛍️',
+      title: 'Launch Your Store',
       items: [
-        { id: 'store:product',  label: 'Add your first product',             href: '/store/products/new' },
-        { id: 'store:checkout', label: 'Configure checkout settings',        href: '/store/settings' },
+        { id: 'store:product', label: 'Add your first product', href: '/store/products/new' },
+        { id: 'store:checkout', label: 'Configure checkout settings', href: '/store/settings' },
       ],
     })
   }
 
   if (enabledModules.has('rewards')) {
     groups.push({
-      module: 'rewards', icon: '⭐', title: 'Create Rewards Program',
+      module: 'rewards',
+      icon: '⭐',
+      title: 'Create Rewards Program',
       items: [
-        { id: 'rew:program',    label: 'Create your loyalty program',        href: '/rewards/program' },
-        { id: 'rew:items',      label: 'Add rewards shop items',             href: '/rewards/shop' },
+        { id: 'rew:program', label: 'Create your loyalty program', href: '/rewards/program' },
+        { id: 'rew:items', label: 'Add rewards shop items', href: '/rewards/shop' },
       ],
     })
   }
 
   if (enabledModules.has('staff')) {
     groups.push({
-      module: 'staff', icon: '👔', title: 'Set Up Staff',
+      module: 'staff',
+      icon: '👔',
+      title: 'Set Up Staff',
       items: [
-        { id: 'staff:invite',   label: 'Invite your first employee',         href: '/staff/invite' },
-        { id: 'staff:roles',    label: 'Configure staff roles',              href: '/staff/roles' },
+        { id: 'staff:invite', label: 'Invite your first employee', href: '/staff/invite' },
+        { id: 'staff:roles', label: 'Configure staff roles', href: '/staff/roles' },
       ],
     })
   }
 
   if (enabledModules.has('ai_images')) {
     groups.push({
-      module: 'ai_images', icon: '🎨', title: 'AI Image Studio',
-      items: [
-        { id: 'ai:gen',         label: 'Generate your first AI images',      href: '/website/ai-images' },
-      ],
+      module: 'ai_images',
+      icon: '🎨',
+      title: 'AI Image Studio',
+      items: [{ id: 'ai:gen', label: 'Generate your first AI images', href: '/website/ai-images' }],
     })
   }
 
   if (enabledModules.has('product_360')) {
     groups.push({
-      module: 'product_360', icon: '🔄', title: '360 Product Studio',
+      module: 'product_360',
+      icon: '🔄',
+      title: '360 Product Studio',
       items: [
-        { id: 'p360:spin',      label: 'Create your first 360 spin package', href: '/product_360' },
+        { id: 'p360:spin', label: 'Create your first 360 spin package', href: '/product_360' },
       ],
     })
   }
 
   // Always: business profile
   groups.unshift({
-    module: 'profile', icon: '🏢', title: 'Complete Your Profile',
+    module: 'profile',
+    icon: '🏢',
+    title: 'Complete Your Profile',
     items: [
-      { id: 'prof:name',        label: 'Add your business logo',             href: '/settings/branding' },
-      { id: 'prof:hours',       label: 'Set your contact information',       href: '/settings' },
+      { id: 'prof:name', label: 'Add your business logo', href: '/settings/branding' },
+      { id: 'prof:hours', label: 'Set your contact information', href: '/settings' },
     ],
   })
 

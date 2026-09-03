@@ -21,19 +21,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
   const access = await requireAiAutofillAccess(
-    ctx.role === 'owner' ? (body.tenantId as string | null) : null,
+    ctx.role === 'owner' ? (body.tenantId as string | null) : null
   )
-  if (!access)
-    return NextResponse.json({ error: 'Tenant access denied.' }, { status: 403 })
+  if (!access) return NextResponse.json({ error: 'Tenant access denied.' }, { status: 403 })
 
-  const tenantId    = access.tenantId
+  const tenantId = access.tenantId
   const planGroupId = typeof body.planGroupId === 'string' ? body.planGroupId : null
-  const planIds     = Array.isArray(body.planIds) ? body.planIds as string[] : []
+  const planIds = Array.isArray(body.planIds) ? (body.planIds as string[]) : []
 
   const supabase = getSupabaseServerClient()
 
@@ -51,36 +52,35 @@ export async function POST(req: NextRequest) {
 
   const { data: plans, error: fetchErr } = await query
   if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 })
-  if (!plans?.length)
-    return NextResponse.json({ results: [], message: 'No eligible plans found.' })
+  if (!plans?.length) return NextResponse.json({ results: [], message: 'No eligible plans found.' })
 
   const results: Array<{
-    planId:     string
-    jobId:      string
-    publicUrl:  string
-    altText:    string
-    error?:     string
+    planId: string
+    jobId: string
+    publicUrl: string
+    altText: string
+    error?: string
   }> = []
 
   for (const plan of plans) {
     const typedPlan = plan as WebsiteImagePlan
     const result = await generateWebsiteImage({
-      plan:         typedPlan,
+      plan: typedPlan,
       tenantId,
       businessType: null,
-      createdBy:    getSafeCreatedBy(ctx.auth_id),
+      createdBy: getSafeCreatedBy(ctx.auth_id),
     })
     results.push({
-      planId:    typedPlan.id,
-      jobId:     result.jobId,
+      planId: typedPlan.id,
+      jobId: result.jobId,
       publicUrl: result.publicUrl,
-      altText:   result.altText,
-      error:     result.error,
+      altText: result.altText,
+      error: result.error,
     })
   }
 
-  const succeeded = results.filter(r => !r.error).length
-  const failed    = results.filter(r =>  r.error).length
+  const succeeded = results.filter((r) => !r.error).length
+  const failed = results.filter((r) => r.error).length
 
   return NextResponse.json({ results, succeeded, failed, total: results.length })
 }

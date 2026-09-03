@@ -7,9 +7,14 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { undoCanvaImport } from '@/lib/website/canva/runs'
 
-function forbidden() { return NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+function forbidden() {
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+}
 
-function resolveTenantId(ctx: Awaited<ReturnType<typeof getUserContext>>, override?: string | null): string | null {
+function resolveTenantId(
+  ctx: Awaited<ReturnType<typeof getUserContext>>,
+  override?: string | null
+): string | null {
   if (!ctx) return null
   const hint = sanitizeTenantId(override)
   const self = sanitizeTenantId(ctx.tenant_id)
@@ -18,7 +23,10 @@ function resolveTenantId(ctx: Awaited<ReturnType<typeof getUserContext>>, overri
   return self ?? hint
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ importId: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ importId: string }> }
+) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
@@ -35,5 +43,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ imp
   })
 
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
-  return NextResponse.json({ ok: true, restored: result.restored, runId: result.runId, publishRequired: true })
+  return NextResponse.json({
+    ok: true,
+    restored: result.restored,
+    runId: result.runId,
+    publishRequired: true,
+  })
 }

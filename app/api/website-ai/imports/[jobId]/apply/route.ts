@@ -33,7 +33,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   const { tenantId } = access
 
   if (!(await verifyJobAccess(jobId, tenantId))) {
-    return NextResponse.json({ error: 'This import does not belong to your business.' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'This import does not belong to your business.' },
+      { status: 403 }
+    )
   }
 
   let body: Record<string, unknown>
@@ -101,8 +104,11 @@ export async function POST(req: NextRequest, { params }: Params) {
     .eq('tenant_id', tenantId)
     .single()
 
-  const rawDesignSystem = (jobFull?.metadata as Record<string, unknown>)?.designSystem as Record<string, unknown> | undefined
-  const detectedBusinessType = (jobFull as Record<string, unknown> | null)?.detected_business_type as string | undefined
+  const rawDesignSystem = (jobFull?.metadata as Record<string, unknown>)?.designSystem as
+    | Record<string, unknown>
+    | undefined
+  const detectedBusinessType = (jobFull as Record<string, unknown> | null)
+    ?.detected_business_type as string | undefined
 
   // Apply suggestions to DB
   const result = await applyWebsiteSuggestions(
@@ -110,7 +116,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     {
       tenantId,
       jobId,
-      appliedBy:   ctx.auth_id,
+      appliedBy: ctx.auth_id,
       publishMode,
       rawDesignSystem,
       detectedBusinessType,
@@ -122,11 +128,16 @@ export async function POST(req: NextRequest, { params }: Params) {
     try {
       const snapResult = await getCurrentWebsiteSnapshot(tenantId)
       if (snapResult.data) {
-        const normalized = normalizeSnapshotForInsert(snapResult.data) as unknown as Parameters<typeof updateDraftSnapshot>[1]
+        const normalized = normalizeSnapshotForInsert(snapResult.data) as unknown as Parameters<
+          typeof updateDraftSnapshot
+        >[1]
         await updateDraftSnapshot(tenantId, normalized, ctx.id ?? '')
       }
     } catch (e) {
-      console.warn('[ai-autofill] Failed to update draft snapshot after apply:', e instanceof Error ? e.message : e)
+      console.warn(
+        '[ai-autofill] Failed to update draft snapshot after apply:',
+        e instanceof Error ? e.message : e
+      )
     }
 
     // Save "after AI autofill" version — non-blocking
@@ -143,14 +154,14 @@ export async function POST(req: NextRequest, { params }: Params) {
   // Persist applied_changes rows
   if (result.changes.length > 0) {
     const changeRows = result.changes.map((c) => ({
-      tenant_id:       c.tenant_id,
-      job_id:          c.job_id,
-      suggestion_id:   c.suggestion_id,
-      applied_by:      c.applied_by,
-      target_type:     c.target_type,
-      target_id:       c.target_id,
+      tenant_id: c.tenant_id,
+      job_id: c.job_id,
+      suggestion_id: c.suggestion_id,
+      applied_by: c.applied_by,
+      target_type: c.target_type,
+      target_id: c.target_id,
       before_snapshot: c.before_snapshot,
-      after_snapshot:  c.after_snapshot,
+      after_snapshot: c.after_snapshot,
     }))
     await db.from('website_ai_applied_changes').insert(changeRows as never)
   }
@@ -164,16 +175,13 @@ export async function POST(req: NextRequest, { params }: Params) {
     .in('status', ['pending', 'accepted', 'edited'])
 
   if (!remaining?.length && result.applied > 0) {
-    await db
-      .from('website_ai_import_jobs')
-      .update({ status: 'applied' })
-      .eq('id', jobId)
+    await db.from('website_ai_import_jobs').update({ status: 'applied' }).eq('id', jobId)
   }
 
   return NextResponse.json({
-    applied:   result.applied,
-    skipped:   result.skipped,
-    errors:    result.errors,
+    applied: result.applied,
+    skipped: result.skipped,
+    errors: result.errors,
     published: publishMode === 'publish_now',
     draftSaved: result.applied > 0,
   })
@@ -192,15 +200,18 @@ function saveVersionQuietly(opts: {
     .then(async () => {
       const { createWebsiteVersion } = await import('@/lib/website/versioning')
       await createWebsiteVersion({
-        tenantId:    opts.tenantId,
-        label:       opts.label,
+        tenantId: opts.tenantId,
+        label: opts.label,
         description: opts.description,
-        source:      opts.source as Parameters<typeof createWebsiteVersion>[0]['source'],
-        status:      opts.status as Parameters<typeof createWebsiteVersion>[0]['status'],
-        createdBy:   opts.userId,
+        source: opts.source as Parameters<typeof createWebsiteVersion>[0]['source'],
+        status: opts.status as Parameters<typeof createWebsiteVersion>[0]['status'],
+        createdBy: opts.userId,
       })
     })
     .catch((e: unknown) =>
-      console.warn('[ai-autofill] Background version save failed (non-fatal):', e instanceof Error ? e.message : e)
+      console.warn(
+        '[ai-autofill] Background version save failed (non-fatal):',
+        e instanceof Error ? e.message : e
+      )
     )
 }

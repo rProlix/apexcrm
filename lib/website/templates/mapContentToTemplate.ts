@@ -5,20 +5,20 @@
 import type { TemplateSectionBlueprint } from './templateTypes'
 
 export interface ExistingSection {
-  id:           string
+  id: string
   section_type: string
   template_slot?: string | null
-  content:      Record<string, unknown>
-  sort_order:   number | null
-  is_visible:   boolean
+  content: Record<string, unknown>
+  sort_order: number | null
+  is_visible: boolean
   style_config?: Record<string, unknown> | null
   animation_config?: Record<string, unknown> | null
 }
 
 export interface SlotMapping {
-  blueprint:  TemplateSectionBlueprint
+  blueprint: TemplateSectionBlueprint
   /** The matched existing section, or null if none found */
-  existing:   ExistingSection | null
+  existing: ExistingSection | null
   /** Whether a new placeholder section should be created */
   shouldCreate: boolean
 }
@@ -29,8 +29,8 @@ export interface SlotMapping {
  * Multiple sections of the same type are grouped and the first used.
  */
 export function mapContentToTemplate(
-  existingSections:  ExistingSection[],
-  blueprints:        TemplateSectionBlueprint[],
+  existingSections: ExistingSection[],
+  blueprints: TemplateSectionBlueprint[]
 ): SlotMapping[] {
   const usedIds = new Set<string>()
 
@@ -48,7 +48,7 @@ export function mapContentToTemplate(
     .sort((a, b) => a.order - b.order)
     .map((bp): SlotMapping => {
       const candidates = byType[bp.sectionType] ?? []
-      const cursor     = typePickCursor[bp.sectionType] ?? 0
+      const cursor = typePickCursor[bp.sectionType] ?? 0
       let matched: ExistingSection | null = null
 
       // Find the next unused candidate of this type
@@ -62,8 +62,8 @@ export function mapContentToTemplate(
       }
 
       return {
-        blueprint:    bp,
-        existing:     matched,
+        blueprint: bp,
+        existing: matched,
         shouldCreate: !matched && bp.required,
       }
     })
@@ -75,23 +75,23 @@ export function mapContentToTemplate(
  */
 export function buildPlaceholderContent(
   sectionType: string,
-  blueprint:   TemplateSectionBlueprint,
+  blueprint: TemplateSectionBlueprint
 ): Record<string, unknown> {
   const base = blueprint.defaultContent ?? {}
 
   switch (sectionType) {
     case 'hero':
       return {
-        headline:    'Welcome — Update This Headline',
+        headline: 'Welcome — Update This Headline',
         subheadline: 'Add your business tagline here',
-        ctaLabel:    'Get Started',
-        ctaHref:     '/shop',
+        ctaLabel: 'Get Started',
+        ctaHref: '/shop',
         ...base,
       }
     case 'feature_grid':
       return {
         headline: 'Our Services',
-        items:    [
+        items: [
           { title: 'Service 1', description: 'Describe your service here.', icon: '⭐' },
           { title: 'Service 2', description: 'Describe your service here.', icon: '✓' },
           { title: 'Service 3', description: 'Describe your service here.', icon: '💎' },
@@ -101,15 +101,13 @@ export function buildPlaceholderContent(
     case 'testimonials':
       return {
         headline: 'What Our Customers Say',
-        items:    [
-          { name: 'Happy Customer', quote: 'Add your customer reviews here.', rating: 5 },
-        ],
+        items: [{ name: 'Happy Customer', quote: 'Add your customer reviews here.', rating: 5 }],
         ...base,
       }
     case 'faq':
       return {
         headline: 'Frequently Asked Questions',
-        items:    [
+        items: [
           { question: 'What services do you offer?', answer: 'Describe your services here.' },
           { question: 'How do I get started?', answer: 'Contact us or book online.' },
         ],
@@ -117,10 +115,10 @@ export function buildPlaceholderContent(
       }
     case 'cta':
       return {
-        headline:    'Ready to Get Started?',
+        headline: 'Ready to Get Started?',
         subheadline: 'Contact us today',
-        ctaLabel:    'Book Now',
-        ctaHref:     '/book',
+        ctaLabel: 'Book Now',
+        ctaHref: '/book',
         ...base,
       }
     case 'contact':
@@ -130,7 +128,7 @@ export function buildPlaceholderContent(
       }
     case 'about':
       return {
-        headline:    'About Us',
+        headline: 'About Us',
         description: 'Tell your story here.',
         ...base,
       }

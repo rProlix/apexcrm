@@ -3,21 +3,21 @@ import type { ModuleDefinition } from '@/modules/shared/moduleTypes'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const contactsModule: ModuleDefinition = {
-  key:         'contacts',
-  label:       'Contacts',
+  key: 'contacts',
+  label: 'Contacts',
   description: 'Central address book for all contacts',
-  icon:        BookUser,
-  href:        '/dashboard/contacts',
-  color:       'text-teal-400',
-  bgColor:     'bg-teal-400/10',
-  order:       8,
+  icon: BookUser,
+  href: '/dashboard/contacts',
+  color: 'text-teal-400',
+  bgColor: 'bg-teal-400/10',
+  order: 8,
 
   stats: [
     {
-      key:      'contacts_total',
-      label:    'Contacts',
+      key: 'contacts_total',
+      label: 'Contacts',
       category: 'usage',
-      color:    'text-teal-400',
+      color: 'text-teal-400',
       emptyMessage: 'No contacts yet',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -29,10 +29,10 @@ export const contactsModule: ModuleDefinition = {
       },
     },
     {
-      key:      'customers_total',
-      label:    'Customers',
+      key: 'customers_total',
+      label: 'Customers',
       category: 'usage',
-      color:    'text-cyan-400',
+      color: 'text-cyan-400',
       emptyMessage: 'No customers yet',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -58,7 +58,7 @@ export const contactsModule: ModuleDefinition = {
       .eq('tenant_id', tenantId)
 
     return [
-      { label: 'Contacts',  value: count ?? 0 },
+      { label: 'Contacts', value: count ?? 0 },
       { label: 'Customers', value: customerCount ?? 0 },
     ]
   },

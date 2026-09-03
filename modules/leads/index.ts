@@ -3,21 +3,21 @@ import type { ModuleDefinition } from '@/modules/shared/moduleTypes'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const leadsModule: ModuleDefinition = {
-  key:         'leads',
-  label:       'Leads',
+  key: 'leads',
+  label: 'Leads',
   description: 'Track and convert incoming leads',
-  icon:        UserPlus,
-  href:        '/dashboard/leads',
-  color:       'text-purple-400',
-  bgColor:     'bg-purple-400/10',
-  order:       6,
+  icon: UserPlus,
+  href: '/dashboard/leads',
+  color: 'text-purple-400',
+  bgColor: 'bg-purple-400/10',
+  order: 6,
 
   stats: [
     {
-      key:      'leads_new',
-      label:    'New Leads',
+      key: 'leads_new',
+      label: 'New Leads',
       category: 'operations',
-      color:    'text-purple-400',
+      color: 'text-purple-400',
       emptyMessage: 'No new leads',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -30,10 +30,10 @@ export const leadsModule: ModuleDefinition = {
       },
     },
     {
-      key:      'leads_qualified',
-      label:    'Qualified',
+      key: 'leads_qualified',
+      label: 'Qualified',
       category: 'operations',
-      color:    'text-violet-400',
+      color: 'text-violet-400',
       emptyMessage: 'No qualified leads',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -46,10 +46,10 @@ export const leadsModule: ModuleDefinition = {
       },
     },
     {
-      key:      'leads_converted',
-      label:    'Converted',
+      key: 'leads_converted',
+      label: 'Converted',
       category: 'financial',
-      color:    'text-emerald-400',
+      color: 'text-emerald-400',
       emptyMessage: 'No converted leads yet',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -62,10 +62,10 @@ export const leadsModule: ModuleDefinition = {
       },
     },
     {
-      key:      'leads_total',
-      label:    'Total Leads',
+      key: 'leads_total',
+      label: 'Total Leads',
       category: 'usage',
-      color:    'text-indigo-400',
+      color: 'text-indigo-400',
       emptyMessage: 'No leads yet',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -80,16 +80,13 @@ export const leadsModule: ModuleDefinition = {
 
   async getStats(tenantId) {
     const supabase = getSupabaseServerClient()
-    const { data } = await supabase
-      .from('leads')
-      .select('status')
-      .eq('tenant_id', tenantId)
+    const { data } = await supabase.from('leads').select('status').eq('tenant_id', tenantId)
 
     if (!data) return []
 
     return [
-      { label: 'Total',     value: data.length },
-      { label: 'New',       value: data.filter((l) => l.status === 'new').length },
+      { label: 'Total', value: data.length },
+      { label: 'New', value: data.filter((l) => l.status === 'new').length },
       { label: 'Qualified', value: data.filter((l) => l.status === 'qualified').length },
     ]
   },

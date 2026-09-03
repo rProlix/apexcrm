@@ -12,22 +12,22 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type AiErrorType =
-  | 'quota_exceeded'          // HTTP 429
-  | 'invalid_request'         // HTTP 400
-  | 'auth_error'              // HTTP 401
-  | 'billing_or_permission'   // HTTP 403
-  | 'provider_unavailable'    // HTTP 5xx or network timeout
-  | 'unknown'                 // anything else
+  | 'quota_exceeded' // HTTP 429
+  | 'invalid_request' // HTTP 400
+  | 'auth_error' // HTTP 401
+  | 'billing_or_permission' // HTTP 403
+  | 'provider_unavailable' // HTTP 5xx or network timeout
+  | 'unknown' // anything else
 
 export interface NormalizedAiError {
-  type:        AiErrorType
-  status:      number
-  title:       string
-  message:     string
-  retryable:   boolean
+  type: AiErrorType
+  status: number
+  title: string
+  message: string
+  retryable: boolean
   /** Seconds to wait before retrying (from provider Retry-After header). */
   retryAfter?: number
-  raw?:        unknown
+  raw?: unknown
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -41,25 +41,25 @@ export interface NormalizedAiError {
  * @param raw     Optional raw object to attach for debugging
  */
 export function normalizeAiError(
-  status:   number,
-  body?:    string | null,
+  status: number,
+  body?: string | null,
   headers?: Record<string, string | null | undefined>,
-  raw?:     unknown,
+  raw?: unknown
 ): NormalizedAiError {
-  const text       = (body ?? '').toLowerCase()
+  const text = (body ?? '').toLowerCase()
   const retryAfter = parseRetryAfter(headers)
 
   // ── 429 Quota exceeded ────────────────────────────────────────────────────
   if (status === 429 || text.includes('quota') || text.includes('rate limit')) {
     return {
-      type:       'quota_exceeded',
+      type: 'quota_exceeded',
       status,
-      title:      'Image generation quota reached',
+      title: 'Image generation quota reached',
       message:
         'Your image generation quota has been reached. ' +
         'Upgrade your Google Cloud billing plan, wait for the quota to reset, ' +
         'or reduce the number of frames per package.',
-      retryable:  retryAfter !== undefined,
+      retryable: retryAfter !== undefined,
       retryAfter,
       raw,
     }
@@ -68,9 +68,9 @@ export function normalizeAiError(
   // ── 401 Bad API key ───────────────────────────────────────────────────────
   if (status === 401) {
     return {
-      type:      'auth_error',
+      type: 'auth_error',
       status,
-      title:     'Invalid API key',
+      title: 'Invalid API key',
       message:
         'The AI API key is missing or invalid. ' +
         'Add a valid GEMINI_API_KEY to your Vercel environment variables.',
@@ -82,9 +82,9 @@ export function normalizeAiError(
   // ── 403 Billing / permissions ─────────────────────────────────────────────
   if (status === 403) {
     return {
-      type:      'billing_or_permission',
+      type: 'billing_or_permission',
       status,
-      title:     'API access denied',
+      title: 'API access denied',
       message:
         'The Imagen API is not enabled for your API key, or your billing account ' +
         'does not have access. Enable the Imagen API in Google Cloud Console.',
@@ -97,10 +97,10 @@ export function normalizeAiError(
   if (status === 400) {
     const snippet = body?.slice(0, 300) ?? 'Request was rejected'
     return {
-      type:      'invalid_request',
+      type: 'invalid_request',
       status,
-      title:     'Invalid generation request',
-      message:   `The image generation API rejected the request (HTTP 400): ${snippet}`,
+      title: 'Invalid generation request',
+      message: `The image generation API rejected the request (HTTP 400): ${snippet}`,
       retryable: false,
       raw,
     }
@@ -109,9 +109,9 @@ export function normalizeAiError(
   // ── 5xx Provider outage ───────────────────────────────────────────────────
   if (status >= 500 || status === 0) {
     return {
-      type:      'provider_unavailable',
+      type: 'provider_unavailable',
       status,
-      title:     'AI provider unavailable',
+      title: 'AI provider unavailable',
       message:
         'The AI image generation service is temporarily unavailable. ' +
         'Please try again in a few minutes.',
@@ -122,10 +122,10 @@ export function normalizeAiError(
 
   // ── Fallback ──────────────────────────────────────────────────────────────
   return {
-    type:      'unknown',
+    type: 'unknown',
     status,
-    title:     'Generation error',
-    message:   body?.slice(0, 300) ?? 'An unknown error occurred during image generation.',
+    title: 'Generation error',
+    message: body?.slice(0, 300) ?? 'An unknown error occurred during image generation.',
     retryable: false,
     raw,
   }

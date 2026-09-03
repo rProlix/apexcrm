@@ -7,12 +7,20 @@ import { createSlackOAuthState } from '@/lib/server/slack/oauth-state'
 export const runtime = 'nodejs'
 
 const SLACK_SCOPES = [
-  'files:read', 'chat:write', 'channels:read', 'channels:history',
-  'groups:read', 'groups:history', 'users:read', 'team:read',
+  'files:read',
+  'chat:write',
+  'channels:read',
+  'channels:history',
+  'groups:read',
+  'groups:history',
+  'users:read',
+  'team:read',
 ]
 
 export async function GET(request: NextRequest) {
-  const access = await resolveVanDamageAccess(request.nextUrl.searchParams.get('businessId'), { manage: true })
+  const access = await resolveVanDamageAccess(request.nextUrl.searchParams.get('businessId'), {
+    manage: true,
+  })
   if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status })
 
   const { clientId, appUrl } = getSlackOAuthEnv()

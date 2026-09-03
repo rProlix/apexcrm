@@ -115,21 +115,26 @@ test('repair states remain qualifying and recurrence returns the van to attentio
 test('Fleet damage cards resolve current level, analysis state and tenant isolation', () => {
   const cards = buildFleetDamageCards({
     tenantId: 'tenant-1',
-    vehicles: [
-      vehicle('van-1', '64'),
-      vehicle('van-2', '65'),
-      vehicle('van-3', '66'),
-    ],
+    vehicles: [vehicle('van-1', '64'), vehicle('van-2', '65'), vehicle('van-3', '66')],
     damageCases: [
       damageCase({ van_id: 'van-1', current_severity: 'level_2' }),
       damageCase({ van_id: 'van-1', current_severity: 'level_3', needs_review: true }),
       damageCase({ van_id: 'van-2', current_severity: 'level_3', lifecycle_status: 'repaired' }),
-      damageCase({ tenant_id: 'tenant-2', business_id: 'tenant-2', van_id: 'van-3', current_severity: 'level_3' }),
+      damageCase({
+        tenant_id: 'tenant-2',
+        business_id: 'tenant-2',
+        van_id: 'van-3',
+        current_severity: 'level_3',
+      }),
     ],
     analyses: [
       analysis({ van_id: 'van-1', run_completed_at: '2026-07-24T10:00:00.000Z' }),
       analysis({ van_id: 'van-2', run_status: 'processing' }),
-      analysis({ tenant_id: 'tenant-2', van_id: 'van-3', run_completed_at: '2026-07-24T11:00:00.000Z' }),
+      analysis({
+        tenant_id: 'tenant-2',
+        van_id: 'van-3',
+        run_completed_at: '2026-07-24T11:00:00.000Z',
+      }),
     ],
   })
 
@@ -154,9 +159,24 @@ test('Fleet damage sorting is deterministic for severity and van number', () => 
     analyses: [],
   })
 
-  assert.deepEqual([...cards].sort((a, b) => compareFleetDamageCards(a, b, 'highest_damage')).map((card) => card.van_number), ['2', '10'])
-  assert.deepEqual([...cards].sort((a, b) => compareFleetDamageCards(a, b, 'van_asc')).map((card) => card.van_number), ['2', '10'])
-  assert.deepEqual([...cards].sort((a, b) => compareFleetDamageCards(a, b, 'van_desc')).map((card) => card.van_number), ['10', '2'])
+  assert.deepEqual(
+    [...cards]
+      .sort((a, b) => compareFleetDamageCards(a, b, 'highest_damage'))
+      .map((card) => card.van_number),
+    ['2', '10']
+  )
+  assert.deepEqual(
+    [...cards]
+      .sort((a, b) => compareFleetDamageCards(a, b, 'van_asc'))
+      .map((card) => card.van_number),
+    ['2', '10']
+  )
+  assert.deepEqual(
+    [...cards]
+      .sort((a, b) => compareFleetDamageCards(a, b, 'van_desc'))
+      .map((card) => card.van_number),
+    ['10', '2']
+  )
 })
 
 test('Fleet damage grid filters stay within the page width', async () => {
@@ -170,10 +190,7 @@ test('Fleet damage grid filters stay within the page width', async () => {
     /grid w-full min-w-0 max-w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3/
   )
   assert.match(source, /2xl:grid-cols-\[minmax\(12rem,1fr\)_minmax\(9rem,10rem\)/)
-  assert.doesNotMatch(
-    source,
-    /md:grid-cols-\[minmax\(12rem,1fr\)_10rem_11rem_11rem_13rem_auto\]/
-  )
+  assert.doesNotMatch(source, /md:grid-cols-\[minmax\(12rem,1fr\)_10rem_11rem_11rem_13rem_auto\]/)
   assert.match(source, /className="ui-input min-h-10 w-full min-w-0 px-3 py-2 text-xs"/)
 })
 
@@ -191,7 +208,9 @@ function vehicle(id: string, vanNumber: string) {
   }
 }
 
-function damageCase(overrides: Partial<Parameters<typeof buildFleetDamageCards>[0]['damageCases'][number]>) {
+function damageCase(
+  overrides: Partial<Parameters<typeof buildFleetDamageCards>[0]['damageCases'][number]>
+) {
   return {
     tenant_id: 'tenant-1',
     business_id: 'tenant-1',
@@ -208,7 +227,9 @@ function damageCase(overrides: Partial<Parameters<typeof buildFleetDamageCards>[
   }
 }
 
-function analysis(overrides: Partial<Parameters<typeof buildFleetDamageCards>[0]['analyses'][number]>) {
+function analysis(
+  overrides: Partial<Parameters<typeof buildFleetDamageCards>[0]['analyses'][number]>
+) {
   return {
     tenant_id: 'tenant-1',
     van_id: 'van-1',

@@ -10,7 +10,7 @@ import type { TenantModuleState } from '@/lib/modules/getTenantModules'
 interface ModuleListProps {
   tenantId: string
   /** Initial module states. Component manages its own optimistic state. */
-  modules:  TenantModuleState[]
+  modules: TenantModuleState[]
 }
 
 export function ModuleList({ tenantId, modules: initial }: ModuleListProps) {
@@ -18,13 +18,11 @@ export function ModuleList({ tenantId, modules: initial }: ModuleListProps) {
 
   function handleToggle(moduleKey: string, newState: boolean) {
     setModules((prev) =>
-      prev.map((m) =>
-        m.key === moduleKey ? { ...m, is_enabled: newState } : m
-      )
+      prev.map((m) => (m.key === moduleKey ? { ...m, is_enabled: newState } : m))
     )
   }
 
-  const enabledCount  = modules.filter((m) => m.is_enabled).length
+  const enabledCount = modules.filter((m) => m.is_enabled).length
   const disabledCount = modules.length - enabledCount
 
   return (
@@ -49,7 +47,7 @@ export function ModuleList({ tenantId, modules: initial }: ModuleListProps) {
         initial="hidden"
         animate="visible"
         variants={{
-          hidden:  {},
+          hidden: {},
           visible: { transition: { staggerChildren: 0.04 } },
         }}
       >

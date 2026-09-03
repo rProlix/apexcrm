@@ -28,28 +28,28 @@ function cookieName(eventId: string): string {
  */
 export async function createGuestSession(params: {
   tenantId: string
-  eventId:  string
-  guestId:  string
+  eventId: string
+  guestId: string
 }): Promise<void> {
   const { tenantId, eventId, guestId } = params
   const { token, tokenHash } = generateSessionToken()
   const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString()
 
   await povDb().from('pov_guest_sessions').insert({
-    tenant_id:          tenantId,
-    event_id:           eventId,
-    guest_id:           guestId,
+    tenant_id: tenantId,
+    event_id: eventId,
+    guest_id: guestId,
     session_token_hash: tokenHash,
-    expires_at:         expiresAt,
+    expires_at: expiresAt,
   })
 
   const store = await cookies()
   store.set(cookieName(eventId), token, {
     httpOnly: true,
-    secure:   process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    path:     '/',
-    maxAge:   SESSION_TTL_SECONDS,
+    path: '/',
+    maxAge: SESSION_TTL_SECONDS,
   })
 }
 

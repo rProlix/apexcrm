@@ -6,36 +6,42 @@ import { Settings, Save, CheckCircle } from 'lucide-react'
 import type { InventorySettings, BarcodeMode } from '@/lib/inventory/types'
 
 interface Props {
-  tenantId:        string
+  tenantId: string
   initialSettings: InventorySettings | null
 }
 
 const DEFAULTS: Omit<InventorySettings, 'id' | 'tenant_id' | 'created_at' | 'updated_at'> = {
-  low_stock_alerts_enabled:  true,
+  low_stock_alerts_enabled: true,
   prediction_alerts_enabled: true,
-  default_prediction_days:   14,
-  barcode_mode:              'camera',
-  auto_create_alerts:        true,
-  notify_email:              true,
-  notify_dashboard:          true,
-  settings:                  {},
+  default_prediction_days: 14,
+  barcode_mode: 'camera',
+  auto_create_alerts: true,
+  notify_email: true,
+  notify_dashboard: true,
+  settings: {},
 }
 
 export function InventorySettingsClient({ tenantId, initialSettings }: Props) {
-  const init = initialSettings ?? { ...DEFAULTS, id: '', tenant_id: tenantId, created_at: '', updated_at: '' }
+  const init = initialSettings ?? {
+    ...DEFAULTS,
+    id: '',
+    tenant_id: tenantId,
+    created_at: '',
+    updated_at: '',
+  }
 
-  const [form, setForm]     = useState({
-    low_stock_alerts_enabled:  init.low_stock_alerts_enabled,
+  const [form, setForm] = useState({
+    low_stock_alerts_enabled: init.low_stock_alerts_enabled,
     prediction_alerts_enabled: init.prediction_alerts_enabled,
-    default_prediction_days:   init.default_prediction_days,
-    barcode_mode:              init.barcode_mode as BarcodeMode,
-    auto_create_alerts:        init.auto_create_alerts,
-    notify_email:              init.notify_email,
-    notify_dashboard:          init.notify_dashboard,
+    default_prediction_days: init.default_prediction_days,
+    barcode_mode: init.barcode_mode as BarcodeMode,
+    auto_create_alerts: init.auto_create_alerts,
+    notify_email: init.notify_email,
+    notify_dashboard: init.notify_dashboard,
   })
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved]   = useState(false)
-  const [error, setError]   = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleSave() {
     setSaving(true)
@@ -61,7 +67,15 @@ export function InventorySettingsClient({ tenantId, initialSettings }: Props) {
     }
   }
 
-  function Toggle({ label, desc, field }: { label: string; desc?: string; field: keyof typeof form }) {
+  function Toggle({
+    label,
+    desc,
+    field,
+  }: {
+    label: string
+    desc?: string
+    field: keyof typeof form
+  }) {
     const checked = form[field] as boolean
     return (
       <div className="flex items-center justify-between py-3 border-b border-surface-border/50 last:border-0">
@@ -73,7 +87,9 @@ export function InventorySettingsClient({ tenantId, initialSettings }: Props) {
           onClick={() => setForm((f) => ({ ...f, [field]: !checked }))}
           className={`relative w-11 h-6 rounded-full transition-colors ${checked ? 'bg-teal-500' : 'bg-zinc-600'}`}
         >
-          <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${checked ? 'translate-x-5' : ''}`} />
+          <div
+            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${checked ? 'translate-x-5' : ''}`}
+          />
         </button>
       </div>
     )
@@ -87,12 +103,16 @@ export function InventorySettingsClient({ tenantId, initialSettings }: Props) {
             <Settings className="w-6 h-6 text-zinc-400" />
             Inventory Settings
           </h1>
-          <p className="text-sm text-zinc-400 mt-1">Configure alerts, predictions, and scanning behavior</p>
+          <p className="text-sm text-zinc-400 mt-1">
+            Configure alerts, predictions, and scanning behavior
+          </p>
         </div>
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-400">{error}</div>
+        <div className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-400">
+          {error}
+        </div>
       )}
       {saved && (
         <div className="rounded-xl border border-green-400/30 bg-green-400/10 px-4 py-3 text-sm text-green-400 flex items-center gap-2">
@@ -119,13 +139,17 @@ export function InventorySettingsClient({ tenantId, initialSettings }: Props) {
           field="auto_create_alerts"
         />
         <div className="pt-3">
-          <label className="text-xs text-zinc-400 mb-1 block">Default Prediction Window (days)</label>
+          <label className="text-xs text-zinc-400 mb-1 block">
+            Default Prediction Window (days)
+          </label>
           <input
             type="number"
             min={1}
             max={90}
             value={form.default_prediction_days}
-            onChange={(e) => setForm((f) => ({ ...f, default_prediction_days: parseInt(e.target.value) || 14 }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, default_prediction_days: parseInt(e.target.value) || 14 }))
+            }
             className="w-32 rounded-xl border border-surface-border bg-graphite-800 text-white px-3 py-2 text-sm outline-none focus:border-teal-400/50"
           />
           <p className="text-xs text-zinc-500 mt-1">How far ahead to predict stockouts</p>
@@ -134,7 +158,9 @@ export function InventorySettingsClient({ tenantId, initialSettings }: Props) {
 
       {/* Barcode Section */}
       <div className="rounded-2xl border border-surface-border bg-graphite-800/50 p-5">
-        <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wide mb-3">Barcode Scanner</h2>
+        <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wide mb-3">
+          Barcode Scanner
+        </h2>
         <div>
           <label className="text-xs text-zinc-400 mb-2 block">Default Scanner Mode</label>
           <div className="flex gap-2 flex-wrap">
@@ -157,7 +183,9 @@ export function InventorySettingsClient({ tenantId, initialSettings }: Props) {
 
       {/* Notifications Section */}
       <div className="rounded-2xl border border-surface-border bg-graphite-800/50 p-5">
-        <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wide mb-3">Notifications</h2>
+        <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wide mb-3">
+          Notifications
+        </h2>
         <Toggle
           label="Dashboard Notifications"
           desc="Show alert badges and notifications in the dashboard"
@@ -175,7 +203,13 @@ export function InventorySettingsClient({ tenantId, initialSettings }: Props) {
         disabled={saving}
         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-teal-500 hover:bg-teal-400 text-white font-medium transition-colors disabled:opacity-50"
       >
-        {saving ? 'Saving...' : <><Save className="w-4 h-4" /> Save Settings</>}
+        {saving ? (
+          'Saving...'
+        ) : (
+          <>
+            <Save className="w-4 h-4" /> Save Settings
+          </>
+        )}
       </button>
     </div>
   )

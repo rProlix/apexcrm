@@ -5,7 +5,7 @@ import type { Appointment, CreateAppointmentInput } from './types'
 
 export interface CreateResult {
   appointment?: Appointment
-  error?:       string
+  error?: string
 }
 
 const APPOINTMENT_SELECT = `
@@ -23,9 +23,7 @@ const APPOINTMENT_SELECT = `
  * - no conflicts with existing appointments or blocked times
  * - staff (if provided) has no conflicting appointment
  */
-export async function createAppointment(
-  input: CreateAppointmentInput
-): Promise<CreateResult> {
+export async function createAppointment(input: CreateAppointmentInput): Promise<CreateResult> {
   const { tenant_id, customer_id, title, starts_at, ends_at, staff_id } = input
 
   if (!title?.trim()) {
@@ -33,7 +31,7 @@ export async function createAppointment(
   }
 
   const start = new Date(starts_at)
-  const end   = new Date(ends_at)
+  const end = new Date(ends_at)
 
   if (isNaN(start.getTime()) || isNaN(end.getTime())) {
     return { error: 'Invalid start or end time' }
@@ -45,7 +43,12 @@ export async function createAppointment(
     return { error: 'Cannot book appointments in the past' }
   }
 
-  const conflict = await checkConflicts({ tenant_id, starts_at, ends_at, staff_id: staff_id ?? undefined })
+  const conflict = await checkConflicts({
+    tenant_id,
+    starts_at,
+    ends_at,
+    staff_id: staff_id ?? undefined,
+  })
   if (conflict) {
     return { error: 'This time slot is already booked or unavailable' }
   }
@@ -58,17 +61,17 @@ export async function createAppointment(
     .insert({
       tenant_id,
       customer_id,
-      staff_id:             staff_id             ?? null,
+      staff_id: staff_id ?? null,
       appointment_block_id: input.appointment_block_id ?? null,
-      title:       title.trim(),
+      title: title.trim(),
       description: input.description ?? null,
       starts_at,
       ends_at,
-      location:    input.location    ?? null,
-      notes:       input.notes       ?? null,
-      timezone:    input.timezone    ?? 'UTC',
-      created_by:  input.created_by  ?? null,
-      status:      'pending',
+      location: input.location ?? null,
+      notes: input.notes ?? null,
+      timezone: input.timezone ?? 'UTC',
+      created_by: input.created_by ?? null,
+      status: 'pending',
     })
     .select(APPOINTMENT_SELECT)
     .single()

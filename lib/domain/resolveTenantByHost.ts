@@ -4,40 +4,40 @@
 // the full domain config alongside the tenant.
 
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { normalizeHost }            from './normalizeHost'
-import { isPlatformRoot }           from './isPlatformRoot'
+import { normalizeHost } from './normalizeHost'
+import { isPlatformRoot } from './isPlatformRoot'
 import { extractSlugFromSubdomain } from './isPlatformSubdomain'
 
 export interface TenantDomainRow {
-  id:                  string
-  tenant_id:           string
-  hostname:            string
-  domain_type:         'subdomain' | 'custom'
-  is_primary:          boolean
-  is_verified:         boolean
-  verification_token:  string | null
+  id: string
+  tenant_id: string
+  hostname: string
+  domain_type: 'subdomain' | 'custom'
+  is_primary: boolean
+  is_verified: boolean
+  verification_token: string | null
   verification_method: string | null
-  ssl_status:          'pending' | 'active' | 'failed'
-  last_verified_at:    string | null
-  metadata:            Record<string, unknown>
-  created_at:          string
-  updated_at:          string
+  ssl_status: 'pending' | 'active' | 'failed'
+  last_verified_at: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
 }
 
 export interface TenantRecord {
-  id:            string
-  name:          string
-  slug:          string
-  subdomain:     string | null
+  id: string
+  name: string
+  slug: string
+  subdomain: string | null
   custom_domain: string | null
-  branding:      Record<string, unknown>
-  plan_id:       string | null
-  status:        string
+  branding: Record<string, unknown>
+  plan_id: string | null
+  status: string
 }
 
 export interface ResolvedTenantContext {
-  tenant:     TenantRecord
-  domainRow:  TenantDomainRow | null
+  tenant: TenantRecord
+  domainRow: TenantDomainRow | null
   /** The key that was used to resolve the tenant (slug or hostname). */
   resolvedBy: 'custom_domain' | 'subdomain' | 'slug'
 }
@@ -54,7 +54,7 @@ export interface ResolvedTenantContext {
  */
 export async function resolveTenantByHost(
   host: string,
-  tenantSlugFallback?: string | null,
+  tenantSlugFallback?: string | null
 ): Promise<ResolvedTenantContext | null> {
   const hostname = normalizeHost(host)
 
@@ -99,7 +99,7 @@ export async function resolveTenantByHost(
 
 async function resolveBySlug(
   slug: string,
-  domainRow: TenantDomainRow | null,
+  domainRow: TenantDomainRow | null
 ): Promise<ResolvedTenantContext | null> {
   const db = getSupabaseServerClient()
 
@@ -129,7 +129,7 @@ async function resolveBySlug(
 
 async function fetchTenantById(
   db: ReturnType<typeof getSupabaseServerClient>,
-  tenantId: string,
+  tenantId: string
 ): Promise<TenantRecord | null> {
   const { data } = await db
     .from('tenants')

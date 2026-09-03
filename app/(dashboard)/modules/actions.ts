@@ -5,13 +5,15 @@ import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supaba
 import { setModuleEnabled } from '@/lib/modules/setModuleEnabled'
 
 export async function toggleModule(
-  tenantId:  string,
+  tenantId: string,
   moduleKey: string,
-  enabled:   boolean,
+  enabled: boolean
 ): Promise<{ success: boolean; error?: string }> {
   // Verify the caller is authenticated and is an admin/owner of this tenant
   const sessionClient = await createSessionServerClient()
-  const { data: { user } } = await sessionClient.auth.getUser()
+  const {
+    data: { user },
+  } = await sessionClient.auth.getUser()
 
   if (!user) {
     return { success: false, error: 'Not authenticated' }

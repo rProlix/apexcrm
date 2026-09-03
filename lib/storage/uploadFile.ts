@@ -99,13 +99,14 @@ export async function uploadFile(params: UploadFileParams): Promise<UploadFileRe
   assertSafeStoragePath(tenantId)
   pathParts.forEach(assertSafeStoragePath)
 
-  const safeName    = sanitizeFileName(fileName)
-  if (!safeName)    throw new Error('uploadFile: fileName is empty after sanitization')
+  const safeName = sanitizeFileName(fileName)
+  if (!safeName) throw new Error('uploadFile: fileName is empty after sanitization')
 
-  const data        = buffer instanceof Uint8Array ? buffer : new Uint8Array(
-    buffer instanceof ArrayBuffer ? buffer : (buffer as Buffer).buffer,
-  )
-  const sizeBytes   = data.byteLength
+  const data =
+    buffer instanceof Uint8Array
+      ? buffer
+      : new Uint8Array(buffer instanceof ArrayBuffer ? buffer : (buffer as Buffer).buffer)
+  const sizeBytes = data.byteLength
 
   assertAllowedMimeType(bucket, mimeType)
   assertFileSizeWithinLimit(bucket, sizeBytes)
@@ -120,7 +121,9 @@ export async function uploadFile(params: UploadFileParams): Promise<UploadFileRe
     .upload(storagePath, data, { contentType: mimeType, upsert })
 
   if (error) {
-    throw new Error(`[storage:uploadFile] Upload failed — bucket="${bucket}" path="${storagePath}": ${error.message}`)
+    throw new Error(
+      `[storage:uploadFile] Upload failed — bucket="${bucket}" path="${storagePath}": ${error.message}`
+    )
   }
 
   // ── Build result ────────────────────────────────────────────────────────────

@@ -14,10 +14,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { searchParams } = new URL(req.url)
-  const tenantId  = searchParams.get('tenantId')
-  const pageId    = searchParams.get('pageId')
+  const tenantId = searchParams.get('tenantId')
+  const pageId = searchParams.get('pageId')
   const sectionId = searchParams.get('sectionId')
-  const status    = searchParams.get('status')
+  const status = searchParams.get('status')
 
   if (!tenantId) return NextResponse.json({ error: 'tenantId is required.' }, { status: 400 })
 
@@ -34,15 +34,17 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from('website_animation_plans')
-    .select('id, tenant_id, site_page_id, site_section_id, status, scope, desired_vibe, intensity, performance_mode, ai_plan, animation_config, error_message, created_at, updated_at, applied_at')
+    .select(
+      'id, tenant_id, site_page_id, site_section_id, status, scope, desired_vibe, intensity, performance_mode, ai_plan, animation_config, error_message, created_at, updated_at, applied_at'
+    )
     .eq('tenant_id', tenantId)
     .neq('status', 'archived')
     .order('created_at', { ascending: false })
     .limit(20)
 
-  if (pageId)    query = query.eq('site_page_id', pageId)
+  if (pageId) query = query.eq('site_page_id', pageId)
   if (sectionId) query = query.eq('site_section_id', sectionId)
-  if (status)    query = query.eq('status', status)
+  if (status) query = query.eq('status', status)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

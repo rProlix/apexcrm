@@ -4,9 +4,19 @@
 import { useState, useCallback, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  CreditCard, CalendarDays, Star, Car, ScanLine,
-  UserPlus, MessageSquare, BookUser, Globe, ShoppingBag,
-  AlertTriangle, Loader2, CheckCircle2,
+  CreditCard,
+  CalendarDays,
+  Star,
+  Car,
+  ScanLine,
+  UserPlus,
+  MessageSquare,
+  BookUser,
+  Globe,
+  ShoppingBag,
+  AlertTriangle,
+  Loader2,
+  CheckCircle2,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -14,31 +24,31 @@ import type { ModuleWithDefaults } from '@/lib/modules/getTenantModulesWithDefau
 
 // Module icon map
 const MODULE_ICONS: Record<string, LucideIcon> = {
-  payments:     CreditCard,
+  payments: CreditCard,
   appointments: CalendarDays,
-  rewards:      Star,
-  vehicles:     Car,
-  damage_ai:    ScanLine,
-  leads:        UserPlus,
-  messages:     MessageSquare,
-  contacts:     BookUser,
-  website:      Globe,
-  store:        ShoppingBag,
+  rewards: Star,
+  vehicles: Car,
+  damage_ai: ScanLine,
+  leads: UserPlus,
+  messages: MessageSquare,
+  contacts: BookUser,
+  website: Globe,
+  store: ShoppingBag,
 }
 
 const CRITICAL_KEYS = new Set(['contacts', 'leads'])
 
 interface TenantModuleManagerProps {
-  tenantId:       string
-  tenantName:     string
+  tenantId: string
+  tenantName: string
   initialModules: ModuleWithDefaults[]
 }
 
 interface ModuleState {
-  is_enabled:      boolean
+  is_enabled: boolean
   is_from_default: boolean
-  isPending:       boolean
-  error:           string | null
+  isPending: boolean
+  error: string | null
 }
 
 export function TenantModuleManager({
@@ -51,7 +61,12 @@ export function TenantModuleManager({
     Object.fromEntries(
       initialModules.map((m) => [
         m.key,
-        { is_enabled: m.is_enabled, is_from_default: m.is_from_default, isPending: false, error: null },
+        {
+          is_enabled: m.is_enabled,
+          is_from_default: m.is_from_default,
+          isPending: false,
+          error: null,
+        },
       ])
     )
   )
@@ -75,9 +90,9 @@ export function TenantModuleManager({
       startTransition(async () => {
         try {
           const res = await fetch(`/api/owner/tenants/${tenantId}/modules`, {
-            method:  'POST',
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ module_key: moduleKey, is_enabled: next }),
+            body: JSON.stringify({ module_key: moduleKey, is_enabled: next }),
           })
 
           if (!res.ok) {
@@ -87,7 +102,12 @@ export function TenantModuleManager({
 
           setStates((s) => ({
             ...s,
-            [moduleKey]: { ...s[moduleKey], is_enabled: next, isPending: false, is_from_default: false },
+            [moduleKey]: {
+              ...s[moduleKey],
+              is_enabled: next,
+              isPending: false,
+              is_from_default: false,
+            },
           }))
           setLastSaved(moduleKey)
           setTimeout(() => setLastSaved((k) => (k === moduleKey ? null : k)), 2000)
@@ -98,8 +118,8 @@ export function TenantModuleManager({
             [moduleKey]: {
               ...s[moduleKey],
               is_enabled: prev,
-              isPending:  false,
-              error:      (err as Error).message,
+              isPending: false,
+              error: (err as Error).message,
             },
           }))
         }
@@ -110,7 +130,7 @@ export function TenantModuleManager({
 
   function requestToggle(moduleKey: string) {
     const current = states[moduleKey]?.is_enabled ?? false
-    const next    = !current
+    const next = !current
 
     if (!next && CRITICAL_KEYS.has(moduleKey)) {
       setWarnKey(moduleKey)
@@ -127,10 +147,8 @@ export function TenantModuleManager({
       {/* Summary bar */}
       <div className="flex items-center gap-4 text-sm text-white/40">
         <span>
-          <span className="font-semibold text-emerald-400">{enabledCount}</span>
-          {' '}of{' '}
-          <span className="text-white/40">{initialModules.length}</span>
-          {' '}modules enabled for{' '}
+          <span className="font-semibold text-emerald-400">{enabledCount}</span> of{' '}
+          <span className="text-white/40">{initialModules.length}</span> modules enabled for{' '}
           <span className="text-white/60">{tenantName}</span>
         </span>
       </div>
@@ -158,7 +176,10 @@ export function TenantModuleManager({
                 </p>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => { setWarnKey(null); toggle(warnKey, false) }}
+                    onClick={() => {
+                      setWarnKey(null)
+                      toggle(warnKey, false)
+                    }}
                     className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
                   >
                     Disable anyway
@@ -184,13 +205,13 @@ export function TenantModuleManager({
         variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.04 } } }}
       >
         {initialModules.map((mod) => {
-          const state    = states[mod.key]
-          const Icon     = MODULE_ICONS[mod.key] ?? CreditCard
-          const enabled  = state?.is_enabled  ?? mod.is_enabled
-          const pending  = state?.isPending    ?? false
-          const err      = state?.error        ?? null
+          const state = states[mod.key]
+          const Icon = MODULE_ICONS[mod.key] ?? CreditCard
+          const enabled = state?.is_enabled ?? mod.is_enabled
+          const pending = state?.isPending ?? false
+          const err = state?.error ?? null
           const isDefault = state?.is_from_default ?? mod.is_from_default
-          const saved    = lastSaved === mod.key
+          const saved = lastSaved === mod.key
 
           return (
             <motion.div
@@ -222,20 +243,35 @@ export function TenantModuleManager({
               {/* Header: icon + name + toggle */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className={cn(
-                    'h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-300',
-                    enabled ? mod.bgColor : 'bg-white/5'
-                  )}>
+                  <div
+                    className={cn(
+                      'h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-300',
+                      enabled ? mod.bgColor : 'bg-white/5'
+                    )}
+                  >
                     <Icon
-                      className={cn('h-4 w-4 transition-colors duration-300', enabled ? mod.color : 'text-white/20')}
+                      className={cn(
+                        'h-4 w-4 transition-colors duration-300',
+                        enabled ? mod.color : 'text-white/20'
+                      )}
                       strokeWidth={1.75}
                     />
                   </div>
                   <div>
-                    <p className={cn('text-sm font-semibold transition-colors duration-200', enabled ? 'text-white' : 'text-white/30')}>
+                    <p
+                      className={cn(
+                        'text-sm font-semibold transition-colors duration-200',
+                        enabled ? 'text-white' : 'text-white/30'
+                      )}
+                    >
                       {mod.label}
                     </p>
-                    <p className={cn('text-xs leading-snug mt-0.5 max-w-[180px] transition-colors duration-200', enabled ? 'text-white/40' : 'text-white/20')}>
+                    <p
+                      className={cn(
+                        'text-xs leading-snug mt-0.5 max-w-[180px] transition-colors duration-200',
+                        enabled ? 'text-white/40' : 'text-white/20'
+                      )}
+                    >
                       {mod.description}
                     </p>
                   </div>
@@ -276,10 +312,12 @@ export function TenantModuleManager({
                     Saving…
                   </span>
                 ) : (
-                  <span className={cn(
-                    'text-2xs font-semibold uppercase tracking-widest px-2 py-0.5 rounded',
-                    enabled ? 'bg-emerald-500/12 text-emerald-400' : 'bg-white/5 text-white/20'
-                  )}>
+                  <span
+                    className={cn(
+                      'text-2xs font-semibold uppercase tracking-widest px-2 py-0.5 rounded',
+                      enabled ? 'bg-emerald-500/12 text-emerald-400' : 'bg-white/5 text-white/20'
+                    )}
+                  >
                     {enabled ? 'Enabled' : 'Disabled'}
                   </span>
                 )}

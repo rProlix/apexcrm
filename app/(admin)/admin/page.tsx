@@ -26,19 +26,29 @@ const ALL_MODULES = [
 ]
 
 export default async function AdminOverviewPage() {
-  const ctx     = await getUserContext()
+  const ctx = await getUserContext()
   const supabase = getSupabaseServerClient()
 
   // Fetch all tenants with their subscription and module info
   const { data: tenantsRaw } = await supabase
     .from('tenants')
-    .select('id, name, slug, subdomain, status, created_at, subscriptions(status, current_period_end, plan_id)')
+    .select(
+      'id, name, slug, subdomain, status, created_at, subscriptions(status, current_period_end, plan_id)'
+    )
     .order('created_at', { ascending: false })
 
   const tenants = (tenantsRaw ?? []) as unknown as Array<{
-    id: string; name: string; slug: string; subdomain: string | null
-    status: string; created_at: string
-    subscriptions: Array<{ status: string; current_period_end: string | null; plan_id: string | null }>
+    id: string
+    name: string
+    slug: string
+    subdomain: string | null
+    status: string
+    created_at: string
+    subscriptions: Array<{
+      status: string
+      current_period_end: string | null
+      plan_id: string | null
+    }>
   }>
 
   // Fetch all tenant_modules for the toggle UI
@@ -47,7 +57,9 @@ export default async function AdminOverviewPage() {
     .select('tenant_id, module_key, enabled')
 
   const tenantModules = (tenantModulesRaw ?? []) as Array<{
-    tenant_id: string; module_key: string; enabled: boolean
+    tenant_id: string
+    module_key: string
+    enabled: boolean
   }>
 
   // Build a fast lookup: tenantId → moduleKey → enabled
@@ -58,7 +70,7 @@ export default async function AdminOverviewPage() {
   }
 
   // Platform-level stats
-  const totalTenants  = tenants.length
+  const totalTenants = tenants.length
   const activeTenants = tenants.filter((t) => t.status === 'active').length
 
   const { count: totalUsers } = await supabase
@@ -70,10 +82,10 @@ export default async function AdminOverviewPage() {
     .select('id', { count: 'exact', head: true })
 
   const stats = [
-    { label: 'Total Tenants',  value: totalTenants,            icon: Building2 },
-    { label: 'Active Tenants', value: activeTenants,           icon: Activity  },
-    { label: 'Total Users',    value: totalUsers    ?? 0,      icon: Users     },
-    { label: 'Total Customers',value: totalCustomers ?? 0,     icon: Users     },
+    { label: 'Total Tenants', value: totalTenants, icon: Building2 },
+    { label: 'Active Tenants', value: activeTenants, icon: Activity },
+    { label: 'Total Users', value: totalUsers ?? 0, icon: Users },
+    { label: 'Total Customers', value: totalCustomers ?? 0, icon: Users },
   ]
 
   return (
@@ -132,8 +144,8 @@ export default async function AdminOverviewPage() {
               </thead>
               <tbody className="divide-y divide-white/4">
                 {tenants.map((t) => {
-                  const sub      = t.subscriptions?.[0]
-                  const modules  = moduleMap[t.id] ?? {}
+                  const sub = t.subscriptions?.[0]
+                  const modules = moduleMap[t.id] ?? {}
                   return (
                     <tr key={t.id} className="hover:bg-white/[0.02] transition-colors align-top">
                       <td className="px-5 py-4 whitespace-nowrap">
@@ -146,7 +158,9 @@ export default async function AdminOverviewPage() {
                           <span className="font-medium text-white text-sm">{t.name}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-white/40 font-mono text-xs whitespace-nowrap">{t.slug}</td>
+                      <td className="px-5 py-4 text-white/40 font-mono text-xs whitespace-nowrap">
+                        {t.slug}
+                      </td>
                       <td className="px-5 py-4 text-white/40 text-xs whitespace-nowrap">
                         {sub?.status ?? '—'}
                       </td>

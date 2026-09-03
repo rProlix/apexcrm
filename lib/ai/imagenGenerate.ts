@@ -24,14 +24,14 @@ import {
 import { assertNoUnsupportedImagenFields } from './assertNoUnsupportedImagenFields'
 
 const IMAGEN_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
-const DEFAULT_MODEL   = 'imagen-4.0-ultra-generate-001'
+const DEFAULT_MODEL = 'imagen-4.0-ultra-generate-001'
 const DEFAULT_TIMEOUT = 120_000
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
 export interface ImagenGenerateOptions {
   /** The image description prompt */
-  prompt:          string
+  prompt: string
   /**
    * Optional constraints to avoid — merged into the positive prompt.
    * NOT sent to Imagen as a separate field (Imagen removed negativePrompt support).
@@ -41,12 +41,12 @@ export interface ImagenGenerateOptions {
    * Aspect ratio. Imagen 4 accepts: "1:1" | "9:16" | "16:9" | "4:3" | "3:4"
    * Default: "1:1" (square — used for 360 product frames)
    */
-  aspectRatio?:    '1:1' | '9:16' | '16:9' | '4:3' | '3:4'
+  aspectRatio?: '1:1' | '9:16' | '16:9' | '4:3' | '3:4'
   /** Number of images (1–4 depending on model tier). Default: 1 */
   numberOfImages?: number
   /** Override default model. Default: imagen-4.0-ultra-generate-001 */
-  model?:          string
-  timeoutMs?:      number
+  model?: string
+  timeoutMs?: number
   /**
    * Optional base64-encoded reference image for image-conditioned generation.
    * Attached as the `image` field in the Imagen instance payload.
@@ -54,20 +54,20 @@ export interface ImagenGenerateOptions {
    * If the API rejects it (HTTP 400), the call is automatically retried without
    * the reference image so generation always proceeds.
    */
-  referenceImageBase64?:   string
+  referenceImageBase64?: string
   referenceImageMimeType?: string
 }
 
 export interface ImagenImage {
   /** Raw base64-encoded image bytes */
-  base64:   string
+  base64: string
   mimeType: string
 }
 
 export interface ImagenGenerateResult {
-  images:      ImagenImage[]
-  error?:      string
-  model:       string
+  images: ImagenImage[]
+  error?: string
+  model: string
   /** HTTP status code of the failed response (0 = network/timeout). Undefined on success. */
   statusCode?: number
 }
@@ -75,24 +75,24 @@ export interface ImagenGenerateResult {
 // ─── Imagen response shape ────────────────────────────────────────────────────
 
 interface ImagenPrediction {
-  bytesBase64Encoded?:   string
+  bytesBase64Encoded?: string
   bytes_base64_encoded?: string
-  imageBytes?:           string
-  image_bytes?:          string
-  mimeType?:             string
-  mime_type?:            string
+  imageBytes?: string
+  image_bytes?: string
+  mimeType?: string
+  mime_type?: string
 }
 
 interface ImagenResponse {
   predictions?: ImagenPrediction[]
-  error?:       { code: number; message: string; status?: string }
+  error?: { code: number; message: string; status?: string }
 }
 
 interface DoImagenResult {
-  ok:     boolean
+  ok: boolean
   status: number
-  text:   string
-  json?:  ImagenResponse
+  text: string
+  json?: ImagenResponse
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -108,23 +108,26 @@ interface DoImagenResult {
  * - Returns { images: [], error } on failure — does not throw.
  */
 export async function generateWithImagen(
-  opts: ImagenGenerateOptions,
+  opts: ImagenGenerateOptions
 ): Promise<ImagenGenerateResult> {
   const apiKey = getApiKey()
-  const model  = opts.model ?? DEFAULT_MODEL
+  const model = opts.model ?? DEFAULT_MODEL
 
   if (!apiKey) {
     return {
       images: [],
-      error:  'Missing GEMINI_API_KEY or GOOGLE_API_KEY. ' +
-              'Add it to Vercel Production and Preview environment variables.',
+      error:
+        'Missing GEMINI_API_KEY or GOOGLE_API_KEY. ' +
+        'Add it to Vercel Production and Preview environment variables.',
       model,
     }
   }
 
   const finalPrompt = mergeNegativePromptIntoPrompt(opts.prompt, opts.negativePrompt)
   if (opts.negativePrompt) {
-    console.info('[imagenGenerate] Folded negativePrompt into positive prompt (Imagen 4 does not support negativePrompt).')
+    console.info(
+      '[imagenGenerate] Folded negativePrompt into positive prompt (Imagen 4 does not support negativePrompt).'
+    )
   }
 
   // Build instance — optionally attach a reference image
@@ -132,7 +135,7 @@ export async function generateWithImagen(
   if (opts.referenceImageBase64) {
     instance.image = {
       bytesBase64Encoded: opts.referenceImageBase64,
-      mimeType:           opts.referenceImageMimeType ?? 'image/png',
+      mimeType: opts.referenceImageMimeType ?? 'image/png',
     }
     console.info('[imagenGenerate] Attaching reference image for image-conditioned generation.')
   }
@@ -140,8 +143,8 @@ export async function generateWithImagen(
   const payload: ImagenRequestPayload = {
     instances: [instance as { prompt: string }],
     parameters: {
-      sampleCount:      opts.numberOfImages ?? 1,
-      aspectRatio:      opts.aspectRatio    ?? '1:1',
+      sampleCount: opts.numberOfImages ?? 1,
+      aspectRatio: opts.aspectRatio ?? '1:1',
       personGeneration: 'dont_allow',
     },
   }
@@ -151,20 +154,32 @@ export async function generateWithImagen(
 
   console.info(
     `[imagenGenerate] model=${model} aspectRatio=${sanitizedBody.parameters?.aspectRatio} ` +
-    `promptLen=${finalPrompt.length} hasRef=${!!opts.referenceImageBase64}`,
+      `promptLen=${finalPrompt.length} hasRef=${!!opts.referenceImageBase64}`
   )
 
-  const result = await doImagenFetch(apiKey, model, sanitizedBody, opts.timeoutMs ?? DEFAULT_TIMEOUT)
+  const result = await doImagenFetch(
+    apiKey,
+    model,
+    sanitizedBody,
+    opts.timeoutMs ?? DEFAULT_TIMEOUT
+  )
 
   // If the reference image caused a rejection, retry without it
   if (!result.ok && opts.referenceImageBase64 && result.status === 400) {
-    console.warn('[imagenGenerate] Reference image caused HTTP 400 — retrying without reference image.')
+    console.warn(
+      '[imagenGenerate] Reference image caused HTTP 400 — retrying without reference image.'
+    )
     const fallbackPayload = stripUnsupportedImagenFields({
-      instances:  [{ prompt: finalPrompt }],
+      instances: [{ prompt: finalPrompt }],
       parameters: sanitizedBody.parameters,
     }) as ImagenRequestPayload
     assertNoUnsupportedImagenFields(fallbackPayload)
-    const retry = await doImagenFetch(apiKey, model, fallbackPayload, opts.timeoutMs ?? DEFAULT_TIMEOUT)
+    const retry = await doImagenFetch(
+      apiKey,
+      model,
+      fallbackPayload,
+      opts.timeoutMs ?? DEFAULT_TIMEOUT
+    )
     return parseImagenResponse(retry, model)
   }
 
@@ -174,32 +189,29 @@ export async function generateWithImagen(
 // ─── Internal: HTTP fetch ─────────────────────────────────────────────────────
 
 async function doImagenFetch(
-  apiKey:    string,
-  model:     string,
-  body:      ImagenRequestPayload,
-  timeoutMs: number,
+  apiKey: string,
+  model: string,
+  body: ImagenRequestPayload,
+  timeoutMs: number
 ): Promise<DoImagenResult> {
   const controller = new AbortController()
-  const timer      = setTimeout(() => controller.abort(), timeoutMs)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
 
   let response: Response
   try {
-    response = await fetch(
-      `${IMAGEN_API_BASE}/${model}:predict?key=${apiKey}`,
-      {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
-        signal:  controller.signal,
-      },
-    )
+    response = await fetch(`${IMAGEN_API_BASE}/${model}:predict?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
   } catch (err: unknown) {
     clearTimeout(timer)
     const isAbort = err instanceof Error && err.name === 'AbortError'
     return {
-      ok:     false,
+      ok: false,
       status: 0,
-      text:   isAbort
+      text: isAbort
         ? `Imagen timed out after ${timeoutMs / 1000}s. Try again or reduce frame count.`
         : `Imagen request failed: ${err instanceof Error ? err.message : String(err)}`,
     }
@@ -210,7 +222,11 @@ async function doImagenFetch(
   const text = response.ok ? '' : await response.text().catch(() => '')
   let json: ImagenResponse | undefined
   if (response.ok) {
-    try { json = await response.json() as ImagenResponse } catch { /* handled in parseImagenResponse */ }
+    try {
+      json = (await response.json()) as ImagenResponse
+    } catch {
+      /* handled in parseImagenResponse */
+    }
   }
   return { ok: response.ok, status: response.status, text, json }
 }
@@ -222,7 +238,7 @@ function parseImagenResponse(result: DoImagenResult, model: string): ImagenGener
     const errText = result.text
     let friendlyMsg = result.status
       ? `Imagen API HTTP ${result.status} [model: ${model}]: ${errText.slice(0, 300)}`
-      : errText  // timeout / network error
+      : errText // timeout / network error
 
     if (result.status === 429) {
       friendlyMsg = `Imagen API HTTP 429 [model: ${model}]: ${errText.slice(0, 300)}`
@@ -256,43 +272,41 @@ function parseImagenResponse(result: DoImagenResult, model: string): ImagenGener
 
   const images: ImagenImage[] = []
   for (const pred of predictions) {
-    const b64 = (
-      pred.bytesBase64Encoded
-      ?? pred.bytes_base64_encoded
-      ?? pred.imageBytes
-      ?? pred.image_bytes
-    )
+    const b64 =
+      pred.bytesBase64Encoded ?? pred.bytes_base64_encoded ?? pred.imageBytes ?? pred.image_bytes
     if (!b64) continue
-    images.push({ base64: b64, mimeType: (pred.mimeType ?? pred.mime_type ?? 'image/png') as string })
+    images.push({
+      base64: b64,
+      mimeType: (pred.mimeType ?? pred.mime_type ?? 'image/png') as string,
+    })
   }
 
   if (!images.length) {
     return {
       images: [],
-      error:  `Imagen returned predictions but no image bytes. Keys: ${Object.keys(predictions[0] ?? {}).join(', ')}`,
+      error: `Imagen returned predictions but no image bytes. Keys: ${Object.keys(predictions[0] ?? {}).join(', ')}`,
       model,
     }
   }
 
-  console.info(`[imagenGenerate] success: ${images.length} image(s), mimeType=${images[0].mimeType}`)
+  console.info(
+    `[imagenGenerate] success: ${images.length} image(s), mimeType=${images[0].mimeType}`
+  )
   return { images, model }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getApiKey(): string | undefined {
-  return (
-    process.env.GEMINI_API_KEY?.trim() ||
-    process.env.GOOGLE_API_KEY?.trim()
-  )
+  return process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_API_KEY?.trim()
 }
 
 /**
  * Derive the closest Imagen aspect ratio from pixel dimensions.
  */
 export function deriveAspectRatio(
-  width:  number | null | undefined,
-  height: number | null | undefined,
+  width: number | null | undefined,
+  height: number | null | undefined
 ): '1:1' | '9:16' | '16:9' | '4:3' | '3:4' {
   if (!width || !height) return '1:1'
   const ratio = width / height

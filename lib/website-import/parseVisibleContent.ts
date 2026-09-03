@@ -124,8 +124,7 @@ function extractImages(html: string, baseUrl: string): Array<{ src: string; alt:
 
 // ── Contact info extraction ───────────────────────────────────────────────────
 
-const PHONE_RE =
-  /(?:\+1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}(?:\s?(?:ext|x)\s?\d{1,5})?/g
+const PHONE_RE = /(?:\+1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}(?:\s?(?:ext|x)\s?\d{1,5})?/g
 
 const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g
 
@@ -141,7 +140,7 @@ function extractEmails(text: string): string[] {
       !e.includes('example.com') &&
       !e.includes('youremail') &&
       !e.endsWith('.png') &&
-      !e.endsWith('.jpg'),
+      !e.endsWith('.jpg')
   )
   return [...new Set(filtered)].slice(0, 5)
 }
@@ -196,10 +195,7 @@ function extractCtaTexts(html: string): string[] {
 /**
  * Parse visible content from raw HTML.
  */
-export function parseVisibleContent(
-  html: string,
-  baseUrl: string,
-): ParsedVisibleContent {
+export function parseVisibleContent(html: string, baseUrl: string): ParsedVisibleContent {
   const bodyMatch = /<body[^>]*>([\s\S]*)<\/body>/i.exec(html)
   const bodyHtml = bodyMatch?.[1] ?? html
 
@@ -211,15 +207,15 @@ export function parseVisibleContent(
   const plainText = stripTags(decodeEntities(contentHtml))
 
   return {
-    headings:     extractHeadings(contentHtml),
-    paragraphs:   extractParagraphs(contentHtml),
-    lists:        extractLists(contentHtml),
-    links:        extractLinks(bodyHtml, baseUrl),
-    images:       extractImages(bodyHtml, baseUrl),
+    headings: extractHeadings(contentHtml),
+    paragraphs: extractParagraphs(contentHtml),
+    lists: extractLists(contentHtml),
+    links: extractLinks(bodyHtml, baseUrl),
+    images: extractImages(bodyHtml, baseUrl),
     phoneNumbers: extractPhones(plainText),
-    emails:       extractEmails(plainText),
-    addresses:    extractAddresses(plainText),
-    hours:        extractHours(plainText),
-    ctaTexts:     extractCtaTexts(contentHtml),
+    emails: extractEmails(plainText),
+    addresses: extractAddresses(plainText),
+    hours: extractHours(plainText),
+    ctaTexts: extractCtaTexts(contentHtml),
   }
 }

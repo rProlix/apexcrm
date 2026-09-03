@@ -9,12 +9,23 @@ import {
 import type { WorkerConfig } from './config.js'
 
 export function safeFileName(value: string) {
-  const cleaned = value.normalize('NFKD').replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/-+/g, '-').replace(/^[-.]+|[-.]+$/g, '')
+  const cleaned = value
+    .normalize('NFKD')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
   return cleaned.slice(0, 160) || 'image'
 }
 
 export function buildOriginalKey(input: {
-  tenantId: string; businessId: string; inspectionId: string; slackFileId: string; fileName: string; imageId?: string; vehicleId?: string | null; contentType?: string
+  tenantId: string
+  businessId: string
+  inspectionId: string
+  slackFileId: string
+  fileName: string
+  imageId?: string
+  vehicleId?: string | null
+  contentType?: string
 }) {
   if (input.imageId) {
     return buildVanDamageObjectKey({
@@ -50,31 +61,40 @@ export class S3Storage {
   }
 
   async uploadOriginal(input: {
-    tenantId: string; businessId: string; inspectionId: string; slackFileId: string
-    imageId?: string; vehicleId?: string | null
-    fileName: string; contentType: string; body: Buffer; sha256?: string
+    tenantId: string
+    businessId: string
+    inspectionId: string
+    slackFileId: string
+    imageId?: string
+    vehicleId?: string | null
+    fileName: string
+    contentType: string
+    body: Buffer
+    sha256?: string
   }) {
     const key = buildOriginalKey(input)
-    const result = await this.client.send(new PutObjectCommand({
-      Bucket: this.config.bucket,
-      Key: key,
-      Body: input.body,
-      ContentType: input.contentType,
-      Metadata: {
-        tenant_id: input.tenantId,
-        business_id: input.businessId,
-        inspection_id: input.inspectionId,
-        slack_file_id: input.slackFileId,
-        ...(input.imageId ? { image_id: input.imageId } : {}),
-        ...(input.sha256 ? { sha256: input.sha256 } : {}),
-      },
-      Tagging: lifecycleTags({
-        tenantId: input.tenantId,
-        assetType: 'original',
-        evidenceClass: 'original',
-        retentionClass: 'standard',
-      }),
-    }))
+    const result = await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.config.bucket,
+        Key: key,
+        Body: input.body,
+        ContentType: input.contentType,
+        Metadata: {
+          tenant_id: input.tenantId,
+          business_id: input.businessId,
+          inspection_id: input.inspectionId,
+          slack_file_id: input.slackFileId,
+          ...(input.imageId ? { image_id: input.imageId } : {}),
+          ...(input.sha256 ? { sha256: input.sha256 } : {}),
+        },
+        Tagging: lifecycleTags({
+          tenantId: input.tenantId,
+          assetType: 'original',
+          evidenceClass: 'original',
+          retentionClass: 'standard',
+        }),
+      })
+    )
     return { bucket: this.config.bucket, key, etag: result.ETag?.replaceAll('"', '') ?? null }
   }
 

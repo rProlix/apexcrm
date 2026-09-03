@@ -30,15 +30,18 @@ export async function POST(req: NextRequest) {
   if (!tenantId) return err('TENANT_NOT_FOUND', 'No tenant associated with your account.', 400)
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return err('INVALID_JSON', 'Request body must be valid JSON.', 400)
   }
 
-  const email         = typeof body.email      === 'string' ? body.email.trim().toLowerCase() : ''
-  const fullName      = typeof body.fullName   === 'string' ? body.fullName.trim() : null
-  const phone         = typeof body.phone      === 'string' ? body.phone.trim() : null
-  const customerId    = typeof body.customerId === 'string' ? body.customerId : null
-  const expiresIn     = typeof body.expiresInDays === 'number' ? Math.min(Math.max(body.expiresInDays, 1), 30) : 7
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+  const fullName = typeof body.fullName === 'string' ? body.fullName.trim() : null
+  const phone = typeof body.phone === 'string' ? body.phone.trim() : null
+  const customerId = typeof body.customerId === 'string' ? body.customerId : null
+  const expiresIn =
+    typeof body.expiresInDays === 'number' ? Math.min(Math.max(body.expiresInDays, 1), 30) : 7
   const shouldSendEmail = body.sendEmail !== false
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -90,9 +93,9 @@ export async function POST(req: NextRequest) {
         .from('customers')
         .insert({
           tenant_id: tenantId,
-          name:      fullName ?? email,
+          name: fullName ?? email,
           email,
-          phone:     phone ?? null,
+          phone: phone ?? null,
         })
         .select('id')
         .single()
@@ -115,12 +118,12 @@ export async function POST(req: NextRequest) {
     .eq('status', 'pending')
     .maybeSingle()
 
-  const now     = new Date()
+  const now = new Date()
   const expires = expiresInDays(expiresIn)
   const { token, tokenHash } = generateInviteToken()
   const inviteUrl = buildInviteUrl({
     token,
-    subdomain:    tenant.subdomain,
+    subdomain: tenant.subdomain,
     customDomain: tenant.custom_domain,
   })
 
@@ -132,15 +135,15 @@ export async function POST(req: NextRequest) {
     const { data: updated, error: updateError } = await (supabase as any)
       .from('customer_invites')
       .update({
-        token_hash:    tokenHash,
-        invite_url:    inviteUrl,
-        expires_at:    expires.toISOString(),
-        last_sent_at:  now.toISOString(),
-        resend_count:  (existingInvite.resend_count ?? 0) + 1,
-        full_name:     fullName ?? undefined,
-        phone:         phone ?? undefined,
-        customer_id:   resolvedCustomerId,
-        invited_by:    ctx.auth_id,
+        token_hash: tokenHash,
+        invite_url: inviteUrl,
+        expires_at: expires.toISOString(),
+        last_sent_at: now.toISOString(),
+        resend_count: (existingInvite.resend_count ?? 0) + 1,
+        full_name: fullName ?? undefined,
+        phone: phone ?? undefined,
+        customer_id: resolvedCustomerId,
+        invited_by: ctx.auth_id,
       })
       .eq('id', existingInvite.id)
       .select('id, email, status, expires_at')
@@ -158,17 +161,17 @@ export async function POST(req: NextRequest) {
     const { data: newInvite, error: insertError } = await (supabase as any)
       .from('customer_invites')
       .insert({
-        tenant_id:    tenantId,
-        customer_id:  resolvedCustomerId,
+        tenant_id: tenantId,
+        customer_id: resolvedCustomerId,
         email,
-        full_name:    fullName,
+        full_name: fullName,
         phone,
-        invited_by:   ctx.auth_id,
-        role:         'customer',
-        status:       'pending',
-        token_hash:   tokenHash,
-        invite_url:   inviteUrl,
-        expires_at:   expires.toISOString(),
+        invited_by: ctx.auth_id,
+        role: 'customer',
+        status: 'pending',
+        token_hash: tokenHash,
+        invite_url: inviteUrl,
+        expires_at: expires.toISOString(),
         last_sent_at: now.toISOString(),
       })
       .select('id')
@@ -194,61 +197,70 @@ export async function POST(req: NextRequest) {
       .eq('tenant_id', tenantId)
 
     const modMap = new Map<string, boolean>(
-      (modules ?? []).map((m: { module_key: string; enabled: boolean }) => [m.module_key, m.enabled])
+      (modules ?? []).map((m: { module_key: string; enabled: boolean }) => [
+        m.module_key,
+        m.enabled,
+      ])
     )
 
     const branding = tenant.branding as Record<string, string> | null | undefined
     const tpl = buildCustomerInviteEmail({
-      businessName:    tenant.name,
+      businessName: tenant.name,
       businessLogoUrl: branding?.logo_url ?? null,
       businessWebsite: tenant.custom_domain
         ? `https://${tenant.custom_domain}`
         : tenant.subdomain
           ? `https://${tenant.subdomain}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'}`
           : null,
-      primaryColor:    branding?.primary_color ?? null,
-      customerName:    fullName ?? undefined,
+      primaryColor: branding?.primary_color ?? null,
+      customerName: fullName ?? undefined,
       inviteUrl,
-      expiresAt:       expires,
+      expiresAt: expires,
       enabledModules: {
         appointments: modMap.get('appointments') ?? true,
-        orders:       modMap.get('store') ?? false,
-        rewards:      modMap.get('rewards') ?? false,
-        payments:     modMap.get('payments') ?? false,
+        orders: modMap.get('store') ?? false,
+        rewards: modMap.get('rewards') ?? false,
+        payments: modMap.get('payments') ?? false,
       },
     })
 
     const result = await sendEmail({
-      to:        email,
-      subject:   tpl.subject,
-      html:      tpl.html,
-      text:      tpl.text,
-      category:  'invite',
+      to: email,
+      subject: tpl.subject,
+      html: tpl.html,
+      text: tpl.text,
+      category: 'invite',
       tenantId,
-      fromName:  tenant.name,   // white-label: business name as From display name
-      metadata:  { inviteId, customerId: resolvedCustomerId },
+      fromName: tenant.name, // white-label: business name as From display name
+      metadata: { inviteId, customerId: resolvedCustomerId },
     })
 
     // Preserve the real error message so the UI can show it — do NOT replace with a code
-    emailResult = { ok: result.success, code: result.success ? undefined : (result.error ?? 'Email send failed') }
+    emailResult = {
+      ok: result.success,
+      code: result.success ? undefined : (result.error ?? 'Email send failed'),
+    }
 
     if (!result.success) {
       console.error('[POST /api/customers/invites] email failed:', result.error)
     }
   }
 
-  return NextResponse.json({
-    ok: true,
-    invite: {
-      id:        inviteId,
-      email,
-      status:    'pending',
-      expiresAt: expires.toISOString(),
-      inviteUrl,
+  return NextResponse.json(
+    {
+      ok: true,
+      invite: {
+        id: inviteId,
+        email,
+        status: 'pending',
+        expiresAt: expires.toISOString(),
+        inviteUrl,
+      },
+      emailSent: emailResult.ok,
+      emailError: !emailResult.ok ? emailResult.code : undefined,
     },
-    emailSent: emailResult.ok,
-    emailError: !emailResult.ok ? emailResult.code : undefined,
-  }, { status: 201 })
+    { status: 201 }
+  )
 }
 
 // ─── GET /api/customers/invites ───────────────────────────────────────────────
@@ -263,8 +275,8 @@ export async function GET(req: NextRequest) {
   const tenantId = ctx.tenant_id
   if (!tenantId) return err('TENANT_NOT_FOUND', 'No tenant associated with your account.', 400)
 
-  const params     = req.nextUrl.searchParams
-  const status     = params.get('status') ?? undefined
+  const params = req.nextUrl.searchParams
+  const status = params.get('status') ?? undefined
   const emailFilter = params.get('email') ?? undefined
   const customerIdFilter = params.get('customerId') ?? undefined
 
@@ -272,12 +284,14 @@ export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase as any)
     .from('customer_invites')
-    .select('id, email, full_name, phone, status, expires_at, accepted_at, revoked_at, last_sent_at, resend_count, created_at, customer_id, invited_by, invite_url')
+    .select(
+      'id, email, full_name, phone, status, expires_at, accepted_at, revoked_at, last_sent_at, resend_count, created_at, customer_id, invited_by, invite_url'
+    )
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
 
-  if (status)           query = query.eq('status', status)
-  if (emailFilter)      query = query.ilike('email', `%${emailFilter}%`)
+  if (status) query = query.eq('status', status)
+  if (emailFilter) query = query.ilike('email', `%${emailFilter}%`)
   if (customerIdFilter) query = query.eq('customer_id', customerIdFilter)
 
   const { data, error } = await query

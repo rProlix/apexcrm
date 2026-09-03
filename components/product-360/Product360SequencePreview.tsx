@@ -17,42 +17,42 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 
 export interface Product360SequencePreviewProps {
   /** Ordered array of frame image URLs (only populated/completed frames). */
-  frameUrls:         string[]
+  frameUrls: string[]
   /** True while generation is still running. Shows an overlay with progress. */
-  isGenerating?:     boolean
-  framesCompleted?:  number
-  framesTotal?:      number
-  className?:        string
-  productName?:      string
+  isGenerating?: boolean
+  framesCompleted?: number
+  framesTotal?: number
+  className?: string
+  productName?: string
   /** Pixels of horizontal drag needed to advance one frame. Default: 8 */
-  sensitivity?:      number
+  sensitivity?: number
   /** Auto-spin when idle. Only activates with ≥3 frames. */
-  autoSpin?:         boolean
+  autoSpin?: boolean
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function Product360SequencePreview({
   frameUrls,
-  isGenerating  = false,
+  isGenerating = false,
   framesCompleted,
   framesTotal,
-  className     = '',
+  className = '',
   productName,
-  sensitivity   = 8,
-  autoSpin      = false,
+  sensitivity = 8,
+  autoSpin = false,
 }: Product360SequencePreviewProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [isDragging,   setIsDragging]   = useState(false)
-  const [showHint,     setShowHint]     = useState(true)
-  const [zoom,         setZoom]         = useState(1)
+  const [isDragging, setIsDragging] = useState(false)
+  const [showHint, setShowHint] = useState(true)
+  const [zoom, setZoom] = useState(1)
 
   const dragStartXRef = useRef(0)
-  const accumRef      = useRef(0)
-  const lastVeloRef   = useRef(0)
-  const momentumRef   = useRef(0)
-  const autoSpinRef   = useRef<ReturnType<typeof setInterval> | null>(null)
-  const idleTimerRef  = useRef<ReturnType<typeof setTimeout>  | null>(null)
+  const accumRef = useRef(0)
+  const lastVeloRef = useRef(0)
+  const momentumRef = useRef(0)
+  const autoSpinRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const frameCount = frameUrls.length
 
@@ -61,7 +61,7 @@ export function Product360SequencePreview({
     if (frameCount === 0) {
       setCurrentIndex(0)
     } else {
-      setCurrentIndex(i => Math.min(i, frameCount - 1))
+      setCurrentIndex((i) => Math.min(i, frameCount - 1))
     }
   }, [frameCount])
 
@@ -69,7 +69,7 @@ export function Product360SequencePreview({
   useEffect(() => {
     return () => {
       cancelAnimationFrame(momentumRef.current)
-      if (autoSpinRef.current)  clearInterval(autoSpinRef.current)
+      if (autoSpinRef.current) clearInterval(autoSpinRef.current)
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
     }
   }, [])
@@ -78,12 +78,15 @@ export function Product360SequencePreview({
   const startAutoSpin = useCallback(() => {
     if (frameCount < 3) return
     autoSpinRef.current = setInterval(() => {
-      setCurrentIndex(i => (i + 1) % frameCount)
+      setCurrentIndex((i) => (i + 1) % frameCount)
     }, 80)
   }, [frameCount])
 
   const stopAutoSpin = useCallback(() => {
-    if (autoSpinRef.current) { clearInterval(autoSpinRef.current); autoSpinRef.current = null }
+    if (autoSpinRef.current) {
+      clearInterval(autoSpinRef.current)
+      autoSpinRef.current = null
+    }
   }, [])
 
   const resetIdleTimer = useCallback(() => {
@@ -99,34 +102,40 @@ export function Product360SequencePreview({
       stopAutoSpin()
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSpin, frameCount])
 
   // ── Drag handlers ──────────────────────────────────────────────────────────
 
-  const onDragStart = useCallback((clientX: number) => {
-    if (frameCount === 0) return
-    setIsDragging(true)
-    setShowHint(false)
-    stopAutoSpin()
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
-    dragStartXRef.current = clientX
-    accumRef.current      = 0
-    lastVeloRef.current   = 0
-    cancelAnimationFrame(momentumRef.current)
-  }, [frameCount, stopAutoSpin])
+  const onDragStart = useCallback(
+    (clientX: number) => {
+      if (frameCount === 0) return
+      setIsDragging(true)
+      setShowHint(false)
+      stopAutoSpin()
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+      dragStartXRef.current = clientX
+      accumRef.current = 0
+      lastVeloRef.current = 0
+      cancelAnimationFrame(momentumRef.current)
+    },
+    [frameCount, stopAutoSpin]
+  )
 
-  const onDragMove = useCallback((clientX: number) => {
-    if (!isDragging || frameCount === 0) return
-    const delta           = clientX - dragStartXRef.current
-    dragStartXRef.current = clientX
-    lastVeloRef.current   = delta
-    accumRef.current     += delta
-    const steps = Math.round(accumRef.current / sensitivity)
-    if (steps === 0) return
-    accumRef.current -= steps * sensitivity
-    setCurrentIndex(i => ((i - steps) % frameCount + frameCount) % frameCount)
-  }, [isDragging, frameCount, sensitivity])
+  const onDragMove = useCallback(
+    (clientX: number) => {
+      if (!isDragging || frameCount === 0) return
+      const delta = clientX - dragStartXRef.current
+      dragStartXRef.current = clientX
+      lastVeloRef.current = delta
+      accumRef.current += delta
+      const steps = Math.round(accumRef.current / sensitivity)
+      if (steps === 0) return
+      accumRef.current -= steps * sensitivity
+      setCurrentIndex((i) => (((i - steps) % frameCount) + frameCount) % frameCount)
+    },
+    [isDragging, frameCount, sensitivity]
+  )
 
   const onDragEnd = useCallback(() => {
     if (!isDragging) return
@@ -135,12 +144,15 @@ export function Product360SequencePreview({
     let v = lastVeloRef.current
     const decay = () => {
       v *= 0.85
-      if (Math.abs(v) < 0.4) { resetIdleTimer(); return }
+      if (Math.abs(v) < 0.4) {
+        resetIdleTimer()
+        return
+      }
       accumRef.current += v
       const steps = Math.round(accumRef.current / sensitivity)
       if (steps !== 0) {
         accumRef.current -= steps * sensitivity
-        setCurrentIndex(i => ((i - steps) % frameCount + frameCount) % frameCount)
+        setCurrentIndex((i) => (((i - steps) % frameCount) + frameCount) % frameCount)
       }
       momentumRef.current = requestAnimationFrame(decay)
     }
@@ -152,7 +164,7 @@ export function Product360SequencePreview({
   }, [isDragging, frameCount, sensitivity, resetIdleTimer])
 
   const applyZoom = useCallback((delta: number) => {
-    setZoom(z => Math.max(0.75, Math.min(3, z + delta)))
+    setZoom((z) => Math.max(0.75, Math.min(3, z + delta)))
   }, [])
 
   // ── Empty state ────────────────────────────────────────────────────────────
@@ -187,7 +199,7 @@ export function Product360SequencePreview({
 
   // ── Frame display ──────────────────────────────────────────────────────────
 
-  const safeIndex  = Math.min(currentIndex, frameCount - 1)
+  const safeIndex = Math.min(currentIndex, frameCount - 1)
   const currentUrl = frameUrls[safeIndex]
 
   return (
@@ -196,36 +208,56 @@ export function Product360SequencePreview({
       style={{ touchAction: 'none' }}
       aria-label={`360° product preview — frame ${safeIndex + 1} of ${frameCount}`}
       // Mouse
-      onMouseDown={e => onDragStart(e.clientX)}
-      onMouseMove={e => onDragMove(e.clientX)}
+      onMouseDown={(e) => onDragStart(e.clientX)}
+      onMouseMove={(e) => onDragMove(e.clientX)}
       onMouseUp={onDragEnd}
       onMouseLeave={onDragEnd}
       // Touch
-      onTouchStart={e => { if (e.touches.length === 1) onDragStart(e.touches[0].clientX) }}
-      onTouchMove={e  => { e.preventDefault(); if (e.touches.length === 1) onDragMove(e.touches[0].clientX) }}
+      onTouchStart={(e) => {
+        if (e.touches.length === 1) onDragStart(e.touches[0].clientX)
+      }}
+      onTouchMove={(e) => {
+        e.preventDefault()
+        if (e.touches.length === 1) onDragMove(e.touches[0].clientX)
+      }}
       onTouchEnd={onDragEnd}
-      onWheel={e => { e.preventDefault(); applyZoom(-e.deltaY * 0.001) }}
+      onWheel={(e) => {
+        e.preventDefault()
+        applyZoom(-e.deltaY * 0.001)
+      }}
     >
       {/* Frame image */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={currentUrl}
-        alt={productName ? `${productName} — 360° frame ${safeIndex + 1}` : `360° frame ${safeIndex + 1}`}
+        alt={
+          productName
+            ? `${productName} — 360° frame ${safeIndex + 1}`
+            : `360° frame ${safeIndex + 1}`
+        }
         className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-        style={{ transform: `scale(${zoom})`, transition: isDragging ? 'none' : 'transform 120ms ease-out' }}
+        style={{
+          transform: `scale(${zoom})`,
+          transition: isDragging ? 'none' : 'transform 120ms ease-out',
+        }}
         draggable={false}
       />
 
       {/* Vignette */}
       <div
         className="pointer-events-none absolute inset-0 rounded-2xl"
-        style={{ background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.5) 100%)' }}
+        style={{
+          background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.5) 100%)',
+        }}
       />
 
       {/* Generation progress overlay */}
       {isGenerating && (
         <div className="pointer-events-none absolute top-2 left-2 right-2 flex items-center gap-2 rounded-xl bg-black/75 backdrop-blur-sm px-3 py-2 z-10">
-          <div className="w-3 h-3 border border-white/30 border-t-amber-400 rounded-full animate-spin shrink-0" aria-hidden />
+          <div
+            className="w-3 h-3 border border-white/30 border-t-amber-400 rounded-full animate-spin shrink-0"
+            aria-hidden
+          />
           <p className="text-[10px] text-white/60 font-medium truncate">
             {framesCompleted !== undefined && framesTotal !== undefined
               ? `Generating ${framesCompleted} / ${framesTotal} frames`
@@ -246,23 +278,49 @@ export function Product360SequencePreview({
       {/* Frame counter */}
       {frameCount > 1 && (
         <div className="absolute bottom-3 right-3 rounded-full bg-black/60 border border-white/10 px-2 py-0.5 text-[10px] font-bold tracking-widest text-white/40 backdrop-blur-sm z-10 flex items-center gap-2">
-          <span className="pointer-events-none">{safeIndex + 1}/{frameCount}</span>
+          <span className="pointer-events-none">
+            {safeIndex + 1}/{frameCount}
+          </span>
           <input
             aria-label="Scrub 360 frames"
             type="range"
             min={0}
             max={frameCount - 1}
             value={safeIndex}
-            onChange={e => { setShowHint(false); setCurrentIndex(Number(e.target.value)) }}
+            onChange={(e) => {
+              setShowHint(false)
+              setCurrentIndex(Number(e.target.value))
+            }}
             className="w-20 accent-white/60"
           />
         </div>
       )}
 
       <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-black/60 border border-white/10 px-1.5 py-0.5 backdrop-blur-sm">
-        <button type="button" onClick={() => applyZoom(-0.15)} className="h-5 w-5 text-white/50 hover:text-white text-xs" aria-label="Zoom out">-</button>
-        <button type="button" onClick={() => setZoom(1)} className="h-5 px-1 text-white/40 hover:text-white text-[9px]" aria-label="Reset zoom">{Math.round(zoom * 100)}%</button>
-        <button type="button" onClick={() => applyZoom(0.15)} className="h-5 w-5 text-white/50 hover:text-white text-xs" aria-label="Zoom in">+</button>
+        <button
+          type="button"
+          onClick={() => applyZoom(-0.15)}
+          className="h-5 w-5 text-white/50 hover:text-white text-xs"
+          aria-label="Zoom out"
+        >
+          -
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom(1)}
+          className="h-5 px-1 text-white/40 hover:text-white text-[9px]"
+          aria-label="Reset zoom"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          onClick={() => applyZoom(0.15)}
+          className="h-5 w-5 text-white/50 hover:text-white text-xs"
+          aria-label="Zoom in"
+        >
+          +
+        </button>
       </div>
 
       {/* 360° badge */}

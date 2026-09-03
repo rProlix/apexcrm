@@ -27,14 +27,11 @@ import { getCookieDomain } from '@/lib/auth/cookieDomain'
  * Returns null when env vars are absent so the middleware can degrade
  * gracefully instead of crashing during Vercel's build-time static analysis.
  */
-export function createMiddlewareSupabaseClient(
-  request: NextRequest,
-  response: NextResponse,
-) {
+export function createMiddlewareSupabaseClient(request: NextRequest, response: NextResponse) {
   let url: string, anon: string
   try {
     const env = getSupabaseEnv()
-    url  = env.url
+    url = env.url
     anon = env.key
   } catch {
     // Env vars absent (e.g. Vercel build-time static analysis).
@@ -42,18 +39,20 @@ export function createMiddlewareSupabaseClient(
     return null
   }
 
-  const hostname     = request.headers.get('host')?.split(':')[0] ?? ''
+  const hostname = request.headers.get('host')?.split(':')[0] ?? ''
   const cookieDomain = getCookieDomain(hostname)
 
   return createServerClient<Database>(url, anon, {
-    ...(cookieDomain ? {
-      cookieOptions: {
-        domain:   cookieDomain,
-        path:     '/',
-        sameSite: 'lax' as const,
-        secure:   true,
-      },
-    } : {}),
+    ...(cookieDomain
+      ? {
+          cookieOptions: {
+            domain: cookieDomain,
+            path: '/',
+            sameSite: 'lax' as const,
+            secure: true,
+          },
+        }
+      : {}),
     cookies: {
       getAll() {
         return request.cookies.getAll()

@@ -3,8 +3,8 @@ import { renderBaseEmail, renderBasePlainText } from './base'
 import type { TemplateResult } from '../types'
 
 export interface PasswordResetData {
-  resetUrl:      string
-  tenantName?:   string
+  resetUrl: string
+  tenantName?: string
   businessName?: string
 }
 
@@ -39,18 +39,18 @@ If you didn't request a reset, ignore this email — your password will remain u
 
   return {
     subject: `Reset your password${name !== 'Nexora' ? ` — ${name}` : ''}`,
-    html:    renderBaseEmail({
-      title:       'Reset your password',
+    html: renderBaseEmail({
+      title: 'Reset your password',
       previewText: 'Click to set a new password for your account',
       bodyHtml,
-      ctaLabel:   'Reset password',
-      ctaUrl:     resetUrl,
+      ctaLabel: 'Reset password',
+      ctaUrl: resetUrl,
       tenantName: tenantName ?? businessName,
     }),
     text: renderBasePlainText({
       bodyText,
-      ctaLabel:   'Reset password',
-      ctaUrl:     resetUrl,
+      ctaLabel: 'Reset password',
+      ctaUrl: resetUrl,
       tenantName: tenantName ?? businessName,
     }),
   }

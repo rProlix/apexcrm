@@ -6,8 +6,8 @@ import type { TimeSlot } from './types'
 
 interface Options {
   tenant_id: string
-  date:      string    // YYYY-MM-DD
-  staff_id:  string
+  date: string // YYYY-MM-DD
+  staff_id: string
 }
 
 /**
@@ -66,7 +66,7 @@ export async function generateTimeSlotsForStaff({
 
   // Filter blocks applicable to this date
   const dayStart = `${date}T00:00:00.000Z`
-  const dayEnd   = `${date}T23:59:59.999Z`
+  const dayEnd = `${date}T23:59:59.999Z`
 
   const applicable = blocks.filter((b) => {
     if (b.is_recurring) {
@@ -91,8 +91,12 @@ export async function generateTimeSlotsForStaff({
       allSlots.push(...slots)
     } else if (!block.is_recurring && block.starts_at && block.ends_at) {
       // For one-time blocks, clip to the requested date
-      const blockStart = new Date(Math.max(new Date(block.starts_at).getTime(), new Date(dayStart).getTime()))
-      const blockEnd   = new Date(Math.min(new Date(block.ends_at).getTime(),   new Date(dayEnd).getTime()))
+      const blockStart = new Date(
+        Math.max(new Date(block.starts_at).getTime(), new Date(dayStart).getTime())
+      )
+      const blockEnd = new Date(
+        Math.min(new Date(block.ends_at).getTime(), new Date(dayEnd).getTime())
+      )
       if (blockStart < blockEnd) {
         const slots = buildSlotsFromRange(blockStart, blockEnd, durationMins)
         allSlots.push(...slots)
@@ -103,7 +107,7 @@ export async function generateTimeSlotsForStaff({
   if (allSlots.length === 0) return []
 
   // Deduplicate by start ISO, sort ascending
-  const seen    = new Set<string>()
+  const seen = new Set<string>()
   const deduped = allSlots
     .filter((s) => {
       if (seen.has(s.start)) return false
@@ -130,11 +134,12 @@ export async function generateTimeSlotsForStaff({
       .gt('end_time', dayStart),
   ])
 
-  if (apptRes.error)  console.error('[generateTimeSlotsForStaff] appt error:', apptRes.error.message)
-  if (blockRes.error) console.error('[generateTimeSlotsForStaff] block error:', blockRes.error.message)
+  if (apptRes.error) console.error('[generateTimeSlotsForStaff] appt error:', apptRes.error.message)
+  if (blockRes.error)
+    console.error('[generateTimeSlotsForStaff] block error:', blockRes.error.message)
 
   const busy: Array<{ s: number; e: number }> = [
-    ...(apptRes.data  ?? []).map((a: { starts_at: string; ends_at: string }) => ({
+    ...(apptRes.data ?? []).map((a: { starts_at: string; ends_at: string }) => ({
       s: new Date(a.starts_at).getTime(),
       e: new Date(a.ends_at).getTime(),
     })),
@@ -144,7 +149,7 @@ export async function generateTimeSlotsForStaff({
     })),
   ]
 
-  const now     = Date.now()
+  const now = Date.now()
   const isToday = date === new Date().toISOString().slice(0, 10)
 
   return deduped.map((slot) => {
@@ -163,31 +168,29 @@ export async function generateTimeSlotsForStaff({
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function buildSlotsFromTimeRange(
-  date:         string,
+  date: string,
   startTimeStr: string,
-  endTimeStr:   string,
-  durationMins: number,
+  endTimeStr: string,
+  durationMins: number
 ): TimeSlot[] {
   if (durationMins <= 0) return []
 
   const [sh, sm] = parseTime(startTimeStr)
   const [eh, em] = parseTime(endTimeStr)
 
-  const base        = new Date(`${date}T00:00:00.000Z`)
-  const windowStart = new Date(base); windowStart.setUTCHours(sh, sm, 0, 0)
-  const windowEnd   = new Date(base); windowEnd.setUTCHours(eh, em, 0, 0)
+  const base = new Date(`${date}T00:00:00.000Z`)
+  const windowStart = new Date(base)
+  windowStart.setUTCHours(sh, sm, 0, 0)
+  const windowEnd = new Date(base)
+  windowEnd.setUTCHours(eh, em, 0, 0)
 
   return buildSlotsFromRange(windowStart, windowEnd, durationMins)
 }
 
-function buildSlotsFromRange(
-  windowStart: Date,
-  windowEnd:   Date,
-  durationMins: number,
-): TimeSlot[] {
+function buildSlotsFromRange(windowStart: Date, windowEnd: Date, durationMins: number): TimeSlot[] {
   const slots: TimeSlot[] = []
-  const step  = durationMins * 60_000
-  let cursor  = windowStart.getTime()
+  const step = durationMins * 60_000
+  let cursor = windowStart.getTime()
   const endMs = windowEnd.getTime()
 
   while (cursor < endMs) {
@@ -195,8 +198,8 @@ function buildSlotsFromRange(
     if (slotEnd > endMs) break
 
     slots.push({
-      start:     new Date(cursor).toISOString(),
-      end:       new Date(slotEnd).toISOString(),
+      start: new Date(cursor).toISOString(),
+      end: new Date(slotEnd).toISOString(),
       available: true,
     })
     cursor = slotEnd

@@ -23,9 +23,9 @@ declare module '@three-hero/ThreeScrollScene' {
   import type { ComponentType, RefObject } from 'react'
 
   interface ThreeScrollSceneProps {
-    content:     Premium3DScrollHeroContent
+    content: Premium3DScrollHeroContent
     progressRef: RefObject<number>
-    active:      boolean
+    active: boolean
   }
 
   const ThreeScrollScene: ComponentType<ThreeScrollSceneProps>

@@ -41,41 +41,52 @@ export async function GET() {
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
-  const theme = (settings as Record<string, unknown> | null)?.theme as Record<string, unknown> | null
+  const theme = (settings as Record<string, unknown> | null)?.theme as Record<
+    string,
+    unknown
+  > | null
   const hasDesignSystem = !!(theme && theme.palette)
 
-  let paletteValid     = false
-  let typographyValid  = false
-  const contrastIssues: string[]  = []
+  let paletteValid = false
+  let typographyValid = false
+  const contrastIssues: string[] = []
   let normalizedDs: ReturnType<typeof normalizeDesignSystem> | null = null
 
   if (hasDesignSystem && theme) {
     try {
       const businessCategory = (theme.businessCategory as string) ?? null
       normalizedDs = normalizeDesignSystem(theme, businessCategory)
-      paletteValid    = true
-      typographyValid = !!(normalizedDs.typography.headingFontStack && normalizedDs.typography.bodyFontStack)
+      paletteValid = true
+      typographyValid = !!(
+        normalizedDs.typography.headingFontStack && normalizedDs.typography.bodyFontStack
+      )
 
       // Check contrast issues
       const p = normalizedDs.palette
-      if (!passesWcag(p.textPrimary,   p.background, 'AA')) {
-        contrastIssues.push(`Primary text (${p.textPrimary}) fails AA on background (${p.background})`)
+      if (!passesWcag(p.textPrimary, p.background, 'AA')) {
+        contrastIssues.push(
+          `Primary text (${p.textPrimary}) fails AA on background (${p.background})`
+        )
       }
       if (!passesWcag(p.textSecondary, p.background, 'AA')) {
-        contrastIssues.push(`Secondary text (${p.textSecondary}) fails AA on background (${p.background})`)
+        contrastIssues.push(
+          `Secondary text (${p.textSecondary}) fails AA on background (${p.background})`
+        )
       }
       if (!passesWcag(p.textPrimary, p.surface, 'AA')) {
         contrastIssues.push(`Primary text (${p.textPrimary}) fails AA on surface (${p.surface})`)
       }
     } catch (e) {
-      contrastIssues.push(`Design system normalization failed: ${e instanceof Error ? e.message : String(e)}`)
+      contrastIssues.push(
+        `Design system normalization failed: ${e instanceof Error ? e.message : String(e)}`
+      )
     }
   }
 
   // Sections missing design
   const sectionsMissingDesign: string[] = []
-  const sectionsWithBadContrast:  string[] = []
-  const sectionsUsingFlatBlocks:  string[] = []
+  const sectionsWithBadContrast: string[] = []
+  const sectionsUsingFlatBlocks: string[] = []
 
   for (const section of sections ?? []) {
     const s = section as unknown as Record<string, unknown>
@@ -86,25 +97,30 @@ export async function GET() {
       sectionsMissingDesign.push(`${s.section_type as string} (${(s.id as string).slice(0, 8)})`)
     } else {
       // Check for flat blocks (same white background without dividers)
-      const bgType  = design.backgroundType as string
-      const divTop  = design.dividerTop as string
-      const divBot  = design.dividerBottom as string
-      const bgVal   = design.backgroundValue as string
+      const bgType = design.backgroundType as string
+      const divTop = design.dividerTop as string
+      const divBot = design.dividerBottom as string
+      const bgVal = design.backgroundValue as string
 
       if (
         bgType === 'solid' &&
-        divTop === 'none' && divBot === 'none' &&
+        divTop === 'none' &&
+        divBot === 'none' &&
         (bgVal === '#ffffff' || bgVal === '#FFFFFF' || bgVal === 'var(--ds-bg')
       ) {
-        sectionsUsingFlatBlocks.push(`${s.section_type as string} (${(s.id as string).slice(0, 8)})`)
+        sectionsUsingFlatBlocks.push(
+          `${s.section_type as string} (${(s.id as string).slice(0, 8)})`
+        )
       }
 
       // Check text contrast
       const textColor = design.textColor as string | null
-      const bgColor   = design.backgroundValue as string | null
+      const bgColor = design.backgroundValue as string | null
       if (textColor && bgColor && textColor.startsWith('#') && bgColor.startsWith('#')) {
         if (!passesWcag(textColor, bgColor, 'AA')) {
-          sectionsWithBadContrast.push(`${s.section_type as string}: text ${textColor} on bg ${bgColor}`)
+          sectionsWithBadContrast.push(
+            `${s.section_type as string}: text ${textColor} on bg ${bgColor}`
+          )
         }
       }
     }
@@ -113,29 +129,31 @@ export async function GET() {
   // Draft design system check
   const draftRaw = draft as unknown as Record<string, unknown> | null
   const draftSnapshot = draftRaw?.draft_snapshot as Record<string, unknown> | null
-  const latestDraftHasDesignSystem = !!(draftSnapshot?.settings && (draftSnapshot.settings as Record<string, unknown>)?.designSystem)
+  const latestDraftHasDesignSystem = !!(
+    draftSnapshot?.settings && (draftSnapshot.settings as Record<string, unknown>)?.designSystem
+  )
   const latestPublishedHasDesignSystem = hasDesignSystem
 
   const response = {
-    ok:                         true,
+    ok: true,
     tenantId,
     hasDesignSystem,
     paletteValid,
     typographyValid,
-    designLevel:                normalizedDs?.designLevel ?? null,
-    businessCategory:           normalizedDs?.businessCategory ?? null,
-    brandMood:                  normalizedDs?.brandMood ?? null,
-    cssVarCount:                normalizedDs ? Object.keys(buildCssVars(normalizedDs)).length : 0,
+    designLevel: normalizedDs?.designLevel ?? null,
+    businessCategory: normalizedDs?.businessCategory ?? null,
+    brandMood: normalizedDs?.brandMood ?? null,
+    cssVarCount: normalizedDs ? Object.keys(buildCssVars(normalizedDs)).length : 0,
     contrastIssues,
     sectionsMissingDesign,
     sectionsWithBadContrast,
     sectionsUsingFlatBlocks,
     latestDraftHasDesignSystem,
     latestPublishedHasDesignSystem,
-    sectionCount:               sections?.length ?? 0,
-    sectionsWithDesign:         (sections?.length ?? 0) - sectionsMissingDesign.length,
-    draftUpdatedAt:             draftRaw?.updated_at ?? null,
-    draftIsDirty:               draftRaw?.dirty ?? false,
+    sectionCount: sections?.length ?? 0,
+    sectionsWithDesign: (sections?.length ?? 0) - sectionsMissingDesign.length,
+    draftUpdatedAt: draftRaw?.updated_at ?? null,
+    draftIsDirty: draftRaw?.dirty ?? false,
   }
 
   return NextResponse.json(response)

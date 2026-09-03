@@ -2,16 +2,16 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface FindOrCreateInput {
-  tenantId:    string
-  email?:      string | null
-  phone?:      string | null
-  name?:       string | null
-  metadata?:   Record<string, unknown>
+  tenantId: string
+  email?: string | null
+  phone?: string | null
+  name?: string | null
+  metadata?: Record<string, unknown>
 }
 
 export interface FindOrCreateResult {
   customerId: string
-  created:    boolean
+  created: boolean
 }
 
 /**
@@ -74,12 +74,12 @@ export async function findOrCreateTenantCustomer(
   const { data: newCustomer, error } = await supabase
     .from('customers')
     .insert({
-      tenant_id:            tenantId,
-      name:                 name?.trim() || email?.split('@')[0] || 'New Customer',
-      email:                email?.trim() ?? null,
-      phone:                phone?.trim() ?? null,
-      status:               'active',
-      metadata:             metadata ?? {},
+      tenant_id: tenantId,
+      name: name?.trim() || email?.split('@')[0] || 'New Customer',
+      email: email?.trim() ?? null,
+      phone: phone?.trim() ?? null,
+      status: 'active',
+      metadata: metadata ?? {},
       customer_identity_id: identityId,
     })
     .select('id')

@@ -35,18 +35,18 @@ export function GenericEditor({ sectionId }: { sectionId: string }) {
           rows={14}
           spellCheck={false}
           style={{
-            width:        '100%',
-            padding:      '0.625rem 0.75rem',
-            background:   '#18181b',
-            border:       `1px solid ${error ? '#ef4444' : '#3f3f46'}`,
+            width: '100%',
+            padding: '0.625rem 0.75rem',
+            background: '#18181b',
+            border: `1px solid ${error ? '#ef4444' : '#3f3f46'}`,
             borderRadius: '0.5rem',
-            color:        '#86efac',
-            fontSize:     '0.75rem',
-            fontFamily:   '"Fira Code", "Cascadia Code", monospace',
-            outline:      'none',
-            resize:       'vertical',
-            boxSizing:    'border-box',
-            lineHeight:   1.7,
+            color: '#86efac',
+            fontSize: '0.75rem',
+            fontFamily: '"Fira Code", "Cascadia Code", monospace',
+            outline: 'none',
+            resize: 'vertical',
+            boxSizing: 'border-box',
+            lineHeight: 1.7,
           }}
         />
       </Field>

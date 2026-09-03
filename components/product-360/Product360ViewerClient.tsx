@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic'
 import type { Product360ViewerProps } from './Product360Viewer'
 
 const Product360ViewerDynamic = dynamic(
-  () => import('./Product360Viewer').then(m => m.Product360Viewer),
+  () => import('./Product360Viewer').then((m) => m.Product360Viewer),
   {
     ssr: false,
     loading: () => (
@@ -15,7 +15,7 @@ const Product360ViewerDynamic = dynamic(
         <div className="text-white/20 text-xs tracking-widest uppercase">360° Loading…</div>
       </div>
     ),
-  },
+  }
 )
 
 export function Product360ViewerClient(props: Product360ViewerProps) {

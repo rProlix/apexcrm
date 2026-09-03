@@ -16,20 +16,20 @@
 import { useEffect, useRef } from 'react'
 
 interface Options {
-  triggerRef:   React.RefObject<HTMLElement | null>
-  pinRef?:      React.RefObject<HTMLElement | null>
+  triggerRef: React.RefObject<HTMLElement | null>
+  pinRef?: React.RefObject<HTMLElement | null>
   /** Multiple of viewport height to scrub across (>=1) */
   scrollLength?: number
-  pin?:          boolean
+  pin?: boolean
   /** 0 (snappy) .. 1 (very smooth) */
-  smoothing?:    number
-  enabled?:      boolean
+  smoothing?: number
+  enabled?: boolean
   onVisibilityChange?: (visible: boolean) => void
 }
 
 export interface ScrollProgressHandles {
   progressRef: React.RefObject<number>
-  visibleRef:  React.RefObject<boolean>
+  visibleRef: React.RefObject<boolean>
 }
 
 export function useScrollProgress({
@@ -41,9 +41,9 @@ export function useScrollProgress({
   enabled = true,
   onVisibilityChange,
 }: Options): ScrollProgressHandles {
-  const progressRef = useRef(0)   // smoothed value scenes read
-  const rawRef       = useRef(0)   // latest raw scroll progress
-  const visibleRef   = useRef(false)
+  const progressRef = useRef(0) // smoothed value scenes read
+  const rawRef = useRef(0) // latest raw scroll progress
+  const visibleRef = useRef(false)
 
   useEffect(() => {
     if (!enabled) {
@@ -64,7 +64,7 @@ export function useScrollProgress({
     void (async () => {
       try {
         const gsapMod = await import('gsap')
-        const stMod   = await import('gsap/ScrollTrigger')
+        const stMod = await import('gsap/ScrollTrigger')
         if (cancelled) return
         const gsap = gsapMod.gsap ?? gsapMod.default
         const ScrollTrigger = stMod.ScrollTrigger
@@ -75,12 +75,14 @@ export function useScrollProgress({
         stInstance = ScrollTrigger.create({
           trigger,
           start: 'top top',
-          end:   `+=${Math.max(1, scrollLength) * 100}%`,
-          pin:   pin ? (pinRef?.current ?? true) : false,
+          end: `+=${Math.max(1, scrollLength) * 100}%`,
+          pin: pin ? (pinRef?.current ?? true) : false,
           pinSpacing: pin,
           scrub: true,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onUpdate: (self: any) => { rawRef.current = self.progress },
+          onUpdate: (self: any) => {
+            rawRef.current = self.progress
+          },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onToggle: (self: any) => {
             visibleRef.current = self.isActive
@@ -97,7 +99,11 @@ export function useScrollProgress({
 
         // Layout can shift after fonts/images load — refresh once settled.
         refreshTimeout = setTimeout(() => {
-          try { ScrollTrigger.refresh() } catch { /* noop */ }
+          try {
+            ScrollTrigger.refresh()
+          } catch {
+            /* noop */
+          }
         }, 300)
       } catch {
         // GSAP failed to load — leave progress at 0 (fallback rendering handles it)
@@ -108,7 +114,11 @@ export function useScrollProgress({
       cancelled = true
       if (rafId) cancelAnimationFrame(rafId)
       if (refreshTimeout) clearTimeout(refreshTimeout)
-      try { stInstance?.kill() } catch { /* noop */ }
+      try {
+        stInstance?.kill()
+      } catch {
+        /* noop */
+      }
       stInstance = null
     }
   }, [triggerRef, pinRef, scrollLength, pin, smoothing, enabled, onVisibilityChange])

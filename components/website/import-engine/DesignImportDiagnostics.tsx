@@ -23,7 +23,9 @@ export function DesignImportDiagnostics({ diagnostics, className }: DesignImport
   const confidence = (diagnostics.confidence as Record<string, number> | undefined) ?? {}
   const warnings = Array.isArray(diagnostics.warnings) ? (diagnostics.warnings as string[]) : []
   const errors = Array.isArray(diagnostics.errors) ? (diagnostics.errors as string[]) : []
-  const stages = Array.isArray(diagnostics.stagesCompleted) ? (diagnostics.stagesCompleted as string[]) : []
+  const stages = Array.isArray(diagnostics.stagesCompleted)
+    ? (diagnostics.stagesCompleted as string[])
+    : []
 
   const rows: Array<[string, string | number]> = [
     ['Import type', String(diagnostics.importType ?? '—')],
@@ -39,7 +41,12 @@ export function DesignImportDiagnostics({ diagnostics, className }: DesignImport
     ['Animations created', num(diagnostics.animationsCreated)],
     ['Responsive layout', diagnostics.responsiveLayout ? 'Yes' : 'No'],
     ['Attempts', num(diagnostics.attemptCount)],
-    ['Time taken', typeof diagnostics.timeTakenMs === 'number' ? `${Math.round(diagnostics.timeTakenMs / 1000)}s` : '—'],
+    [
+      'Time taken',
+      typeof diagnostics.timeTakenMs === 'number'
+        ? `${Math.round(diagnostics.timeTakenMs / 1000)}s`
+        : '—',
+    ],
   ]
 
   return (
@@ -56,7 +63,9 @@ export function DesignImportDiagnostics({ diagnostics, className }: DesignImport
       </div>
 
       <div className="mb-4 rounded-lg bg-white/5 p-3">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">Confidence</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+          Confidence
+        </p>
         <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
           {[
             ['Visual', confidence.visualMatch],
@@ -69,9 +78,17 @@ export function DesignImportDiagnostics({ diagnostics, className }: DesignImport
             ['Responsive', confidence.responsiveMatch],
             ['Overall', confidence.overall],
           ].map(([label, value]) => (
-            <div key={String(label)} className="flex justify-between rounded-md bg-black/20 px-2 py-1">
+            <div
+              key={String(label)}
+              className="flex justify-between rounded-md bg-black/20 px-2 py-1"
+            >
               <span className="text-white/50">{label}</span>
-              <span className={cn('font-semibold', typeof value === 'number' && value >= 90 ? 'text-emerald-400' : 'text-amber-300')}>
+              <span
+                className={cn(
+                  'font-semibold',
+                  typeof value === 'number' && value >= 90 ? 'text-emerald-400' : 'text-amber-300'
+                )}
+              >
                 {pct(value)}
               </span>
             </div>
@@ -80,16 +97,16 @@ export function DesignImportDiagnostics({ diagnostics, className }: DesignImport
       </div>
 
       {stages.length > 0 && (
-        <p className="mb-3 text-xs text-white/45">
-          Pipeline: {stages.join(' → ')}
-        </p>
+        <p className="mb-3 text-xs text-white/45">Pipeline: {stages.join(' → ')}</p>
       )}
 
       {warnings.length > 0 && (
         <div className="mb-2">
           <p className="mb-1 text-xs font-medium text-amber-300">Warnings</p>
           <ul className="list-inside list-disc space-y-0.5 text-xs text-white/60">
-            {warnings.slice(0, 6).map((w, i) => <li key={i}>{w}</li>)}
+            {warnings.slice(0, 6).map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
           </ul>
         </div>
       )}
@@ -98,7 +115,9 @@ export function DesignImportDiagnostics({ diagnostics, className }: DesignImport
         <div>
           <p className="mb-1 text-xs font-medium text-red-400">Errors</p>
           <ul className="list-inside list-disc space-y-0.5 text-xs text-white/60">
-            {errors.slice(0, 4).map((e, i) => <li key={i}>{e}</li>)}
+            {errors.slice(0, 4).map((e, i) => (
+              <li key={i}>{e}</li>
+            ))}
           </ul>
         </div>
       )}

@@ -22,5 +22,10 @@ export default async function WebsitePagesPage() {
     .eq('tenant_id', tenantId)
     .order('sort_order', { ascending: true })
 
-  return <PagesClient tenantId={tenantId} initialPages={(pages ?? []) as import('@/lib/website/types').SitePage[]} />
+  return (
+    <PagesClient
+      tenantId={tenantId}
+      initialPages={(pages ?? []) as import('@/lib/website/types').SitePage[]}
+    />
+  )
 }

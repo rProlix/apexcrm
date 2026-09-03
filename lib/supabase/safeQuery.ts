@@ -26,10 +26,7 @@ type QueryError = { message: string } | null | undefined
  *   const { data, error } = await supabase.from('products').select('*')
  *   const products = safeQuery<Product>(data, error)
  */
-export function safeQuery<T>(
-  data:  T[] | null | undefined,
-  error: QueryError,
-): T[] {
+export function safeQuery<T>(data: T[] | null | undefined, error: QueryError): T[] {
   if (error) throw new Error(error.message ?? 'Query failed')
   return (data ?? []) as T[]
 }
@@ -43,9 +40,9 @@ export function safeQuery<T>(
  *   const product = safeSingle<Product>(data, error)
  */
 export function safeSingle<T>(
-  data:  T | null | undefined,
+  data: T | null | undefined,
   error: QueryError,
-  message = 'Record not found',
+  message = 'Record not found'
 ): T {
   if (error) throw new Error(error.message ?? 'Query failed')
   if (!data) throw new Error(message)
@@ -61,10 +58,7 @@ export function safeSingle<T>(
  *   const product = safeOptional<Product>(data, error)
  *   if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })
  */
-export function safeOptional<T>(
-  data:  T | null | undefined,
-  error: QueryError,
-): T | null {
+export function safeOptional<T>(data: T | null | undefined, error: QueryError): T | null {
   if (error) throw new Error(error.message ?? 'Query failed')
   return data ?? null
 }
@@ -105,9 +99,9 @@ export function toRecord(row: unknown): Record<string, unknown> {
  *   }
  */
 export function apiError(
-  err:    unknown,
+  err: unknown,
   prefix = '[API]',
-  status  = 500,
+  status = 500
 ): ReturnType<typeof NextResponse.json> {
   const message = err instanceof Error ? err.message : String(err)
   console.error(prefix, message)

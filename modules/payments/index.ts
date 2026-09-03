@@ -4,26 +4,26 @@ import type { ModuleDefinition } from '@/modules/shared/moduleTypes'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const paymentsModule: ModuleDefinition = {
-  key:         'payments',
-  label:       'Payments',
+  key: 'payments',
+  label: 'Payments',
   description: 'Invoices, transactions, revenue tracking, Stripe & Square',
-  icon:        CreditCard,
-  href:        '/payments',
-  color:       'text-gold-400',
-  bgColor:     'bg-gold-400/10',
-  order:       1,
+  icon: CreditCard,
+  href: '/payments',
+  color: 'text-gold-400',
+  bgColor: 'bg-gold-400/10',
+  order: 1,
 
   stats: [
     {
-      key:          'payments_revenue_month',
-      label:        'Monthly Revenue',
-      category:     'financial',
-      color:        'text-gold-400',
+      key: 'payments_revenue_month',
+      label: 'Monthly Revenue',
+      category: 'financial',
+      color: 'text-gold-400',
       emptyMessage: 'No revenue this month',
-      format:       (v) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      format: (v) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       async getValue(tenantId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const supabase   = getSupabaseServerClient() as any
+        const supabase = getSupabaseServerClient() as any
         const monthStart = new Date()
         monthStart.setDate(1)
         monthStart.setHours(0, 0, 0, 0)
@@ -37,15 +37,18 @@ export const paymentsModule: ModuleDefinition = {
           .gte('created_at', monthStart.toISOString())
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const total = (data ?? [] as any[]).reduce((sum: number, t: any) => sum + Number(t.amount), 0)
+        const total = (data ?? ([] as any[])).reduce(
+          (sum: number, t: any) => sum + Number(t.amount),
+          0
+        )
         return total
       },
     },
     {
-      key:          'payments_pending',
-      label:        'Pending Invoices',
-      category:     'operations',
-      color:        'text-yellow-400',
+      key: 'payments_pending',
+      label: 'Pending Invoices',
+      category: 'operations',
+      color: 'text-yellow-400',
       emptyMessage: 'No pending invoices',
       async getValue(tenantId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,10 +62,10 @@ export const paymentsModule: ModuleDefinition = {
       },
     },
     {
-      key:          'payments_failed',
-      label:        'Failed Payments',
-      category:     'operations',
-      color:        'text-red-400',
+      key: 'payments_failed',
+      label: 'Failed Payments',
+      category: 'operations',
+      color: 'text-red-400',
       emptyMessage: 'No failed payments',
       async getValue(tenantId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,12 +79,12 @@ export const paymentsModule: ModuleDefinition = {
       },
     },
     {
-      key:          'payments_refunded',
-      label:        'Refunded',
-      category:     'financial',
-      color:        'text-orange-400',
+      key: 'payments_refunded',
+      label: 'Refunded',
+      category: 'financial',
+      color: 'text-orange-400',
       emptyMessage: 'No refunds',
-      format:       (v) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      format: (v) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       async getValue(tenantId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const supabase = getSupabaseServerClient() as any
@@ -101,14 +104,8 @@ export const paymentsModule: ModuleDefinition = {
     const supabase = getSupabaseServerClient() as any
 
     const [txResult, invoiceResult, refundResult] = await Promise.all([
-      supabase
-        .from('payment_transactions')
-        .select('amount, status')
-        .eq('tenant_id', tenantId),
-      supabase
-        .from('invoices')
-        .select('amount, status')
-        .eq('tenant_id', tenantId),
+      supabase.from('payment_transactions').select('amount, status').eq('tenant_id', tenantId),
+      supabase.from('invoices').select('amount, status').eq('tenant_id', tenantId),
       supabase
         .from('payment_refunds')
         .select('amount')
@@ -124,14 +121,23 @@ export const paymentsModule: ModuleDefinition = {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const invoices = (invoiceResult.data ?? []) as any[]
-    const pending  = invoices.filter((i: any) => i.status === 'pending').length
+    const pending = invoices.filter((i: any) => i.status === 'pending').length
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const refunded = (refundResult.data ?? [] as any[]).reduce((sum: number, r: any) => sum + Number(r.amount), 0)
+    const refunded = (refundResult.data ?? ([] as any[])).reduce(
+      (sum: number, r: any) => sum + Number(r.amount),
+      0
+    )
 
     return [
-      { label: 'Total Revenue', value: `$${revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
-      { label: 'Pending',       value: pending },
-      { label: 'Refunded',      value: `$${refunded.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+      {
+        label: 'Total Revenue',
+        value: `$${revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      },
+      { label: 'Pending', value: pending },
+      {
+        label: 'Refunded',
+        value: `$${refunded.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      },
     ]
   },
 }

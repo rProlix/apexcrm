@@ -20,20 +20,31 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const user = await resolveStoreUser(req)
-  if (!user || !['admin','owner'].includes(user.role)) {
+  if (!user || !['admin', 'owner'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
   const allowed = [
-    'default_tax_rate','tips_enabled','service_fee_enabled','service_fee_percent',
-    'require_customer_for_order','allow_custom_items','allow_item_notes',
-    'allow_kitchen_notes','allow_discounts','manager_approval_for_discounts',
-    'inventory_deduction_timing','order_number_prefix','receipt_branding',
+    'default_tax_rate',
+    'tips_enabled',
+    'service_fee_enabled',
+    'service_fee_percent',
+    'require_customer_for_order',
+    'allow_custom_items',
+    'allow_item_notes',
+    'allow_kitchen_notes',
+    'allow_discounts',
+    'manager_approval_for_discounts',
+    'inventory_deduction_timing',
+    'order_number_prefix',
+    'receipt_branding',
   ]
 
   const update: Record<string, unknown> = {}

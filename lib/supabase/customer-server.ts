@@ -9,5 +9,5 @@
 
 export {
   createSessionServerClient as createCustomerSessionClient,
-  getSupabaseServerClient   as getCustomerServiceClient,
+  getSupabaseServerClient as getCustomerServiceClient,
 } from '@/lib/supabase/server'

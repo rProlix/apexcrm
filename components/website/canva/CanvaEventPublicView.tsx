@@ -20,13 +20,30 @@ interface Props {
 }
 
 export function CanvaEventPublicView({
-  embedUrl, sourceUrl, embedCode, isCustomCanvaDomain, title,
-  cameraHref, galleryHref, loginHref, rsvpHref, isDraftPreview,
+  embedUrl,
+  sourceUrl,
+  embedCode,
+  isCustomCanvaDomain,
+  title,
+  cameraHref,
+  galleryHref,
+  loginHref,
+  rsvpHref,
+  isDraftPreview,
 }: Props) {
   return (
     <main style={{ minHeight: '100vh', background: 'var(--color-bg,#0b0b0b)' }}>
       {isDraftPreview && (
-        <div style={{ background: '#7c3aed', color: '#fff', textAlign: 'center', padding: '0.5rem 1rem', fontSize: '0.8125rem', fontWeight: 600 }}>
+        <div
+          style={{
+            background: '#7c3aed',
+            color: '#fff',
+            textAlign: 'center',
+            padding: '0.5rem 1rem',
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+          }}
+        >
           Draft preview — this is how your event website will look once published.
         </div>
       )}

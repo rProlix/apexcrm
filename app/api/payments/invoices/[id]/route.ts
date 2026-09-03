@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .maybeSingle()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    if (!data)  return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     // Enforce tenant scope for admin
     if (dashUser.role !== 'owner' && data.tenant_id !== dashUser.tenant_id) {
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!data)  return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   return NextResponse.json({ invoice: data })
 }
@@ -68,7 +68,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -79,7 +81,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (updates.status) {
-    const valid = ['draft', 'pending', 'paid', 'failed', 'canceled', 'refunded', 'partially_refunded']
+    const valid = [
+      'draft',
+      'pending',
+      'paid',
+      'failed',
+      'canceled',
+      'refunded',
+      'partially_refunded',
+    ]
     if (!valid.includes(updates.status as string)) {
       return NextResponse.json({ error: `Invalid status: ${updates.status}` }, { status: 400 })
     }
@@ -123,7 +133,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: 'Cannot delete a paid invoice' }, { status: 400 })
   }
 
-  const { error } = await supabase.from('invoices').delete().eq('id', (await params).id)
+  const { error } = await supabase
+    .from('invoices')
+    .delete()
+    .eq('id', (await params).id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

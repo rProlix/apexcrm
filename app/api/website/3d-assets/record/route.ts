@@ -9,13 +9,21 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserContext }           from '@/lib/auth/getUserContext'
-import { getSupabaseServerClient }  from '@/lib/supabase/server'
-import { STORAGE_BUCKETS }          from '@/lib/storage/buckets'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { STORAGE_BUCKETS } from '@/lib/storage/buckets'
 
 const VALID_ASSET_TYPES = new Set([
-  'glb', 'gltf', 'video', 'image_sequence', 'image_sequence_frame', 'thumbnail',
-  'poster', 'fallback', 'environment', 'texture',
+  'glb',
+  'gltf',
+  'video',
+  'image_sequence',
+  'image_sequence_frame',
+  'thumbnail',
+  'poster',
+  'fallback',
+  'environment',
+  'texture',
 ])
 
 function forbidden() {
@@ -46,29 +54,29 @@ export async function POST(req: NextRequest) {
   const { data: asset, error } = await (db as any)
     .from('website_3d_assets')
     .insert({
-      tenant_id:        tenantId,
-      website_id:       b.website_id ?? null,
-      business_id:      b.business_id ?? null,
-      section_id:       b.section_id ?? null,
-      sequence_id:      b.sequence_id ?? null,
-      name:             b.name ?? 'asset',
-      asset_type:       assetType,
-      render_mode:      b.render_mode ?? null,
+      tenant_id: tenantId,
+      website_id: b.website_id ?? null,
+      business_id: b.business_id ?? null,
+      section_id: b.section_id ?? null,
+      sequence_id: b.sequence_id ?? null,
+      name: b.name ?? 'asset',
+      asset_type: assetType,
+      render_mode: b.render_mode ?? null,
       storage_provider: 'supabase',
-      bucket:           b.bucket ?? STORAGE_BUCKETS.WEBSITE_ASSETS,
-      storage_path:     b.storage_path,
-      public_url:       b.public_url,
-      file_size_bytes:  b.file_size_bytes ?? null,
-      mime_type:        b.mime_type ?? null,
-      width:            b.width ?? null,
-      height:           b.height ?? null,
+      bucket: b.bucket ?? STORAGE_BUCKETS.WEBSITE_ASSETS,
+      storage_path: b.storage_path,
+      public_url: b.public_url,
+      file_size_bytes: b.file_size_bytes ?? null,
+      mime_type: b.mime_type ?? null,
+      width: b.width ?? null,
+      height: b.height ?? null,
       duration_seconds: b.duration_seconds ?? null,
-      frame_count:      b.frame_count ?? null,
-      frame_index:      b.frame_index ?? null,
-      fps:              b.fps ?? null,
-      sort_order:       b.sort_order ?? 0,
-      created_by:       ctx.id ?? null,
-      metadata:         { original_name: b.name ?? 'asset', ...(b.metadata ?? {}) },
+      frame_count: b.frame_count ?? null,
+      frame_index: b.frame_index ?? null,
+      fps: b.fps ?? null,
+      sort_order: b.sort_order ?? 0,
+      created_by: ctx.id ?? null,
+      metadata: { original_name: b.name ?? 'asset', ...(b.metadata ?? {}) },
     })
     .select('*')
     .single()

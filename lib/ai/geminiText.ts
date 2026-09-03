@@ -14,7 +14,11 @@
 //
 // SERVER-ONLY. Never import from client components.
 
-import { callGeminiText, type GeminiTextRequestOptions, type GeminiTextResult } from './geminiRequest'
+import {
+  callGeminiText,
+  type GeminiTextRequestOptions,
+  type GeminiTextResult,
+} from './geminiRequest'
 import { safeParseGeminiJson } from './parseGeminiJson'
 
 const DEFAULT_360_PLANNING_MODEL = 'gemini-2.5-flash-lite'
@@ -24,18 +28,18 @@ export type { GeminiTextRequestOptions, GeminiTextResult }
 // ─── 360-scoped text generation ───────────────────────────────────────────────
 
 export interface P360TextOptions {
-  prompt:          string
-  feature?:        string
-  temperature?:    number
+  prompt: string
+  feature?: string
+  temperature?: number
   maxOutputTokens?: number
-  timeoutMs?:      number
+  timeoutMs?: number
 }
 
 export interface P360TextResult<T = string> {
-  text:       string
-  data:       T | null
+  text: string
+  data: T | null
   parseError?: string
-  error?:     string
+  error?: string
 }
 
 /**
@@ -50,16 +54,16 @@ export async function plan360Text(opts: P360TextOptions): Promise<P360TextResult
   const model = (process.env.GEMINI_360_PLANNER_MODEL ?? DEFAULT_360_PLANNING_MODEL).trim()
   const result = await callGeminiText({
     model,
-    prompt:          opts.prompt,
-    feature:         opts.feature ?? '360-planning',
-    temperature:     opts.temperature ?? 0.3,
+    prompt: opts.prompt,
+    feature: opts.feature ?? '360-planning',
+    temperature: opts.temperature ?? 0.3,
     maxOutputTokens: opts.maxOutputTokens ?? 4096,
-    timeoutMs:       opts.timeoutMs ?? 30_000,
+    timeoutMs: opts.timeoutMs ?? 30_000,
   })
   return {
-    text:       result.text,
-    data:       result.text || null,
-    error:      result.error,
+    text: result.text,
+    data: result.text || null,
+    error: result.error,
     parseError: undefined,
   }
 }
@@ -77,17 +81,17 @@ export async function plan360Json<T = unknown>(opts: P360TextOptions): Promise<P
   const model = (process.env.GEMINI_360_PLANNER_MODEL ?? DEFAULT_360_PLANNING_MODEL).trim()
   const result = await callGeminiText<T>({
     model,
-    prompt:          opts.prompt,
-    feature:         opts.feature ?? '360-json-planning',
-    temperature:     opts.temperature ?? 0.2,
+    prompt: opts.prompt,
+    feature: opts.feature ?? '360-json-planning',
+    temperature: opts.temperature ?? 0.2,
     maxOutputTokens: opts.maxOutputTokens ?? 8192,
-    expectJson:      true,
-    timeoutMs:       opts.timeoutMs ?? 30_000,
+    expectJson: true,
+    timeoutMs: opts.timeoutMs ?? 30_000,
   })
   return {
-    text:       result.text,
-    data:       result.data,
-    error:      result.error,
+    text: result.text,
+    data: result.data,
+    error: result.error,
     parseError: result.parseError,
   }
 }
@@ -101,7 +105,7 @@ export async function plan360Json<T = unknown>(opts: P360TextOptions): Promise<P
  */
 export async function enhanceFramePrompt(
   originalPrompt: string,
-  productName:    string,
+  productName: string
 ): Promise<string> {
   const prompt = `You are a professional product photography prompt engineer.
 Rewrite the following 360° product photography prompt to be more vivid and photorealistic.
@@ -116,7 +120,7 @@ ${originalPrompt}`
 
   const { text, error } = await plan360Text({
     prompt,
-    feature:     '360-prompt-enhance',
+    feature: '360-prompt-enhance',
     temperature: 0.4,
   })
 

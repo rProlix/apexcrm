@@ -11,8 +11,8 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserContext }           from '@/lib/auth/getUserContext'
-import { getSupabaseServerClient }  from '@/lib/supabase/server'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 type RouteContext = { params: Promise<{ assetId: string }> }
 
@@ -45,12 +45,13 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const update: Record<string, any> = {}
-  if (typeof body.name === 'string' && body.name.trim()) update.name = body.name.trim().slice(0, 200)
+  if (typeof body.name === 'string' && body.name.trim())
+    update.name = body.name.trim().slice(0, 200)
   if (typeof body.sort_order === 'number') update.sort_order = body.sort_order
   if (typeof body.is_archived === 'boolean') update.is_archived = body.is_archived
   if (typeof body.is_active === 'boolean') update.is_active = body.is_active
   if (body.metadata && typeof body.metadata === 'object') {
-    update.metadata = { ...(asset.metadata as Record<string, unknown> ?? {}), ...body.metadata }
+    update.metadata = { ...((asset.metadata as Record<string, unknown>) ?? {}), ...body.metadata }
   }
 
   if (Object.keys(update).length === 0) {
@@ -85,7 +86,11 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     const bucket = asset.bucket as string | undefined
     const path = asset.storage_path as string | undefined
     if (bucket && path) {
-      try { await db.storage.from(bucket).remove([path]) } catch { /* ignore */ }
+      try {
+        await db.storage.from(bucket).remove([path])
+      } catch {
+        /* ignore */
+      }
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (db as any).from('website_3d_assets').delete().eq('id', assetId)

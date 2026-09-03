@@ -27,18 +27,18 @@ export interface PlacementResult {
  * - BannerSection / ContactSection / ProductGridSection: bannerImage (new field)
  */
 export function buildImageContentPatch(
-  sectionType:   string,
-  imageRole:     string,
-  imageUrl:      string,
-  altText:       string,
-  planId:        string,
+  sectionType: string,
+  imageRole: string,
+  imageUrl: string,
+  altText: string,
+  planId: string
 ): PlacementResult {
   const meta = {
-    _ai_generated:   true,
-    _ai_plan_id:     planId,
-    _ai_image_role:  imageRole,
-    _ai_model:       'imagen-4.0-ultra-generate-001',
-    alt:             altText,
+    _ai_generated: true,
+    _ai_plan_id: planId,
+    _ai_image_role: imageRole,
+    _ai_model: 'imagen-4.0-ultra-generate-001',
+    alt: altText,
   }
 
   switch (sectionType) {
@@ -47,9 +47,8 @@ export function buildImageContentPatch(
     case 'hero':
       return {
         contentPatch: { backgroundImage: imageUrl, backgroundImageMeta: meta },
-        placementDescription: imageRole === 'hero_background'
-          ? 'Hero background image'
-          : 'Hero image',
+        placementDescription:
+          imageRole === 'hero_background' ? 'Hero background image' : 'Hero image',
       }
 
     // ── About ───────────────────────────────────────────────────────────────
@@ -156,7 +155,7 @@ export function buildImageContentPatch(
  */
 export function mergeImageIntoContent(
   existing: Record<string, unknown>,
-  patch:    Record<string, unknown>,
+  patch: Record<string, unknown>
 ): Record<string, unknown> {
   const aiGalleryImage = patch._ai_gallery_image as Record<string, unknown> | undefined
 

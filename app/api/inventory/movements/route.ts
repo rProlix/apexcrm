@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = req.nextUrl
   const itemId = searchParams.get('item_id')
-  const limit  = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 200)
+  const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 200)
 
   const supabase = getSupabaseServerClient()
   let query = supabase
@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -64,7 +66,7 @@ export async function POST(req: NextRequest) {
   }
 
   const quantityBefore = Number(item.current_quantity)
-  const quantityAfter  = quantityBefore + Number(quantity_delta)
+  const quantityAfter = quantityBefore + Number(quantity_delta)
 
   // Update item quantity
   const { error: updateErr } = await supabase
@@ -82,14 +84,14 @@ export async function POST(req: NextRequest) {
   const { data: movement, error: moveErr } = await supabase
     .from('inventory_movements')
     .insert({
-      tenant_id:          user.tenant_id,
+      tenant_id: user.tenant_id,
       inventory_item_id,
-      movement_type:      typeof movement_type === 'string' ? movement_type : 'manual_adjustment',
-      quantity_delta:     Number(quantity_delta),
-      quantity_before:    quantityBefore,
-      quantity_after:     quantityAfter,
-      reason:             typeof reason === 'string' ? reason || null : null,
-      notes:              typeof notes === 'string' ? notes || null : null,
+      movement_type: typeof movement_type === 'string' ? movement_type : 'manual_adjustment',
+      quantity_delta: Number(quantity_delta),
+      quantity_before: quantityBefore,
+      quantity_after: quantityAfter,
+      reason: typeof reason === 'string' ? reason || null : null,
+      notes: typeof notes === 'string' ? notes || null : null,
     })
     .select()
     .single()

@@ -12,13 +12,15 @@ export type SlackOAuthState = {
 const STATE_MAX_AGE_MS = 10 * 60 * 1000
 
 function stateKey(): Buffer {
-  return Buffer.from(hkdfSync(
-    'sha256',
-    getTokenEncryptionKey(),
-    Buffer.alloc(0),
-    Buffer.from('nexoranow/slack-oauth-state/v1'),
-    32,
-  ))
+  return Buffer.from(
+    hkdfSync(
+      'sha256',
+      getTokenEncryptionKey(),
+      Buffer.alloc(0),
+      Buffer.from('nexoranow/slack-oauth-state/v1'),
+      32
+    )
+  )
 }
 
 export function createSlackOAuthState(input: Omit<SlackOAuthState, 'nonce' | 'issuedAt'>) {
@@ -38,7 +40,10 @@ export function verifySlackOAuthState(value: string, expectedNonce?: string): Sl
 
   const expectedSignature = createHmac('sha256', stateKey()).update(encoded).digest()
   const supplied = Buffer.from(suppliedSignature, 'base64url')
-  if (supplied.length !== expectedSignature.length || !timingSafeEqual(supplied, expectedSignature)) {
+  if (
+    supplied.length !== expectedSignature.length ||
+    !timingSafeEqual(supplied, expectedSignature)
+  ) {
     throw new Error('Invalid Slack OAuth state signature')
   }
 
@@ -49,12 +54,22 @@ export function verifySlackOAuthState(value: string, expectedNonce?: string): Sl
     throw new Error('Unreadable Slack OAuth state')
   }
 
-  if (!payload.tenantId || payload.businessId !== payload.tenantId || !payload.userId || !payload.nonce) {
+  if (
+    !payload.tenantId ||
+    payload.businessId !== payload.tenantId ||
+    !payload.userId ||
+    !payload.nonce
+  ) {
     throw new Error('Invalid Slack OAuth state payload')
   }
-  if (!Number.isFinite(payload.issuedAt) || Date.now() - payload.issuedAt > STATE_MAX_AGE_MS || payload.issuedAt > Date.now() + 30_000) {
+  if (
+    !Number.isFinite(payload.issuedAt) ||
+    Date.now() - payload.issuedAt > STATE_MAX_AGE_MS ||
+    payload.issuedAt > Date.now() + 30_000
+  ) {
     throw new Error('Slack OAuth state expired')
   }
-  if (expectedNonce && payload.nonce !== expectedNonce) throw new Error('Slack OAuth nonce mismatch')
+  if (expectedNonce && payload.nonce !== expectedNonce)
+    throw new Error('Slack OAuth nonce mismatch')
   return payload
 }

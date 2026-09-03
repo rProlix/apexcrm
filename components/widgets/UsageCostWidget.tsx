@@ -22,9 +22,7 @@ export function UsageCostWidget({ data }: UsageCostWidgetProps) {
       <div className="flex items-end justify-between">
         <div>
           <p className="text-xs text-white/35 uppercase tracking-widest mb-1">Total This Cycle</p>
-          <p className="text-3xl font-bold text-gold-400 tabular-nums">
-            {formatCents(total)}
-          </p>
+          <p className="text-3xl font-bold text-gold-400 tabular-nums">{formatCents(total)}</p>
         </div>
         <span className="text-xs text-white/25 border border-white/10 rounded-lg px-2 py-1">
           Current month

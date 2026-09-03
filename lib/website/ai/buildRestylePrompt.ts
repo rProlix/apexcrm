@@ -3,7 +3,11 @@
 // The prompt instructs Gemini to redesign the visual presentation of an existing
 // website while preserving all content, sections, and business data.
 
-import type { RestyleSectionContext, RestyleBusinessContext, RestyleIntensity } from './restyleTypes'
+import type {
+  RestyleSectionContext,
+  RestyleBusinessContext,
+  RestyleIntensity,
+} from './restyleTypes'
 
 export interface BuildRestylePromptOptions {
   business: RestyleBusinessContext
@@ -18,35 +22,58 @@ export interface BuildRestylePromptOptions {
 }
 
 const STYLE_PRESET_DESCRIPTIONS: Record<string, string> = {
-  premium_modern:   'Clean, minimal, high-contrast. Geometric precision, bold typography, white space, subtle shadows, refined micro-details.',
-  luxury_editorial: 'Ultra-high-end editorial magazine aesthetic. Oversized type, dramatic full-bleed imagery, slow elegant transitions, quiet luxury.',
-  warm_restaurant:  'Warm, inviting, appetite-stimulating. Rich earthy tones, cinematic food photography overlays, curved sections, candlelit warmth.',
-  clean_saas:       'Crisp SaaS product aesthetic. Blue-tinted neutrals, feature grids, conversion-focused layouts, trust signals, data visualization.',
-  bold_automotive:  'Powerful, precision-engineered. Dark surfaces, metallic accents, angular dividers, full-bleed vehicle imagery, motion energy.',
-  calm_medical:     'Trustworthy, clean, reassuring. Soft blues and greens, professional typography, ample white space, easy navigation, WCAG AA+.',
-  elegant_law_firm: 'Authoritative, dignified, trustworthy. Classic serif typography, deep navy or charcoal, gold accents, editorial layout, no gimmicks.',
-  beauty_spa:       'Luxurious, calming, feminine. Blush and gold tones, organic rounded shapes, soft gradients, editorial photography treatment.',
-  dark_premium:     'Dark mode premium. Deep charcoal backgrounds, glowing accents, premium card surfaces, subtle light effects, modern and sophisticated.',
-  bright_friendly:  'Energetic, accessible, approachable. Bright clean colors, friendly rounded elements, bold CTAs, welcoming layout, mobile-first.',
-  custom:           'Custom style direction provided by the user.',
+  premium_modern:
+    'Clean, minimal, high-contrast. Geometric precision, bold typography, white space, subtle shadows, refined micro-details.',
+  luxury_editorial:
+    'Ultra-high-end editorial magazine aesthetic. Oversized type, dramatic full-bleed imagery, slow elegant transitions, quiet luxury.',
+  warm_restaurant:
+    'Warm, inviting, appetite-stimulating. Rich earthy tones, cinematic food photography overlays, curved sections, candlelit warmth.',
+  clean_saas:
+    'Crisp SaaS product aesthetic. Blue-tinted neutrals, feature grids, conversion-focused layouts, trust signals, data visualization.',
+  bold_automotive:
+    'Powerful, precision-engineered. Dark surfaces, metallic accents, angular dividers, full-bleed vehicle imagery, motion energy.',
+  calm_medical:
+    'Trustworthy, clean, reassuring. Soft blues and greens, professional typography, ample white space, easy navigation, WCAG AA+.',
+  elegant_law_firm:
+    'Authoritative, dignified, trustworthy. Classic serif typography, deep navy or charcoal, gold accents, editorial layout, no gimmicks.',
+  beauty_spa:
+    'Luxurious, calming, feminine. Blush and gold tones, organic rounded shapes, soft gradients, editorial photography treatment.',
+  dark_premium:
+    'Dark mode premium. Deep charcoal backgrounds, glowing accents, premium card surfaces, subtle light effects, modern and sophisticated.',
+  bright_friendly:
+    'Energetic, accessible, approachable. Bright clean colors, friendly rounded elements, bold CTAs, welcoming layout, mobile-first.',
+  custom: 'Custom style direction provided by the user.',
 }
 
 export function buildRestylePrompt(opts: BuildRestylePromptOptions): string {
   const {
-    business, sections, stylePreset, customPrompt, intensity,
-    preserveImages, generateImageSuggestions, applyAnimations, mobileFirst,
+    business,
+    sections,
+    stylePreset,
+    customPrompt,
+    intensity,
+    preserveImages,
+    generateImageSuggestions,
+    applyAnimations,
+    mobileFirst,
   } = opts
 
   const presetDescription = STYLE_PRESET_DESCRIPTIONS[stylePreset] ?? stylePreset
 
-  const sectionList = sections.map((s, i) =>
-    `  { "id": "${s.id}", "type": "${s.type}", "title": "${s.title ?? s.type}", "sortOrder": ${s.sortOrder}, "pageId": "${s.pageId}" }`
-  ).join(',\n')
+  const sectionList = sections
+    .map(
+      (s, i) =>
+        `  { "id": "${s.id}", "type": "${s.type}", "title": "${s.title ?? s.type}", "sortOrder": ${s.sortOrder}, "pageId": "${s.pageId}" }`
+    )
+    .join(',\n')
 
   const intensityGuide = {
-    subtle:    'Subtle — minimal visual changes. Refine colors slightly, improve readability, tighten spacing. No dramatic background changes.',
-    balanced:  'Balanced — meaningful visual improvements. Update colors, backgrounds, dividers, card styles. Keep the site recognizable but clearly improved.',
-    cinematic: 'Cinematic — dramatic premium redesign. Full color palette transformation, cinematic backgrounds, dramatic overlays, premium section transitions.',
+    subtle:
+      'Subtle — minimal visual changes. Refine colors slightly, improve readability, tighten spacing. No dramatic background changes.',
+    balanced:
+      'Balanced — meaningful visual improvements. Update colors, backgrounds, dividers, card styles. Keep the site recognizable but clearly improved.',
+    cinematic:
+      'Cinematic — dramatic premium redesign. Full color palette transformation, cinematic backgrounds, dramatic overlays, premium section transitions.',
   }[intensity]
 
   const mobilePriority = mobileFirst
@@ -251,7 +278,9 @@ Return a JSON object matching EXACTLY this schema:
       "fix": "describe mobile fix"
     }
   ],
-  "warnings": ["any important warnings about this restyle"],${applyAnimations ? `
+  "warnings": ["any important warnings about this restyle"],${
+    applyAnimations
+      ? `
   "animationPlan": {
     "globalMotionStyle": "description of animation approach",
     "reducedMotionRespected": true,
@@ -269,7 +298,11 @@ Return a JSON object matching EXACTLY this schema:
         "reason": "why this animation is appropriate"
       }
     ]
-  },` : ''}${generateImageSuggestions && !preserveImages ? `
+  },`
+      : ''
+  }${
+    generateImageSuggestions && !preserveImages
+      ? `
   "imageSuggestions": [
     {
       "sectionId": "<uuid or null>",
@@ -280,7 +313,9 @@ Return a JSON object matching EXACTLY this schema:
       "aspectRatio": "16:9",
       "notes": "why this image would enhance this section"
     }
-  ]` : ''}
+  ]`
+      : ''
+  }
 }
 
 REMINDER:

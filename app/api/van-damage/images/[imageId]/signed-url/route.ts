@@ -25,7 +25,7 @@ function isMissingImageAssetsTable(error: { code?: string; message: string } | n
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ imageId: string }> },
+  { params }: { params: Promise<{ imageId: string }> }
 ) {
   const access = await resolveVanDamageAccess(request.nextUrl.searchParams.get('businessId'))
   if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status })
@@ -33,7 +33,8 @@ export async function GET(
   const requestedProfile = request.nextUrl.searchParams.get('profile') ?? 'medium'
   const profile = allowedProfiles.has(requestedProfile) ? requestedProfile : 'medium'
   const db = getVanDamageServiceClient()
-  const { data: image, error } = await db.from('van_damage_images')
+  const { data: image, error } = await db
+    .from('van_damage_images')
     .select('id, s3_bucket, s3_key')
     .eq('id', imageId)
     .eq('tenant_id', access.tenantId)
@@ -44,13 +45,34 @@ export async function GET(
   const assetDb = db as unknown as {
     from(table: 'van_damage_image_assets'): {
       select(columns: string): {
-        eq(column: string, value: string): {
-          eq(column: string, value: string): {
-            eq(column: string, value: string): {
-              eq(column: string, value: string): {
-                eq(column: string, value: string): {
-                  eq(column: string, value: string): {
-                    order(column: string, options: { ascending: boolean }): {
+        eq(
+          column: string,
+          value: string
+        ): {
+          eq(
+            column: string,
+            value: string
+          ): {
+            eq(
+              column: string,
+              value: string
+            ): {
+              eq(
+                column: string,
+                value: string
+              ): {
+                eq(
+                  column: string,
+                  value: string
+                ): {
+                  eq(
+                    column: string,
+                    value: string
+                  ): {
+                    order(
+                      column: string,
+                      options: { ascending: boolean }
+                    ): {
                       limit(count: number): {
                         maybeSingle(): Promise<{
                           data: DerivativeAssetRow | null
@@ -109,7 +131,8 @@ export async function GET(
     bucket = originalAsset?.bucket ?? null
     key = originalAsset?.object_key ?? null
   }
-  if (!bucket || !key) return NextResponse.json({ error: 'Image has not been uploaded yet' }, { status: 409 })
+  if (!bucket || !key)
+    return NextResponse.json({ error: 'Image has not been uploaded yet' }, { status: 409 })
 
   const { region } = getVanDamageAwsEnv()
   const signerClient = s3Client ?? (s3Client = new S3Client({ region, maxAttempts: 2 }))
@@ -119,25 +142,31 @@ export async function GET(
   const signed = await getCachedPrivateMediaSignedUrl({
     cacheKey,
     ttlSeconds: SIGNED_URL_TTL_SECONDS,
-    create: () => getSignedUrl(
-      signerClient,
-      new GetObjectCommand({
-        Bucket: bucket!,
-        Key: key!,
-        ...(download ? { ResponseContentDisposition: `attachment; filename="inspection-${image.id}"` } : {}),
-      }),
-      { expiresIn: SIGNED_URL_TTL_SECONDS },
-    ),
+    create: () =>
+      getSignedUrl(
+        signerClient,
+        new GetObjectCommand({
+          Bucket: bucket!,
+          Key: key!,
+          ...(download
+            ? { ResponseContentDisposition: `attachment; filename="inspection-${image.id}"` }
+            : {}),
+        }),
+        { expiresIn: SIGNED_URL_TTL_SECONDS }
+      ),
   })
   const headers = {
     'Cache-Control': `private, max-age=${SIGNED_URL_TTL_SECONDS - 30}, must-revalidate`,
     Vary: 'Cookie',
   }
   if (download) return NextResponse.redirect(signed.url, { headers })
-  return NextResponse.json({
-    url: signed.url,
-    profile,
-    expiresIn: Math.max(1, Math.floor((signed.expiresAt - now) / 1000)),
-    expiresAt: new Date(signed.expiresAt).toISOString(),
-  }, { headers })
+  return NextResponse.json(
+    {
+      url: signed.url,
+      profile,
+      expiresIn: Math.max(1, Math.floor((signed.expiresAt - now) / 1000)),
+      expiresAt: new Date(signed.expiresAt).toISOString(),
+    },
+    { headers }
+  )
 }

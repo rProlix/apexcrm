@@ -5,8 +5,8 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { generateState } from '@/lib/payments/oauth/generateState'
 
 const SQUARE_APPLICATION_ID = process.env.SQUARE_APPLICATION_ID
-const NEXT_PUBLIC_APP_URL   = process.env.NEXT_PUBLIC_APP_URL ?? ''
-const IS_PRODUCTION         = process.env.NODE_ENV === 'production'
+const NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? ''
+const IS_PRODUCTION = process.env.NODE_ENV === 'production'
 
 export async function GET(): Promise<NextResponse> {
   const ctx = await getUserContext()
@@ -26,16 +26,16 @@ export async function GET(): Promise<NextResponse> {
     )
   }
 
-  const state        = generateState(ctx.tenant_id, 'square')
-  const redirectUri  = `${NEXT_PUBLIC_APP_URL}/api/payments/oauth/square/callback`
+  const state = generateState(ctx.tenant_id, 'square')
+  const redirectUri = `${NEXT_PUBLIC_APP_URL}/api/payments/oauth/square/callback`
 
   const cookieStore = await cookies()
   cookieStore.set('square_oauth_state', state, {
     httpOnly: true,
-    secure:   IS_PRODUCTION,
+    secure: IS_PRODUCTION,
     sameSite: 'lax',
-    maxAge:   600,
-    path:     '/',
+    maxAge: 600,
+    path: '/',
   })
 
   const baseUrl = IS_PRODUCTION
@@ -43,9 +43,10 @@ export async function GET(): Promise<NextResponse> {
     : 'https://connect.squareupsandbox.com/oauth2/authorize'
 
   const params = new URLSearchParams({
-    client_id:    SQUARE_APPLICATION_ID,
-    scope:        'MERCHANT_PROFILE_READ PAYMENTS_READ PAYMENTS_WRITE ORDERS_READ ORDERS_WRITE INVOICES_READ INVOICES_WRITE REFUNDS_READ',
-    session:      'false',
+    client_id: SQUARE_APPLICATION_ID,
+    scope:
+      'MERCHANT_PROFILE_READ PAYMENTS_READ PAYMENTS_WRITE ORDERS_READ ORDERS_WRITE INVOICES_READ INVOICES_WRITE REFUNDS_READ',
+    session: 'false',
     state,
     redirect_uri: redirectUri,
   })

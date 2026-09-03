@@ -5,17 +5,17 @@ import { motion } from 'framer-motion'
 import { Settings, Save, Info } from 'lucide-react'
 
 interface PaymentSettings {
-  id:                          string
-  tenant_id:                   string
-  default_provider:            string
-  currency:                    string
-  tax_rate:                    number
-  allow_manual_invoices:       boolean
+  id: string
+  tenant_id: string
+  default_provider: string
+  currency: string
+  tax_rate: number
+  allow_manual_invoices: boolean
   allow_saved_payment_methods: boolean
-  allow_partial_payments:      boolean
-  receipt_email_enabled:       boolean
-  created_at:                  string
-  updated_at:                  string
+  allow_partial_payments: boolean
+  receipt_email_enabled: boolean
+  created_at: string
+  updated_at: string
 }
 
 interface Props {
@@ -24,15 +24,15 @@ interface Props {
 }
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'MXN', 'BRL']
-const PROVIDERS  = [
+const PROVIDERS = [
   { value: 'stripe', label: 'Stripe' },
   { value: 'square', label: 'Square' },
 ]
 
 export function ProviderSettingsForm({ settings, tenantId: _tenantId }: Props) {
-  const [form, setForm]       = useState({ ...settings })
+  const [form, setForm] = useState({ ...settings })
   const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
   async function handleSave() {
@@ -42,16 +42,16 @@ export function ProviderSettingsForm({ settings, tenantId: _tenantId }: Props) {
 
     try {
       const res = await fetch('/api/payments/settings', {
-        method:  'PATCH',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          default_provider:            form.default_provider,
-          currency:                    form.currency,
-          tax_rate:                    Number(form.tax_rate),
-          allow_manual_invoices:       form.allow_manual_invoices,
+          default_provider: form.default_provider,
+          currency: form.currency,
+          tax_rate: Number(form.tax_rate),
+          allow_manual_invoices: form.allow_manual_invoices,
           allow_saved_payment_methods: form.allow_saved_payment_methods,
-          allow_partial_payments:      form.allow_partial_payments,
-          receipt_email_enabled:       form.receipt_email_enabled,
+          allow_partial_payments: form.allow_partial_payments,
+          receipt_email_enabled: form.receipt_email_enabled,
         }),
       })
 
@@ -68,7 +68,13 @@ export function ProviderSettingsForm({ settings, tenantId: _tenantId }: Props) {
     }
   }
 
-  const toggle = (key: 'allow_manual_invoices' | 'allow_saved_payment_methods' | 'allow_partial_payments' | 'receipt_email_enabled') => {
+  const toggle = (
+    key:
+      | 'allow_manual_invoices'
+      | 'allow_saved_payment_methods'
+      | 'allow_partial_payments'
+      | 'receipt_email_enabled'
+  ) => {
     setForm({ ...form, [key]: !form[key] })
   }
 
@@ -85,7 +91,11 @@ export function ProviderSettingsForm({ settings, tenantId: _tenantId }: Props) {
         </div>
       </div>
 
-      {error   && <div className="p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">{error}</div>}
+      {error && (
+        <div className="p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">
+          {error}
+        </div>
+      )}
       {success && (
         <motion.div
           initial={{ opacity: 0, y: -4 }}
@@ -109,7 +119,9 @@ export function ProviderSettingsForm({ settings, tenantId: _tenantId }: Props) {
               className="store-input w-full text-sm"
             >
               {PROVIDERS.map((p) => (
-                <option key={p.value} value={p.value}>{p.label}</option>
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
               ))}
             </select>
           </div>
@@ -121,7 +133,9 @@ export function ProviderSettingsForm({ settings, tenantId: _tenantId }: Props) {
               className="store-input w-full text-sm"
             >
               {CURRENCIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
             </select>
           </div>
@@ -148,27 +162,30 @@ export function ProviderSettingsForm({ settings, tenantId: _tenantId }: Props) {
 
         {[
           {
-            key:   'allow_manual_invoices' as const,
+            key: 'allow_manual_invoices' as const,
             label: 'Manual Invoices',
-            desc:  'Allow admins to create invoices for any amount',
+            desc: 'Allow admins to create invoices for any amount',
           },
           {
-            key:   'allow_saved_payment_methods' as const,
+            key: 'allow_saved_payment_methods' as const,
             label: 'Saved Payment Methods',
-            desc:  'Allow customers to save cards for future payments',
+            desc: 'Allow customers to save cards for future payments',
           },
           {
-            key:   'allow_partial_payments' as const,
+            key: 'allow_partial_payments' as const,
             label: 'Partial Payments & Refunds',
-            desc:  'Allow payments and refunds less than the full invoice amount',
+            desc: 'Allow payments and refunds less than the full invoice amount',
           },
           {
-            key:   'receipt_email_enabled' as const,
+            key: 'receipt_email_enabled' as const,
             label: 'Receipt Emails',
-            desc:  'Send automated receipt emails after successful payments',
+            desc: 'Send automated receipt emails after successful payments',
           },
         ].map((feature) => (
-          <label key={feature.key} className="flex items-start justify-between gap-4 cursor-pointer group">
+          <label
+            key={feature.key}
+            className="flex items-start justify-between gap-4 cursor-pointer group"
+          >
             <div>
               <p className="text-sm font-medium text-white group-hover:text-gold-400 transition-colors">
                 {feature.label}
@@ -200,10 +217,12 @@ export function ProviderSettingsForm({ settings, tenantId: _tenantId }: Props) {
         <div className="text-xs text-white/40 space-y-1">
           <p>Configure your payment provider webhooks to point to:</p>
           <p className="font-mono text-white/60 text-xs">
-            {typeof window !== 'undefined' ? window.location.origin : ''}/api/payments/webhooks/stripe
+            {typeof window !== 'undefined' ? window.location.origin : ''}
+            /api/payments/webhooks/stripe
           </p>
           <p className="font-mono text-white/60 text-xs">
-            {typeof window !== 'undefined' ? window.location.origin : ''}/api/payments/webhooks/square
+            {typeof window !== 'undefined' ? window.location.origin : ''}
+            /api/payments/webhooks/square
           </p>
         </div>
       </div>

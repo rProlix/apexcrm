@@ -11,7 +11,9 @@ import { createGuestSession } from '@/lib/pov/guestSession'
 import { randomBytes } from 'crypto'
 import type { PovGuestRow } from '@/lib/pov/types'
 
-interface RouteCtx { params: Promise<{ eventRef: string }> }
+interface RouteCtx {
+  params: Promise<{ eventRef: string }>
+}
 
 export async function POST(req: NextRequest, { params }: RouteCtx) {
   const { eventRef } = await params
@@ -21,10 +23,13 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: 'This event is not currently active.' }, { status: 403 })
   }
   if (!event.allow_guest_registration) {
-    return NextResponse.json({ error: 'New guest sign-ups are turned off for this event.' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'New guest sign-ups are turned off for this event.' },
+      { status: 403 }
+    )
   }
 
-  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const phoneRaw = String(body.phone_number ?? '')
   const pin = String(body.pin ?? '')
   const displayName = body.display_name ? String(body.display_name).trim().slice(0, 80) : null
@@ -49,7 +54,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
   if (existing) {
     return NextResponse.json(
       { error: 'This phone number already has an account. Log in instead.', code: 'exists' },
-      { status: 409 },
+      { status: 409 }
     )
   }
 
@@ -58,14 +63,14 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
   const { data: created, error } = await db
     .from('pov_guests')
     .insert({
-      tenant_id:        event.tenant_id,
-      event_id:         event.id,
-      phone_number:     phoneRaw.trim().slice(0, 32),
+      tenant_id: event.tenant_id,
+      event_id: event.id,
+      phone_number: phoneRaw.trim().slice(0, 32),
       phone_normalized: phoneNormalized,
-      display_name:     displayName,
-      pin_hash:         hashPin(pinToHash, salt),
-      pin_salt:         salt,
-      last_login_at:    new Date().toISOString(),
+      display_name: displayName,
+      pin_hash: hashPin(pinToHash, salt),
+      pin_salt: salt,
+      last_login_at: new Date().toISOString(),
     })
     .select('*')
     .single()
@@ -77,7 +82,10 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
   const guest = created as PovGuestRow
   await createGuestSession({ tenantId: event.tenant_id, eventId: event.id, guestId: guest.id })
 
-  return NextResponse.json({
-    guest: { id: guest.id, event_id: guest.event_id, display_name: guest.display_name },
-  }, { status: 201 })
+  return NextResponse.json(
+    {
+      guest: { id: guest.id, event_id: guest.event_id, display_name: guest.display_name },
+    },
+    { status: 201 }
+  )
 }

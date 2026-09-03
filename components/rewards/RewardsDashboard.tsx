@@ -6,43 +6,83 @@ import Link from 'next/link'
 import type { RewardsProgram, RewardsTransaction } from '@/types/rewards'
 
 interface Stats {
-  members:           number
-  totalIssued:       number
-  totalRedeemed:     number
-  shopItems:         number
-  activePunchCards:  number
+  members: number
+  totalIssued: number
+  totalRedeemed: number
+  shopItems: number
+  activePunchCards: number
 }
 
 interface Props {
-  tenantId:           string
-  program:            RewardsProgram | null
-  stats:              Stats
+  tenantId: string
+  program: RewardsProgram | null
+  stats: Stats
   recentTransactions: Partial<RewardsTransaction>[]
 }
 
 const statCards = [
-  { key: 'members',         label: 'Members',           icon: Users,       color: 'text-yellow-400', bg: 'bg-yellow-400/10', border: 'border-yellow-400/20' },
-  { key: 'totalIssued',     label: 'Points Issued',     icon: TrendingUp,  color: 'text-amber-400',  bg: 'bg-amber-400/10',  border: 'border-amber-400/20' },
-  { key: 'totalRedeemed',   label: 'Points Redeemed',   icon: CreditCard,  color: 'text-orange-400', bg: 'bg-orange-400/10', border: 'border-orange-400/20' },
-  { key: 'shopItems',       label: 'Shop Items',        icon: ShoppingBag, color: 'text-gold-400',   bg: 'bg-gold-400/10',   border: 'border-gold-400/20' },
-  { key: 'activePunchCards',label: 'Active Punch Cards',icon: Zap,         color: 'text-emerald-400',bg: 'bg-emerald-400/10',border: 'border-emerald-400/20' },
+  {
+    key: 'members',
+    label: 'Members',
+    icon: Users,
+    color: 'text-yellow-400',
+    bg: 'bg-yellow-400/10',
+    border: 'border-yellow-400/20',
+  },
+  {
+    key: 'totalIssued',
+    label: 'Points Issued',
+    icon: TrendingUp,
+    color: 'text-amber-400',
+    bg: 'bg-amber-400/10',
+    border: 'border-amber-400/20',
+  },
+  {
+    key: 'totalRedeemed',
+    label: 'Points Redeemed',
+    icon: CreditCard,
+    color: 'text-orange-400',
+    bg: 'bg-orange-400/10',
+    border: 'border-orange-400/20',
+  },
+  {
+    key: 'shopItems',
+    label: 'Shop Items',
+    icon: ShoppingBag,
+    color: 'text-gold-400',
+    bg: 'bg-gold-400/10',
+    border: 'border-gold-400/20',
+  },
+  {
+    key: 'activePunchCards',
+    label: 'Active Punch Cards',
+    icon: Zap,
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-400/10',
+    border: 'border-emerald-400/20',
+  },
 ]
 
 const navLinks = [
-  { href: '/dashboard/rewards/programs',    label: 'Programs',    icon: Star },
-  { href: '/dashboard/rewards/shop',        label: 'Shop Items',  icon: Gift },
+  { href: '/dashboard/rewards/programs', label: 'Programs', icon: Star },
+  { href: '/dashboard/rewards/shop', label: 'Shop Items', icon: Gift },
   { href: '/dashboard/rewards/punch-cards', label: 'Punch Cards', icon: Zap },
-  { href: '/dashboard/rewards/history',     label: 'History',     icon: TrendingUp },
-  { href: '/dashboard/rewards/settings',    label: 'Settings',    icon: CreditCard },
+  { href: '/dashboard/rewards/history', label: 'History', icon: TrendingUp },
+  { href: '/dashboard/rewards/settings', label: 'Settings', icon: CreditCard },
 ]
 
 function txTypeLabel(type: string) {
   switch (type) {
-    case 'earned':   return { label: 'Earned',   color: 'text-emerald-400' }
-    case 'redeemed': return { label: 'Redeemed', color: 'text-orange-400' }
-    case 'adjusted': return { label: 'Adjusted', color: 'text-blue-400' }
-    case 'bonus':    return { label: 'Bonus',    color: 'text-yellow-400' }
-    default:         return { label: type,       color: 'text-white/60' }
+    case 'earned':
+      return { label: 'Earned', color: 'text-emerald-400' }
+    case 'redeemed':
+      return { label: 'Redeemed', color: 'text-orange-400' }
+    case 'adjusted':
+      return { label: 'Adjusted', color: 'text-blue-400' }
+    case 'bonus':
+      return { label: 'Bonus', color: 'text-yellow-400' }
+    default:
+      return { label: type, color: 'text-white/60' }
   }
 }
 
@@ -76,7 +116,9 @@ export function RewardsDashboard({ program, stats, recentTransactions }: Props) 
             transition={{ delay: i * 0.06 }}
             className={`premium-panel premium-border rounded-2xl p-4 border ${card.border}`}
           >
-            <div className={`h-8 w-8 rounded-xl ${card.bg} border ${card.border} flex items-center justify-center mb-3`}>
+            <div
+              className={`h-8 w-8 rounded-xl ${card.bg} border ${card.border} flex items-center justify-center mb-3`}
+            >
               <card.icon className={`h-4 w-4 ${card.color}`} strokeWidth={1.75} />
             </div>
             <p className={`text-xl font-bold ${card.color}`}>
@@ -103,7 +145,9 @@ export function RewardsDashboard({ program, stats, recentTransactions }: Props) 
             <div className="h-8 w-8 rounded-lg bg-gold-400/10 border border-gold-400/20 flex items-center justify-center group-hover:bg-gold-400/16 transition-colors">
               <link.icon className="h-4 w-4 text-gold-400" strokeWidth={1.75} />
             </div>
-            <span className="text-sm font-medium text-white/70 group-hover:text-white transition-colors">{link.label}</span>
+            <span className="text-sm font-medium text-white/70 group-hover:text-white transition-colors">
+              {link.label}
+            </span>
           </Link>
         ))}
       </motion.div>
@@ -120,7 +164,9 @@ export function RewardsDashboard({ program, stats, recentTransactions }: Props) 
             <Star className="h-7 w-7 text-yellow-400/50" strokeWidth={1.5} />
           </div>
           <h3 className="text-base font-semibold text-white mb-2">No Rewards Program</h3>
-          <p className="text-sm text-white/40 mb-5">Create a rewards program to start issuing points and punch cards.</p>
+          <p className="text-sm text-white/40 mb-5">
+            Create a rewards program to start issuing points and punch cards.
+          </p>
           <Link
             href="/dashboard/rewards/programs"
             className="inline-flex items-center gap-2 bg-gold-gradient text-graphite-900 font-semibold text-sm px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity"
@@ -141,7 +187,10 @@ export function RewardsDashboard({ program, stats, recentTransactions }: Props) 
         >
           <div className="px-5 py-4 border-b border-white/6 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-white">Recent Activity</h2>
-            <Link href="/dashboard/rewards/history" className="text-xs text-gold-400 hover:text-gold-300 transition-colors">
+            <Link
+              href="/dashboard/rewards/history"
+              className="text-xs text-gold-400 hover:text-gold-300 transition-colors"
+            >
               View all
             </Link>
           </div>
@@ -151,13 +200,20 @@ export function RewardsDashboard({ program, stats, recentTransactions }: Props) 
               return (
                 <div key={tx.id ?? i} className="px-5 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-md bg-white/6 ${color}`}>{label}</span>
+                    <span
+                      className={`text-xs font-medium px-2 py-0.5 rounded-md bg-white/6 ${color}`}
+                    >
+                      {label}
+                    </span>
                     <span className="text-xs text-white/40">
                       {tx.created_at ? new Date(tx.created_at).toLocaleDateString() : '—'}
                     </span>
                   </div>
-                  <span className={`text-sm font-semibold tabular-nums ${(tx.points_delta ?? 0) > 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
-                    {(tx.points_delta ?? 0) > 0 ? '+' : ''}{tx.points_delta?.toLocaleString() ?? 0} pts
+                  <span
+                    className={`text-sm font-semibold tabular-nums ${(tx.points_delta ?? 0) > 0 ? 'text-emerald-400' : 'text-orange-400'}`}
+                  >
+                    {(tx.points_delta ?? 0) > 0 ? '+' : ''}
+                    {tx.points_delta?.toLocaleString() ?? 0} pts
                   </span>
                 </div>
               )

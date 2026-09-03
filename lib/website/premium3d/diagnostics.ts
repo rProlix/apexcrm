@@ -12,54 +12,54 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { normalizeScrollHeroContent } from './types'
 
 export interface SectionDiagnostic {
-  sectionId:    string
-  pageId:       string
-  pageStatus:   string
-  isVisible:    boolean
-  renderMode:   string
+  sectionId: string
+  pageId: string
+  pageStatus: string
+  isVisible: boolean
+  renderMode: string
   rawRenderMode: string
-  headline:     string
+  headline: string
   // Active media references
-  activeVideoAssetId:         string | null
+  activeVideoAssetId: string | null
   activeImageSequenceAssetId: string | null
-  posterAssetId:              string | null
-  fallbackAssetId:            string | null
-  videoUrlPresent:           boolean
-  posterUrlPresent:          boolean
-  fallbackUrlPresent:        boolean
-  imageSequenceFrameCount:   number
+  posterAssetId: string | null
+  fallbackAssetId: string | null
+  videoUrlPresent: boolean
+  posterUrlPresent: boolean
+  fallbackUrlPresent: boolean
+  imageSequenceFrameCount: number
   /** True when the page is published (this section is live publicly) */
-  isLive:       boolean
-  issues:       string[]
-  warnings:     string[]
+  isLive: boolean
+  issues: string[]
+  warnings: string[]
 }
 
 export interface ScrollHeroDiagnostics {
   dependencies: Array<{ name: string; purpose: string }>
-  isPublished:  boolean
+  isPublished: boolean
   sectionCount: number
-  sections:     SectionDiagnostic[]
+  sections: SectionDiagnostic[]
   assets: {
-    total:           number
-    byType:          Record<string, number>
-    brokenUrls:      Array<{ id: string; name: string; reason: string }>
-    largeWarnings:   Array<{ id: string; name: string; sizeMb: number }>
+    total: number
+    byType: Record<string, number>
+    brokenUrls: Array<{ id: string; name: string; reason: string }>
+    largeWarnings: Array<{ id: string; name: string; sizeMb: number }>
   }
   summary: {
     sectionsWithMissingAssets: number
-    sectionsMissingPoster:     number
-    sectionsMissingFallback:   number
-    invalidRenderModes:        number
+    sectionsMissingPoster: number
+    sectionsMissingFallback: number
+    invalidRenderModes: number
   }
 }
 
 const EXPECTED_DEPS = [
-  { name: 'three',                purpose: 'WebGL 3D engine' },
-  { name: '@react-three/fiber',   purpose: 'React renderer for Three.js' },
-  { name: '@react-three/drei',    purpose: 'Helpers (useGLTF, Environment)' },
-  { name: 'gsap',                 purpose: 'ScrollTrigger pin + scrub' },
-  { name: 'lenis',                purpose: 'Smooth scroll (optional)' },
-  { name: 'splitting',            purpose: 'Text splitting (React-safe splitter used instead)' },
+  { name: 'three', purpose: 'WebGL 3D engine' },
+  { name: '@react-three/fiber', purpose: 'React renderer for Three.js' },
+  { name: '@react-three/drei', purpose: 'Helpers (useGLTF, Environment)' },
+  { name: 'gsap', purpose: 'ScrollTrigger pin + scrub' },
+  { name: 'lenis', purpose: 'Smooth scroll (optional)' },
+  { name: 'splitting', purpose: 'Text splitting (React-safe splitter used instead)' },
 ]
 
 const VALID_RENDER_MODES = new Set(['three_model', 'video_scrub'])
@@ -76,10 +76,7 @@ export async function buildScrollHeroDiagnostics(tenantId: string): Promise<Scro
     .maybeSingle()
 
   // Page statuses
-  const { data: pages } = await db
-    .from('site_pages')
-    .select('id, status')
-    .eq('tenant_id', tenantId)
+  const { data: pages } = await db.from('site_pages').select('id, status').eq('tenant_id', tenantId)
   const pageStatus = new Map((pages ?? []).map((p) => [p.id as string, p.status as string]))
 
   // Scroll-hero sections
@@ -108,41 +105,59 @@ export async function buildScrollHeroDiagnostics(tenantId: string): Promise<Scro
     }
 
     if (c.renderMode === 'three_model') {
-      if (!c.modelUrl) { issues.push('No 3D model uploaded — shows demo/gradient only'); missingAssets++ }
+      if (!c.modelUrl) {
+        issues.push('No 3D model uploaded — shows demo/gradient only')
+        missingAssets++
+      }
     } else {
       if (c.useImageSequence) {
-        if ((c.imageSequenceUrls?.length ?? 0) < 2) { issues.push('Image sequence has fewer than 2 frames'); missingAssets++ }
-        if ((c.imageSequenceUrls?.length ?? 0) > 150) warnings.push(`Large image sequence (${c.imageSequenceUrls?.length} frames)`)
+        if ((c.imageSequenceUrls?.length ?? 0) < 2) {
+          issues.push('Image sequence has fewer than 2 frames')
+          missingAssets++
+        }
+        if ((c.imageSequenceUrls?.length ?? 0) > 150)
+          warnings.push(`Large image sequence (${c.imageSequenceUrls?.length} frames)`)
       } else if (!c.videoUrl) {
-        issues.push('No video uploaded for video scrub'); missingAssets++
+        issues.push('No video uploaded for video scrub')
+        missingAssets++
       }
-      if (!c.posterUrl) { warnings.push('No poster image set'); missingPoster++ }
+      if (!c.posterUrl) {
+        warnings.push('No poster image set')
+        missingPoster++
+      }
     }
 
-    if (!c.fallbackImageUrl) { warnings.push('No fallback image set'); missingFallback++ }
+    if (!c.fallbackImageUrl) {
+      warnings.push('No fallback image set')
+      missingFallback++
+    }
 
     const status = pageStatus.get(row.page_id as string) ?? 'unknown'
     const isLive = status === 'published'
-    if (!isLive && c.renderMode === 'video_scrub' && (c.videoUrl || (c.imageSequenceUrls?.length ?? 0) > 1)) {
+    if (
+      !isLive &&
+      c.renderMode === 'video_scrub' &&
+      (c.videoUrl || (c.imageSequenceUrls?.length ?? 0) > 1)
+    ) {
       warnings.push('Media is saved in draft — publish the website to show it publicly')
     }
 
     sections.push({
-      sectionId:    row.id as string,
-      pageId:       row.page_id as string,
-      pageStatus:   status,
-      isVisible:    row.is_visible !== false,
-      renderMode:   c.renderMode,
+      sectionId: row.id as string,
+      pageId: row.page_id as string,
+      pageStatus: status,
+      isVisible: row.is_visible !== false,
+      renderMode: c.renderMode,
       rawRenderMode: rawMode || c.renderMode,
-      headline:     c.headline,
-      activeVideoAssetId:         c.activeVideoAssetId ?? null,
+      headline: c.headline,
+      activeVideoAssetId: c.activeVideoAssetId ?? null,
       activeImageSequenceAssetId: c.activeImageSequenceAssetId ?? null,
-      posterAssetId:              c.posterAssetId ?? null,
-      fallbackAssetId:            c.fallbackAssetId ?? null,
-      videoUrlPresent:           !!c.videoUrl,
-      posterUrlPresent:          !!c.posterUrl,
-      fallbackUrlPresent:        !!c.fallbackImageUrl,
-      imageSequenceFrameCount:   c.imageSequenceUrls?.length ?? 0,
+      posterAssetId: c.posterAssetId ?? null,
+      fallbackAssetId: c.fallbackAssetId ?? null,
+      videoUrlPresent: !!c.videoUrl,
+      posterUrlPresent: !!c.posterUrl,
+      fallbackUrlPresent: !!c.fallbackImageUrl,
+      imageSequenceFrameCount: c.imageSequenceUrls?.length ?? 0,
       isLive,
       issues,
       warnings,
@@ -163,14 +178,16 @@ export async function buildScrollHeroDiagnostics(tenantId: string): Promise<Scro
   for (const a of assets ?? []) {
     const type = String(a.asset_type)
     byType[type] = (byType[type] ?? 0) + 1
-    if (!a.public_url) brokenUrls.push({ id: a.id as string, name: a.name as string, reason: 'Missing public URL' })
+    if (!a.public_url)
+      brokenUrls.push({ id: a.id as string, name: a.name as string, reason: 'Missing public URL' })
     const sizeMb = a.file_size_bytes ? Number(a.file_size_bytes) / 1024 / 1024 : 0
-    if (sizeMb > LARGE_ASSET_MB) largeWarnings.push({ id: a.id as string, name: a.name as string, sizeMb: Math.round(sizeMb) })
+    if (sizeMb > LARGE_ASSET_MB)
+      largeWarnings.push({ id: a.id as string, name: a.name as string, sizeMb: Math.round(sizeMb) })
   }
 
   return {
     dependencies: EXPECTED_DEPS,
-    isPublished:  !!settings?.is_published,
+    isPublished: !!settings?.is_published,
     sectionCount: sections.length,
     sections,
     assets: {
@@ -181,9 +198,9 @@ export async function buildScrollHeroDiagnostics(tenantId: string): Promise<Scro
     },
     summary: {
       sectionsWithMissingAssets: missingAssets,
-      sectionsMissingPoster:     missingPoster,
-      sectionsMissingFallback:   missingFallback,
-      invalidRenderModes:        invalidModes,
+      sectionsMissingPoster: missingPoster,
+      sectionsMissingFallback: missingFallback,
+      invalidRenderModes: invalidModes,
     },
   }
 }

@@ -35,24 +35,38 @@ function isUuid(v: unknown): v is string {
 
 function normalizeIntensity(v: unknown): 'subtle' | 'balanced' | 'cinematic' {
   const raw = String(v ?? '').toLowerCase()
-  if (['high', 'strong', 'bold', 'dramatic', 'premium', 'luxury', 'cinematic', 'ultra', 'intense', 'maximum'].includes(raw))
+  if (
+    [
+      'high',
+      'strong',
+      'bold',
+      'dramatic',
+      'premium',
+      'luxury',
+      'cinematic',
+      'ultra',
+      'intense',
+      'maximum',
+    ].includes(raw)
+  )
     return 'cinematic'
   if (['low', 'light', 'soft', 'minimal', 'gentle', 'subtle', 'quiet'].includes(raw))
     return 'subtle'
-  if (raw === 'subtle' || raw === 'balanced' || raw === 'cinematic') return raw as 'subtle' | 'balanced' | 'cinematic'
+  if (raw === 'subtle' || raw === 'balanced' || raw === 'cinematic')
+    return raw as 'subtle' | 'balanced' | 'cinematic'
   return 'balanced'
 }
 
 // ── Section lookup ────────────────────────────────────────────────────────────
 
 interface SectionLookup {
-  byId:   Map<string, RestyleSectionContext>
+  byId: Map<string, RestyleSectionContext>
   byType: Map<string, RestyleSectionContext>
-  all:    RestyleSectionContext[]
+  all: RestyleSectionContext[]
 }
 
 function buildLookup(sections: RestyleSectionContext[]): SectionLookup {
-  const byId   = new Map<string, RestyleSectionContext>()
+  const byId = new Map<string, RestyleSectionContext>()
   const byType = new Map<string, RestyleSectionContext>()
 
   for (const s of sections) {
@@ -68,7 +82,7 @@ function buildLookup(sections: RestyleSectionContext[]): SectionLookup {
 function resolveSectionId(
   candidates: unknown[],
   lookup: SectionLookup,
-  availableIds: Set<string>,
+  availableIds: Set<string>
 ): string | null {
   for (const c of candidates) {
     if (typeof c !== 'string' || !c.trim()) continue
@@ -88,7 +102,11 @@ function resolveSectionId(
 // ── Background strategy normalizer ───────────────────────────────────────────
 
 const VALID_BG_STRATEGIES = new Set([
-  'alternating_soft', 'continuous_gradient', 'layered_surfaces', 'image_blend', 'premium_cards',
+  'alternating_soft',
+  'continuous_gradient',
+  'layered_surfaces',
+  'image_blend',
+  'premium_cards',
 ])
 
 function normalizeBgStrategy(v: unknown): PageRestyleUpgrade['backgroundStrategy'] {
@@ -127,9 +145,10 @@ function ensureBackgroundVariety(upgrades: SectionRestyleUpgrade[]): SectionRest
         design: {
           ...u.design,
           backgroundType: 'gradient',
-          backgroundValue: i % 2 === 0
-            ? 'linear-gradient(180deg, var(--ds-surface) 0%, var(--ds-bg) 100%)'
-            : 'linear-gradient(180deg, var(--ds-surface-alt) 0%, var(--ds-surface) 100%)',
+          backgroundValue:
+            i % 2 === 0
+              ? 'linear-gradient(180deg, var(--ds-surface) 0%, var(--ds-bg) 100%)'
+              : 'linear-gradient(180deg, var(--ds-surface-alt) 0%, var(--ds-surface) 100%)',
         },
       }
       consecutiveCount = 0
@@ -154,15 +173,23 @@ function normalizeSectionUpgrade(
   raw: unknown,
   lookup: SectionLookup,
   availableIds: Set<string>,
-  designSystem: WebsiteDesignSystem,
+  designSystem: WebsiteDesignSystem
 ): SectionRestyleUpgrade | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const u = raw as Record<string, unknown>
 
   // Resolve section ID
   const candidates: unknown[] = [
-    u.sectionId, u.section_id, u.id, u.sectionKey, u.section_key,
-    u.sectionType, u.section_type, u.type, u.title, u.sectionTitle,
+    u.sectionId,
+    u.section_id,
+    u.id,
+    u.sectionKey,
+    u.section_key,
+    u.sectionType,
+    u.section_type,
+    u.type,
+    u.title,
+    u.sectionTitle,
   ]
   const sectionId = resolveSectionId(candidates, lookup, availableIds)
 
@@ -177,10 +204,10 @@ function normalizeSectionUpgrade(
   return {
     sectionId,
     sectionType,
-    title:           typeof u.title === 'string' ? u.title : undefined,
-    design:          readableDesign,
-    layoutVariant:   typeof u.layoutVariant === 'string' ? u.layoutVariant : 'default',
-    visualIntent:    typeof u.visualIntent === 'string' ? u.visualIntent : '',
+    title: typeof u.title === 'string' ? u.title : undefined,
+    design: readableDesign,
+    layoutVariant: typeof u.layoutVariant === 'string' ? u.layoutVariant : 'default',
+    visualIntent: typeof u.visualIntent === 'string' ? u.visualIntent : '',
     preserveContent: true,
   }
 }
@@ -189,17 +216,17 @@ function normalizeSectionUpgrade(
 
 export interface NormalizeRestylePlanOptions {
   availableSections: RestyleSectionContext[]
-  businessCategory:  string | null
+  businessCategory: string | null
 }
 
 export interface NormalizeResult {
-  plan:  WebsiteRestylePlan | null
+  plan: WebsiteRestylePlan | null
   error: string | null
 }
 
 export function normalizeRestylePlan(
   rawPlan: unknown,
-  opts:    NormalizeRestylePlanOptions,
+  opts: NormalizeRestylePlanOptions
 ): NormalizeResult {
   const { availableSections, businessCategory } = opts
 
@@ -218,17 +245,19 @@ export function normalizeRestylePlan(
 
   // ── 2. Normalize page upgrades ────────────────────────────────────────────
   const rawPageUpgrades = Array.isArray(raw.pageUpgrades) ? raw.pageUpgrades : []
-  const pageUpgrades: PageRestyleUpgrade[] = rawPageUpgrades.map((p: unknown) => {
-    if (!p || typeof p !== 'object' || Array.isArray(p)) return null
-    const pu = p as Record<string, unknown>
-    return {
-      pageId:             String(pu.pageId ?? ''),
-      pageSlug:           String(pu.pageSlug ?? '/'),
-      layoutMood:         String(pu.layoutMood ?? ''),
-      backgroundStrategy: normalizeBgStrategy(pu.backgroundStrategy),
-      sectionFlow:        normalizeSectionFlow(pu.sectionFlow),
-    } satisfies PageRestyleUpgrade
-  }).filter((p): p is PageRestyleUpgrade => p !== null)
+  const pageUpgrades: PageRestyleUpgrade[] = rawPageUpgrades
+    .map((p: unknown) => {
+      if (!p || typeof p !== 'object' || Array.isArray(p)) return null
+      const pu = p as Record<string, unknown>
+      return {
+        pageId: String(pu.pageId ?? ''),
+        pageSlug: String(pu.pageSlug ?? '/'),
+        layoutMood: String(pu.layoutMood ?? ''),
+        backgroundStrategy: normalizeBgStrategy(pu.backgroundStrategy),
+        sectionFlow: normalizeSectionFlow(pu.sectionFlow),
+      } satisfies PageRestyleUpgrade
+    })
+    .filter((p): p is PageRestyleUpgrade => p !== null)
 
   // ── 3. Normalize section upgrades ─────────────────────────────────────────
   const rawUpgrades = Array.isArray(raw.sectionUpgrades) ? raw.sectionUpgrades : []
@@ -240,15 +269,17 @@ export function normalizeRestylePlan(
   const coveredIds = new Set(sectionUpgrades.map((u) => u.sectionId).filter(Boolean))
   for (const section of availableSections) {
     if (!coveredIds.has(section.id)) {
-      warnings.push(`AI did not provide upgrade for section ${section.type} (${section.id}). Using default.`)
+      warnings.push(
+        `AI did not provide upgrade for section ${section.type} (${section.id}). Using default.`
+      )
       const defaultDesign = buildDefaultSectionDesign(designSystem)
       sectionUpgrades.push({
-        sectionId:      section.id,
-        sectionType:    section.type,
-        title:          section.title ?? undefined,
-        design:         defaultDesign,
-        layoutVariant:  'default',
-        visualIntent:   'Default upgrade applied',
+        sectionId: section.id,
+        sectionType: section.type,
+        title: section.title ?? undefined,
+        design: defaultDesign,
+        layoutVariant: 'default',
+        visualIntent: 'Default upgrade applied',
         preserveContent: true,
       })
     }
@@ -260,79 +291,92 @@ export function normalizeRestylePlan(
   // ── 4. Normalize contrast fixes ───────────────────────────────────────────
   const rawContrast = Array.isArray(raw.contrastFixes) ? raw.contrastFixes : []
   const contrastFixes: WebsiteContrastFix[] = rawContrast.map((cf: unknown) => {
-    const c = cf && typeof cf === 'object' ? cf as Record<string, unknown> : {}
+    const c = cf && typeof cf === 'object' ? (cf as Record<string, unknown>) : {}
     const validFields = ['textColor', 'subtextColor', 'buttonColor', 'overlay']
     return {
-      sectionId:   resolveSectionId([c.sectionId], lookup, availableIds),
+      sectionId: resolveSectionId([c.sectionId], lookup, availableIds),
       sectionType: String(c.sectionType ?? ''),
-      field:       validFields.includes(String(c.field)) ? c.field as WebsiteContrastFix['field'] : 'textColor',
-      issue:       String(c.issue ?? ''),
-      fix:         String(c.fix ?? ''),
+      field: validFields.includes(String(c.field))
+        ? (c.field as WebsiteContrastFix['field'])
+        : 'textColor',
+      issue: String(c.issue ?? ''),
+      fix: String(c.fix ?? ''),
     }
   })
 
   // ── 5. Normalize mobile fixes ─────────────────────────────────────────────
   const rawMobile = Array.isArray(raw.mobileFixes) ? raw.mobileFixes : []
   const mobileFixes: WebsiteMobileFix[] = rawMobile.map((mf: unknown) => {
-    const m = mf && typeof mf === 'object' ? mf as Record<string, unknown> : {}
+    const m = mf && typeof mf === 'object' ? (mf as Record<string, unknown>) : {}
     return {
-      sectionId:   resolveSectionId([m.sectionId], lookup, availableIds),
+      sectionId: resolveSectionId([m.sectionId], lookup, availableIds),
       sectionType: String(m.sectionType ?? ''),
-      issue:       String(m.issue ?? ''),
-      fix:         String(m.fix ?? ''),
+      issue: String(m.issue ?? ''),
+      fix: String(m.fix ?? ''),
     }
   })
 
   // ── 6. Normalize animation plan (optional) ────────────────────────────────
   let animationPlan: WebsiteAnimationPlan | undefined = undefined
-  if (raw.animationPlan && typeof raw.animationPlan === 'object' && !Array.isArray(raw.animationPlan)) {
+  if (
+    raw.animationPlan &&
+    typeof raw.animationPlan === 'object' &&
+    !Array.isArray(raw.animationPlan)
+  ) {
     const ap = raw.animationPlan as Record<string, unknown>
     const rawAnims = Array.isArray(ap.animations) ? ap.animations : []
     const VALID_TARGET_TYPES = new Set(['page', 'section', 'component'])
 
     animationPlan = {
-      globalMotionStyle:     String(ap.globalMotionStyle ?? ''),
+      globalMotionStyle: String(ap.globalMotionStyle ?? ''),
       reducedMotionRespected: ap.reducedMotionRespected !== false,
-      animations: rawAnims.map((a: unknown) => {
-        if (!a || typeof a !== 'object') return null
-        const anim = a as Record<string, unknown>
-        const rawTargetType = String(anim.targetType ?? 'section')
-        const targetType = VALID_TARGET_TYPES.has(rawTargetType)
-          ? rawTargetType as 'page' | 'section' | 'component'
-          : 'section'
+      animations: rawAnims
+        .map((a: unknown) => {
+          if (!a || typeof a !== 'object') return null
+          const anim = a as Record<string, unknown>
+          const rawTargetType = String(anim.targetType ?? 'section')
+          const targetType = VALID_TARGET_TYPES.has(rawTargetType)
+            ? (rawTargetType as 'page' | 'section' | 'component')
+            : 'section'
 
-        return {
-          targetType,
-          sectionId:  targetType === 'section' ? resolveSectionId([anim.sectionId, anim.targetKey], lookup, availableIds) : null,
-          targetKey:  typeof anim.targetKey === 'string' ? anim.targetKey : undefined,
-          preset:     String(anim.preset ?? anim.animationPreset ?? 'fade_up'),
-          intensity:  normalizeIntensity(anim.intensity),
-          durationMs: Math.min(3000, Math.max(100, Number(anim.durationMs ?? 600))),
-          delayMs:    Math.min(2000, Math.max(0,   Number(anim.delayMs   ?? 0))),
-          easing:     String(anim.easing ?? 'smooth'),
-          mobileEnabled: anim.mobileEnabled !== false,
-          reason:     String(anim.reason ?? ''),
-        }
-      }).filter(Boolean) as WebsiteAnimationPlan['animations'],
+          return {
+            targetType,
+            sectionId:
+              targetType === 'section'
+                ? resolveSectionId([anim.sectionId, anim.targetKey], lookup, availableIds)
+                : null,
+            targetKey: typeof anim.targetKey === 'string' ? anim.targetKey : undefined,
+            preset: String(anim.preset ?? anim.animationPreset ?? 'fade_up'),
+            intensity: normalizeIntensity(anim.intensity),
+            durationMs: Math.min(3000, Math.max(100, Number(anim.durationMs ?? 600))),
+            delayMs: Math.min(2000, Math.max(0, Number(anim.delayMs ?? 0))),
+            easing: String(anim.easing ?? 'smooth'),
+            mobileEnabled: anim.mobileEnabled !== false,
+            reason: String(anim.reason ?? ''),
+          }
+        })
+        .filter(Boolean) as WebsiteAnimationPlan['animations'],
     }
   }
 
   // ── 7. Normalize image suggestions (optional) ─────────────────────────────
   let imageSuggestions: WebsiteImageSuggestion[] | undefined = undefined
   if (Array.isArray(raw.imageSuggestions) && raw.imageSuggestions.length > 0) {
-    imageSuggestions = raw.imageSuggestions.map((is: unknown) => {
-      if (!is || typeof is !== 'object') return null
-      const img = is as Record<string, unknown>
-      return {
-        sectionId:   resolveSectionId([img.sectionId], lookup, availableIds),
-        sectionType: String(img.sectionType ?? ''),
-        slotKey:     String(img.slotKey ?? 'primary'),
-        prompt:      String(img.prompt ?? ''),
-        style:       String(img.style ?? 'photorealistic'),
-        aspectRatio: String(img.aspectRatio ?? '16:9'),
-        notes:       String(img.notes ?? ''),
-      }
-    }).filter(Boolean) as WebsiteImageSuggestion[]
+    imageSuggestions = raw.imageSuggestions
+      .map((is: unknown) => {
+        if (!is || typeof is !== 'object') return null
+        const img = is as Record<string, unknown>
+        return {
+          sectionId: resolveSectionId([img.sectionId], lookup, availableIds),
+          sectionType: String(img.sectionType ?? ''),
+          slotKey: String(img.slotKey ?? 'primary'),
+          prompt: String(img.prompt ?? ''),
+          style: String(img.style ?? 'photorealistic'),
+          aspectRatio: String(img.aspectRatio ?? '16:9'),
+          notes: String(img.notes ?? ''),
+        }
+      })
+      .filter(Boolean) as WebsiteImageSuggestion[]
   }
 
   // ── 8. Collect warnings from raw plan ────────────────────────────────────
@@ -344,7 +388,7 @@ export function normalizeRestylePlan(
 
   // ── 9. Build final plan ───────────────────────────────────────────────────
   const plan: WebsiteRestylePlan = {
-    summary:         String(raw.summary ?? 'AI Restyle applied'),
+    summary: String(raw.summary ?? 'AI Restyle applied'),
     designSystem,
     pageUpgrades,
     sectionUpgrades,

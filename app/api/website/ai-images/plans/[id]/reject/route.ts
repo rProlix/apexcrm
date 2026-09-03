@@ -9,10 +9,7 @@ import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: planId } = await params
   const ctx = await getUserContext()
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -21,7 +18,10 @@ export async function POST(
 
   const supabase = getSupabaseServerClient()
   const { data: plan, error } = await supabase
-    .from('website_image_plans').select('*').eq('id', planId).single()
+    .from('website_image_plans')
+    .select('*')
+    .eq('id', planId)
+    .single()
   if (error || !plan) return NextResponse.json({ error: 'Plan not found.' }, { status: 404 })
 
   const typedPlan = plan as WebsiteImagePlan

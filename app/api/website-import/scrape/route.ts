@@ -17,7 +17,7 @@ function forbidden() {
 }
 
 const scrapeSchema = z.object({
-  url:         z.string().url(),
+  url: z.string().url(),
   source_type: z.enum(['website', 'yelp', 'business_profile', 'manual']).default('website'),
 })
 
@@ -34,7 +34,10 @@ export async function POST(req: NextRequest) {
 
   const parsed = scrapeSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 422 })
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsed.error.flatten() },
+      { status: 422 }
+    )
   }
 
   const { url, source_type } = parsed.data
@@ -45,16 +48,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const fetched    = await fetchSource(url)
-    const metadata   = parseMetadata(fetched.html, fetched.finalUrl)
+    const fetched = await fetchSource(url)
+    const metadata = parseMetadata(fetched.html, fetched.finalUrl)
     const structured = parseStructuredData(fetched.html)
-    const visible    = parseVisibleContent(fetched.html, fetched.finalUrl)
+    const visible = parseVisibleContent(fetched.html, fetched.finalUrl)
 
     const extracted = extractBusinessFields({
       metadata,
       structured,
       visible,
-      sourceUrl:  url,
+      sourceUrl: url,
       sourceType: source_type,
     })
 
@@ -62,26 +65,26 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      url:     fetched.finalUrl,
-      title:   metadata.title ?? metadata.ogTitle,
+      url: fetched.finalUrl,
+      title: metadata.title ?? metadata.ogTitle,
       preview: {
-        businessName:   normalized.businessName,
-        description:    normalized.description,
-        phone:          normalized.phone,
-        email:          normalized.email,
-        logoUrl:        normalized.logoUrl,
-        faviconUrl:     normalized.faviconUrl,
-        address:        normalized.address,
-        hours:          normalized.hours,
-        socialLinks:    normalized.socialLinks,
-        services:       normalized.services.slice(0, 5),
-        testimonials:   normalized.testimonials.slice(0, 3),
-        faqItems:       normalized.faqItems.slice(0, 3),
-        images:         normalized.images.slice(0, 6),
-        brandColors:    normalized.brandColors,
-        seoTitle:       normalized.seoTitle,
+        businessName: normalized.businessName,
+        description: normalized.description,
+        phone: normalized.phone,
+        email: normalized.email,
+        logoUrl: normalized.logoUrl,
+        faviconUrl: normalized.faviconUrl,
+        address: normalized.address,
+        hours: normalized.hours,
+        socialLinks: normalized.socialLinks,
+        services: normalized.services.slice(0, 5),
+        testimonials: normalized.testimonials.slice(0, 3),
+        faqItems: normalized.faqItems.slice(0, 3),
+        images: normalized.images.slice(0, 6),
+        brandColors: normalized.brandColors,
+        seoTitle: normalized.seoTitle,
         seoDescription: normalized.seoDescription,
-        confidenceMap:  normalized.confidenceMap,
+        confidenceMap: normalized.confidenceMap,
       },
     })
   } catch (err) {

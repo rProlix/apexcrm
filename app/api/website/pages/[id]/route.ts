@@ -7,17 +7,10 @@ function forbidden() {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 }
 
-async function resolveOwnership(
-  ctx: Awaited<ReturnType<typeof getUserContext>>,
-  pageId: string,
-) {
+async function resolveOwnership(ctx: Awaited<ReturnType<typeof getUserContext>>, pageId: string) {
   if (!ctx) return null
   const db = getSupabaseServerClient()
-  const { data } = await db
-    .from('site_pages')
-    .select('tenant_id')
-    .eq('id', pageId)
-    .maybeSingle()
+  const { data } = await db.from('site_pages').select('tenant_id').eq('id', pageId).maybeSingle()
 
   if (!data) return null
   if (ctx.role === 'owner') return data.tenant_id
@@ -25,10 +18,7 @@ async function resolveOwnership(
   return null
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
@@ -46,10 +36,7 @@ export async function GET(
   return NextResponse.json({ page: data })
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
@@ -61,9 +48,8 @@ export async function PATCH(
   const patch: Record<string, unknown> = {}
   for (const key of allowed) {
     if (key in body) {
-      patch[key] = key === 'slug'
-        ? String(body[key]).replace(/^\//, '').toLowerCase().trim()
-        : body[key]
+      patch[key] =
+        key === 'slug' ? String(body[key]).replace(/^\//, '').toLowerCase().trim() : body[key]
     }
   }
 
@@ -79,10 +65,7 @@ export async function PATCH(
   return NextResponse.json({ page: data })
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 

@@ -21,24 +21,24 @@ import { getRewardsProgram, getProgramSettings } from './getRewardsProgram'
  * throw — rewards should never block order completion.
  */
 export async function applyOrderRewards(params: {
-  tenantId:   string
+  tenantId: string
   customerId: string
-  orderId:    string
-  items:      OrderItemForRewards[]
+  orderId: string
+  items: OrderItemForRewards[]
 }): Promise<ApplyOrderRewardsResult> {
   const { tenantId, customerId, orderId, items } = params
   const supabase = getSupabaseServerClient() as any
 
   const EMPTY: ApplyOrderRewardsResult = {
-    points_earned:   0,
-    new_balance:     0,
+    points_earned: 0,
+    new_balance: 0,
     punch_cards_hit: [],
-    transaction_id:  '',
+    transaction_id: '',
   }
 
   try {
     // Load program and settings
-    const program  = await getRewardsProgram(tenantId)
+    const program = await getRewardsProgram(tenantId)
     const settings = await getProgramSettings(tenantId)
 
     const programId = program?.id ?? null
@@ -53,12 +53,14 @@ export async function applyOrderRewards(params: {
     // ── Step 2: Upsert rewards balance ─────────────────────────────────────
     let newBalance = 0
     if (pointsEarned > 0) {
-      const { data: balanceData, error: balanceError } = await supabase
-        .rpc('upsert_rewards_balance', {
-          p_tenant_id:   tenantId,
+      const { data: balanceData, error: balanceError } = await supabase.rpc(
+        'upsert_rewards_balance',
+        {
+          p_tenant_id: tenantId,
           p_customer_id: customerId,
           p_points_delta: pointsEarned,
-        })
+        }
+      )
 
       if (balanceError) {
         console.error('[applyOrderRewards] balance upsert', balanceError.message)
@@ -82,14 +84,14 @@ export async function applyOrderRewards(params: {
       const { data: txn, error: txnError } = await supabase
         .from('rewards_transactions')
         .insert({
-          tenant_id:        tenantId,
-          customer_id:      customerId,
-          program_id:       programId,
+          tenant_id: tenantId,
+          customer_id: customerId,
+          program_id: programId,
           transaction_type: 'earned',
-          points_delta:     pointsEarned,
-          source_type:      'order',
-          source_id:        orderId,
-          metadata:         { order_id: orderId, items_count: items.length },
+          points_delta: pointsEarned,
+          source_type: 'order',
+          source_id: orderId,
+          metadata: { order_id: orderId, items_count: items.length },
         })
         .select('id')
         .single()
@@ -138,14 +140,14 @@ export async function applyOrderRewards(params: {
           const { data: newCard, error: cardError } = await supabase
             .from('reward_punch_cards')
             .insert({
-              tenant_id:   tenantId,
+              tenant_id: tenantId,
               customer_id: customerId,
-              product_id:  rule.product_id ?? null,
-              title:       rule.name,
-              punch_goal:  rule.punch_goal,
+              product_id: rule.product_id ?? null,
+              title: rule.name,
+              punch_goal: rule.punch_goal,
               reward_type: rule.reward_type,
               reward_value: rule.reward_value,
-              status:      'active',
+              status: 'active',
             })
             .select('id')
             .single()
@@ -158,11 +160,10 @@ export async function applyOrderRewards(params: {
         }
 
         // Atomically increment punches
-        const { error: incrError } = await supabase
-          .rpc('increment_punch_card', {
-            p_punch_card_id: cardId,
-            p_punches:       punchesToAdd,
-          })
+        const { error: incrError } = await supabase.rpc('increment_punch_card', {
+          p_punch_card_id: cardId,
+          p_punches: punchesToAdd,
+        })
 
         if (incrError) {
           console.error('[applyOrderRewards] punch card increment', incrError.message)
@@ -171,13 +172,13 @@ export async function applyOrderRewards(params: {
 
         // Record the punch event
         await supabase.from('reward_punch_card_events').insert({
-          tenant_id:     tenantId,
+          tenant_id: tenantId,
           punch_card_id: cardId,
-          customer_id:   customerId,
-          order_id:      orderId,
-          product_id:    rule.product_id ?? null,
+          customer_id: customerId,
+          order_id: orderId,
+          product_id: rule.product_id ?? null,
           punches_added: punchesToAdd,
-          metadata:      { rule_name: rule.name, order_id: orderId },
+          metadata: { rule_name: rule.name, order_id: orderId },
         })
 
         punchCardsHit.push(rule.name)
@@ -185,10 +186,10 @@ export async function applyOrderRewards(params: {
     }
 
     return {
-      points_earned:   pointsEarned,
-      new_balance:     newBalance,
+      points_earned: pointsEarned,
+      new_balance: newBalance,
       punch_cards_hit: punchCardsHit,
-      transaction_id:  transactionId,
+      transaction_id: transactionId,
     }
   } catch (err) {
     console.error('[applyOrderRewards] unexpected error', err)

@@ -6,7 +6,11 @@ import { detectSourceFromFile } from '@/lib/website/import-engine/detect-source'
 import { extractFromPdf } from '@/lib/website/import-engine/adapters/pdf'
 import { extractFromImages } from '@/lib/website/import-engine/adapters/image'
 import { extractFromCanvaUrl } from '@/lib/website/import-engine/adapters/canva-url'
-import type { DesignImportExtraction, DesignImportSourceType, RunDesignImportParams } from '@/lib/website/import-engine/types'
+import type {
+  DesignImportExtraction,
+  DesignImportSourceType,
+  RunDesignImportParams,
+} from '@/lib/website/import-engine/types'
 
 export interface ExtractPipelineResult {
   ok: boolean
@@ -17,7 +21,7 @@ export interface ExtractPipelineResult {
 }
 
 export async function runExtractPipeline(
-  params: RunDesignImportParams & { sourceType?: DesignImportSourceType },
+  params: RunDesignImportParams & { sourceType?: DesignImportSourceType }
 ): Promise<ExtractPipelineResult> {
   const warnings: string[] = []
   const { tenantId, websiteId, importId, input } = params
@@ -32,13 +36,20 @@ export async function runExtractPipeline(
     if (!canva.ok || !canva.extraction) {
       return { ok: false, error: canva.error, sourceType, warnings }
     }
-    return { ok: true, sourceType: canva.extraction.sourceType, extraction: canva.extraction, warnings }
+    return {
+      ok: true,
+      sourceType: canva.extraction.sourceType,
+      extraction: canva.extraction,
+      warnings,
+    }
   }
 
   if (input.imageBuffers && input.imageBuffers.length > 0) {
     sourceType = input.imageBuffers.length > 1 ? 'images' : 'image'
     const img = await extractFromImages({
-      tenantId, websiteId, importId,
+      tenantId,
+      websiteId,
+      importId,
       images: input.imageBuffers,
     })
     warnings.push(...img.warnings)
@@ -51,7 +62,9 @@ export async function runExtractPipeline(
     if (sourceType === 'unknown') sourceType = 'pdf'
     const pdf = await extractFromPdf({
       pdfBuffer: input.pdfBuffer,
-      tenantId, websiteId, importId,
+      tenantId,
+      websiteId,
+      importId,
       sourceType,
     })
     warnings.push(...pdf.warnings)
@@ -59,5 +72,10 @@ export async function runExtractPipeline(
     return { ok: true, sourceType: pdf.extraction.sourceType, extraction: pdf.extraction, warnings }
   }
 
-  return { ok: false, error: 'No import input provided (PDF, image, or URL required).', sourceType, warnings }
+  return {
+    ok: false,
+    error: 'No import input provided (PDF, image, or URL required).',
+    sourceType,
+    warnings,
+  }
 }

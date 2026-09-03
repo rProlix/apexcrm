@@ -2,7 +2,7 @@
 // Returns Premium 3D Scroll Hero diagnostics for the caller's tenant.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserContext }           from '@/lib/auth/getUserContext'
+import { getUserContext } from '@/lib/auth/getUserContext'
 import { buildScrollHeroDiagnostics } from '@/lib/website/premium3d/diagnostics'
 
 export async function GET(req: NextRequest) {

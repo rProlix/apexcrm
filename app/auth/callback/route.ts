@@ -30,25 +30,25 @@ import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supaba
 import { sanitizeNextPath, isMainCrmHost } from '@/lib/auth/redirects'
 
 export async function GET(request: NextRequest) {
-  const requestUrl  = new URL(request.url)
+  const requestUrl = new URL(request.url)
   const { hostname, origin } = requestUrl
   const searchParams = requestUrl.searchParams
 
-  const code     = searchParams.get('code')
+  const code = searchParams.get('code')
   const tenantId = searchParams.get('tenant_id')
-  const type     = searchParams.get('type')
+  const type = searchParams.get('type')
 
   // Choose the correct default destination based on which domain received the callback.
   // Storefront subdomains default to /account; the main CRM domain defaults to /dashboard.
   const onMainDomain = isMainCrmHost(hostname)
-  const defaultNext  = onMainDomain ? '/dashboard' : '/account'
-  const next         = sanitizeNextPath(searchParams.get('next'), defaultNext)
+  const defaultNext = onMainDomain ? '/dashboard' : '/account'
+  const next = sanitizeNextPath(searchParams.get('next'), defaultNext)
 
   console.info('[auth/callback]', {
-    host:      hostname,
-    type:      type ?? 'signup_confirmation',
+    host: hostname,
+    type: type ?? 'signup_confirmation',
     next,
-    tenantId:  tenantId ?? null,
+    tenantId: tenantId ?? null,
     onMainDomain,
   })
 
@@ -61,7 +61,10 @@ export async function GET(request: NextRequest) {
 
   // ── Exchange PKCE code for a session ─────────────────────────────────────────
   const supabase = await createSessionServerClient()
-  const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.exchangeCodeForSession(code)
 
   if (error || !session) {
     console.error('[auth/callback] exchangeCodeForSession error:', error?.message)
@@ -77,7 +80,7 @@ export async function GET(request: NextRequest) {
   // status='pending_confirmation'. Now that the code was exchanged successfully
   // (Supabase confirmed the email), activate the row.
 
-  const effectiveTenantId = tenantId ?? await resolveTenantFromSubdomain(hostname)
+  const effectiveTenantId = tenantId ?? (await resolveTenantFromSubdomain(hostname))
 
   if (effectiveTenantId) {
     try {
@@ -85,7 +88,7 @@ export async function GET(request: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (admin as any).rpc('activate_pending_customer_account', {
         p_auth_user_id: session.user.id,
-        p_tenant_id:    effectiveTenantId,
+        p_tenant_id: effectiveTenantId,
       })
     } catch (activationErr) {
       // Non-fatal — the account may already be active; login still works.
@@ -115,8 +118,8 @@ export async function GET(request: NextRequest) {
  */
 async function resolveTenantFromSubdomain(hostname: string): Promise<string | null> {
   try {
-    const parts  = hostname.split('.')
-    const slug   = parts.length >= 3 ? parts[0] : null
+    const parts = hostname.split('.')
+    const slug = parts.length >= 3 ? parts[0] : null
     if (!slug) return null
 
     const admin = getSupabaseServerClient()

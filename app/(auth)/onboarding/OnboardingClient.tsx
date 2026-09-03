@@ -4,25 +4,25 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 const STEPS = [
-  { label: 'Creating your workspace',   duration: 800  },
-  { label: 'Enabling core modules',     duration: 900  },
-  { label: 'Populating demo data',      duration: 1000 },
-  { label: 'Configuring your store',    duration: 800  },
-  { label: 'Building your dashboard',   duration: 700  },
-  { label: 'Everything is ready!',      duration: 600  },
+  { label: 'Creating your workspace', duration: 800 },
+  { label: 'Enabling core modules', duration: 900 },
+  { label: 'Populating demo data', duration: 1000 },
+  { label: 'Configuring your store', duration: 800 },
+  { label: 'Building your dashboard', duration: 700 },
+  { label: 'Everything is ready!', duration: 600 },
 ]
 
 export function OnboardingClient() {
   const searchParams = useSearchParams()
-  const slug         = searchParams.get('slug') ?? ''
-  const name         = searchParams.get('name') ?? 'Your Business'
+  const slug = searchParams.get('slug') ?? ''
+  const name = searchParams.get('name') ?? 'Your Business'
 
-  const [stepIndex,  setStepIndex]  = useState(0)
-  const [progress,   setProgress]   = useState(0)
-  const [done,       setDone]       = useState(false)
+  const [stepIndex, setStepIndex] = useState(0)
+  const [progress, setProgress] = useState(0)
+  const [done, setDone] = useState(false)
 
   useEffect(() => {
-    let totalElapsed   = 0
+    let totalElapsed = 0
     const totalDuration = STEPS.reduce((s, st) => s + st.duration, 0)
     let cancelled = false
 
@@ -45,20 +45,27 @@ export function OnboardingClient() {
       const step = STEPS[i]
 
       // Animate progress bar within this step
-      const fps        = 30
-      const interval   = 1000 / fps
-      const ticks      = Math.round(step.duration / interval)
-      const startPct   = (totalElapsed / totalDuration) * 100
-      const endPct     = ((totalElapsed + step.duration) / totalDuration) * 100
+      const fps = 30
+      const interval = 1000 / fps
+      const ticks = Math.round(step.duration / interval)
+      const startPct = (totalElapsed / totalDuration) * 100
+      const endPct = ((totalElapsed + step.duration) / totalDuration) * 100
 
       await new Promise<void>((resolve) => {
         let tick = 0
         const id = setInterval(() => {
-          if (cancelled) { clearInterval(id); resolve(); return }
+          if (cancelled) {
+            clearInterval(id)
+            resolve()
+            return
+          }
           tick++
           const pct = startPct + ((endPct - startPct) * tick) / ticks
           setProgress(Math.min(pct, 100))
-          if (tick >= ticks) { clearInterval(id); resolve() }
+          if (tick >= ticks) {
+            clearInterval(id)
+            resolve()
+          }
         }, interval)
       })
 
@@ -67,7 +74,9 @@ export function OnboardingClient() {
     }
 
     advance(0)
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -76,7 +85,6 @@ export function OnboardingClient() {
   return (
     <div className="min-h-dvh bg-graphite-950 flex items-center justify-center px-6">
       <div className="text-center max-w-sm w-full space-y-8">
-
         {/* Animated logo */}
         <div className="flex flex-col items-center gap-5">
           <div
@@ -88,13 +96,10 @@ export function OnboardingClient() {
 
           <div>
             <h1 className="text-2xl font-bold text-white mb-1">
-              {done ? 'You\'re all set!' : 'Setting up your business'}
+              {done ? "You're all set!" : 'Setting up your business'}
             </h1>
             <p className="text-sm text-white/40">
-              {done
-                ? `Welcome to ApexCRM, ${name}`
-                : 'This only takes a few seconds…'
-              }
+              {done ? `Welcome to ApexCRM, ${name}` : 'This only takes a few seconds…'}
             </p>
           </div>
         </div>
@@ -107,16 +112,14 @@ export function OnboardingClient() {
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="text-xs text-white/30 font-medium tabular-nums">
-            {Math.round(progress)}%
-          </p>
+          <p className="text-xs text-white/30 font-medium tabular-nums">{Math.round(progress)}%</p>
         </div>
 
         {/* Step list */}
         <ul className="space-y-2 text-left">
           {STEPS.map((step, i) => {
             const isCompleted = i < stepIndex || done
-            const isCurrent   = i === stepIndex && !done
+            const isCurrent = i === stepIndex && !done
 
             return (
               <li
@@ -125,7 +128,13 @@ export function OnboardingClient() {
               >
                 <span className="shrink-0 h-5 w-5 flex items-center justify-center">
                   {isCompleted ? (
-                    <svg className="h-4 w-4 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <svg
+                      className="h-4 w-4 text-gold-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   ) : isCurrent ? (
@@ -136,9 +145,11 @@ export function OnboardingClient() {
                 </span>
                 <span
                   className={
-                    isCompleted ? 'text-white/60 line-through decoration-white/20' :
-                    isCurrent   ? 'text-white font-medium' :
-                                  'text-white/20'
+                    isCompleted
+                      ? 'text-white/60 line-through decoration-white/20'
+                      : isCurrent
+                        ? 'text-white font-medium'
+                        : 'text-white/20'
                   }
                 >
                   {step.label}
@@ -151,7 +162,9 @@ export function OnboardingClient() {
         {/* Workspace URL preview */}
         {slug && rootDomain && (
           <div className="rounded-xl border border-surface-border bg-graphite-900/50 px-4 py-3">
-            <p className="text-2xs text-white/25 uppercase tracking-wider mb-1">Your workspace URL</p>
+            <p className="text-2xs text-white/25 uppercase tracking-wider mb-1">
+              Your workspace URL
+            </p>
             <p className="text-sm font-mono text-gold-400/80">
               {slug}.{rootDomain}
             </p>

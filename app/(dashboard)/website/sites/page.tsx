@@ -20,5 +20,7 @@ export default async function WebsitesListPage() {
   const websites = await listWebsites(tenantId)
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
-  return <WebsitesListClient tenantId={tenantId} initialWebsites={websites} rootDomain={rootDomain} />
+  return (
+    <WebsitesListClient tenantId={tenantId} initialWebsites={websites} rootDomain={rootDomain} />
+  )
 }

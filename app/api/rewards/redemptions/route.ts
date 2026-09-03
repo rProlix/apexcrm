@@ -12,9 +12,10 @@ export async function GET(req: NextRequest) {
 
   const dashUser = await resolveStoreUser(req)
   if (dashUser && (dashUser.role === 'admin' || dashUser.role === 'owner')) {
-    const tenantId = dashUser.role === 'owner'
-      ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
-      : dashUser.tenant_id
+    const tenantId =
+      dashUser.role === 'owner'
+        ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
+        : dashUser.tenant_id
 
     const { data, error } = await supabase
       .from('reward_redemptions')
@@ -44,11 +45,15 @@ export async function GET(req: NextRequest) {
 // customer only — redeem a shop item
 export async function POST(req: NextRequest) {
   const customer = await resolveStoreCustomer(req)
-  if (!customer) return NextResponse.json({ error: 'Unauthorized — customer login required' }, { status: 401 })
+  if (!customer)
+    return NextResponse.json({ error: 'Unauthorized — customer login required' }, { status: 401 })
 
   let body: Record<string, unknown>
-  try { body = await req.json() }
-  catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   const { item_id } = body
   if (typeof item_id !== 'string' || !item_id) {
@@ -56,18 +61,21 @@ export async function POST(req: NextRequest) {
   }
 
   const result = await redeemRewardItem({
-    tenantId:   customer.tenant_id,
+    tenantId: customer.tenant_id,
     customerId: customer.customer_id,
-    itemId:     item_id,
+    itemId: item_id,
   })
 
   if (!result.success) {
     return NextResponse.json({ error: result.error }, { status: 400 })
   }
 
-  return NextResponse.json({
-    redemption_id: result.redemption_id,
-    points_used:   result.points_used,
-    new_balance:   result.new_balance,
-  }, { status: 201 })
+  return NextResponse.json(
+    {
+      redemption_id: result.redemption_id,
+      points_used: result.points_used,
+      new_balance: result.new_balance,
+    },
+    { status: 201 }
+  )
 }

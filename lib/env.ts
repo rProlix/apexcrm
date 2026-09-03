@@ -21,10 +21,10 @@ export function getSupabaseEnv(): { url: string; key: string } {
   if (!url || !key) {
     throw new Error(
       '[Supabase] Missing environment variables.\n' +
-      'Add the following to your Vercel project (Settings → Environment Variables)\n' +
-      'and to your local .env.local file:\n\n' +
-      '  NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co\n' +
-      '  NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>\n'
+        'Add the following to your Vercel project (Settings → Environment Variables)\n' +
+        'and to your local .env.local file:\n\n' +
+        '  NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co\n' +
+        '  NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>\n'
     )
   }
 

@@ -15,7 +15,7 @@
  */
 export function getCookieDomain(host?: string | null): string | undefined {
   if (!host) return undefined
-  const cleanHost  = host.split(':')[0]
+  const cleanHost = host.split(':')[0]
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
   if (cleanHost === rootDomain || cleanHost.endsWith(`.${rootDomain}`)) {
     return `.${rootDomain}`

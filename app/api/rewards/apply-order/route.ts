@@ -16,8 +16,11 @@ import type { OrderItemForRewards } from '@/types/rewards'
 // }
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>
-  try { body = await req.json() }
-  catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   const { order_id, items } = body
 
@@ -31,18 +34,21 @@ export async function POST(req: NextRequest) {
   // Try admin/owner first (called from server-side order flow)
   const dashUser = await resolveStoreUser(req)
   if (dashUser && (dashUser.role === 'admin' || dashUser.role === 'owner')) {
-    const tenantId   = typeof body.tenant_id   === 'string' ? body.tenant_id   : dashUser.tenant_id
-    const customerId = typeof body.customer_id  === 'string' ? body.customer_id : ''
+    const tenantId = typeof body.tenant_id === 'string' ? body.tenant_id : dashUser.tenant_id
+    const customerId = typeof body.customer_id === 'string' ? body.customer_id : ''
 
     if (!customerId) {
-      return NextResponse.json({ error: 'customer_id is required for admin calls' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'customer_id is required for admin calls' },
+        { status: 400 }
+      )
     }
 
     const result = await applyOrderRewards({
       tenantId,
       customerId,
       orderId: order_id,
-      items:   items as OrderItemForRewards[],
+      items: items as OrderItemForRewards[],
     })
 
     return NextResponse.json(result)
@@ -53,10 +59,10 @@ export async function POST(req: NextRequest) {
   if (!customer) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const result = await applyOrderRewards({
-    tenantId:   customer.tenant_id,
+    tenantId: customer.tenant_id,
     customerId: customer.customer_id,
-    orderId:    order_id,
-    items:      items as OrderItemForRewards[],
+    orderId: order_id,
+    items: items as OrderItemForRewards[],
   })
 
   return NextResponse.json(result)

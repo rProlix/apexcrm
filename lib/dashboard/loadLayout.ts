@@ -4,18 +4,18 @@ import type { DashboardLayout } from '@/lib/dashboard/types'
 export const DEFAULT_LAYOUT: DashboardLayout = {
   sections: [
     {
-      id:      'operations',
-      title:   'Operations',
+      id: 'operations',
+      title: 'Operations',
       widgets: [],
     },
     {
-      id:      'financial',
-      title:   'Financial',
+      id: 'financial',
+      title: 'Financial',
       widgets: [],
     },
     {
-      id:      'usage',
-      title:   'Usage & Billing',
+      id: 'usage',
+      title: 'Usage & Billing',
       widgets: [],
     },
   ],

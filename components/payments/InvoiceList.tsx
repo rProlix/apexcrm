@@ -7,48 +7,48 @@ import { InvoiceForm } from './InvoiceForm'
 import { formatCurrency } from '@/lib/payments/formatCurrency'
 
 interface InvoiceItem {
-  id:          string
-  name:        string
-  quantity:    number
-  unit_price:  number
+  id: string
+  name: string
+  quantity: number
+  unit_price: number
   total_price: number
 }
 
 interface Invoice {
-  id:             string
+  id: string
   invoice_number: string
-  title:          string
-  description:    string | null
-  amount:         number
-  currency:       string
-  status:         string
-  due_date:       string | null
-  created_at:     string
-  customer_id:    string | null
-  invoice_items:  InvoiceItem[]
+  title: string
+  description: string | null
+  amount: number
+  currency: string
+  status: string
+  due_date: string | null
+  created_at: string
+  customer_id: string | null
+  invoice_items: InvoiceItem[]
 }
 
 interface Customer {
-  id:         string
+  id: string
   first_name: string
-  last_name:  string
-  email:      string
+  last_name: string
+  email: string
 }
 
 interface Props {
   initialInvoices: Invoice[]
-  customers:       Customer[]
-  tenantId:        string
+  customers: Customer[]
+  tenantId: string
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  draft:               'text-white/50      bg-white/4         border-white/8',
-  pending:             'text-yellow-400    bg-yellow-400/10   border-yellow-400/20',
-  paid:                'text-emerald-400   bg-emerald-400/10  border-emerald-400/20',
-  failed:              'text-red-400       bg-red-400/10      border-red-400/20',
-  canceled:            'text-white/30      bg-white/4         border-white/8',
-  refunded:            'text-orange-400    bg-orange-400/10   border-orange-400/20',
-  partially_refunded:  'text-amber-400     bg-amber-400/10    border-amber-400/20',
+  draft: 'text-white/50      bg-white/4         border-white/8',
+  pending: 'text-yellow-400    bg-yellow-400/10   border-yellow-400/20',
+  paid: 'text-emerald-400   bg-emerald-400/10  border-emerald-400/20',
+  failed: 'text-red-400       bg-red-400/10      border-red-400/20',
+  canceled: 'text-white/30      bg-white/4         border-white/8',
+  refunded: 'text-orange-400    bg-orange-400/10   border-orange-400/20',
+  partially_refunded: 'text-amber-400     bg-amber-400/10    border-amber-400/20',
 }
 
 const STATUS_OPTIONS = ['all', 'draft', 'pending', 'paid', 'failed', 'canceled', 'refunded']
@@ -56,16 +56,17 @@ const STATUS_OPTIONS = ['all', 'draft', 'pending', 'paid', 'failed', 'canceled',
 export function InvoiceList({ initialInvoices, customers, tenantId: _tenantId }: Props) {
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices)
   const [showForm, setShowForm] = useState(false)
-  const [search,   setSearch]   = useState('')
-  const [filter,   setFilter]   = useState('all')
-  const [sending,  setSending]  = useState<string | null>(null)
-  const [error,    setError]    = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('all')
+  const [sending, setSending] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const customerMap = Object.fromEntries(customers.map((c) => [c.id, c]))
 
   const filtered = invoices.filter((inv) => {
     const matchStatus = filter === 'all' || inv.status === filter
-    const matchSearch = !search.trim() ||
+    const matchSearch =
+      !search.trim() ||
       inv.invoice_number.toLowerCase().includes(search.toLowerCase()) ||
       (inv.title ?? '').toLowerCase().includes(search.toLowerCase())
     return matchStatus && matchSearch
@@ -76,15 +77,15 @@ export function InvoiceList({ initialInvoices, customers, tenantId: _tenantId }:
     setError(null)
     try {
       const res = await fetch(`/api/payments/invoices/${invoiceId}/send`, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({}),
+        body: JSON.stringify({}),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
 
       setInvoices((prev) =>
-        prev.map((inv) => inv.id === invoiceId ? { ...inv, status: 'pending' } : inv)
+        prev.map((inv) => (inv.id === invoiceId ? { ...inv, status: 'pending' } : inv))
       )
     } catch (err) {
       setError((err as Error).message)
@@ -126,7 +127,9 @@ export function InvoiceList({ initialInvoices, customers, tenantId: _tenantId }:
       </div>
 
       {error && (
-        <div className="p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">{error}</div>
+        <div className="p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">
+          {error}
+        </div>
       )}
 
       {/* Filters */}
@@ -167,7 +170,9 @@ export function InvoiceList({ initialInvoices, customers, tenantId: _tenantId }:
           </div>
           <h3 className="text-base font-semibold text-white mb-1">No invoices found</h3>
           <p className="text-sm text-white/35">
-            {search || filter !== 'all' ? 'Try adjusting your filters' : 'Create your first invoice to get started'}
+            {search || filter !== 'all'
+              ? 'Try adjusting your filters'
+              : 'Create your first invoice to get started'}
           </p>
         </div>
       ) : (
@@ -177,11 +182,15 @@ export function InvoiceList({ initialInvoices, customers, tenantId: _tenantId }:
               <thead>
                 <tr className="border-b border-white/6">
                   <th className="text-left text-xs font-medium text-white/30 px-4 py-3">Invoice</th>
-                  <th className="text-left text-xs font-medium text-white/30 px-4 py-3">Customer</th>
+                  <th className="text-left text-xs font-medium text-white/30 px-4 py-3">
+                    Customer
+                  </th>
                   <th className="text-left text-xs font-medium text-white/30 px-4 py-3">Amount</th>
                   <th className="text-left text-xs font-medium text-white/30 px-4 py-3">Status</th>
                   <th className="text-left text-xs font-medium text-white/30 px-4 py-3">Due</th>
-                  <th className="text-right text-xs font-medium text-white/30 px-4 py-3">Actions</th>
+                  <th className="text-right text-xs font-medium text-white/30 px-4 py-3">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/4">
@@ -197,12 +206,16 @@ export function InvoiceList({ initialInvoices, customers, tenantId: _tenantId }:
                     >
                       <td className="px-4 py-3">
                         <p className="text-sm font-medium text-white">{inv.invoice_number}</p>
-                        <p className="text-xs text-white/35 mt-0.5 truncate max-w-[180px]">{inv.title}</p>
+                        <p className="text-xs text-white/35 mt-0.5 truncate max-w-[180px]">
+                          {inv.title}
+                        </p>
                       </td>
                       <td className="px-4 py-3">
                         {customer ? (
                           <div>
-                            <p className="text-sm text-white">{customer.first_name} {customer.last_name}</p>
+                            <p className="text-sm text-white">
+                              {customer.first_name} {customer.last_name}
+                            </p>
                             <p className="text-xs text-white/35">{customer.email}</p>
                           </div>
                         ) : (
@@ -215,7 +228,9 @@ export function InvoiceList({ initialInvoices, customers, tenantId: _tenantId }:
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-md border ${STATUS_STYLES[inv.status] ?? STATUS_STYLES.draft}`}>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-md border ${STATUS_STYLES[inv.status] ?? STATUS_STYLES.draft}`}
+                        >
                           {inv.status}
                         </span>
                       </td>

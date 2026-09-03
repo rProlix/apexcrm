@@ -6,9 +6,9 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { DraftSiteConfig, DraftSection, NormalizedImportContent } from './types'
 
 export interface SaveDraftResult {
-  siteSettingsId:  string
-  pageIds:         string[]
-  sectionIds:      string[]
+  siteSettingsId: string
+  pageIds: string[]
+  sectionIds: string[]
   importResultIds: string[]
 }
 
@@ -25,9 +25,9 @@ export interface SaveDraftResult {
  */
 export async function saveDraftSiteFromImport(
   tenantId: string,
-  jobId:    string,
-  config:   DraftSiteConfig,
-  content:  NormalizedImportContent,
+  jobId: string,
+  config: DraftSiteConfig,
+  content: NormalizedImportContent
 ): Promise<SaveDraftResult> {
   const db = getSupabaseServerClient() as any
 
@@ -40,15 +40,15 @@ export async function saveDraftSiteFromImport(
     .maybeSingle()
 
   const settingsPayload: Record<string, unknown> = {
-    tenant_id:    tenantId,
+    tenant_id: tenantId,
     is_published: existing?.is_published ?? false,
   }
 
-  if (config.settings.site_name)   settingsPayload.site_name   = config.settings.site_name
-  if (config.settings.logo_url)    settingsPayload.logo_url    = config.settings.logo_url
+  if (config.settings.site_name) settingsPayload.site_name = config.settings.site_name
+  if (config.settings.logo_url) settingsPayload.logo_url = config.settings.logo_url
   if (config.settings.favicon_url) settingsPayload.favicon_url = config.settings.favicon_url
   if (config.settings.brand_colors) settingsPayload.brand_colors = config.settings.brand_colors
-  if (config.settings.seo_defaults)  settingsPayload.seo_defaults  = config.settings.seo_defaults
+  if (config.settings.seo_defaults) settingsPayload.seo_defaults = config.settings.seo_defaults
   if (config.settings.footer_config) settingsPayload.footer_config = config.settings.footer_config
 
   const { data: settings, error: settingsErr } = await db
@@ -63,7 +63,7 @@ export async function saveDraftSiteFromImport(
 
   // ── 2. Insert draft pages + sections ─────────────────────────────────────
 
-  const pageIds:    string[] = []
+  const pageIds: string[] = []
   const sectionIds: string[] = []
 
   for (let i = 0; i < config.pages.length; i++) {
@@ -84,26 +84,26 @@ export async function saveDraftSiteFromImport(
       await db
         .from('site_pages')
         .update({
-          title:            draftPage.title,
+          title: draftPage.title,
           meta_description: draftPage.meta_description,
-          status:           'draft',
-          sort_order:       i,
+          status: 'draft',
+          sort_order: i,
         })
         .eq('id', existingPage.id)
-        .neq('status', 'published')  // Never auto-downgrade published pages
+        .neq('status', 'published') // Never auto-downgrade published pages
 
       pageId = existingPage.id
     } else {
       const { data: newPage, error: pageErr } = await db
         .from('site_pages')
         .insert({
-          tenant_id:        tenantId,
-          slug:             draftPage.slug,
-          title:            draftPage.title,
+          tenant_id: tenantId,
+          slug: draftPage.slug,
+          title: draftPage.title,
           meta_description: draftPage.meta_description,
-          page_type:        draftPage.page_type,
-          status:           'draft',
-          sort_order:       i,
+          page_type: draftPage.page_type,
+          status: 'draft',
+          sort_order: i,
         })
         .select('id')
         .single()
@@ -126,10 +126,10 @@ export async function saveDraftSiteFromImport(
 
   if (content.images.length > 0) {
     const assetRows = content.images.slice(0, 20).map((img) => ({
-      tenant_id:  tenantId,
+      tenant_id: tenantId,
       asset_type: 'image',
-      url:        img.url,
-      metadata:   { alt: img.alt, source: 'import', job_id: jobId },
+      url: img.url,
+      metadata: { alt: img.alt, source: 'import', job_id: jobId },
     }))
 
     await db.from('site_assets').upsert(assetRows, { onConflict: 'url' }).select('id')
@@ -141,9 +141,9 @@ export async function saveDraftSiteFromImport(
     .from('website_import_jobs')
     .update({
       target_site_id: settings.id,
-      status:         'completed',
-      progress:       100,
-      completed_at:   new Date().toISOString(),
+      status: 'completed',
+      progress: 100,
+      completed_at: new Date().toISOString(),
     })
     .eq('id', jobId)
 
@@ -155,17 +155,17 @@ export async function saveDraftSiteFromImport(
 
   await db.from('website_import_audit').insert({
     tenant_id: tenantId,
-    job_id:    jobId,
-    action:    'draft_saved',
-    metadata:  {
-      pages_created:    pageIds.length,
+    job_id: jobId,
+    action: 'draft_saved',
+    metadata: {
+      pages_created: pageIds.length,
       sections_created: sectionIds.length,
       site_settings_id: settings.id,
     },
   })
 
   return {
-    siteSettingsId:  settings.id,
+    siteSettingsId: settings.id,
     pageIds,
     sectionIds,
     importResultIds,
@@ -177,9 +177,9 @@ export async function saveDraftSiteFromImport(
 async function upsertSections(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any,
-  tenantId:  string,
-  pageId:    string,
-  sections:  DraftSection[],
+  tenantId: string,
+  pageId: string,
+  sections: DraftSection[]
 ): Promise<string[]> {
   const ids: string[] = []
 
@@ -197,7 +197,7 @@ async function upsertSections(
       await db
         .from('site_sections')
         .update({
-          content:    section.content,
+          content: section.content,
           sort_order: section.sort_order,
           is_visible: true,
         })
@@ -208,13 +208,13 @@ async function upsertSections(
       const { data: newSection, error } = await db
         .from('site_sections')
         .insert({
-          tenant_id:    tenantId,
-          page_id:      pageId,
+          tenant_id: tenantId,
+          page_id: pageId,
           section_type: section.section_type,
-          section_key:  section.section_key,
-          content:      section.content,
-          sort_order:   section.sort_order,
-          is_visible:   true,
+          section_key: section.section_key,
+          content: section.content,
+          sort_order: section.sort_order,
+          is_visible: true,
         })
         .select('id')
         .single()
@@ -230,51 +230,53 @@ async function saveImportResults(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any,
   tenantId: string,
-  jobId:    string,
-  content:  NormalizedImportContent,
+  jobId: string,
+  content: NormalizedImportContent
 ): Promise<string[]> {
   const fieldMappings: Array<{
     key: string
     section: string
     value: unknown
   }> = [
-    { key: 'businessName',   section: 'site_settings',   value: content.businessName },
-    { key: 'description',    section: 'hero/about',       value: content.description },
-    { key: 'logoUrl',        section: 'site_settings',    value: content.logoUrl },
-    { key: 'faviconUrl',     section: 'site_settings',    value: content.faviconUrl },
-    { key: 'phone',          section: 'contact',          value: content.phone },
-    { key: 'email',          section: 'contact',          value: content.email },
-    { key: 'address',        section: 'contact',          value: content.address },
-    { key: 'hours',          section: 'contact/footer',   value: content.hours },
-    { key: 'socialLinks',    section: 'footer',           value: content.socialLinks },
-    { key: 'services',       section: 'feature_grid',     value: content.services },
-    { key: 'testimonials',   section: 'testimonials',     value: content.testimonials },
-    { key: 'faqItems',       section: 'faq',              value: content.faqItems },
-    { key: 'images',         section: 'gallery/hero',     value: content.images },
-    { key: 'brandColors',    section: 'site_settings',    value: content.brandColors },
-    { key: 'seoTitle',       section: 'page_meta',        value: content.seoTitle },
-    { key: 'seoDescription', section: 'page_meta',        value: content.seoDescription },
-    { key: 'mapUrl',         section: 'contact',          value: content.mapUrl },
-    { key: 'latitude',       section: 'contact',          value: content.latitude },
-    { key: 'longitude',      section: 'contact',          value: content.longitude },
-  ].filter((f) => f.value != null && f.value !== '' && !(Array.isArray(f.value) && (f.value as unknown[]).length === 0))
+    { key: 'businessName', section: 'site_settings', value: content.businessName },
+    { key: 'description', section: 'hero/about', value: content.description },
+    { key: 'logoUrl', section: 'site_settings', value: content.logoUrl },
+    { key: 'faviconUrl', section: 'site_settings', value: content.faviconUrl },
+    { key: 'phone', section: 'contact', value: content.phone },
+    { key: 'email', section: 'contact', value: content.email },
+    { key: 'address', section: 'contact', value: content.address },
+    { key: 'hours', section: 'contact/footer', value: content.hours },
+    { key: 'socialLinks', section: 'footer', value: content.socialLinks },
+    { key: 'services', section: 'feature_grid', value: content.services },
+    { key: 'testimonials', section: 'testimonials', value: content.testimonials },
+    { key: 'faqItems', section: 'faq', value: content.faqItems },
+    { key: 'images', section: 'gallery/hero', value: content.images },
+    { key: 'brandColors', section: 'site_settings', value: content.brandColors },
+    { key: 'seoTitle', section: 'page_meta', value: content.seoTitle },
+    { key: 'seoDescription', section: 'page_meta', value: content.seoDescription },
+    { key: 'mapUrl', section: 'contact', value: content.mapUrl },
+    { key: 'latitude', section: 'contact', value: content.latitude },
+    { key: 'longitude', section: 'contact', value: content.longitude },
+  ].filter(
+    (f) =>
+      f.value != null &&
+      f.value !== '' &&
+      !(Array.isArray(f.value) && (f.value as unknown[]).length === 0)
+  )
 
   const rows = fieldMappings.map((f) => ({
-    tenant_id:       tenantId,
-    job_id:          jobId,
-    result_key:      f.key,
-    mapped_section:  f.section,
-    result_value:    f.value as Record<string, unknown>,
+    tenant_id: tenantId,
+    job_id: jobId,
+    result_key: f.key,
+    mapped_section: f.section,
+    result_value: f.value as Record<string, unknown>,
     confidence_score: content.confidenceMap[f.key] ?? 0.5,
-    approved:        false,
+    approved: false,
   }))
 
   if (rows.length === 0) return []
 
-  const { data, error } = await db
-    .from('website_import_results')
-    .insert(rows)
-    .select('id')
+  const { data, error } = await db.from('website_import_results').insert(rows).select('id')
 
   if (error) console.error('[saveImportResults] error:', error.message)
 

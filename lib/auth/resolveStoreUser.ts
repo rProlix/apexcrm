@@ -4,10 +4,10 @@ import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supaba
 import { getTenantFromHost } from '@/lib/tenant/getTenantFromHost'
 
 export interface StoreUser {
-  id:        string
-  auth_id:   string
-  tenant_id: string        // always resolved — never null here
-  role:      string
+  id: string
+  auth_id: string
+  tenant_id: string // always resolved — never null here
+  role: string
 }
 
 /**
@@ -26,7 +26,10 @@ export interface StoreUser {
  */
 export async function resolveStoreUser(req: NextRequest): Promise<StoreUser | null> {
   const session = await createSessionServerClient()
-  const { data: { user }, error } = await session.auth.getUser()
+  const {
+    data: { user },
+    error,
+  } = await session.auth.getUser()
   if (error || !user) return null
 
   const admin = getSupabaseServerClient()
@@ -42,22 +45,22 @@ export async function resolveStoreUser(req: NextRequest): Promise<StoreUser | nu
   // Fast path: tenant_id already stored on the user record
   if (record.tenant_id) {
     return {
-      id:        record.id,
-      auth_id:   user.id,
+      id: record.id,
+      auth_id: user.id,
       tenant_id: record.tenant_id,
-      role:      record.role,
+      role: record.role,
     }
   }
 
   // Fallback 1: resolve from the request Host header
-  const host   = req.headers.get('host') ?? ''
+  const host = req.headers.get('host') ?? ''
   const tenant = await getTenantFromHost(host)
   if (tenant) {
     return {
-      id:        record.id,
-      auth_id:   user.id,
+      id: record.id,
+      auth_id: user.id,
       tenant_id: tenant.id,
-      role:      record.role,
+      role: record.role,
     }
   }
 
@@ -72,10 +75,10 @@ export async function resolveStoreUser(req: NextRequest): Promise<StoreUser | nu
 
     if (devTenant) {
       return {
-        id:        record.id,
-        auth_id:   user.id,
+        id: record.id,
+        auth_id: user.id,
         tenant_id: devTenant.id,
-        role:      record.role,
+        role: record.role,
       }
     }
   }
@@ -89,13 +92,16 @@ export async function resolveStoreUser(req: NextRequest): Promise<StoreUser | nu
  */
 export async function resolveStoreCustomer(req: NextRequest) {
   const session = await createSessionServerClient()
-  const { data: { user }, error } = await session.auth.getUser()
+  const {
+    data: { user },
+    error,
+  } = await session.auth.getUser()
   if (error || !user) return null
 
   const admin = getSupabaseServerClient()
 
   // Try to scope to a specific tenant via host
-  const host   = req.headers.get('host') ?? ''
+  const host = req.headers.get('host') ?? ''
   const tenant = await getTenantFromHost(host)
 
   const query = admin
@@ -111,10 +117,10 @@ export async function resolveStoreCustomer(req: NextRequest) {
   if (!account) return null
 
   return {
-    id:          account.id,
-    auth_id:     user.id,
+    id: account.id,
+    auth_id: user.id,
     customer_id: account.customer_id,
-    tenant_id:   account.tenant_id,
-    role:        'customer' as const,
+    tenant_id: account.tenant_id,
+    role: 'customer' as const,
   }
 }

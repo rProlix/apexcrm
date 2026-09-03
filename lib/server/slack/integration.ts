@@ -23,7 +23,9 @@ export async function loadActiveSlackIntegration(tenantId: string, businessId: s
   const db = getVanDamageServiceClient()
   const { data, error } = await db
     .from('van_slack_integrations')
-    .select('id, tenant_id, business_id, slack_team_id, slack_team_name, slack_bot_user_id, slack_app_id, encrypted_bot_token, token_last4, scopes, status, connected_at, last_tested_at, last_event_at, last_error')
+    .select(
+      'id, tenant_id, business_id, slack_team_id, slack_team_name, slack_bot_user_id, slack_app_id, encrypted_bot_token, token_last4, scopes, status, connected_at, last_tested_at, last_event_at, last_error'
+    )
     .eq('tenant_id', tenantId)
     .eq('business_id', businessId)
     .eq('status', 'connected')

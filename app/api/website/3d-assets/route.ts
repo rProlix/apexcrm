@@ -2,8 +2,8 @@
 // List (GET) and delete (DELETE) Premium 3D Scroll Hero assets for a tenant.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserContext }           from '@/lib/auth/getUserContext'
-import { getSupabaseServerClient }  from '@/lib/supabase/server'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 function forbidden() {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -18,10 +18,10 @@ export async function GET(req: NextRequest) {
   if (ctx.role !== 'owner' && ctx.tenant_id !== tenantId) return forbidden()
 
   const sp = req.nextUrl.searchParams
-  const assetType  = sp.get('assetType')
-  const websiteId  = sp.get('websiteId')
+  const assetType = sp.get('assetType')
+  const websiteId = sp.get('websiteId')
   const businessId = sp.get('businessId')
-  const sectionId  = sp.get('sectionId')
+  const sectionId = sp.get('sectionId')
   const renderMode = sp.get('renderMode')
   const sequenceId = sp.get('sequenceId')
   const includeArchived = sp.get('includeArchived') === 'true'
@@ -36,10 +36,10 @@ export async function GET(req: NextRequest) {
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
 
-  if (assetType)  q = q.eq('asset_type', assetType)
-  if (websiteId)  q = q.eq('website_id', websiteId)
+  if (assetType) q = q.eq('asset_type', assetType)
+  if (websiteId) q = q.eq('website_id', websiteId)
   if (businessId) q = q.eq('business_id', businessId)
-  if (sectionId)  q = q.eq('section_id', sectionId)
+  if (sectionId) q = q.eq('section_id', sectionId)
   if (renderMode) q = q.eq('render_mode', renderMode)
   if (sequenceId) q = q.eq('sequence_id', sequenceId)
   if (!includeArchived) q = q.eq('is_archived', false)
@@ -50,11 +50,11 @@ export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = (data ?? []) as Record<string, any>[]
   const grouped = {
-    videos:         rows.filter((a) => a.asset_type === 'video'),
+    videos: rows.filter((a) => a.asset_type === 'video'),
     imageSequences: rows.filter((a) => a.asset_type === 'image_sequence'),
-    posters:        rows.filter((a) => a.asset_type === 'poster'),
-    fallbacks:      rows.filter((a) => a.asset_type === 'fallback'),
-    frames:         rows.filter((a) => a.asset_type === 'image_sequence_frame'),
+    posters: rows.filter((a) => a.asset_type === 'poster'),
+    fallbacks: rows.filter((a) => a.asset_type === 'fallback'),
+    frames: rows.filter((a) => a.asset_type === 'image_sequence_frame'),
   }
   return NextResponse.json({ assets: rows, ...grouped })
 }

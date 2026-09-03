@@ -10,26 +10,24 @@ export async function POST(req: Request) {
     const parsed = loginSchema.safeParse(body)
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Enter a valid email and password.' },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: 'Enter a valid email and password.' }, { status: 400 })
     }
 
     const supabase = await createSessionServerClient()
     const { data, error } = await supabase.auth.signInWithPassword({
-      email:    parsed.data.email,
+      email: parsed.data.email,
       password: parsed.data.password,
     })
 
     if (error || !data.session) {
       return NextResponse.json(
         {
-          error: error?.message === 'Invalid login credentials'
-            ? 'Incorrect email or password. Please try again.'
-            : error?.message ?? 'Unable to sign in. Please try again.',
+          error:
+            error?.message === 'Invalid login credentials'
+              ? 'Incorrect email or password. Please try again.'
+              : (error?.message ?? 'Unable to sign in. Please try again.'),
         },
-        { status: 401 },
+        { status: 401 }
       )
     }
 
@@ -38,7 +36,7 @@ export async function POST(req: Request) {
     console.error('[auth/login] unexpected error:', error)
     return NextResponse.json(
       { error: 'An unexpected error occurred. Please try again.' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

@@ -13,7 +13,9 @@ export async function POST(req: NextRequest) {
   }
 
   let body: ScanRequest
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -65,7 +67,7 @@ export async function POST(req: NextRequest) {
       }
       const delta = action === 'restock' ? Math.abs(quantity) : -Math.abs(quantity)
       const quantityBefore = Number(item.current_quantity)
-      const quantityAfter  = quantityBefore + delta
+      const quantityAfter = quantityBefore + delta
 
       await supabase
         .from('inventory_items')
@@ -76,14 +78,14 @@ export async function POST(req: NextRequest) {
       const { data: mv } = await supabase
         .from('inventory_movements')
         .insert({
-          tenant_id:          tenantId,
-          inventory_item_id:  item.id,
-          movement_type:      action === 'restock' ? 'restock' : 'manual_adjustment',
-          quantity_delta:     delta,
-          quantity_before:    quantityBefore,
-          quantity_after:     quantityAfter,
-          scanned_barcode:    barcode,
-          reason:             `Barcode scan — ${action}`,
+          tenant_id: tenantId,
+          inventory_item_id: item.id,
+          movement_type: action === 'restock' ? 'restock' : 'manual_adjustment',
+          quantity_delta: delta,
+          quantity_before: quantityBefore,
+          quantity_after: quantityAfter,
+          scanned_barcode: barcode,
+          reason: `Barcode scan — ${action}`,
         })
         .select()
         .single()
@@ -99,7 +101,7 @@ export async function POST(req: NextRequest) {
         break
       }
       const quantityBefore = Number(item.current_quantity)
-      const quantityAfter  = action === 'count' ? Math.abs(quantity) : quantityBefore + quantity
+      const quantityAfter = action === 'count' ? Math.abs(quantity) : quantityBefore + quantity
       const delta = quantityAfter - quantityBefore
 
       await supabase
@@ -108,18 +110,16 @@ export async function POST(req: NextRequest) {
         .eq('id', item.id)
         .eq('tenant_id', tenantId)
 
-      await supabase
-        .from('inventory_movements')
-        .insert({
-          tenant_id:          tenantId,
-          inventory_item_id:  item.id,
-          movement_type:      action === 'count' ? 'count_correction' : 'manual_adjustment',
-          quantity_delta:     delta,
-          quantity_before:    quantityBefore,
-          quantity_after:     quantityAfter,
-          scanned_barcode:    barcode,
-          reason:             `Barcode scan — ${action}`,
-        })
+      await supabase.from('inventory_movements').insert({
+        tenant_id: tenantId,
+        inventory_item_id: item.id,
+        movement_type: action === 'count' ? 'count_correction' : 'manual_adjustment',
+        quantity_delta: delta,
+        quantity_before: quantityBefore,
+        quantity_after: quantityAfter,
+        scanned_barcode: barcode,
+        reason: `Barcode scan — ${action}`,
+      })
       resultMsg = `Quantity set to ${quantityAfter} ${item.unit}`
       break
     }
@@ -132,16 +132,16 @@ export async function POST(req: NextRequest) {
       const { data: newItem, error: createErr } = await supabase
         .from('inventory_items')
         .insert({
-          tenant_id:    tenantId,
-          barcode:      barcode.trim(),
-          name:         itemDraft.name.trim(),
-          item_type:    itemDraft.item_type ?? 'supply',
-          unit:         itemDraft.unit ?? 'unit',
-          description:  itemDraft.description ?? null,
-          category:     itemDraft.category ?? null,
-          sku:          itemDraft.sku ?? null,
+          tenant_id: tenantId,
+          barcode: barcode.trim(),
+          name: itemDraft.name.trim(),
+          item_type: itemDraft.item_type ?? 'supply',
+          unit: itemDraft.unit ?? 'unit',
+          description: itemDraft.description ?? null,
+          category: itemDraft.category ?? null,
+          sku: itemDraft.sku ?? null,
           current_quantity: itemDraft.current_quantity ?? 0,
-          reorder_point:    itemDraft.reorder_point ?? 0,
+          reorder_point: itemDraft.reorder_point ?? 0,
         })
         .select()
         .single()
@@ -167,9 +167,7 @@ export async function POST(req: NextRequest) {
         .eq('id', itemId)
         .eq('tenant_id', tenantId)
 
-      resultMsg = linkErr
-        ? `Failed to link: ${linkErr.message}`
-        : `Barcode linked to ${item.name}`
+      resultMsg = linkErr ? `Failed to link: ${linkErr.message}` : `Barcode linked to ${item.name}`
       break
     }
 
@@ -181,24 +179,24 @@ export async function POST(req: NextRequest) {
   const { data: scanEvent } = await supabase
     .from('inventory_scan_events')
     .insert({
-      tenant_id:          tenantId,
-      barcode:            barcode.trim(),
-      inventory_item_id:  scanEventItemId,
-      scan_action:        action,
+      tenant_id: tenantId,
+      barcode: barcode.trim(),
+      inventory_item_id: scanEventItemId,
+      scan_action: action,
       quantity,
-      result:             resultMsg,
+      result: resultMsg,
     })
     .select('id')
     .single()
 
   const result: ScanResult = {
-    ok:            true,
+    ok: true,
     action,
-    barcode:       barcode.trim(),
+    barcode: barcode.trim(),
     item,
     movement,
     scan_event_id: scanEvent?.id ?? '',
-    message:       resultMsg,
+    message: resultMsg,
   }
 
   return NextResponse.json(result)

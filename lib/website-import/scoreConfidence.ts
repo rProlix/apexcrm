@@ -11,17 +11,17 @@ import type { SourceType } from './types'
  */
 const SOURCE_WEIGHTS: Record<SourceType | 'structured_data' | 'metadata', number> = {
   structured_data: 0.95,
-  metadata:        0.80,
-  website:         0.70,
-  yelp:            0.75,
+  metadata: 0.8,
+  website: 0.7,
+  yelp: 0.75,
   business_profile: 0.65,
-  manual:          0.60,
+  manual: 0.6,
 }
 
 export interface ScoreInput {
-  value:      unknown
+  value: unknown
   sourceType: SourceType
-  fieldKey:   string
+  fieldKey: string
   /** True if the same value was found in multiple independent sources */
   corroborated?: boolean
   /** True if this came from JSON-LD structured data */
@@ -34,13 +34,13 @@ export interface ScoreInput {
  * Returns a 0–1 confidence score for a single extracted value.
  */
 export function scoreField(input: ScoreInput): number {
-  let base = SOURCE_WEIGHTS[input.sourceType] ?? 0.50
+  let base = SOURCE_WEIGHTS[input.sourceType] ?? 0.5
 
   if (input.fromStructuredData) base = SOURCE_WEIGHTS.structured_data
   else if (input.fromMetadata) base = SOURCE_WEIGHTS.metadata
 
   // Boost for corroboration across sources
-  if (input.corroborated) base = Math.min(1, base + 0.10)
+  if (input.corroborated) base = Math.min(1, base + 0.1)
 
   // Field-specific penalties for values that feel generic/default
   base *= getFieldQualityFactor(input.fieldKey, input.value)
@@ -105,7 +105,7 @@ function getFieldQualityFactor(key: string, value: unknown): number {
  */
 export function buildConfidenceMap(
   fields: Record<string, unknown>,
-  defaultSourceType: SourceType = 'website',
+  defaultSourceType: SourceType = 'website'
 ): Record<string, number> {
   const map: Record<string, number> = {}
 
@@ -114,7 +114,7 @@ export function buildConfidenceMap(
     map[key] = scoreField({
       value,
       sourceType: defaultSourceType,
-      fieldKey:   key,
+      fieldKey: key,
     })
   }
 

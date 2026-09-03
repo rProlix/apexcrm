@@ -3,8 +3,8 @@ import { generateTimeSlots } from './generateTimeSlots'
 import type { TimeSlot } from './types'
 
 interface GetSlotsOptions {
-  tenant_id:         string
-  date:              string   // YYYY-MM-DD
+  tenant_id: string
+  date: string // YYYY-MM-DD
   /** Kept for backward compatibility — ignored when rules define slot_interval_minutes. */
   duration_minutes?: number
   /** When true, only return slots marked available. Default: false (return all). */
@@ -24,7 +24,5 @@ export async function getAvailableSlots({
 }: GetSlotsOptions): Promise<TimeSlot[]> {
   const slots = await generateTimeSlots({ tenant_id, date })
 
-  return available_only
-    ? slots.filter((s) => s.available)
-    : slots
+  return available_only ? slots.filter((s) => s.available) : slots
 }

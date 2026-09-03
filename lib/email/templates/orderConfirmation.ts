@@ -3,16 +3,16 @@ import { renderBaseEmail, renderBasePlainText } from './base'
 import type { TemplateResult } from '../types'
 
 export interface OrderConfirmationData {
-  customerName?:    string
-  businessName:     string
+  customerName?: string
+  businessName: string
   businessLogoUrl?: string | null
   businessWebsite?: string | null
-  primaryColor?:    string | null
-  orderNumber?:     string
-  orderUrl?:        string
-  items?:           Array<{ name: string; price: number; quantity?: number }>
-  total?:           number
-  currency?:        string
+  primaryColor?: string | null
+  orderNumber?: string
+  orderUrl?: string
+  items?: Array<{ name: string; price: number; quantity?: number }>
+  total?: number
+  currency?: string
 }
 
 function formatAmount(n: number, currency = 'USD'): string {
@@ -34,17 +34,26 @@ export function buildOrderConfirmationEmail(data: OrderConfirmationData): Templa
         <td style="padding:10px 14px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Item</td>
         <td style="padding:10px 14px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;text-align:right;">Price</td>
       </tr>
-      ${items.map((item, i) => `
+      ${items
+        .map(
+          (item, i) => `
         <tr style="${i > 0 ? 'border-top:1px solid #e5e7eb;' : ''}">
           <td style="padding:10px 14px;font-size:14px;color:#111827;">${item.name}${item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : ''}</td>
           <td style="padding:10px 14px;font-size:14px;color:#111827;text-align:right;">${formatAmount(item.price, currency)}</td>
-        </tr>`).join('')}
-      ${total !== undefined ? `
+        </tr>`
+        )
+        .join('')}
+      ${
+        total !== undefined
+          ? `
       <tr style="border-top:2px solid #e5e7eb;">
         <td style="padding:12px 14px;font-size:14px;font-weight:700;color:#111827;">Total</td>
         <td style="padding:12px 14px;font-size:14px;font-weight:700;color:#111827;text-align:right;">${formatAmount(total, currency)}</td>
-      </tr>` : ''}
-    </table>` : ''
+      </tr>`
+          : ''
+      }
+    </table>`
+    : ''
 
   const bodyHtml = `
     <h1 style="color:#111827;font-size:22px;font-weight:700;margin:0 0 8px;">Order confirmed 🛍️</h1>
@@ -62,28 +71,28 @@ export function buildOrderConfirmationEmail(data: OrderConfirmationData): Templa
   const bodyText = `
 ${greeting} Your order with ${businessName} is confirmed.
 ${orderNumber ? `Order #${orderNumber}` : ''}
-${items?.length ? '\nItems:\n' + items.map(i => `  ${i.name}${i.quantity && i.quantity > 1 ? ` ×${i.quantity}` : ''}: ${formatAmount(i.price, currency)}`).join('\n') : ''}
+${items?.length ? '\nItems:\n' + items.map((i) => `  ${i.name}${i.quantity && i.quantity > 1 ? ` ×${i.quantity}` : ''}: ${formatAmount(i.price, currency)}`).join('\n') : ''}
 ${total !== undefined ? `\nTotal: ${formatAmount(total, currency)}` : ''}
   `.trim()
 
   return {
     subject: `Order confirmed with ${businessName}`,
     html: renderBaseEmail({
-      title:              `Order confirmed — ${businessName}`,
-      previewText:        `Your order with ${businessName} is confirmed`,
+      title: `Order confirmed — ${businessName}`,
+      previewText: `Your order with ${businessName} is confirmed`,
       bodyHtml,
-      ctaLabel:           orderUrl ? 'View order' : undefined,
-      ctaUrl:             orderUrl,
-      tenantName:         businessName,
-      tenantLogoUrl:      data.businessLogoUrl,
-      tenantWebsiteUrl:   data.businessWebsite,
+      ctaLabel: orderUrl ? 'View order' : undefined,
+      ctaUrl: orderUrl,
+      tenantName: businessName,
+      tenantLogoUrl: data.businessLogoUrl,
+      tenantWebsiteUrl: data.businessWebsite,
       tenantPrimaryColor: data.primaryColor,
     }),
     text: renderBasePlainText({
       bodyText,
-      ctaLabel:         orderUrl ? 'View order' : undefined,
-      ctaUrl:           orderUrl,
-      tenantName:       businessName,
+      ctaLabel: orderUrl ? 'View order' : undefined,
+      ctaUrl: orderUrl,
+      tenantName: businessName,
       tenantWebsiteUrl: data.businessWebsite,
     }),
   }

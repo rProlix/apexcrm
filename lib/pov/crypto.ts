@@ -51,7 +51,7 @@ export function normalizePhone(raw: string): string {
   const digits = trimmed.replace(/[^\d]/g, '')
   if (!digits) return ''
   if (hasPlus) return `+${digits}`
-  if (digits.length === 10) return `+1${digits}`        // US national → E.164-ish
+  if (digits.length === 10) return `+1${digits}` // US national → E.164-ish
   if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
   return `+${digits}`
 }
@@ -72,13 +72,14 @@ export function hashSessionToken(token: string): string {
  * across tenants.
  */
 export function generateEventSlug(name: string): string {
-  const base = (name ?? '')
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')   // strip accents
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40) || 'event'
+  const base =
+    (name ?? '')
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '') // strip accents
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'event'
   const suffix = randomBytes(3).toString('hex') // 6 hex chars
   return `${base}-${suffix}`
 }

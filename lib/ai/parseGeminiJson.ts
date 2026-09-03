@@ -39,9 +39,12 @@ export function extractJsonObject(input: string): string {
   const text = input.trim()
 
   // Try object first, then array
-  for (const [open, close] of [['{', '}'], ['[', ']']] as const) {
+  for (const [open, close] of [
+    ['{', '}'],
+    ['[', ']'],
+  ] as const) {
     const start = text.indexOf(open)
-    const end   = text.lastIndexOf(close)
+    const end = text.lastIndexOf(close)
     if (start !== -1 && end > start) {
       return text.slice(start, end + 1)
     }
@@ -52,11 +55,11 @@ export function extractJsonObject(input: string): string {
 
 export interface SafeParseResult<T> {
   /** Parsed value, or null if parsing failed */
-  data:  T | null
+  data: T | null
   /** Human-readable parse error, or null on success */
   error: string | null
   /** The raw string that was passed in (before any stripping) */
-  raw:   string
+  raw: string
 }
 
 /**
@@ -89,20 +92,22 @@ export function safeParseGeminiJson<T = unknown>(input: string): SafeParseResult
   try {
     const data = JSON.parse(extracted) as T
     return { data, error: null, raw }
-  } catch { /* fall through to repair */ }
+  } catch {
+    /* fall through to repair */
+  }
 
   // 4. Repair pass: remove trailing commas and JS-style comments
   const repaired = extracted
-    .replace(/,\s*([\]}])/g, '$1')          // trailing commas
-    .replace(/\/\/[^\n]*/g, '')              // single-line JS comments
-    .replace(/\/\*[\s\S]*?\*\//g, '')        // block comments
+    .replace(/,\s*([\]}])/g, '$1') // trailing commas
+    .replace(/\/\/[^\n]*/g, '') // single-line JS comments
+    .replace(/\/\*[\s\S]*?\*\//g, '') // block comments
 
   try {
     const data = JSON.parse(repaired) as T
     return { data, error: null, raw }
   } catch {
     return {
-      data:  null,
+      data: null,
       error: 'AI analysis returned an invalid response.',
       raw,
     }

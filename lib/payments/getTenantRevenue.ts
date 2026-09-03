@@ -2,20 +2,20 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface RevenueStats {
-  totalRevenue:     number
-  monthRevenue:     number
-  weekRevenue:      number
-  pendingAmount:    number
-  failedCount:      number
-  refundedAmount:   number
+  totalRevenue: number
+  monthRevenue: number
+  weekRevenue: number
+  pendingAmount: number
+  failedCount: number
+  refundedAmount: number
   transactionCount: number
-  currency:         string
+  currency: string
 }
 
 export interface DailyRevenue {
-  date:    string
-  amount:  number
-  count:   number
+  date: string
+  amount: number
+  count: number
 }
 
 /**
@@ -26,9 +26,9 @@ export async function getTenantRevenue(tenantId: string): Promise<RevenueStats> 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
 
-  const now       = new Date()
+  const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const weekStart  = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
   const [txResult, refundResult, invoiceResult] = await Promise.all([
     supabase
@@ -43,34 +43,31 @@ export async function getTenantRevenue(tenantId: string): Promise<RevenueStats> 
       .eq('tenant_id', tenantId)
       .eq('status', 'succeeded'),
 
-    supabase
-      .from('invoices')
-      .select('amount, status, currency')
-      .eq('tenant_id', tenantId),
+    supabase.from('invoices').select('amount, status, currency').eq('tenant_id', tenantId),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const transactions = (txResult.data ?? []) as any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const refunds      = (refundResult.data ?? []) as any[]
+  const refunds = (refundResult.data ?? []) as any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const invoices     = (invoiceResult.data ?? []) as any[]
+  const invoices = (invoiceResult.data ?? []) as any[]
 
   const succeeded = transactions.filter((t: any) => t.status === 'succeeded')
 
-  const totalRevenue   = succeeded.reduce((s: number, t: any) => s + Number(t.amount), 0)
-  const monthRevenue   = succeeded
+  const totalRevenue = succeeded.reduce((s: number, t: any) => s + Number(t.amount), 0)
+  const monthRevenue = succeeded
     .filter((t: any) => t.created_at >= monthStart)
     .reduce((s: number, t: any) => s + Number(t.amount), 0)
-  const weekRevenue    = succeeded
+  const weekRevenue = succeeded
     .filter((t: any) => t.created_at >= weekStart)
     .reduce((s: number, t: any) => s + Number(t.amount), 0)
-  const pendingAmount  = invoices
+  const pendingAmount = invoices
     .filter((i: any) => i.status === 'pending')
     .reduce((s: number, i: any) => s + Number(i.amount), 0)
-  const failedCount    = transactions.filter((t: any) => t.status === 'failed').length
+  const failedCount = transactions.filter((t: any) => t.status === 'failed').length
   const refundedAmount = refunds.reduce((s: number, r: any) => s + Number(r.amount), 0)
-  const currency       = succeeded[0]?.currency ?? invoices[0]?.currency ?? 'USD'
+  const currency = succeeded[0]?.currency ?? invoices[0]?.currency ?? 'USD'
 
   return {
     totalRevenue,
@@ -89,7 +86,7 @@ export async function getTenantRevenue(tenantId: string): Promise<RevenueStats> 
  */
 export async function getDailyRevenue(
   tenantId: string,
-  days:     number = 30
+  days: number = 30
 ): Promise<DailyRevenue[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
@@ -111,7 +108,7 @@ export async function getDailyRevenue(
     const date = tx.created_at.slice(0, 10)
     if (!byDay[date]) byDay[date] = { amount: 0, count: 0 }
     byDay[date].amount += Number(tx.amount)
-    byDay[date].count  += 1
+    byDay[date].count += 1
   }
 
   return Object.entries(byDay)

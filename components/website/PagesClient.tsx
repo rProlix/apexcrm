@@ -3,8 +3,18 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Plus, FileText, Pencil, Trash2, ChevronDown, ChevronRight,
-  Eye, EyeOff, Layers, X, Check, AlertTriangle,
+  Plus,
+  FileText,
+  Pencil,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Layers,
+  X,
+  Check,
+  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { fadeUp, staggerContainer } from '@/lib/motion'
@@ -13,84 +23,99 @@ import { SectionsPanel } from '@/components/website/SectionsPanel'
 import type { PageType, PageStatus } from '@/lib/website/types'
 
 interface SitePage {
-  id: string; tenant_id: string; slug: string; title: string | null
-  meta_description: string | null; page_type: PageType; status: PageStatus
-  sort_order: number; created_at: string; updated_at: string
+  id: string
+  tenant_id: string
+  slug: string
+  title: string | null
+  meta_description: string | null
+  page_type: PageType
+  status: PageStatus
+  sort_order: number
+  created_at: string
+  updated_at: string
 }
 
 const PAGE_TYPE_OPTIONS: { value: PageType; label: string }[] = [
-  { value: 'home',     label: 'Home' },
-  { value: 'shop',     label: 'Shop' },
-  { value: 'contact',  label: 'Contact' },
-  { value: 'about',    label: 'About' },
-  { value: 'faq',      label: 'FAQ' },
-  { value: 'custom',   label: 'Custom' },
+  { value: 'home', label: 'Home' },
+  { value: 'shop', label: 'Shop' },
+  { value: 'contact', label: 'Contact' },
+  { value: 'about', label: 'About' },
+  { value: 'faq', label: 'FAQ' },
+  { value: 'custom', label: 'Custom' },
 ]
 
 interface Props {
-  tenantId:     string
+  tenantId: string
   initialPages: SitePage[]
 }
 
 export function PagesClient({ tenantId, initialPages }: Props) {
-  const [pages,          setPages]          = useState<SitePage[]>(initialPages)
-  const [showForm,       setShowForm]       = useState(false)
-  const [editTarget,     setEditTarget]     = useState<SitePage | null>(null)
-  const [deleteConfirm,  setDeleteConfirm]  = useState<string | null>(null)
-  const [deleting,       setDeleting]       = useState<string | null>(null)
-  const [expandedPage,   setExpandedPage]   = useState<string | null>(null)
-  const [saving,         setSaving]         = useState(false)
-  const [formError,      setFormError]      = useState<string | null>(null)
+  const [pages, setPages] = useState<SitePage[]>(initialPages)
+  const [showForm, setShowForm] = useState(false)
+  const [editTarget, setEditTarget] = useState<SitePage | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [expandedPage, setExpandedPage] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   // form state
-  const [fSlug,        setFSlug]        = useState('')
-  const [fTitle,       setFTitle]       = useState('')
-  const [fMeta,        setFMeta]        = useState('')
-  const [fPageType,    setFPageType]    = useState<PageType>('custom')
-  const [fStatus,      setFStatus]      = useState<PageStatus>('draft')
+  const [fSlug, setFSlug] = useState('')
+  const [fTitle, setFTitle] = useState('')
+  const [fMeta, setFMeta] = useState('')
+  const [fPageType, setFPageType] = useState<PageType>('custom')
+  const [fStatus, setFStatus] = useState<PageStatus>('draft')
 
   function openCreate() {
     setEditTarget(null)
-    setFSlug(''); setFTitle(''); setFMeta('')
-    setFPageType('custom'); setFStatus('draft')
+    setFSlug('')
+    setFTitle('')
+    setFMeta('')
+    setFPageType('custom')
+    setFStatus('draft')
     setFormError(null)
     setShowForm(true)
   }
 
   function openEdit(page: SitePage) {
     setEditTarget(page)
-    setFSlug(page.slug); setFTitle(page.title ?? ''); setFMeta(page.meta_description ?? '')
-    setFPageType(page.page_type); setFStatus(page.status)
+    setFSlug(page.slug)
+    setFTitle(page.title ?? '')
+    setFMeta(page.meta_description ?? '')
+    setFPageType(page.page_type)
+    setFStatus(page.status)
     setFormError(null)
     setShowForm(true)
   }
 
   async function handleSave() {
-    if (!fSlug.trim()) { setFormError('Slug is required'); return }
-    setSaving(true); setFormError(null)
+    if (!fSlug.trim()) {
+      setFormError('Slug is required')
+      return
+    }
+    setSaving(true)
+    setFormError(null)
     try {
-      const url    = editTarget ? `/api/website/pages/${editTarget.id}` : '/api/website/pages'
+      const url = editTarget ? `/api/website/pages/${editTarget.id}` : '/api/website/pages'
       const method = editTarget ? 'PATCH' : 'POST'
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          tenant_id:        tenantId,
-          slug:             fSlug.trim(),
-          title:            fTitle.trim() || null,
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          slug: fSlug.trim(),
+          title: fTitle.trim() || null,
           meta_description: fMeta.trim() || null,
-          page_type:        fPageType,
-          status:           fStatus,
-          sort_order:       editTarget?.sort_order ?? pages.length,
+          page_type: fPageType,
+          status: fStatus,
+          sort_order: editTarget?.sort_order ?? pages.length,
         }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Save failed')
       const saved = json.page as SitePage
       setPages((prev) =>
-        editTarget
-          ? prev.map((p) => p.id === saved.id ? saved : p)
-          : [...prev, saved]
+        editTarget ? prev.map((p) => (p.id === saved.id ? saved : p)) : [...prev, saved]
       )
       setShowForm(false)
     } catch (e) {
@@ -117,13 +142,13 @@ export function PagesClient({ tenantId, initialPages }: Props) {
   async function toggleStatus(page: SitePage) {
     const next = page.status === 'published' ? 'draft' : 'published'
     const res = await fetch(`/api/website/pages/${page.id}`, {
-      method:  'PATCH',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ tenant_id: tenantId, status: next }),
+      body: JSON.stringify({ tenant_id: tenantId, status: next }),
     })
     if (res.ok) {
       const { page: updated } = await res.json()
-      setPages((prev) => prev.map((p) => p.id === updated.id ? updated : p))
+      setPages((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
     }
   }
 
@@ -133,7 +158,9 @@ export function PagesClient({ tenantId, initialPages }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Pages</h1>
-          <p className="text-sm text-white/40 mt-0.5">{pages.length} page{pages.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-white/40 mt-0.5">
+            {pages.length} page{pages.length !== 1 ? 's' : ''}
+          </p>
         </div>
         <Button variant="primary" onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -160,10 +187,11 @@ export function PagesClient({ tenantId, initialPages }: Props) {
                     onClick={() => setExpandedPage(expandedPage === page.id ? null : page.id)}
                     className="p-1 text-white/30 hover:text-white/70 transition-colors"
                   >
-                    {expandedPage === page.id
-                      ? <ChevronDown className="h-4 w-4" />
-                      : <ChevronRight className="h-4 w-4" />
-                    }
+                    {expandedPage === page.id ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
                   </button>
 
                   <div className="h-8 w-8 rounded-lg bg-violet-400/10 border border-violet-400/20 flex items-center justify-center shrink-0">
@@ -174,15 +202,19 @@ export function PagesClient({ tenantId, initialPages }: Props) {
                     <p className="text-sm font-semibold text-white truncate">
                       {page.title ?? `/${page.slug}`}
                     </p>
-                    <p className="text-xs text-white/30">/{page.slug} · {page.page_type}</p>
+                    <p className="text-xs text-white/30">
+                      /{page.slug} · {page.page_type}
+                    </p>
                   </div>
 
-                  <span className={cn(
-                    'text-2xs px-2 py-0.5 rounded-md font-medium border shrink-0',
-                    page.status === 'published'
-                      ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
-                      : 'text-gold-400 bg-gold-400/10 border-gold-400/20',
-                  )}>
+                  <span
+                    className={cn(
+                      'text-2xs px-2 py-0.5 rounded-md font-medium border shrink-0',
+                      page.status === 'published'
+                        ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
+                        : 'text-gold-400 bg-gold-400/10 border-gold-400/20'
+                    )}
+                  >
                     {page.status}
                   </span>
 
@@ -213,10 +245,11 @@ export function PagesClient({ tenantId, initialPages }: Props) {
                         title={page.status === 'published' ? 'Set to draft' : 'Publish'}
                         className="h-8 w-8 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors flex items-center justify-center"
                       >
-                        {page.status === 'published'
-                          ? <EyeOff className="h-3.5 w-3.5" />
-                          : <Eye className="h-3.5 w-3.5" />
-                        }
+                        {page.status === 'published' ? (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5" />
+                        )}
                       </button>
                       <button
                         onClick={() => openEdit(page)}
@@ -267,15 +300,23 @@ export function PagesClient({ tenantId, initialPages }: Props) {
         {showForm && (
           <PageFormModal
             editTarget={editTarget}
-            slug={fSlug}        onSlug={setFSlug}
-            title={fTitle}      onTitle={setFTitle}
-            meta={fMeta}        onMeta={setFMeta}
-            pageType={fPageType} onPageType={setFPageType}
-            status={fStatus}    onStatus={setFStatus}
+            slug={fSlug}
+            onSlug={setFSlug}
+            title={fTitle}
+            onTitle={setFTitle}
+            meta={fMeta}
+            onMeta={setFMeta}
+            pageType={fPageType}
+            onPageType={setFPageType}
+            status={fStatus}
+            onStatus={setFStatus}
             saving={saving}
             error={formError}
             onSave={handleSave}
-            onCancel={() => { setShowForm(false); setFormError(null) }}
+            onCancel={() => {
+              setShowForm(false)
+              setFormError(null)
+            }}
           />
         )}
       </AnimatePresence>
@@ -287,22 +328,41 @@ export function PagesClient({ tenantId, initialPages }: Props) {
 
 interface FormModalProps {
   editTarget: SitePage | null
-  slug: string;     onSlug:     (v: string) => void
-  title: string;    onTitle:    (v: string) => void
-  meta: string;     onMeta:     (v: string) => void
-  pageType: PageType; onPageType: (v: PageType) => void
-  status: PageStatus; onStatus:   (v: PageStatus) => void
+  slug: string
+  onSlug: (v: string) => void
+  title: string
+  onTitle: (v: string) => void
+  meta: string
+  onMeta: (v: string) => void
+  pageType: PageType
+  onPageType: (v: PageType) => void
+  status: PageStatus
+  onStatus: (v: PageStatus) => void
   saving: boolean
-  error:  string | null
-  onSave:   () => void
+  error: string | null
+  onSave: () => void
   onCancel: () => void
 }
 
 function PageFormModal({
-  editTarget, slug, onSlug, title, onTitle, meta, onMeta,
-  pageType, onPageType, status, onStatus, saving, error, onSave, onCancel,
+  editTarget,
+  slug,
+  onSlug,
+  title,
+  onTitle,
+  meta,
+  onMeta,
+  pageType,
+  onPageType,
+  status,
+  onStatus,
+  saving,
+  error,
+  onSave,
+  onCancel,
 }: FormModalProps) {
-  const input = 'w-full bg-graphite-700 border border-surface-border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/20 transition-colors'
+  const input =
+    'w-full bg-graphite-700 border border-surface-border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/20 transition-colors'
   const label = 'block text-xs font-semibold text-white/50 uppercase tracking-wider mb-1.5'
 
   return (
@@ -311,7 +371,9 @@ function PageFormModal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel()
+      }}
     >
       <motion.div
         initial={{ scale: 0.96, opacity: 0 }}
@@ -338,11 +400,18 @@ function PageFormModal({
 
           <div>
             <label className={label}>Page Title</label>
-            <input className={input} placeholder="e.g. Our Story" value={title} onChange={(e) => onTitle(e.target.value)} />
+            <input
+              className={input}
+              placeholder="e.g. Our Story"
+              value={title}
+              onChange={(e) => onTitle(e.target.value)}
+            />
           </div>
 
           <div>
-            <label className={label}>Slug <span className="text-red-400">*</span></label>
+            <label className={label}>
+              Slug <span className="text-red-400">*</span>
+            </label>
             <div className="flex items-center bg-graphite-700 border border-surface-border rounded-xl overflow-hidden focus-within:border-gold-500/50 focus-within:ring-1 focus-within:ring-gold-500/20 transition-colors">
               <span className="pl-3.5 text-sm text-white/30 select-none">/</span>
               <input
@@ -363,7 +432,9 @@ function PageFormModal({
                 onChange={(e) => onPageType(e.target.value as PageType)}
               >
                 {PAGE_TYPE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -392,7 +463,9 @@ function PageFormModal({
         </div>
 
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-surface-border">
-          <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+          <Button variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
           <Button variant="primary" onClick={onSave} loading={saving}>
             {editTarget ? 'Save Changes' : 'Create Page'}
           </Button>

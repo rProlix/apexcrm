@@ -17,19 +17,14 @@ import type { ValidatedSectionAnimationConfig } from '@/lib/website/animations/v
 import type { AnimationPreset } from '@/lib/website/animations/types'
 
 interface Props {
-  children:        React.ReactNode
+  children: React.ReactNode
   animationConfig: ValidatedSectionAnimationConfig | null
-  className?:      string
+  className?: string
   /** Tag to render. Default 'div' wraps the section component without double-nesting. */
-  as?:             'div' | 'section' | 'article'
+  as?: 'div' | 'section' | 'article'
 }
 
-export function AnimatedSection({
-  children,
-  animationConfig,
-  className = '',
-  as = 'div',
-}: Props) {
+export function AnimatedSection({ children, animationConfig, className = '', as = 'div' }: Props) {
   const prefersReduced = useReducedMotion()
 
   // If no config or disabled, render children unwrapped
@@ -40,9 +35,7 @@ export function AnimatedSection({
   const { animation, style } = animationConfig
 
   // Style preset class
-  const presetClass = style?.stylePreset
-    ? (STYLE_PRESET_CLASSES[style.stylePreset] ?? '')
-    : ''
+  const presetClass = style?.stylePreset ? (STYLE_PRESET_CLASSES[style.stylePreset] ?? '') : ''
 
   const combinedClass = [presetClass, className].filter(Boolean).join(' ')
 
@@ -53,17 +46,16 @@ export function AnimatedSection({
   }
 
   const mobileEnabled = animation?.mobileEnabled !== false
-  const preset        = (animation?.preset ?? 'fade_up') as AnimationPreset
-  const durationMs    = animation?.durationMs ?? 600
-  const delayMs       = animation?.delayMs ?? 0
-  const easing        = animation?.easing ?? 'smooth'
+  const preset = (animation?.preset ?? 'fade_up') as AnimationPreset
+  const durationMs = animation?.durationMs ?? 600
+  const delayMs = animation?.delayMs ?? 0
+  const easing = animation?.easing ?? 'smooth'
 
   const variants = getAnimationVariants(preset, easing, durationMs, delayMs)
 
   // Use the requested tag as the motion element
-  const MotionTag = as === 'section' ? motion.section
-    : as === 'article'                ? motion.article
-    :                                   motion.div
+  const MotionTag =
+    as === 'section' ? motion.section : as === 'article' ? motion.article : motion.div
 
   return (
     <MotionTag
@@ -83,11 +75,11 @@ export function AnimatedSection({
 // ── Stagger container for card grids ────────────────────────────────────────
 
 interface StaggerContainerProps {
-  children:        React.ReactNode
-  staggerMs?:      number
-  durationMs?:     number
-  easing?:         string
-  className?:      string
+  children: React.ReactNode
+  staggerMs?: number
+  durationMs?: number
+  easing?: string
+  className?: string
 }
 
 export function StaggerContainer({
@@ -104,14 +96,14 @@ export function StaggerContainer({
   }
 
   const staggerSec = staggerMs / 1000
-  const durSec     = durationMs / 1000
+  const durSec = durationMs / 1000
 
   const containerVariants = {
-    hidden:  {},
+    hidden: {},
     visible: { transition: { staggerChildren: staggerSec } },
   }
   const itemVariants = {
-    hidden:  { opacity: 0, y: 16, scale: 0.97 },
+    hidden: { opacity: 0, y: 16, scale: 0.97 },
     visible: { opacity: 1, y: 0, scale: 1, transition: { duration: durSec } },
   }
 
@@ -123,7 +115,7 @@ export function StaggerContainer({
       viewport={{ once: true, margin: '-8% 0px' }}
       variants={containerVariants}
     >
-      {React.Children.map(children, child => (
+      {React.Children.map(children, (child) => (
         <motion.div variants={itemVariants}>{child}</motion.div>
       ))}
     </motion.div>

@@ -49,7 +49,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!tenantId) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -83,11 +85,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = (await import('@/lib/supabase/server')).getSupabaseServerClient() as any
-  const { error } = await supabase
-    .from('customers')
-    .delete()
-    .eq('id', id)
-    .eq('tenant_id', tenantId)
+  const { error } = await supabase.from('customers').delete().eq('id', id).eq('tenant_id', tenantId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })

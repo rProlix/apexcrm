@@ -3,10 +3,10 @@ import { renderBaseEmail, renderBasePlainText } from './base'
 import type { TemplateResult } from '../types'
 
 export interface AccountConfirmationData {
-  email:           string
+  email: string
   confirmationUrl: string
-  tenantName?:     string
-  businessName?:   string
+  tenantName?: string
+  businessName?: string
 }
 
 export function buildAccountConfirmationEmail(data: AccountConfirmationData): TemplateResult {
@@ -42,18 +42,18 @@ If you didn't create an account, you can safely ignore this email.
 
   return {
     subject: `Confirm your account${name !== 'Nexora' ? ` — ${name}` : ''}`,
-    html:    renderBaseEmail({
-      title:       'Confirm your account',
+    html: renderBaseEmail({
+      title: 'Confirm your account',
       previewText: `Confirm your email address to activate your ${name} account`,
       bodyHtml,
-      ctaLabel:  'Confirm account',
-      ctaUrl:    confirmationUrl,
+      ctaLabel: 'Confirm account',
+      ctaUrl: confirmationUrl,
       tenantName: tenantName ?? businessName,
     }),
     text: renderBasePlainText({
       bodyText,
-      ctaLabel:   'Confirm account',
-      ctaUrl:     confirmationUrl,
+      ctaLabel: 'Confirm account',
+      ctaUrl: confirmationUrl,
       tenantName: tenantName ?? businessName,
     }),
   }

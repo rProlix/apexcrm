@@ -13,7 +13,9 @@ export const metadata = { title: 'POV Event App' }
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
-interface Props { params: Promise<{ eventId: string }> }
+interface Props {
+  params: Promise<{ eventId: string }>
+}
 
 export default async function PovEventPage({ params }: Props) {
   const ctx = await requireRole(['owner', 'admin'])
@@ -23,8 +25,7 @@ export default async function PovEventPage({ params }: Props) {
   if (!event) notFound()
   if (!canManageEvent(ctx, event)) redirect('/website/pov')
 
-  const publicBase =
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? `https://${ROOT_DOMAIN}`
+  const publicBase = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? `https://${ROOT_DOMAIN}`
 
   return <PovEventDashboard event={event} publicBase={publicBase} />
 }

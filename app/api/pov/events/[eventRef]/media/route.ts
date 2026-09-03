@@ -13,16 +13,23 @@ import { canManageEvent } from '@/lib/pov/admin'
 import { povDb } from '@/lib/pov/db'
 import { POV_MEDIA_TYPES, type PovMediaType, type PovMediaRow } from '@/lib/pov/types'
 
-interface RouteCtx { params: Promise<{ eventRef: string }> }
+interface RouteCtx {
+  params: Promise<{ eventRef: string }>
+}
 
-async function attachGuestNames(rows: PovMediaRow[]): Promise<Array<PovMediaRow & { guest_name: string | null }>> {
+async function attachGuestNames(
+  rows: PovMediaRow[]
+): Promise<Array<PovMediaRow & { guest_name: string | null }>> {
   const ids = Array.from(new Set(rows.map((r) => r.guest_id).filter(Boolean))) as string[]
   const nameById = new Map<string, string | null>()
   if (ids.length) {
     const { data } = await povDb().from('pov_guests').select('id, display_name').in('id', ids)
     for (const g of data ?? []) nameById.set(g.id, g.display_name ?? null)
   }
-  return rows.map((r) => ({ ...r, guest_name: r.guest_id ? (nameById.get(r.guest_id) ?? null) : null }))
+  return rows.map((r) => ({
+    ...r,
+    guest_name: r.guest_id ? (nameById.get(r.guest_id) ?? null) : null,
+  }))
 }
 
 export async function GET(req: NextRequest, { params }: RouteCtx) {
@@ -31,19 +38,25 @@ export async function GET(req: NextRequest, { params }: RouteCtx) {
   if (!event) return NextResponse.json({ error: 'Event not found' }, { status: 404 })
 
   const typeFilter = req.nextUrl.searchParams.get('media_type')
-  const validType = typeFilter && POV_MEDIA_TYPES.includes(typeFilter as PovMediaType)
-    ? (typeFilter as PovMediaType) : null
+  const validType =
+    typeFilter && POV_MEDIA_TYPES.includes(typeFilter as PovMediaType)
+      ? (typeFilter as PovMediaType)
+      : null
 
   // Admin path — full access regardless of reveal time.
   let isAdmin = false
   try {
     const ctx = await getUserContext()
     if (ctx) isAdmin = canManageEvent(ctx, event)
-  } catch { /* anonymous */ }
+  } catch {
+    /* anonymous */
+  }
 
   if (isAdmin) {
     const statusFilter = req.nextUrl.searchParams.get('status')
-    let q = povDb().from('pov_media').select('*')
+    let q = povDb()
+      .from('pov_media')
+      .select('*')
       .eq('event_id', event.id)
       .order('created_at', { ascending: false })
     if (validType) q = q.eq('media_type', validType)
@@ -74,7 +87,9 @@ export async function GET(req: NextRequest, { params }: RouteCtx) {
   }
 
   // After reveal the gallery is public — anyone with the link can relive it.
-  let q = povDb().from('pov_media').select('*')
+  let q = povDb()
+    .from('pov_media')
+    .select('*')
     .eq('event_id', event.id)
     .eq('status', 'approved')
     .order('created_at', { ascending: false })

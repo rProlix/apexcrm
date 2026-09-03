@@ -7,32 +7,32 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 export interface DomainEntry {
-  id:                  string
-  tenant_id:           string
-  hostname:            string
-  domain_type:         'subdomain' | 'custom'
-  is_primary:          boolean
-  is_verified:         boolean
-  verified:            boolean
-  verification_token:  string | null
+  id: string
+  tenant_id: string
+  hostname: string
+  domain_type: 'subdomain' | 'custom'
+  is_primary: boolean
+  is_verified: boolean
+  verified: boolean
+  verification_token: string | null
   verification_method: string | null
-  ssl_status:          'pending' | 'active' | 'failed'
-  last_verified_at:    string | null
-  metadata:            Record<string, unknown>
-  created_at:          string
-  updated_at:          string
+  ssl_status: 'pending' | 'active' | 'failed'
+  last_verified_at: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
 }
 
 export interface TenantDomainConfig {
-  tenantId:       string
-  slug:           string
-  subdomainUrl:   string
-  customDomain:   string | null
+  tenantId: string
+  slug: string
+  subdomainUrl: string
+  customDomain: string | null
   customDomainUrl: string | null
-  primaryDomain:  string
-  primaryUrl:     string
+  primaryDomain: string
+  primaryUrl: string
   isCustomActive: boolean
-  domains:        DomainEntry[]
+  domains: DomainEntry[]
 }
 
 /**
@@ -59,18 +59,18 @@ export async function getTenantDomainConfig(tenantId: string): Promise<TenantDom
   if (!tenantResult.data) return null
 
   const { slug } = tenantResult.data
-  const domains  = (domainsResult.data ?? []) as DomainEntry[]
+  const domains = (domainsResult.data ?? []) as DomainEntry[]
 
-  const subdomainUrl  = `https://${slug}.${ROOT_DOMAIN}`
+  const subdomainUrl = `https://${slug}.${ROOT_DOMAIN}`
   const verifiedCustom = domains.find(
-    (d) => d.domain_type === 'custom' && d.is_verified && d.ssl_status === 'active',
+    (d) => d.domain_type === 'custom' && d.is_verified && d.ssl_status === 'active'
   )
   const _primaryEntry = domains.find((d) => d.is_primary) ?? domains[0]
 
-  const customDomain    = verifiedCustom?.hostname ?? null
+  const customDomain = verifiedCustom?.hostname ?? null
   const customDomainUrl = customDomain ? `https://${customDomain}` : null
-  const primaryUrl      = customDomainUrl ?? subdomainUrl
-  const primaryDomain   = verifiedCustom?.hostname ?? `${slug}.${ROOT_DOMAIN}`
+  const primaryUrl = customDomainUrl ?? subdomainUrl
+  const primaryDomain = verifiedCustom?.hostname ?? `${slug}.${ROOT_DOMAIN}`
 
   return {
     tenantId,

@@ -7,24 +7,24 @@ import type { CustomerTransaction, CustomerInvoice } from '@/lib/customers/getCu
 
 interface Props {
   transactions: CustomerTransaction[]
-  invoices:     CustomerInvoice[]
-  tenantId:     string
+  invoices: CustomerInvoice[]
+  tenantId: string
 }
 
 const TX_STATUS: Record<string, string> = {
-  pending:   'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
+  pending: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
   succeeded: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
-  failed:    'text-red-400 bg-red-400/10 border-red-400/20',
-  refunded:  'text-orange-400 bg-orange-400/10 border-orange-400/20',
-  canceled:  'text-white/30 bg-white/4 border-white/8',
+  failed: 'text-red-400 bg-red-400/10 border-red-400/20',
+  refunded: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
+  canceled: 'text-white/30 bg-white/4 border-white/8',
 }
 
 const INV_STATUS: Record<string, string> = {
   pending: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
-  paid:    'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+  paid: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
   overdue: 'text-red-400 bg-red-400/10 border-red-400/20',
-  draft:   'text-white/30 bg-white/4 border-white/8',
-  void:    'text-white/20 bg-white/4 border-white/8',
+  draft: 'text-white/30 bg-white/4 border-white/8',
+  void: 'text-white/20 bg-white/4 border-white/8',
 }
 
 const PROVIDER_NAMES: Record<string, string> = {
@@ -40,7 +40,7 @@ export function CustomerPaymentsList({ transactions, invoices, tenantId: _tenant
     <div className="space-y-4">
       {/* Tab switcher */}
       <div className="flex gap-2 p-1 bg-graphite-900 rounded-xl w-fit">
-        {(['transactions', 'invoices'] as const).map(t => (
+        {(['transactions', 'invoices'] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -82,15 +82,22 @@ export function CustomerPaymentsList({ transactions, invoices, tenantId: _tenant
                       <p className="text-sm font-medium text-white/80 capitalize">
                         {tx.transaction_type} · {PROVIDER_NAMES[tx.provider_key] ?? tx.provider_key}
                       </p>
-                      <p className="text-xs text-white/30">{new Date(tx.created_at).toLocaleString()}</p>
+                      <p className="text-xs text-white/30">
+                        {new Date(tx.created_at).toLocaleString()}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${TX_STATUS[tx.status] ?? 'text-white/30 bg-white/4 border-white/8'}`}>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full border font-medium ${TX_STATUS[tx.status] ?? 'text-white/30 bg-white/4 border-white/8'}`}
+                    >
                       {tx.status}
                     </span>
                     <span className="text-sm font-bold text-white">
-                      ${tx.amount.toFixed(2)} <span className="text-xs font-normal text-white/30">{tx.currency.toUpperCase()}</span>
+                      ${tx.amount.toFixed(2)}{' '}
+                      <span className="text-xs font-normal text-white/30">
+                        {tx.currency.toUpperCase()}
+                      </span>
                     </span>
                   </div>
                 </motion.div>
@@ -130,7 +137,9 @@ export function CustomerPaymentsList({ transactions, invoices, tenantId: _tenant
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${INV_STATUS[inv.status] ?? 'text-white/30 bg-white/4 border-white/8'}`}>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full border font-medium ${INV_STATUS[inv.status] ?? 'text-white/30 bg-white/4 border-white/8'}`}
+                    >
                       {inv.status}
                     </span>
                     <span className="text-sm font-bold text-white">${inv.amount.toFixed(2)}</span>

@@ -7,11 +7,11 @@ import { usePathname } from 'next/navigation'
 import { CalendarDays, List, Clock, Settings, LayoutGrid } from 'lucide-react'
 
 const LINKS = [
-  { href: '/appointments',              label: 'Overview',     icon: LayoutGrid,  exact: true  },
-  { href: '/appointments/calendar',     label: 'Calendar',     icon: CalendarDays, exact: false },
-  { href: '/appointments/list',         label: 'List',         icon: List,         exact: false },
-  { href: '/appointments/availability', label: 'Availability', icon: Clock,        exact: false },
-  { href: '/appointments/settings',     label: 'Settings',     icon: Settings,     exact: false },
+  { href: '/appointments', label: 'Overview', icon: LayoutGrid, exact: true },
+  { href: '/appointments/calendar', label: 'Calendar', icon: CalendarDays, exact: false },
+  { href: '/appointments/list', label: 'List', icon: List, exact: false },
+  { href: '/appointments/availability', label: 'Availability', icon: Clock, exact: false },
+  { href: '/appointments/settings', label: 'Settings', icon: Settings, exact: false },
 ]
 
 export function AppointmentsSubNav() {
@@ -31,9 +31,10 @@ export function AppointmentsSubNav() {
             href={href}
             className={`
               flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-all
-              ${active
-                ? 'bg-gold-gradient text-graphite-900 shadow-sm'
-                : 'text-white/50 hover:text-white hover:bg-graphite-700/50'
+              ${
+                active
+                  ? 'bg-gold-gradient text-graphite-900 shadow-sm'
+                  : 'text-white/50 hover:text-white hover:bg-graphite-700/50'
               }
             `}
           >

@@ -1,12 +1,7 @@
 // lib/website-import/mapImportToSite.ts
 // Maps NormalizedImportContent into a DraftSiteConfig ready for the website builder.
 
-import type {
-  NormalizedImportContent,
-  DraftSiteConfig,
-  DraftPage,
-  DraftSection,
-} from './types'
+import type { NormalizedImportContent, DraftSiteConfig, DraftPage, DraftSection } from './types'
 
 // ── Section builders ──────────────────────────────────────────────────────────
 
@@ -14,19 +9,19 @@ function buildHeroSection(content: NormalizedImportContent, order: number): Draf
   const heroImage = content.images[0]?.url ?? content.logoUrl ?? ''
   return {
     section_type: 'hero',
-    section_key:  'hero_main',
-    sort_order:   order,
+    section_key: 'hero_main',
+    sort_order: order,
     content: {
-      headline:       content.businessName ?? 'Welcome',
-      subheadline:    content.tagline ?? content.description?.slice(0, 180) ?? '',
-      ctaLabel:       'Get Started',
-      ctaHref:        '/contact',
+      headline: content.businessName ?? 'Welcome',
+      subheadline: content.tagline ?? content.description?.slice(0, 180) ?? '',
+      ctaLabel: 'Get Started',
+      ctaHref: '/contact',
       ctaSecondaryLabel: 'Learn More',
-      ctaSecondaryHref:  '/about',
-      backgroundImage:  heroImage,
-      overlay:          !!heroImage,
-      overlayOpacity:   50,
-      align:            'center',
+      ctaSecondaryHref: '/about',
+      backgroundImage: heroImage,
+      overlay: !!heroImage,
+      overlayOpacity: 50,
+      align: 'center',
     },
   }
 }
@@ -34,12 +29,12 @@ function buildHeroSection(content: NormalizedImportContent, order: number): Draf
 function buildAboutSection(content: NormalizedImportContent, order: number): DraftSection {
   return {
     section_type: 'about',
-    section_key:  'about_main',
-    sort_order:   order,
+    section_key: 'about_main',
+    sort_order: order,
     content: {
       headline: `About ${content.businessName ?? 'Us'}`,
-      body:     content.description ?? 'Learn more about our business and what makes us unique.',
-      image:    content.images[1]?.url ?? content.logoUrl ?? undefined,
+      body: content.description ?? 'Learn more about our business and what makes us unique.',
+      image: content.images[1]?.url ?? content.logoUrl ?? undefined,
     },
   }
 }
@@ -47,33 +42,30 @@ function buildAboutSection(content: NormalizedImportContent, order: number): Dra
 function buildServicesSection(content: NormalizedImportContent, order: number): DraftSection {
   return {
     section_type: 'feature_grid',
-    section_key:  'services_grid',
-    sort_order:   order,
+    section_key: 'services_grid',
+    sort_order: order,
     content: {
       headline: 'Our Services',
       subtitle: content.priceRange ? `Price range: ${content.priceRange}` : '',
-      columns:  content.services.length >= 4 ? 3 : 2,
-      items:    content.services.slice(0, 6).map((s) => ({
-        title:       s.title,
+      columns: content.services.length >= 4 ? 3 : 2,
+      items: content.services.slice(0, 6).map((s) => ({
+        title: s.title,
         description: s.description || `Professional ${s.title.toLowerCase()} service.`,
       })),
     },
   }
 }
 
-function buildTestimonialsSection(
-  content: NormalizedImportContent,
-  order: number,
-): DraftSection {
+function buildTestimonialsSection(content: NormalizedImportContent, order: number): DraftSection {
   return {
     section_type: 'testimonials',
-    section_key:  'testimonials_main',
-    sort_order:   order,
+    section_key: 'testimonials_main',
+    sort_order: order,
     content: {
       headline: 'What Our Customers Say',
-      items:    content.testimonials.slice(0, 6).map((t) => ({
-        name:   t.name,
-        text:   t.text,
+      items: content.testimonials.slice(0, 6).map((t) => ({
+        name: t.name,
+        text: t.text,
         rating: t.rating,
       })),
     },
@@ -83,11 +75,11 @@ function buildTestimonialsSection(
 function buildFaqSection(content: NormalizedImportContent, order: number): DraftSection {
   return {
     section_type: 'faq',
-    section_key:  'faq_main',
-    sort_order:   order,
+    section_key: 'faq_main',
+    sort_order: order,
     content: {
       headline: 'Frequently Asked Questions',
-      items:    content.faqItems.slice(0, 12),
+      items: content.faqItems.slice(0, 12),
     },
   }
 }
@@ -95,19 +87,19 @@ function buildFaqSection(content: NormalizedImportContent, order: number): Draft
 function buildContactSection(content: NormalizedImportContent, order: number): DraftSection {
   return {
     section_type: 'contact',
-    section_key:  'contact_main',
-    sort_order:   order,
+    section_key: 'contact_main',
+    sort_order: order,
     content: {
       headline: 'Get In Touch',
-      body:     content.address?.full
+      body: content.address?.full
         ? `Visit us at ${content.address.full}`
-        : 'We\'d love to hear from you.',
-      email:    content.email ?? undefined,
-      phone:    content.phone ?? undefined,
-      address:  content.address?.full ?? undefined,
+        : "We'd love to hear from you.",
+      email: content.email ?? undefined,
+      phone: content.phone ?? undefined,
+      address: content.address?.full ?? undefined,
       showForm: true,
-      hours:    content.hours.length > 0 ? content.hours.join(' | ') : undefined,
-      mapUrl:   content.mapUrl ?? undefined,
+      hours: content.hours.length > 0 ? content.hours.join(' | ') : undefined,
+      mapUrl: content.mapUrl ?? undefined,
     },
   }
 }
@@ -115,11 +107,11 @@ function buildContactSection(content: NormalizedImportContent, order: number): D
 function buildGallerySection(content: NormalizedImportContent, order: number): DraftSection {
   return {
     section_type: 'image_gallery',
-    section_key:  'gallery_main',
-    sort_order:   order,
+    section_key: 'gallery_main',
+    sort_order: order,
     content: {
       headline: 'Gallery',
-      images:   content.images.slice(0, 12).map((img) => ({
+      images: content.images.slice(0, 12).map((img) => ({
         url: img.url,
         alt: img.alt ?? content.businessName ?? 'Image',
       })),
@@ -131,14 +123,14 @@ function buildGallerySection(content: NormalizedImportContent, order: number): D
 function buildCtaSection(content: NormalizedImportContent, order: number): DraftSection {
   return {
     section_type: 'cta',
-    section_key:  'cta_bottom',
-    sort_order:   order,
+    section_key: 'cta_bottom',
+    sort_order: order,
     content: {
       headline: `Ready to work with ${content.businessName ?? 'us'}?`,
-      body:     'Contact us today and let\'s get started.',
+      body: "Contact us today and let's get started.",
       ctaLabel: 'Contact Us',
-      ctaHref:  '/contact',
-      align:    'center',
+      ctaHref: '/contact',
+      align: 'center',
     },
   }
 }
@@ -170,9 +162,9 @@ function buildHomePage(content: NormalizedImportContent): DraftPage {
   sections.push(buildCtaSection(content, order++))
 
   return {
-    slug:             '',
-    title:            'Home',
-    page_type:        'home',
+    slug: '',
+    title: 'Home',
+    page_type: 'home',
     meta_description: content.seoDescription ?? content.description?.slice(0, 160) ?? null,
     sections,
   }
@@ -191,9 +183,9 @@ function buildAboutPage(content: NormalizedImportContent): DraftPage {
   sections.push(buildCtaSection(content, order++))
 
   return {
-    slug:             'about',
-    title:            'About',
-    page_type:        'about',
+    slug: 'about',
+    title: 'About',
+    page_type: 'about',
     meta_description: `Learn more about ${content.businessName ?? 'our business'}.`,
     sections,
   }
@@ -201,21 +193,22 @@ function buildAboutPage(content: NormalizedImportContent): DraftPage {
 
 function buildContactPage(content: NormalizedImportContent): DraftPage {
   return {
-    slug:             'contact',
-    title:            'Contact',
-    page_type:        'contact',
-    meta_description: `Contact ${content.businessName ?? 'us'} — ${content.phone ?? content.email ?? ''}`.trim(),
-    sections:         [buildContactSection(content, 0)],
+    slug: 'contact',
+    title: 'Contact',
+    page_type: 'contact',
+    meta_description:
+      `Contact ${content.businessName ?? 'us'} — ${content.phone ?? content.email ?? ''}`.trim(),
+    sections: [buildContactSection(content, 0)],
   }
 }
 
 function buildFaqPage(content: NormalizedImportContent): DraftPage {
   return {
-    slug:             'faq',
-    title:            'FAQ',
-    page_type:        'faq',
+    slug: 'faq',
+    title: 'FAQ',
+    page_type: 'faq',
     meta_description: `Frequently asked questions about ${content.businessName ?? 'our services'}.`,
-    sections:         [buildFaqSection(content, 0)],
+    sections: [buildFaqSection(content, 0)],
   }
 }
 
@@ -224,22 +217,22 @@ function buildFaqPage(content: NormalizedImportContent): DraftPage {
 function buildSiteSettings(content: NormalizedImportContent): DraftSiteConfig['settings'] {
   const brandColors = content.brandColors
     ? {
-        primary:    content.brandColors.primary,
-        accent:     content.brandColors.accent,
+        primary: content.brandColors.primary,
+        accent: content.brandColors.accent,
         background: '#0a0a0a',
-        surface:    '#141414',
-        text:       '#ffffff',
-        muted:      '#888888',
-        border:     '#2a2a2a',
+        surface: '#141414',
+        text: '#ffffff',
+        muted: '#888888',
+        border: '#2a2a2a',
       }
     : {
-        primary:    '#d4af37',
-        accent:     '#c9a227',
+        primary: '#d4af37',
+        accent: '#c9a227',
         background: '#0a0a0a',
-        surface:    '#141414',
-        text:       '#ffffff',
-        muted:      '#888888',
-        border:     '#2a2a2a',
+        surface: '#141414',
+        text: '#ffffff',
+        muted: '#888888',
+        border: '#2a2a2a',
       }
 
   const socials: Record<string, string> = {}
@@ -248,20 +241,20 @@ function buildSiteSettings(content: NormalizedImportContent): DraftSiteConfig['s
   }
 
   return {
-    site_name:   content.businessName,
-    logo_url:    content.logoUrl,
+    site_name: content.businessName,
+    logo_url: content.logoUrl,
     favicon_url: content.faviconUrl,
     brand_colors: brandColors,
     seo_defaults: {
-      title:       content.seoTitle ?? content.businessName ?? undefined,
+      title: content.seoTitle ?? content.businessName ?? undefined,
       description: content.seoDescription ?? content.description?.slice(0, 160) ?? undefined,
     },
     footer_config: {
-      showLogo:    true,
-      tagline:     content.tagline ?? undefined,
-      copyright:   `© ${new Date().getFullYear()} ${content.businessName ?? 'All rights reserved'}`,
+      showLogo: true,
+      tagline: content.tagline ?? undefined,
+      copyright: `© ${new Date().getFullYear()} ${content.businessName ?? 'All rights reserved'}`,
       showSocials: Object.keys(socials).length > 0,
-      socials:     Object.keys(socials).length > 0 ? socials : undefined,
+      socials: Object.keys(socials).length > 0 ? socials : undefined,
     },
   }
 }

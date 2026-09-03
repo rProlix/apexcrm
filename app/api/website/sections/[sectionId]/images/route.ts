@@ -17,9 +17,11 @@ type RouteContext = {
 }
 
 function wsiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
-  return (supabase as unknown as {
-    from: (t: 'website_section_images') => ReturnType<typeof supabase.from>
-  }).from('website_section_images') as ReturnType<typeof supabase.from>
+  return (
+    supabase as unknown as {
+      from: (t: 'website_section_images') => ReturnType<typeof supabase.from>
+    }
+  ).from('website_section_images') as ReturnType<typeof supabase.from>
 }
 
 export async function GET(req: NextRequest, context: RouteContext) {
@@ -31,7 +33,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
   }
 
   const { searchParams } = new URL(req.url)
-  const imageSlot       = searchParams.get('imageSlot') ?? null
+  const imageSlot = searchParams.get('imageSlot') ?? null
   const includeArchived = searchParams.get('includeArchived') === 'true'
 
   const supabase = getSupabaseServerClient()
@@ -42,7 +44,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     .eq('section_id', sectionId)
     .order('created_at', { ascending: false })
 
-  if (imageSlot)        query = query.eq('slot_key', imageSlot)
+  if (imageSlot) query = query.eq('slot_key', imageSlot)
   if (!includeArchived) query = query.eq('is_archived', false)
 
   const { data, error } = await query
@@ -64,4 +66,3 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
   return NextResponse.json({ images, activeBySlot, sectionId, tenantId: ctx.tenant_id })
 }
-

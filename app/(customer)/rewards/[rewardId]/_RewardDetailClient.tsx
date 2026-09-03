@@ -6,17 +6,17 @@ import { Gift, CheckCircle2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 interface Props {
-  itemId:         string
-  canAfford:      boolean
-  outOfStock:     boolean
+  itemId: string
+  canAfford: boolean
+  outOfStock: boolean
   currentBalance: number
 }
 
 export function RewardsRedemptionCard({ itemId, canAfford, outOfStock, currentBalance }: Props) {
-  const router  = useRouter()
-  const [loading, setLoading]   = useState(false)
-  const [success, setSuccess]   = useState(false)
-  const [error, setError]       = useState('')
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState('')
   const [newBalance, setNewBalance] = useState(currentBalance)
 
   async function handleRedeem() {
@@ -24,9 +24,9 @@ export function RewardsRedemptionCard({ itemId, canAfford, outOfStock, currentBa
     setError('')
     try {
       const res = await fetch('/api/rewards/redemptions', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ item_id: itemId }),
+        body: JSON.stringify({ item_id: itemId }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -51,7 +51,9 @@ export function RewardsRedemptionCard({ itemId, canAfford, outOfStock, currentBa
         </div>
         <h3 className="text-sm font-semibold text-white mb-1">Redeemed!</h3>
         <p className="text-xs text-white/40 mb-1">Your redemption is pending approval.</p>
-        <p className="text-xs text-emerald-400 font-semibold">New balance: {newBalance.toLocaleString()} pts</p>
+        <p className="text-xs text-emerald-400 font-semibold">
+          New balance: {newBalance.toLocaleString()} pts
+        </p>
         <button
           onClick={() => router.push('/rewards/history')}
           className="mt-4 text-xs text-gold-400 hover:text-gold-300 transition-colors"
@@ -64,9 +66,7 @@ export function RewardsRedemptionCard({ itemId, canAfford, outOfStock, currentBa
 
   return (
     <div className="space-y-3">
-      {error && (
-        <p className="text-xs text-red-400 text-center">{error}</p>
-      )}
+      {error && <p className="text-xs text-red-400 text-center">{error}</p>}
       <button
         onClick={handleRedeem}
         disabled={!canAfford || outOfStock || loading}

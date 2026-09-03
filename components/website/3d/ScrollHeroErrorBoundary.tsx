@@ -8,9 +8,9 @@
 import React from 'react'
 
 interface Props {
-  children:  React.ReactNode
-  fallback:  React.ReactNode
-  onError?:  (error: Error) => void
+  children: React.ReactNode
+  fallback: React.ReactNode
+  onError?: (error: Error) => void
 }
 
 interface State {

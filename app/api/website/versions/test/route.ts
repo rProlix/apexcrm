@@ -21,38 +21,45 @@ export async function POST(req: NextRequest) {
   }
 
   let body: Record<string, unknown> = {}
-  try { body = await req.json() } catch { /* empty body is fine */ }
+  try {
+    body = await req.json()
+  } catch {
+    /* empty body is fine */
+  }
 
   const { snapshot: clientSnapshot, clientPageSections } = body as {
-    snapshot?:           unknown
+    snapshot?: unknown
     clientPageSections?: ClientPageSections
   }
 
   const snapResult = await createWebsiteSnapshotForTenant({
-    tenantId:            ctx.tenant_id,
-    userId:              ctx.auth_id, // auth.users UUID, not profile UUID
-    source:              'manual',
+    tenantId: ctx.tenant_id,
+    userId: ctx.auth_id, // auth.users UUID, not profile UUID
+    source: 'manual',
     clientSnapshot,
     clientPageSections,
     preferClientSnapshot: !!clientSnapshot,
   })
 
   if (!snapResult.ok) {
-    return NextResponse.json({
-      ok:      false,
-      error:   snapResult.error,
-      details: snapResult.details,
-      step:    snapResult.step,
-    }, { status: 400 })
+    return NextResponse.json(
+      {
+        ok: false,
+        error: snapResult.error,
+        details: snapResult.details,
+        step: snapResult.step,
+      },
+      { status: 400 }
+    )
   }
 
   return NextResponse.json({
-    ok:             true,
-    pageCount:      snapResult.pageCount,
-    sectionCount:   snapResult.sectionCount,
-    estimatedKb:    Math.round(snapResult.estimatedKb * 10) / 10,
-    fromClient:     snapResult.fromClient,
-    warnings:       snapResult.warnings,
-    message:        'Snapshot is valid. Safe to create checkpoint.',
+    ok: true,
+    pageCount: snapResult.pageCount,
+    sectionCount: snapResult.sectionCount,
+    estimatedKb: Math.round(snapResult.estimatedKb * 10) / 10,
+    fromClient: snapResult.fromClient,
+    warnings: snapResult.warnings,
+    message: 'Snapshot is valid. Safe to create checkpoint.',
   })
 }

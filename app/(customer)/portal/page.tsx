@@ -9,7 +9,7 @@ import { CalendarDays, CreditCard, Star, ShoppingBag, User, LogIn } from 'lucide
 import Link from 'next/link'
 
 export default async function CustomerPortalPage() {
-  const host   = (await headers()).get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const tenant = await getTenantFromHost(host)
 
   // Load customer context (null if not signed in)
@@ -22,58 +22,58 @@ export default async function CustomerPortalPage() {
 
   const allSections = [
     {
-      key:         'appointments',
-      enabled:     mods.appointments,
-      label:       'Appointments',
+      key: 'appointments',
+      enabled: mods.appointments,
+      label: 'Appointments',
       description: 'View and manage your upcoming bookings',
-      icon:        CalendarDays,
-      href:        '/portal/appointments',
-      color:       'text-blue-400',
-      bgColor:     'bg-blue-400/10',
+      icon: CalendarDays,
+      href: '/portal/appointments',
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-400/10',
     },
     {
-      key:         'orders',
-      enabled:     mods.orders,
-      label:       'Orders',
+      key: 'orders',
+      enabled: mods.orders,
+      label: 'Orders',
       description: 'Track your orders and purchase history',
-      icon:        ShoppingBag,
-      href:        '/portal/customers/orders',
-      color:       'text-amber-400',
-      bgColor:     'bg-amber-400/10',
+      icon: ShoppingBag,
+      href: '/portal/customers/orders',
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-400/10',
     },
     {
-      key:         'rewards',
-      enabled:     mods.rewards,
-      label:       'Rewards',
+      key: 'rewards',
+      enabled: mods.rewards,
+      label: 'Rewards',
       description: 'Check your loyalty points and history',
-      icon:        Star,
-      href:        '/rewards',
-      color:       'text-yellow-400',
-      bgColor:     'bg-yellow-400/10',
+      icon: Star,
+      href: '/rewards',
+      color: 'text-yellow-400',
+      bgColor: 'bg-yellow-400/10',
     },
     {
-      key:         'payments',
-      enabled:     mods.payments,
-      label:       'Payments',
+      key: 'payments',
+      enabled: mods.payments,
+      label: 'Payments',
       description: 'View invoices and payment history',
-      icon:        CreditCard,
-      href:        '/portal/payments',
-      color:       'text-emerald-400',
-      bgColor:     'bg-emerald-400/10',
+      icon: CreditCard,
+      href: '/portal/payments',
+      color: 'text-emerald-400',
+      bgColor: 'bg-emerald-400/10',
     },
     {
-      key:         'profile',
-      enabled:     true,
-      label:       'My Profile',
+      key: 'profile',
+      enabled: true,
+      label: 'My Profile',
       description: 'Manage your account and preferences',
-      icon:        User,
-      href:        '/portal/customers/profile',
-      color:       'text-white/60',
-      bgColor:     'bg-white/4',
+      icon: User,
+      href: '/portal/customers/profile',
+      color: 'text-white/60',
+      bgColor: 'bg-white/4',
     },
   ]
 
-  const enabledSections = allSections.filter(s => s.enabled)
+  const enabledSections = allSections.filter((s) => s.enabled)
 
   return (
     <div className="space-y-8">
@@ -92,9 +92,7 @@ export default async function CustomerPortalPage() {
       {/* Sign-in prompt if not authenticated */}
       {!customerCtx && (
         <div className="rounded-xl bg-gold-500/8 border border-gold-500/20 px-5 py-4 flex items-center justify-between gap-4">
-          <p className="text-sm text-gold-300">
-            Sign in to access your personal portal.
-          </p>
+          <p className="text-sm text-gold-300">Sign in to access your personal portal.</p>
           <Link
             href="/login?next=/portal"
             className="flex-shrink-0 inline-flex items-center gap-1.5 h-8 px-4 rounded-xl text-xs font-semibold bg-gold-gradient text-graphite-900"
@@ -113,7 +111,9 @@ export default async function CustomerPortalPage() {
             <Link key={section.key} href={section.href} className="block focus-ring rounded-2xl">
               <Card className="group hover:shadow-panel-lg transition-shadow duration-200 !p-5 cursor-pointer">
                 <div className="flex items-start gap-4">
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${section.bgColor} border border-white/10`}>
+                  <div
+                    className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${section.bgColor} border border-white/10`}
+                  >
                     <Icon className={`h-5 w-5 ${section.color}`} strokeWidth={1.75} />
                   </div>
                   <div>

@@ -9,21 +9,23 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = req.nextUrl
-  const status   = searchParams.get('status') ?? ''
+  const status = searchParams.get('status') ?? ''
   const severity = searchParams.get('severity') ?? ''
 
   const supabase = getSupabaseServerClient()
   let query = supabase
     .from('inventory_alerts')
-    .select(`
+    .select(
+      `
       *,
       inventory_items(name, unit, current_quantity)
-    `)
+    `
+    )
     .eq('tenant_id', user.tenant_id)
     .order('created_at', { ascending: false })
     .limit(100)
 
-  if (status)   query = query.eq('status', status)
+  if (status) query = query.eq('status', status)
   if (severity) query = query.eq('severity', severity)
 
   const { data, error } = await query
@@ -33,14 +35,16 @@ export async function GET(req: NextRequest) {
   }
 
   // Flatten joined data
-  type RawAlertRow = Record<string, unknown> & { inventory_items?: { name?: string; unit?: string; current_quantity?: number } | null }
+  type RawAlertRow = Record<string, unknown> & {
+    inventory_items?: { name?: string; unit?: string; current_quantity?: number } | null
+  }
   const alerts = (data ?? []).map((a: RawAlertRow) => {
     const inv = a.inventory_items
     const { inventory_items: _inv, ...rest } = a
     return {
       ...rest,
-      item_name:        inv?.name ?? null,
-      item_unit:        inv?.unit ?? null,
+      item_name: inv?.name ?? null,
+      item_unit: inv?.unit ?? null,
       current_quantity: inv?.current_quantity ?? null,
     }
   })

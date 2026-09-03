@@ -7,7 +7,15 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { CalendarDays, Plus, Clock, ChevronRight, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import {
+  CalendarDays,
+  Plus,
+  Clock,
+  ChevronRight,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+} from 'lucide-react'
 import { StatusBadge } from '@/components/appointments/StatusBadge'
 import type { Appointment } from '@/lib/appointments/types'
 
@@ -26,16 +34,16 @@ function durationLabel(starts: string, ends: string) {
 }
 
 const STATUS_ICONS: Record<string, React.ElementType> = {
-  pending:   AlertCircle,
+  pending: AlertCircle,
   confirmed: CheckCircle2,
   completed: CheckCircle2,
-  canceled:  XCircle,
+  canceled: XCircle,
 }
 
 export default function CustomerAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [loading,      setLoading]      = useState(true)
-  const [tab,          setTab]          = useState<'upcoming' | 'past'>('upcoming')
+  const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
 
   useEffect(() => {
     fetch('/api/appointments?limit=200')
@@ -45,11 +53,11 @@ export default function CustomerAppointmentsPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const now   = new Date().toISOString()
+  const now = new Date().toISOString()
   const shown = appointments.filter((a) =>
     tab === 'upcoming'
       ? a.starts_at >= now && a.status !== 'canceled'
-      : a.starts_at  < now || a.status === 'canceled'
+      : a.starts_at < now || a.status === 'canceled'
   )
 
   return (
@@ -133,19 +141,31 @@ export default function CustomerAppointmentsPage() {
                   >
                     <div className="p-5 flex items-center gap-4">
                       {/* Status icon */}
-                      <div className={`
+                      <div
+                        className={`
                         h-12 w-12 rounded-xl flex items-center justify-center shrink-0
-                        ${appt.status === 'confirmed' ? 'bg-gold-400/10'
-                          : appt.status === 'completed' ? 'bg-emerald-400/10'
-                          : appt.status === 'canceled'  ? 'bg-red-400/10'
-                          : 'bg-amber-400/10'}
-                      `}>
-                        <Icon className={`w-5 h-5 ${
-                          appt.status === 'confirmed' ? 'text-gold-400'
-                          : appt.status === 'completed' ? 'text-emerald-400'
-                          : appt.status === 'canceled'  ? 'text-red-400'
-                          : 'text-amber-400'
-                        }`} />
+                        ${
+                          appt.status === 'confirmed'
+                            ? 'bg-gold-400/10'
+                            : appt.status === 'completed'
+                              ? 'bg-emerald-400/10'
+                              : appt.status === 'canceled'
+                                ? 'bg-red-400/10'
+                                : 'bg-amber-400/10'
+                        }
+                      `}
+                      >
+                        <Icon
+                          className={`w-5 h-5 ${
+                            appt.status === 'confirmed'
+                              ? 'text-gold-400'
+                              : appt.status === 'completed'
+                                ? 'text-emerald-400'
+                                : appt.status === 'canceled'
+                                  ? 'text-red-400'
+                                  : 'text-amber-400'
+                          }`}
+                        />
                       </div>
 
                       {/* Info */}
@@ -165,11 +185,10 @@ export default function CustomerAppointmentsPage() {
                         <div className="flex items-center gap-4 mt-2 text-xs text-white/40">
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            {fmtTime(appt.starts_at)} · {durationLabel(appt.starts_at, appt.ends_at)}
+                            {fmtTime(appt.starts_at)} ·{' '}
+                            {durationLabel(appt.starts_at, appt.ends_at)}
                           </span>
-                          {appt.location && (
-                            <span className="truncate">{appt.location}</span>
-                          )}
+                          {appt.location && <span className="truncate">{appt.location}</span>}
                         </div>
                       </div>
 

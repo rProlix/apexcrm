@@ -27,15 +27,26 @@ function forbidden(msg = 'Forbidden') {
 async function resolveTarget(targetId: string) {
   const ctx = await getUserContext()
 
-  if (!ctx)                                   return { ok: false as const, res: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+  if (!ctx)
+    return {
+      ok: false as const,
+      res: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    }
   if (!['owner', 'admin'].includes(ctx.role)) return { ok: false as const, res: forbidden() }
 
   const tenantId = ctx.tenant_id
-  if (!tenantId) return { ok: false as const, res: NextResponse.json({ error: 'No tenant context' }, { status: 400 }) }
+  if (!tenantId)
+    return {
+      ok: false as const,
+      res: NextResponse.json({ error: 'No tenant context' }, { status: 400 }),
+    }
 
   // Self-action guard
   if (targetId === ctx.id) {
-    return { ok: false as const, res: NextResponse.json({ error: 'Cannot modify your own account here' }, { status: 400 }) }
+    return {
+      ok: false as const,
+      res: NextResponse.json({ error: 'Cannot modify your own account here' }, { status: 400 }),
+    }
   }
 
   const db = getSupabaseServerClient()
@@ -46,12 +57,15 @@ async function resolveTarget(targetId: string) {
     .select('id, role, tenant_id, metadata')
     .eq('id', targetId)
     .eq('tenant_id', tenantId)
-    .neq('role', 'owner')                           // CRITICAL: block targeting owner rows
+    .neq('role', 'owner') // CRITICAL: block targeting owner rows
     .maybeSingle()
 
   // Return 404 for both "not found" and "is owner" — never reveal existence of owner rows
   if (!target) {
-    return { ok: false as const, res: NextResponse.json({ error: 'Staff member not found' }, { status: 404 }) }
+    return {
+      ok: false as const,
+      res: NextResponse.json({ error: 'Staff member not found' }, { status: 404 }),
+    }
   }
 
   return { ok: true as const, ctx, tenantId, target }
@@ -78,7 +92,9 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
@@ -98,7 +114,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     .update({ role, updated_at: new Date().toISOString() })
     .eq('id', (await params).id)
     .eq('tenant_id', tenantId)
-    .neq('role', 'owner')                           // safety net: never update owner rows
+    .neq('role', 'owner') // safety net: never update owner rows
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
@@ -131,7 +147,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
     .delete()
     .eq('id', (await params).id)
     .eq('tenant_id', tenantId)
-    .neq('role', 'owner')                           // final safety net on DELETE
+    .neq('role', 'owner') // final safety net on DELETE
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

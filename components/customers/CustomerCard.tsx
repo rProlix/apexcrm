@@ -6,15 +6,15 @@ import { Mail, Phone, CheckCircle2, Circle, ChevronRight, Clock } from 'lucide-r
 import type { TenantCustomer } from '@/lib/customers/getTenantCustomers'
 
 interface Props {
-  customer:   TenantCustomer
-  index?:     number
+  customer: TenantCustomer
+  index?: number
   canManage?: boolean
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  active:   'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+  active: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
   inactive: 'text-white/30 bg-white/4 border-white/8',
-  banned:   'text-red-400 bg-red-400/10 border-red-400/20',
+  banned: 'text-red-400 bg-red-400/10 border-red-400/20',
 }
 
 export function CustomerCard({ customer, index = 0, canManage: _canManage }: Props) {
@@ -47,11 +47,19 @@ export function CustomerCard({ customer, index = 0, canManage: _canManage }: Pro
               {customer.display_name ?? customer.name}
             </span>
             {customer.has_account && (
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" aria-label="Has portal account" />
+              <CheckCircle2
+                className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0"
+                aria-label="Has portal account"
+              />
             )}
-            {!customer.has_account && (customer as TenantCustomer & { invite_status?: string }).invite_status === 'pending' && (
-              <Clock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" aria-label="Invite pending" />
-            )}
+            {!customer.has_account &&
+              (customer as TenantCustomer & { invite_status?: string }).invite_status ===
+                'pending' && (
+                <Clock
+                  className="w-3.5 h-3.5 text-amber-400 flex-shrink-0"
+                  aria-label="Invite pending"
+                />
+              )}
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {customer.email && (
@@ -71,11 +79,14 @@ export function CustomerCard({ customer, index = 0, canManage: _canManage }: Pro
 
         {/* Status + Arrow */}
         <div className="flex items-center gap-3 flex-shrink-0">
-          <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${STATUS_STYLES[customer.status] ?? STATUS_STYLES.active}`}>
-            {customer.status === 'active'
-              ? <CheckCircle2 className="w-3 h-3" />
-              : <Circle className="w-3 h-3" />
-            }
+          <span
+            className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${STATUS_STYLES[customer.status] ?? STATUS_STYLES.active}`}
+          >
+            {customer.status === 'active' ? (
+              <CheckCircle2 className="w-3 h-3" />
+            ) : (
+              <Circle className="w-3 h-3" />
+            )}
             {customer.status}
           </span>
           <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-gold-400 transition-colors" />

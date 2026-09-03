@@ -27,11 +27,7 @@ export function ModuleGrid({ modules, statsMap = {} }: ModuleGridProps) {
       className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
     >
       {modules.map((mod) => (
-        <ModuleCard
-          key={mod.key}
-          module={mod}
-          stats={statsMap[mod.key]}
-        />
+        <ModuleCard key={mod.key} module={mod} stats={statsMap[mod.key]} />
       ))}
     </motion.div>
   )

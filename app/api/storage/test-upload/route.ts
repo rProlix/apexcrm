@@ -17,8 +17,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserContext }            from '@/lib/auth/getUserContext'
-import { uploadFile }                from '@/lib/storage/uploadFile'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { uploadFile } from '@/lib/storage/uploadFile'
 import { STORAGE_BUCKETS, type StorageBucket } from '@/lib/storage/buckets'
 
 const ALL_BUCKETS = new Set<string>(Object.values(STORAGE_BUCKETS))
@@ -27,7 +27,10 @@ export async function POST(req: NextRequest) {
   // Owner or admin gate
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) {
-    return NextResponse.json({ error: 'Forbidden — owner or admin access required' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'Forbidden — owner or admin access required' },
+      { status: 403 }
+    )
   }
 
   let body: { bucket?: string; tenantId?: string; category?: string }
@@ -42,7 +45,7 @@ export async function POST(req: NextRequest) {
   if (!bucket || !ALL_BUCKETS.has(bucket)) {
     return NextResponse.json(
       { error: `Invalid bucket. Allowed values: ${[...ALL_BUCKETS].join(', ')}` },
-      { status: 400 },
+      { status: 400 }
     )
   }
 
@@ -52,35 +55,38 @@ export async function POST(req: NextRequest) {
 
   // Admins can only test their own tenant.
   if (ctx.role === 'admin' && ctx.tenant_id && ctx.tenant_id !== tenantId) {
-    return NextResponse.json({ error: 'Forbidden — admin can only test their own tenant' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'Forbidden — admin can only test their own tenant' },
+      { status: 403 }
+    )
   }
 
-  const timestamp  = Date.now()
-  const fileName   = `${category}-${timestamp}.txt`
-  const content    = `Nexora Storage test\nbucket=${bucket}\ntenantId=${tenantId}\ntimestamp=${timestamp}\n`
-  const buffer     = Buffer.from(content, 'utf-8')
+  const timestamp = Date.now()
+  const fileName = `${category}-${timestamp}.txt`
+  const content = `Nexora Storage test\nbucket=${bucket}\ntenantId=${tenantId}\ntimestamp=${timestamp}\n`
+  const buffer = Buffer.from(content, 'utf-8')
 
   try {
     const result = await uploadFile({
-      bucket:       bucket as StorageBucket,
+      bucket: bucket as StorageBucket,
       tenantId,
-      pathParts:    ['temp'],
+      pathParts: ['temp'],
       fileName,
-      buffer:       new Uint8Array(buffer),
-      mimeType:     'text/plain',
-      upsert:       true,
+      buffer: new Uint8Array(buffer),
+      mimeType: 'text/plain',
+      upsert: true,
       withSignedUrl: true,
       signedUrlExpiresIn: 300, // 5 min — just long enough to verify
     })
 
     return NextResponse.json({
-      ok:        true,
-      bucket:    result.bucket,
-      path:      result.path,
-      publicUrl: result.publicUrl  ?? null,
-      signedUrl: result.signedUrl  ?? null,
+      ok: true,
+      bucket: result.bucket,
+      path: result.path,
+      publicUrl: result.publicUrl ?? null,
+      signedUrl: result.signedUrl ?? null,
       sizeBytes: result.sizeBytes,
-      mimeType:  result.mimeType,
+      mimeType: result.mimeType,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

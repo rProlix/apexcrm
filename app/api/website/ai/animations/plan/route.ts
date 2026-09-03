@@ -19,17 +19,37 @@ import {
   safeStripSectionIds,
   safeStripAnimationTargetTypes,
 } from '@/lib/website/ai/normalizePremiumDesignPlan'
-import { ANIMATION_PRESETS, STYLE_PRESETS, IMAGE_TREATMENTS, BUTTON_TREATMENTS } from '@/lib/website/animations/types'
-import type { AnimationScope, AnimationIntensity, AnimationPerformance, DesiredVibe } from '@/lib/website/animations/types'
+import {
+  ANIMATION_PRESETS,
+  STYLE_PRESETS,
+  IMAGE_TREATMENTS,
+  BUTTON_TREATMENTS,
+} from '@/lib/website/animations/types'
+import type {
+  AnimationScope,
+  AnimationIntensity,
+  AnimationPerformance,
+  DesiredVibe,
+} from '@/lib/website/animations/types'
 
 const bodySchema = z.object({
-  tenantId:                z.string().uuid(),
-  pageId:                  z.string().uuid().optional().nullable(),
-  sectionId:               z.string().uuid().optional().nullable(),
-  scope:                   z.enum(['global', 'page', 'section']).default('section'),
-  desiredVibe:             z.enum(['luxury','modern_saas','warm_local','editorial_boutique','futuristic_premium','clean_professional','bold_conversion']).optional(),
-  intensity:               z.enum(['subtle','balanced','cinematic']).optional().default('balanced'),
-  performanceMode:         z.enum(['fast','balanced','premium']).optional().default('balanced'),
+  tenantId: z.string().uuid(),
+  pageId: z.string().uuid().optional().nullable(),
+  sectionId: z.string().uuid().optional().nullable(),
+  scope: z.enum(['global', 'page', 'section']).default('section'),
+  desiredVibe: z
+    .enum([
+      'luxury',
+      'modern_saas',
+      'warm_local',
+      'editorial_boutique',
+      'futuristic_premium',
+      'clean_professional',
+      'bold_conversion',
+    ])
+    .optional(),
+  intensity: z.enum(['subtle', 'balanced', 'cinematic']).optional().default('balanced'),
+  performanceMode: z.enum(['fast', 'balanced', 'premium']).optional().default('balanced'),
   includeMobileAnimations: z.boolean().optional().default(true),
 })
 
@@ -48,13 +68,28 @@ export async function POST(req: NextRequest) {
   try {
     body = bodySchema.parse(await req.json())
   } catch (err) {
-    return NextResponse.json({ error: 'Invalid request body', detail: String(err) }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Invalid request body', detail: String(err) },
+      { status: 400 }
+    )
   }
 
-  const { tenantId, pageId, sectionId, scope, desiredVibe, intensity, performanceMode, includeMobileAnimations } = body
+  const {
+    tenantId,
+    pageId,
+    sectionId,
+    scope,
+    desiredVibe,
+    intensity,
+    performanceMode,
+    includeMobileAnimations,
+  } = body
 
   if (!process.env.GEMINI_API_KEY)
-    return NextResponse.json({ error: 'AI analysis is not configured. Contact an administrator.' }, { status: 503 })
+    return NextResponse.json(
+      { error: 'AI analysis is not configured. Contact an administrator.' },
+      { status: 503 }
+    )
 
   const supabase = getSupabaseServerClient()
 
@@ -69,11 +104,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Tenant access denied.' }, { status: 403 })
 
   // ── Load business context ───────────────────────────────────────────────────
-  const { data: tenant } = await supabase
+  const { data: tenant } = (await supabase
     .from('tenants')
     .select('*')
     .eq('id', tenantId)
-    .single() as { data: Record<string, unknown> | null; error: unknown }
+    .single()) as { data: Record<string, unknown> | null; error: unknown }
 
   // ── Load sections — STEP 1: get real UUIDs to include in prompt ─────────────
   let sectionsQuery = supabase
@@ -101,58 +136,61 @@ export async function POST(req: NextRequest) {
   const { data: sections } = await sectionsQuery
 
   // Build availableSections for normalization and prompt
-  const availableSections = (sections ?? []).map(s => {
-    const c = (typeof s.content === 'object' && s.content !== null ? s.content : {}) as Record<string, unknown>
+  const availableSections = (sections ?? []).map((s) => {
+    const c = (typeof s.content === 'object' && s.content !== null ? s.content : {}) as Record<
+      string,
+      unknown
+    >
     return {
-      id:     s.id,
-      type:   s.section_type as string | null,
-      title:  String(c.headline ?? c.title ?? s.section_type ?? '').slice(0, 80) || null,
-      name:   null,
-      order:  s.sort_order as number | null,
-      pageId: (s as Record<string, unknown>).page_id as string | null ?? null,
+      id: s.id,
+      type: s.section_type as string | null,
+      title: String(c.headline ?? c.title ?? s.section_type ?? '').slice(0, 80) || null,
+      name: null,
+      order: s.sort_order as number | null,
+      pageId: ((s as Record<string, unknown>).page_id as string | null) ?? null,
     }
   })
 
-  const availableSectionIds = new Set(availableSections.map(s => s.id))
+  const availableSectionIds = new Set(availableSections.map((s) => s.id))
 
   // Load theme/brand settings
-  const { data: websiteSettings } = await supabase
+  const { data: websiteSettings } = (await supabase
     .from('website_settings')
     .select('*')
     .eq('tenant_id', tenantId)
-    .maybeSingle() as { data: Record<string, unknown> | null; error: unknown }
+    .maybeSingle()) as { data: Record<string, unknown> | null; error: unknown }
 
   const businessContext = {
-    businessName:    String(tenant?.name ?? 'The Business'),
-    businessType:    String(tenant?.business_type ?? tenant?.industry ?? 'general'),
-    description:     String(tenant?.description ?? ''),
-    primaryColor:    websiteSettings?.primary_color ? String(websiteSettings.primary_color) : null,
-    fontFamily:      websiteSettings?.font_family ? String(websiteSettings.font_family) : null,
-    tagline:         websiteSettings?.site_tagline ? String(websiteSettings.site_tagline) : null,
+    businessName: String(tenant?.name ?? 'The Business'),
+    businessType: String(tenant?.business_type ?? tenant?.industry ?? 'general'),
+    description: String(tenant?.description ?? ''),
+    primaryColor: websiteSettings?.primary_color ? String(websiteSettings.primary_color) : null,
+    fontFamily: websiteSettings?.font_family ? String(websiteSettings.font_family) : null,
+    tagline: websiteSettings?.site_tagline ? String(websiteSettings.site_tagline) : null,
     scope,
-    desiredVibe:     desiredVibe ?? 'clean_professional',
-    intensity:       intensity ?? 'balanced',
+    desiredVibe: desiredVibe ?? 'clean_professional',
+    intensity: intensity ?? 'balanced',
     performanceMode: performanceMode ?? 'balanced',
-    includeMobile:   includeMobileAnimations,
-    sections:        availableSections,
+    includeMobile: includeMobileAnimations,
+    sections: availableSections,
   }
 
   // ── Build the Gemini prompt ─────────────────────────────────────────────────
   const vibeMap: Record<string, string> = {
-    luxury:             'ultra-high-end, editorial, exclusivity, quiet luxury',
-    modern_saas:        'sleek, tech-forward, precision, futuristic minimalism',
-    warm_local:         'friendly, approachable, community-focused, trustworthy local business',
+    luxury: 'ultra-high-end, editorial, exclusivity, quiet luxury',
+    modern_saas: 'sleek, tech-forward, precision, futuristic minimalism',
+    warm_local: 'friendly, approachable, community-focused, trustworthy local business',
     editorial_boutique: 'artisan, curated, boutique, editorial photography vibes',
     futuristic_premium: 'cutting-edge, bold, glowing accents, dark mode premium',
     clean_professional: 'clean, trustworthy, organized, business-ready',
-    bold_conversion:    'high-contrast, urgency, CTA-focused, action-driving',
+    bold_conversion: 'high-contrast, urgency, CTA-focused, action-driving',
   }
   const vibeDescription = vibeMap[desiredVibe ?? 'clean_professional'] ?? 'clean and professional'
 
   // Sections formatted for the prompt — include real UUIDs
-  const sectionList = availableSections.map(s =>
-    `  { "id": "${s.id}", "type": "${s.type ?? ''}", "title": "${s.title ?? ''}" }`
-  ).join(',\n')
+  const sectionList = availableSections
+    .map((s) => `  { "id": "${s.id}", "type": "${s.type ?? ''}", "title": "${s.title ?? ''}" }`)
+    .join(',\n')
 
   const prompt = `You are a luxury website creative director and Framer Motion animation designer.
 
@@ -230,9 +268,9 @@ RULES:
 1. Do NOT over-animate. Prioritize conversion, readability, speed, mobile.
 2. Output ONLY valid JSON. No markdown. No code blocks. No extra text.
 3. Use ONLY these animation presets: ${ANIMATION_PRESETS.join(', ')}
-4. Use ONLY these style presets: ${STYLE_PRESETS.filter(s => s !== 'none').join(', ')}
-5. Use ONLY these image treatments: ${IMAGE_TREATMENTS.filter(t => t !== 'none').join(', ')} (or "none")
-6. Use ONLY these button treatments: ${BUTTON_TREATMENTS.filter(b => b !== 'standard').join(', ')} (or "standard")
+4. Use ONLY these style presets: ${STYLE_PRESETS.filter((s) => s !== 'none').join(', ')}
+5. Use ONLY these image treatments: ${IMAGE_TREATMENTS.filter((t) => t !== 'none').join(', ')} (or "none")
+6. Use ONLY these button treatments: ${BUTTON_TREATMENTS.filter((b) => b !== 'standard').join(', ')} (or "standard")
 7. Colors must be hex (e.g. #7c3aed). No rgb(), hsl(), or named colors.
 8. Duration: 100–3000ms. Delay: 0–2000ms. Stagger: 0–800ms.
 9. respectReducedMotion must always be true.
@@ -312,41 +350,47 @@ Return ONLY the JSON. No markdown fences. No extra text.`
 
   // ── Call Gemini ─────────────────────────────────────────────────────────────
   const { text, error: aiError } = await callGeminiText({
-    model:           GEMINI_ANIMATION_MODEL,
+    model: GEMINI_ANIMATION_MODEL,
     prompt,
-    feature:         'animation-planner',
-    temperature:     0.4,
+    feature: 'animation-planner',
+    temperature: 0.4,
     maxOutputTokens: 4096,
-    timeoutMs:       60_000,
+    timeoutMs: 60_000,
   })
 
   if (aiError || !text) {
     await supabase.from('website_animation_plans').insert({
-      tenant_id:                 tenantId,
-      site_page_id:              pageId ?? null,
-      site_section_id:           sectionId ?? null,
-      created_by:                ctx.auth_id ?? null,
-      status:                    'failed',
+      tenant_id: tenantId,
+      site_page_id: pageId ?? null,
+      site_section_id: sectionId ?? null,
+      created_by: ctx.auth_id ?? null,
+      status: 'failed',
       scope,
-      desired_vibe:              desiredVibe ?? null,
-      intensity:                 (intensity as AnimationIntensity) ?? null,
-      performance_mode:          (performanceMode as AnimationPerformance) ?? null,
+      desired_vibe: desiredVibe ?? null,
+      intensity: (intensity as AnimationIntensity) ?? null,
+      performance_mode: (performanceMode as AnimationPerformance) ?? null,
       include_mobile_animations: includeMobileAnimations,
-      business_context:          businessContext as never,
-      error_message:             aiError ?? 'AI returned no content',
+      business_context: businessContext as never,
+      error_message: aiError ?? 'AI returned no content',
     } as never)
 
-    return NextResponse.json({
-      error: aiError ?? 'AI returned no content.',
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: aiError ?? 'AI returned no content.',
+      },
+      { status: 500 }
+    )
   }
 
   // ── Parse raw JSON from Gemini ──────────────────────────────────────────────
   let rawPlan: unknown = null
   try {
-    let cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '')
+    let cleaned = text
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```\s*$/, '')
     const start = cleaned.indexOf('{')
-    const end   = cleaned.lastIndexOf('}')
+    const end = cleaned.lastIndexOf('}')
     if (start !== -1 && end > start) cleaned = cleaned.slice(start, end + 1)
     rawPlan = JSON.parse(cleaned)
   } catch {
@@ -377,48 +421,51 @@ Return ONLY the JSON. No markdown fences. No extra text.`
     // Log detailed error for debugging but don't expose internals
     console.error('[AI-ANIM][plan] Validation failed after normalization:', validationError)
 
-    const { data: failedPlan } = await supabase
+    const { data: failedPlan } = (await supabase
       .from('website_animation_plans')
       .insert({
-        tenant_id:                 tenantId,
-        site_page_id:              pageId ?? null,
-        site_section_id:           sectionId ?? null,
-        created_by:                ctx.auth_id ?? null,
-        status:                    'failed',
+        tenant_id: tenantId,
+        site_page_id: pageId ?? null,
+        site_section_id: sectionId ?? null,
+        created_by: ctx.auth_id ?? null,
+        status: 'failed',
         scope,
-        desired_vibe:              desiredVibe ?? null,
-        intensity:                 (intensity as AnimationIntensity) ?? null,
-        performance_mode:          (performanceMode as AnimationPerformance) ?? null,
+        desired_vibe: desiredVibe ?? null,
+        intensity: (intensity as AnimationIntensity) ?? null,
+        performance_mode: (performanceMode as AnimationPerformance) ?? null,
         include_mobile_animations: includeMobileAnimations,
-        business_context:          businessContext as never,
-        ai_plan:                   safePlan as never,
-        error_message:             validationError ?? 'Plan validation failed',
+        business_context: businessContext as never,
+        ai_plan: safePlan as never,
+        error_message: validationError ?? 'Plan validation failed',
       } as never)
       .select('id')
-      .single() as { data: { id: string } | null; error: unknown }
+      .single()) as { data: { id: string } | null; error: unknown }
 
-    return NextResponse.json({
-      error: validationError ?? 'AI plan validation failed.',
-      planId: (failedPlan as { id: string } | null)?.id,
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: validationError ?? 'AI plan validation failed.',
+        planId: (failedPlan as { id: string } | null)?.id,
+      },
+      { status: 500 }
+    )
   }
 
   // ── STEP 4: Save validated plan ─────────────────────────────────────────────
   const { data: plan, error: insertErr } = await supabase
     .from('website_animation_plans')
     .insert({
-      tenant_id:                 tenantId,
-      site_page_id:              pageId ?? null,
-      site_section_id:           sectionId ?? null,
-      created_by:                ctx.auth_id ?? null,
-      status:                    'planned',
+      tenant_id: tenantId,
+      site_page_id: pageId ?? null,
+      site_section_id: sectionId ?? null,
+      created_by: ctx.auth_id ?? null,
+      status: 'planned',
       scope,
-      desired_vibe:              desiredVibe ?? null,
-      intensity:                 (intensity as AnimationIntensity) ?? null,
-      performance_mode:          (performanceMode as AnimationPerformance) ?? null,
+      desired_vibe: desiredVibe ?? null,
+      intensity: (intensity as AnimationIntensity) ?? null,
+      performance_mode: (performanceMode as AnimationPerformance) ?? null,
       include_mobile_animations: includeMobileAnimations,
-      business_context:          businessContext as never,
-      ai_plan:                   validatedPlan as never,
+      business_context: businessContext as never,
+      ai_plan: validatedPlan as never,
     } as never)
     .select('*')
     .single()

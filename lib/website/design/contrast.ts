@@ -1,14 +1,21 @@
 // lib/website/design/contrast.ts
 // WCAG contrast ratio helpers — pure math, no browser APIs required.
 
-export interface Rgb { r: number; g: number; b: number }
+export interface Rgb {
+  r: number
+  g: number
+  b: number
+}
 
 /** Parse a CSS hex color (#rgb, #rrggbb, #rrggbbaa) into 0-255 components. */
 export function hexToRgb(hex: string): Rgb | null {
   if (typeof hex !== 'string') return null
   let h = hex.trim().replace(/^#/, '')
   if (h.length === 3 || h.length === 4) {
-    h = h.split('').map((c) => c + c).join('')
+    h = h
+      .split('')
+      .map((c) => c + c)
+      .join('')
   }
   if (h.length !== 6 && h.length !== 8) return null
   const n = parseInt(h.slice(0, 6), 16)
@@ -44,10 +51,10 @@ export function getContrastRatio(fg: Rgb, bg: Rgb): number {
  * Normal text: 4.5:1  |  Large text: 3:1  |  UI components: 3:1
  */
 export function passesWcag(
-  fg:    string,
-  bg:    string,
+  fg: string,
+  bg: string,
   level: 'AA' | 'AAA' = 'AA',
-  size:  'normal' | 'large' = 'normal',
+  size: 'normal' | 'large' = 'normal'
 ): boolean {
   const fgRgb = hexToRgb(fg)
   const bgRgb = hexToRgb(bg)
@@ -72,11 +79,7 @@ export function chooseReadableTextColor(bg: string): '#ffffff' | '#1a1a1a' {
  * Ensure a foreground color passes WCAG AA against a background.
  * Returns the original fg if it passes, otherwise flips to white or black.
  */
-export function ensureContrast(
-  fg:    string,
-  bg:    string,
-  level: 'AA' | 'AAA' = 'AA',
-): string {
+export function ensureContrast(fg: string, bg: string, level: 'AA' | 'AAA' = 'AA'): string {
   if (passesWcag(fg, bg, level)) return fg
   const white = passesWcag('#ffffff', bg, level)
   const black = passesWcag('#1a1a1a', bg, level)

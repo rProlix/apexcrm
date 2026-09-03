@@ -12,7 +12,9 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { povDb } from '@/lib/pov/db'
 import { POV_EVENT_TYPES, type PovEventType } from '@/lib/pov/types'
 
-interface RouteCtx { params: Promise<{ eventRef: string }> }
+interface RouteCtx {
+  params: Promise<{ eventRef: string }>
+}
 
 /** Strips a full event row down to fields safe to expose to public guests. */
 function toPublic(event: Awaited<ReturnType<typeof resolveEvent>>) {
@@ -20,30 +22,30 @@ function toPublic(event: Awaited<ReturnType<typeof resolveEvent>>) {
   const unlocked = isGalleryUnlocked(event)
   const s = event.settings ?? {}
   return {
-    id:                       event.id,
-    name:                     event.name,
-    slug:                     event.slug,
-    event_type:               event.event_type,
-    event_date:               event.event_date,
-    event_start_at:           event.event_start_at,
-    timezone:                 event.timezone,
-    gallery_reveal_at:        event.gallery_reveal_at,
-    is_active:                event.is_active,
-    allow_photos:             event.allow_photos,
-    allow_videos:             event.allow_videos,
-    allow_audio:              event.allow_audio,
-    video_max_seconds:        event.video_max_seconds,
-    audio_max_seconds:        event.audio_max_seconds,
-    require_pin:              event.require_pin,
-    allow_guest_login:        event.allow_guest_login,
+    id: event.id,
+    name: event.name,
+    slug: event.slug,
+    event_type: event.event_type,
+    event_date: event.event_date,
+    event_start_at: event.event_start_at,
+    timezone: event.timezone,
+    gallery_reveal_at: event.gallery_reveal_at,
+    is_active: event.is_active,
+    allow_photos: event.allow_photos,
+    allow_videos: event.allow_videos,
+    allow_audio: event.allow_audio,
+    video_max_seconds: event.video_max_seconds,
+    audio_max_seconds: event.audio_max_seconds,
+    require_pin: event.require_pin,
+    allow_guest_login: event.allow_guest_login,
     allow_guest_registration: event.allow_guest_registration,
-    gallery_locked_message:   event.gallery_locked_message,
+    gallery_locked_message: event.gallery_locked_message,
     gallery_unlocked_message: event.gallery_unlocked_message,
-    theme:                    event.theme ?? {},
-    headline:                 (s as Record<string, unknown>).headline ?? null,
-    subheadline:              (s as Record<string, unknown>).subheadline ?? null,
-    upload_instructions:      (s as Record<string, unknown>).upload_instructions ?? null,
-    upload_success_message:   (s as Record<string, unknown>).upload_success_message ?? null,
+    theme: event.theme ?? {},
+    headline: (s as Record<string, unknown>).headline ?? null,
+    subheadline: (s as Record<string, unknown>).subheadline ?? null,
+    upload_instructions: (s as Record<string, unknown>).upload_instructions ?? null,
+    upload_success_message: (s as Record<string, unknown>).upload_success_message ?? null,
     unlocked,
   }
 }
@@ -58,7 +60,9 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
   try {
     const ctx = await getUserContext()
     if (ctx) isAdmin = canManageEvent(ctx, event)
-  } catch { /* anonymous */ }
+  } catch {
+    /* anonymous */
+  }
 
   if (isAdmin) {
     return NextResponse.json({ event, public: toPublic(event), isAdmin: true })
@@ -67,11 +71,19 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
 }
 
 const PATCHABLE_BOOL = [
-  'is_active', 'allow_photos', 'allow_videos', 'allow_audio', 'require_pin',
-  'allow_guest_login', 'allow_guest_registration',
+  'is_active',
+  'allow_photos',
+  'allow_videos',
+  'allow_audio',
+  'require_pin',
+  'allow_guest_login',
+  'allow_guest_registration',
 ] as const
 const PATCHABLE_TEXT = [
-  'name', 'gallery_locked_message', 'gallery_unlocked_message', 'timezone',
+  'name',
+  'gallery_locked_message',
+  'gallery_unlocked_message',
+  'timezone',
 ] as const
 
 export async function PATCH(req: NextRequest, { params }: RouteCtx) {
@@ -79,7 +91,7 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   const auth = await authorizeEventAdmin(eventRef)
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
-  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const patch: Record<string, unknown> = {}
 
   for (const k of PATCHABLE_BOOL) if (k in body) patch[k] = Boolean(body[k])
@@ -93,7 +105,9 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     patch.gallery_reveal_at = new Date(String(body.gallery_reveal_at)).toISOString()
   }
   if ('event_start_at' in body) {
-    patch.event_start_at = body.event_start_at ? new Date(String(body.event_start_at)).toISOString() : null
+    patch.event_start_at = body.event_start_at
+      ? new Date(String(body.event_start_at)).toISOString()
+      : null
   }
   if ('video_max_seconds' in body) patch.video_max_seconds = Number(body.video_max_seconds)
   if ('audio_max_seconds' in body) patch.audio_max_seconds = Number(body.audio_max_seconds)

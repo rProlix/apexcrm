@@ -13,11 +13,11 @@ function getMeta(html: string, key: string): string | null {
   const patterns = [
     new RegExp(
       `<meta[^>]+(?:name|property)=["']${escapeRe(key)}["'][^>]+content=["']([^"']+)["']`,
-      'i',
+      'i'
     ),
     new RegExp(
       `<meta[^>]+content=["']([^"']+)["'][^>]+(?:name|property)=["']${escapeRe(key)}["']`,
-      'i',
+      'i'
     ),
   ]
 
@@ -33,10 +33,7 @@ function escapeRe(s: string): string {
 }
 
 function getTag(html: string, tag: string, attr: string): string | null {
-  const re = new RegExp(
-    `<${tag}[^>]+${escapeRe(attr)}=["']([^"']+)["']`,
-    'i',
-  )
+  const re = new RegExp(`<${tag}[^>]+${escapeRe(attr)}=["']([^"']+)["']`, 'i')
   return re.exec(html)?.[1]?.trim() ?? null
 }
 
@@ -86,7 +83,10 @@ function getFavicon(html: string, baseUrl: string): string | null {
 function getKeywords(html: string): string[] {
   const raw = getMeta(html, 'keywords')
   if (!raw) return []
-  return raw.split(',').map((k) => k.trim()).filter(Boolean)
+  return raw
+    .split(',')
+    .map((k) => k.trim())
+    .filter(Boolean)
 }
 
 /**
@@ -94,20 +94,20 @@ function getKeywords(html: string): string[] {
  */
 export function parseMetadata(html: string, baseUrl: string): ParsedMetadata {
   return {
-    title:          getTitle(html),
-    description:    getMeta(html, 'description'),
-    keywords:       getKeywords(html),
-    canonical:      getTag(html, 'link', 'canonical') ?? getMeta(html, 'canonical'),
-    ogTitle:        getMeta(html, 'og:title'),
-    ogDescription:  getMeta(html, 'og:description'),
-    ogImage:        resolveUrl(getMeta(html, 'og:image'), baseUrl),
-    ogSiteName:     getMeta(html, 'og:site_name'),
-    twitterTitle:   getMeta(html, 'twitter:title'),
+    title: getTitle(html),
+    description: getMeta(html, 'description'),
+    keywords: getKeywords(html),
+    canonical: getTag(html, 'link', 'canonical') ?? getMeta(html, 'canonical'),
+    ogTitle: getMeta(html, 'og:title'),
+    ogDescription: getMeta(html, 'og:description'),
+    ogImage: resolveUrl(getMeta(html, 'og:image'), baseUrl),
+    ogSiteName: getMeta(html, 'og:site_name'),
+    twitterTitle: getMeta(html, 'twitter:title'),
     twitterDescription: getMeta(html, 'twitter:description'),
-    twitterImage:   resolveUrl(getMeta(html, 'twitter:image'), baseUrl),
-    twitterSite:    getMeta(html, 'twitter:site'),
-    favicon:        getFavicon(html, baseUrl),
-    themeColor:     getMeta(html, 'theme-color'),
+    twitterImage: resolveUrl(getMeta(html, 'twitter:image'), baseUrl),
+    twitterSite: getMeta(html, 'twitter:site'),
+    favicon: getFavicon(html, baseUrl),
+    themeColor: getMeta(html, 'theme-color'),
   }
 }
 

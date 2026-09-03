@@ -7,10 +7,10 @@ import { sendEmail } from './sendEmail'
 import type { EmailPayload, EmailResult } from './types'
 
 export interface BatchRecipient {
-  email:     string
+  email: string
   firstName?: string
-  lastName?:  string
-  metadata?:  Record<string, unknown>
+  lastName?: string
+  metadata?: Record<string, unknown>
 }
 
 export interface BatchEmailOptions {
@@ -24,10 +24,10 @@ export interface BatchEmailOptions {
 }
 
 export interface BatchEmailResult {
-  total:     number
-  sent:      number
-  failed:    number
-  results:   Array<{ email: string; result: EmailResult }>
+  total: number
+  sent: number
+  failed: number
+  results: Array<{ email: string; result: EmailResult }>
 }
 
 /**
@@ -56,8 +56,8 @@ export async function sendBatchEmail(opts: BatchEmailOptions): Promise<BatchEmai
             metadata: {
               ...template.metadata,
               recipientFirstName: recipient.firstName,
-              recipientLastName:  recipient.lastName,
-              recipientMeta:      recipient.metadata,
+              recipientLastName: recipient.lastName,
+              recipientMeta: recipient.metadata,
             },
           })
 
@@ -73,9 +73,9 @@ export async function sendBatchEmail(opts: BatchEmailOptions): Promise<BatchEmai
           results.push({
             email: recipient.email,
             result: {
-              success:  false,
+              success: false,
               provider: 'resend', // placeholder — actual provider unknown at this point
-              error:    msg,
+              error: msg,
             },
           })
           failed++
@@ -90,7 +90,7 @@ export async function sendBatchEmail(opts: BatchEmailOptions): Promise<BatchEmai
   }
 
   return {
-    total:   recipients.length,
+    total: recipients.length,
     sent,
     failed,
     results,

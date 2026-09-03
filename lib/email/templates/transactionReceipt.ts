@@ -3,21 +3,24 @@ import { renderBaseEmail, renderBasePlainText } from './base'
 import type { TemplateResult } from '../types'
 
 export interface TransactionReceiptData {
-  customerName?:     string
-  businessName:      string
-  businessLogoUrl?:  string | null
-  businessWebsite?:  string | null
-  primaryColor?:     string | null
-  amount:            number
-  currency:          string
-  transactionId?:    string
-  receiptUrl?:       string
-  items?:            Array<{ name: string; amount: number; quantity?: number }>
+  customerName?: string
+  businessName: string
+  businessLogoUrl?: string | null
+  businessWebsite?: string | null
+  primaryColor?: string | null
+  amount: number
+  currency: string
+  transactionId?: string
+  receiptUrl?: string
+  items?: Array<{ name: string; amount: number; quantity?: number }>
 }
 
 function formatCurrency(amount: number, currency: string): string {
   try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(amount)
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(amount)
   } catch {
     return `${currency.toUpperCase()} ${amount.toFixed(2)}`
   }
@@ -35,16 +38,21 @@ export function buildTransactionReceiptEmail(data: TransactionReceiptData): Temp
         <td style="padding:10px 14px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Item</td>
         <td style="padding:10px 14px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;text-align:right;">Amount</td>
       </tr>
-      ${items.map((item, i) => `
+      ${items
+        .map(
+          (item, i) => `
         <tr style="${i > 0 ? 'border-top:1px solid #e5e7eb;' : ''}">
           <td style="padding:10px 14px;font-size:14px;color:#111827;">${item.quantity && item.quantity > 1 ? `${item.name} ×${item.quantity}` : item.name}</td>
           <td style="padding:10px 14px;font-size:14px;color:#111827;text-align:right;">${formatCurrency(item.amount, currency)}</td>
-        </tr>`).join('')}
+        </tr>`
+        )
+        .join('')}
       <tr style="border-top:2px solid #e5e7eb;">
         <td style="padding:12px 14px;font-size:14px;font-weight:700;color:#111827;">Total</td>
         <td style="padding:12px 14px;font-size:14px;font-weight:700;color:#111827;text-align:right;">${amountStr}</td>
       </tr>
-    </table>` : `
+    </table>`
+    : `
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:20px;text-align:center;margin:0 0 24px;">
       <p style="color:#6b7280;font-size:13px;margin:0 0 4px;">Total paid</p>
       <p style="color:#111827;font-size:28px;font-weight:800;margin:0;">${amountStr}</p>
@@ -66,30 +74,37 @@ export function buildTransactionReceiptEmail(data: TransactionReceiptData): Temp
   const bodyText = `
 ${greeting} Thank you for your payment to ${businessName}.
 
-${items?.length
-    ? items.map(i => `  ${i.name}${i.quantity && i.quantity > 1 ? ` ×${i.quantity}` : ''}: ${formatCurrency(i.amount, currency)}`).join('\n') + `\n  Total: ${amountStr}`
-    : `Amount: ${amountStr}`}
+${
+  items?.length
+    ? items
+        .map(
+          (i) =>
+            `  ${i.name}${i.quantity && i.quantity > 1 ? ` ×${i.quantity}` : ''}: ${formatCurrency(i.amount, currency)}`
+        )
+        .join('\n') + `\n  Total: ${amountStr}`
+    : `Amount: ${amountStr}`
+}
 ${transactionId ? `\nTransaction ID: ${transactionId}` : ''}
   `.trim()
 
   return {
     subject: `Receipt from ${businessName}`,
     html: renderBaseEmail({
-      title:              `Receipt from ${businessName}`,
-      previewText:        `Your payment of ${amountStr} to ${businessName} was received`,
+      title: `Receipt from ${businessName}`,
+      previewText: `Your payment of ${amountStr} to ${businessName} was received`,
       bodyHtml,
-      ctaLabel:           receiptUrl ? 'View receipt' : undefined,
-      ctaUrl:             receiptUrl,
-      tenantName:         businessName,
-      tenantLogoUrl:      data.businessLogoUrl,
-      tenantWebsiteUrl:   data.businessWebsite,
+      ctaLabel: receiptUrl ? 'View receipt' : undefined,
+      ctaUrl: receiptUrl,
+      tenantName: businessName,
+      tenantLogoUrl: data.businessLogoUrl,
+      tenantWebsiteUrl: data.businessWebsite,
       tenantPrimaryColor: data.primaryColor,
     }),
     text: renderBasePlainText({
       bodyText,
-      ctaLabel:         receiptUrl ? 'View receipt' : undefined,
-      ctaUrl:           receiptUrl,
-      tenantName:       businessName,
+      ctaLabel: receiptUrl ? 'View receipt' : undefined,
+      ctaUrl: receiptUrl,
+      tenantName: businessName,
       tenantWebsiteUrl: data.businessWebsite,
     }),
   }

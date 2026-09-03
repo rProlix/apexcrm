@@ -4,7 +4,7 @@ import type { AvailabilityRule, TimeSlot } from './types'
 
 interface GenerateOptions {
   tenant_id: string
-  date:      string  // YYYY-MM-DD
+  date: string // YYYY-MM-DD
 }
 
 /**
@@ -25,10 +25,7 @@ interface GenerateOptions {
  * 9. Return ALL slots with their availability flag.
  *    (Callers decide whether to filter to available-only.)
  */
-export async function generateTimeSlots({
-  tenant_id,
-  date,
-}: GenerateOptions): Promise<TimeSlot[]> {
+export async function generateTimeSlots({ tenant_id, date }: GenerateOptions): Promise<TimeSlot[]> {
   const supabase = getSupabaseServerClient()
 
   // day_of_week: 0=Sun … 6=Sat, derived from UTC noon to avoid DST edge-cases
@@ -51,13 +48,13 @@ export async function generateTimeSlots({
   // ── Filter rules applicable to this date ──────────────────────────────────
   const applicable = rules.filter((r) => {
     const type = r.repeat_type ?? 'weekly'
-    if (type === 'daily')  return true
+    if (type === 'daily') return true
     if (type === 'weekly') return r.day_of_week === dayOfWeek
     if (type === 'custom') {
       const days = Array.isArray(r.repeat_days) ? r.repeat_days : []
       return days.includes(dayOfWeek)
     }
-    return r.day_of_week === dayOfWeek  // safe fallback
+    return r.day_of_week === dayOfWeek // safe fallback
   })
 
   if (applicable.length === 0) return []
@@ -66,9 +63,7 @@ export async function generateTimeSlots({
   const allSlots: TimeSlot[] = []
 
   for (const rule of applicable) {
-    const intervalMins = rule.slot_interval_minutes
-      ?? rule.slot_duration_minutes
-      ?? 60
+    const intervalMins = rule.slot_interval_minutes ?? rule.slot_duration_minutes ?? 60
     const ruleSlots = buildSlotsFromRule(date, rule.start_time, rule.end_time, intervalMins)
     allSlots.push(...ruleSlots)
   }
@@ -76,7 +71,7 @@ export async function generateTimeSlots({
   if (allSlots.length === 0) return []
 
   // ── Deduplicate by start ISO, sort ascending ──────────────────────────────
-  const seen    = new Set<string>()
+  const seen = new Set<string>()
   const deduped = allSlots
     .filter((s) => {
       if (seen.has(s.start)) return false
@@ -87,7 +82,7 @@ export async function generateTimeSlots({
 
   // ── Load busy intervals (parallel DB queries) ─────────────────────────────
   const dayStart = `${date}T00:00:00.000Z`
-  const dayEnd   = `${date}T23:59:59.999Z`
+  const dayEnd = `${date}T23:59:59.999Z`
 
   const [apptRes, blockRes] = await Promise.all([
     supabase
@@ -105,11 +100,11 @@ export async function generateTimeSlots({
       .gt('end_time', dayStart),
   ])
 
-  if (apptRes.error)  console.error('[generateTimeSlots] appt error:', apptRes.error.message)
+  if (apptRes.error) console.error('[generateTimeSlots] appt error:', apptRes.error.message)
   if (blockRes.error) console.error('[generateTimeSlots] block error:', blockRes.error.message)
 
   const busy: Array<{ s: number; e: number }> = [
-    ...(apptRes.data  ?? []).map((a) => ({
+    ...(apptRes.data ?? []).map((a) => ({
       s: new Date(a.starts_at).getTime(),
       e: new Date(a.ends_at).getTime(),
     })),
@@ -120,8 +115,8 @@ export async function generateTimeSlots({
   ]
 
   // ── Annotate each slot ────────────────────────────────────────────────────
-  const now      = Date.now()
-  const isToday  = date === new Date().toISOString().slice(0, 10)
+  const now = Date.now()
+  const isToday = date === new Date().toISOString().slice(0, 10)
 
   return deduped.map((slot) => {
     const slotS = new Date(slot.start).getTime()
@@ -141,10 +136,10 @@ export async function generateTimeSlots({
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 function buildSlotsFromRule(
-  date:         string,
+  date: string,
   startTimeStr: string,
-  endTimeStr:   string,
-  intervalMins: number,
+  endTimeStr: string,
+  intervalMins: number
 ): TimeSlot[] {
   if (intervalMins <= 0) return []
 
@@ -162,15 +157,15 @@ function buildSlotsFromRule(
   const slots: TimeSlot[] = []
   let cursor = windowStart.getTime()
   const endMs = windowEnd.getTime()
-  const step  = intervalMins * 60_000
+  const step = intervalMins * 60_000
 
   while (cursor < endMs) {
     const slotEndMs = cursor + step
-    if (slotEndMs > endMs) break  // don't generate partial slot at boundary
+    if (slotEndMs > endMs) break // don't generate partial slot at boundary
 
     slots.push({
-      start:     new Date(cursor).toISOString(),
-      end:       new Date(slotEndMs).toISOString(),
+      start: new Date(cursor).toISOString(),
+      end: new Date(slotEndMs).toISOString(),
       available: true,
     })
 

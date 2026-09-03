@@ -35,7 +35,9 @@ function normalizeLinkUrl(raw: unknown): string | undefined {
 }
 
 /** Extracts text and link annotations per page (no rendering). */
-export async function extractCanvaPdfTextAndLinks(params: ExtractParams): Promise<CanvaPdfVisualExtraction> {
+export async function extractCanvaPdfTextAndLinks(
+  params: ExtractParams
+): Promise<CanvaPdfVisualExtraction> {
   const warnings: string[] = []
   const pages: CanvaPdfPageExtraction[] = []
   let extractedLinksCount = 0

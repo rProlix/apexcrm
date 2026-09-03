@@ -7,17 +7,29 @@ type Params = { params: Promise<{ id: string }> }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
   const user = await resolveStoreUser(req)
-  if (!user || !['admin','owner','manager'].includes(user.role)) {
+  if (!user || !['admin', 'owner', 'manager'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const { id } = await params
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const allowed = ['name','modifier_type','price_delta_cents','inventory_item_id','affects_inventory','quantity_delta','is_default','sort_order','status']
+  const allowed = [
+    'name',
+    'modifier_type',
+    'price_delta_cents',
+    'inventory_item_id',
+    'affects_inventory',
+    'quantity_delta',
+    'is_default',
+    'sort_order',
+    'status',
+  ]
   const update: Record<string, unknown> = {}
   for (const k of allowed) if (k in body) update[k] = body[k]
 
@@ -36,7 +48,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 export async function DELETE(req: NextRequest, { params }: Params) {
   const user = await resolveStoreUser(req)
-  if (!user || !['admin','owner'].includes(user.role)) {
+  if (!user || !['admin', 'owner'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

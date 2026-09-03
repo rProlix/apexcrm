@@ -29,11 +29,11 @@ export async function POST(request: NextRequest) {
     return err('Request body must be valid JSON.', 400)
   }
 
-  const email    = typeof body.email     === 'string' ? body.email.trim().toLowerCase() : ''
-  const password = typeof body.password  === 'string' ? body.password                   : ''
-  const fullName = typeof body.full_name === 'string' ? body.full_name.trim()           : ''
-  const tenantId = typeof body.tenant_id === 'string' ? body.tenant_id                 : ''
-  const next     = sanitizeNextPath(typeof body.next === 'string' ? body.next : null, '/account')
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+  const password = typeof body.password === 'string' ? body.password : ''
+  const fullName = typeof body.full_name === 'string' ? body.full_name.trim() : ''
+  const tenantId = typeof body.tenant_id === 'string' ? body.tenant_id : ''
+  const next = sanitizeNextPath(typeof body.next === 'string' ? body.next : null, '/account')
   const legalValidation = validateLegalAgreement(body.legalAgreement, 'customer')
 
   if (!email || !password || !fullName || !tenantId) {
@@ -58,16 +58,16 @@ export async function POST(request: NextRequest) {
   //
   // The resulting emailRedirectTo:
   //   https://erickvcontacf.nexoranow.com/auth/callback?next=%2Faccount&tenant_id=…
-  const origin          = getRequestOrigin(request)
+  const origin = getRequestOrigin(request)
   const emailRedirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}&tenant_id=${encodeURIComponent(tenantId)}`
 
   // ── Diagnostics — never log passwords or tokens ────────────────────────────
   console.info('[storefront-signup-redirect]', {
     email,
     tenantId,
-    requestUrl:               request.url,
-    host:                     request.headers.get('host'),
-    forwardedHost:            request.headers.get('x-forwarded-host'),
+    requestUrl: request.url,
+    host: request.headers.get('host'),
+    forwardedHost: request.headers.get('x-forwarded-host'),
     generatedEmailRedirectTo: emailRedirectTo,
   })
 
@@ -78,11 +78,13 @@ export async function POST(request: NextRequest) {
   // authenticated requests. signUp() does not require an existing session and
   // the cookie-domain setup on the session client can interfere with how
   // Supabase processes the response in edge environments.
-  const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL  ?? ''
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
   const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
 
   if (!supabaseUrl || !supabaseAnon) {
-    console.error('[storefront-signup] Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY')
+    console.error(
+      '[storefront-signup] Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY'
+    )
     return err('Server configuration error. Please contact support.', 500)
   }
 
@@ -96,11 +98,11 @@ export async function POST(request: NextRequest) {
     options: {
       emailRedirectTo,
       data: {
-        full_name:       fullName,
-        role:            'customer',
-        tenant_id:       tenantId,
-        account_type:    'customer',
-        signup_origin:   'storefront',
+        full_name: fullName,
+        role: 'customer',
+        tenant_id: tenantId,
+        account_type: 'customer',
+        signup_origin: 'storefront',
         storefront_host: new URL(request.url).host,
         legal_acceptance: legalValidation.agreement,
       },
@@ -110,11 +112,11 @@ export async function POST(request: NextRequest) {
   // ── Log full Supabase response for diagnostics ─────────────────────────────
   console.info('[storefront-signup] supabase.auth.signUp response', {
     email,
-    hasUser:            !!signupData?.user,
-    hasSession:         !!signupData?.session,
-    identitiesCount:    signupData?.user?.identities?.length ?? 'n/a',
-    emailConfirmedAt:   signupData?.user?.email_confirmed_at ?? null,
-    error:              signupError?.message ?? null,
+    hasUser: !!signupData?.user,
+    hasSession: !!signupData?.session,
+    identitiesCount: signupData?.user?.identities?.length ?? 'n/a',
+    emailConfirmedAt: signupData?.user?.email_confirmed_at ?? null,
+    error: signupError?.message ?? null,
     emailRedirectTo,
   })
 
@@ -138,9 +140,11 @@ export async function POST(request: NextRequest) {
   // to avoid leaking whether the email is registered.
   const identitiesCount = signupData.user.identities?.length ?? 1
   if (identitiesCount === 0) {
-    console.info('[storefront-signup] user already exists (identities: []) — no email sent', { email })
+    console.info('[storefront-signup] user already exists (identities: []) — no email sent', {
+      email,
+    })
     return NextResponse.json({
-      ok:      true,
+      ok: true,
       confirmed: false,
       message:
         'If this email is not yet registered, you will receive a confirmation link shortly. ' +
@@ -162,7 +166,10 @@ export async function POST(request: NextRequest) {
     // Still create the DB rows below before redirecting
   } else {
     // Normal path: email confirmation enabled — Supabase queued the email.
-    console.info('[storefront-signup] confirmation email queued by Supabase', { email, emailRedirectTo })
+    console.info('[storefront-signup] confirmation email queued by Supabase', {
+      email,
+      emailRedirectTo,
+    })
   }
 
   // ── DB: find or create customer row ────────────────────────────────────────
@@ -188,7 +195,11 @@ export async function POST(request: NextRequest) {
 
     if (customerError || !newCustomer) {
       console.error('[storefront-signup] customers insert error:', customerError?.message)
-      try { await serviceClient.auth.admin.deleteUser(signupData.user.id) } catch { /* no-op */ }
+      try {
+        await serviceClient.auth.admin.deleteUser(signupData.user.id)
+      } catch {
+        /* no-op */
+      }
       return err('Profile setup failed. Please try again.', 500)
     }
 
@@ -198,18 +209,16 @@ export async function POST(request: NextRequest) {
   // ── DB: link auth user → customer_accounts ─────────────────────────────────
   const accountStatus: string = signupData.session ? 'active' : 'pending_confirmation'
 
-  const { error: linkError } = await serviceClient
-    .from('customer_accounts')
-    .upsert(
-      {
-        tenant_id:    tenantId,
-        customer_id:  customerId,
-        auth_user_id: signupData.user.id,
-        email,
-        status:       accountStatus,
-      },
-      { onConflict: 'auth_user_id,tenant_id' },
-    )
+  const { error: linkError } = await serviceClient.from('customer_accounts').upsert(
+    {
+      tenant_id: tenantId,
+      customer_id: customerId,
+      auth_user_id: signupData.user.id,
+      email,
+      status: accountStatus,
+    },
+    { onConflict: 'auth_user_id,tenant_id' }
+  )
 
   if (linkError) {
     console.error('[storefront-signup] customer_accounts upsert error:', linkError.message)
@@ -233,7 +242,7 @@ export async function POST(request: NextRequest) {
   if (signupData.session) {
     // Email confirmation is disabled — user is already active. Redirect them.
     return NextResponse.json({
-      ok:        true,
+      ok: true,
       confirmed: true,
       next,
       _warning: 'Email confirmation is disabled in Supabase. No confirmation email was sent.',
@@ -241,7 +250,7 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({
-    ok:        true,
+    ok: true,
     confirmed: false,
     message:
       'We sent a confirmation email to your inbox. ' +

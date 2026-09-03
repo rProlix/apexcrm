@@ -7,24 +7,24 @@ import Link from 'next/link'
 
 export interface CartItem {
   product_id: string
-  name:       string
-  price:      number
-  quantity:   number
+  name: string
+  price: number
+  quantity: number
 }
 
 interface Props {
-  cart:      CartItem[]
-  tenantId:  string
+  cart: CartItem[]
+  tenantId: string
   onSuccess: () => void
-  onCancel:  () => void
+  onCancel: () => void
 }
 
 type CheckoutState = 'idle' | 'loading' | 'success' | 'error' | 'unauthenticated'
 
 export function Checkout({ cart, onSuccess, onCancel }: Props) {
-  const [state,    setState]    = useState<CheckoutState>('idle')
+  const [state, setState] = useState<CheckoutState>('idle')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [orderId,  setOrderId]  = useState<string | null>(null)
+  const [orderId, setOrderId] = useState<string | null>(null)
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
@@ -36,12 +36,12 @@ export function Checkout({ cart, onSuccess, onCancel }: Props) {
 
     try {
       const res = await fetch('/api/store/orders', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: cart.map((i) => ({
             product_id: i.product_id,
-            quantity:   i.quantity,
+            quantity: i.quantity,
           })),
         }),
       })
@@ -70,7 +70,6 @@ export function Checkout({ cart, onSuccess, onCancel }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-md premium-panel premium-border rounded-2xl p-6 shadow-panel-lg">
-
         {/* ── Success ── */}
         {state === 'success' && (
           <div className="text-center py-4">

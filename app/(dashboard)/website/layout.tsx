@@ -8,11 +8,7 @@ export const dynamic = 'force-dynamic'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { WebsiteBuilderNav } from '@/components/website/WebsiteBuilderNav'
 
-export default async function WebsiteLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default async function WebsiteLayout({ children }: { children: React.ReactNode }) {
   // Fetch role to conditionally show owner-only tabs.
   // This is lightweight — getUserContext is cached per request.
   const ctx = await getUserContext()
@@ -20,9 +16,7 @@ export default async function WebsiteLayout({
   return (
     <div className="flex flex-col min-h-0">
       <WebsiteBuilderNav userRole={ctx?.role} />
-      <div className="flex-1 pt-6">
-        {children}
-      </div>
+      <div className="flex-1 pt-6">{children}</div>
     </div>
   )
 }

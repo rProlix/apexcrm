@@ -11,7 +11,10 @@ import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supaba
  */
 export async function POST(req: NextRequest) {
   const sessionClient = await createSessionServerClient()
-  const { data: { user }, error: authError } = await sessionClient.auth.getUser()
+  const {
+    data: { user },
+    error: authError,
+  } = await sessionClient.auth.getUser()
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -40,8 +43,10 @@ export async function POST(req: NextRequest) {
   const VALID_STATUSES = ['active', 'inactive', 'suspended']
 
   if (
-    typeof tenant_id !== 'string' || !tenant_id ||
-    typeof status !== 'string' || !VALID_STATUSES.includes(status)
+    typeof tenant_id !== 'string' ||
+    !tenant_id ||
+    typeof status !== 'string' ||
+    !VALID_STATUSES.includes(status)
   ) {
     return NextResponse.json(
       { error: 'tenant_id (string) and status ("active" | "inactive" | "suspended") are required' },
@@ -59,10 +64,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  const { error: updateError } = await admin
-    .from('tenants')
-    .update({ status })
-    .eq('id', tenant_id)
+  const { error: updateError } = await admin.from('tenants').update({ status }).eq('id', tenant_id)
 
   if (updateError) {
     console.error('[toggle-tenant-status] update error:', updateError.message)

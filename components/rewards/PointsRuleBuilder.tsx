@@ -6,28 +6,32 @@ import { DollarSign, Plus, Trash2, Save } from 'lucide-react'
 import type { RewardsProgram, EarningRules, ProductWithRewards } from '@/types/rewards'
 
 interface Props {
-  tenantId:  string
-  program:   RewardsProgram | null
-  products:  ProductWithRewards[]
+  tenantId: string
+  program: RewardsProgram | null
+  products: ProductWithRewards[]
 }
 
 interface BonusEntry {
-  product_id:  string
+  product_id: string
   bonus_points: number
 }
 
 export function PointsRuleBuilder({ tenantId: _tenantId, program, products }: Props) {
   const [isPending, startTransition] = useTransition()
-  const [saved, setSaved]   = useState(false)
-  const [error, setError]   = useState('')
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
 
-  const initialRules = program?.earning_rules ?? { points_per_dollar: 10, enabled: true, bonus_points_products: [] }
+  const initialRules = program?.earning_rules ?? {
+    points_per_dollar: 10,
+    enabled: true,
+    bonus_points_products: [],
+  }
 
   const [pointsPerDollar, setPointsPerDollar] = useState(initialRules.points_per_dollar ?? 10)
-  const [enabled, setEnabled]                 = useState(initialRules.enabled !== false)
-  const [bonusEntries, setBonusEntries]        = useState<BonusEntry[]>(
+  const [enabled, setEnabled] = useState(initialRules.enabled !== false)
+  const [bonusEntries, setBonusEntries] = useState<BonusEntry[]>(
     (initialRules.bonus_points_products ?? []).map((b) => ({
-      product_id:  b.product_id,
+      product_id: b.product_id,
       bonus_points: b.bonus_points,
     }))
   )
@@ -41,7 +45,9 @@ export function PointsRuleBuilder({ tenantId: _tenantId, program, products }: Pr
   }
 
   function updateBonusEntry(i: number, field: keyof BonusEntry, value: string | number) {
-    setBonusEntries((prev) => prev.map((entry, idx) => idx === i ? { ...entry, [field]: value } : entry))
+    setBonusEntries((prev) =>
+      prev.map((entry, idx) => (idx === i ? { ...entry, [field]: value } : entry))
+    )
   }
 
   async function handleSave() {
@@ -49,12 +55,12 @@ export function PointsRuleBuilder({ tenantId: _tenantId, program, products }: Pr
     setSaved(false)
 
     const earningRules: EarningRules = {
-      points_per_dollar:    pointsPerDollar,
+      points_per_dollar: pointsPerDollar,
       enabled,
       bonus_points_products: bonusEntries
         .filter((b) => b.product_id && b.bonus_points > 0)
         .map((b) => ({
-          product_id:  b.product_id,
+          product_id: b.product_id,
           bonus_points: b.bonus_points,
           product_name: products.find((p) => p.id === b.product_id)?.name,
         })),
@@ -64,17 +70,17 @@ export function PointsRuleBuilder({ tenantId: _tenantId, program, products }: Pr
       try {
         if (program) {
           const res = await fetch(`/api/rewards/programs/${program.id}`, {
-            method:  'PATCH',
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ earning_rules: earningRules }),
+            body: JSON.stringify({ earning_rules: earningRules }),
           })
           if (!res.ok) throw new Error((await res.json()).error)
         } else {
           const res = await fetch('/api/rewards/programs', {
-            method:  'POST',
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({
-              name:          'Default Rewards Program',
+            body: JSON.stringify({
+              name: 'Default Rewards Program',
               earning_rules: earningRules,
             }),
           })
@@ -108,7 +114,9 @@ export function PointsRuleBuilder({ tenantId: _tenantId, program, products }: Pr
             onClick={() => setEnabled(!enabled)}
             className={`relative h-5 w-9 rounded-full transition-colors cursor-pointer ${enabled ? 'bg-amber-400' : 'bg-white/10'}`}
           >
-            <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            <div
+              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`}
+            />
           </div>
         </label>
       </div>
@@ -116,7 +124,9 @@ export function PointsRuleBuilder({ tenantId: _tenantId, program, products }: Pr
       <div className="p-5 space-y-5">
         {/* Points per dollar */}
         <div>
-          <label className="text-xs font-medium text-white/60 mb-2 block">Points per $1 spent</label>
+          <label className="text-xs font-medium text-white/60 mb-2 block">
+            Points per $1 spent
+          </label>
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -165,7 +175,9 @@ export function PointsRuleBuilder({ tenantId: _tenantId, program, products }: Pr
                 >
                   <option value="">Select product…</option>
                   {products.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
                   ))}
                 </select>
                 <input

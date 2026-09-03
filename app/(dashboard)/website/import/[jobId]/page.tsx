@@ -24,13 +24,15 @@ export default async function ImportJobDetailPage({ params }: Props) {
 
   const { data: job } = await db
     .from('website_import_jobs')
-    .select(`
+    .select(
+      `
       *,
       website_import_sources(*),
       website_import_results(*),
       website_import_media(*),
       website_import_audit(id, action, metadata, created_at)
-    `)
+    `
+    )
     .eq('id', jobId)
     .eq('tenant_id', tenantId)
     .maybeSingle()

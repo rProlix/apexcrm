@@ -16,30 +16,30 @@ import type { BuilderSection } from './types'
  * sections for the current page instead of reading potentially stale DB data.
  */
 export function buildClientPageSections(params: {
-  pageId:    string
-  pageSlug:  string
+  pageId: string
+  pageSlug: string
   pageTitle: string
-  pageType:  string
-  sections:  BuilderSection[]
+  pageType: string
+  sections: BuilderSection[]
 }): ClientPageSections {
   return {
-    pageId:    params.pageId,
-    pageSlug:  params.pageSlug,
+    pageId: params.pageId,
+    pageSlug: params.pageSlug,
     pageTitle: params.pageTitle,
-    pageType:  params.pageType,
-    sections:  params.sections
+    pageType: params.pageType,
+    sections: params.sections
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((s) => ({
-        id:               s.id,
-        section_type:     s.section_type,
-        section_key:      s.section_key ?? null,
-        sort_order:       s.sort_order,
-        content:          s.content ?? {},
-        style_config:     s.style_config ?? null,
+        id: s.id,
+        section_type: s.section_type,
+        section_key: s.section_key ?? null,
+        sort_order: s.sort_order,
+        content: s.content ?? {},
+        style_config: s.style_config ?? null,
         animation_config: s.animation_config ?? null,
-        is_visible:       s.is_visible,
-        created_at:       s.created_at,
-        updated_at:       s.updated_at,
+        is_visible: s.is_visible,
+        created_at: s.created_at,
+        updated_at: s.updated_at,
       })),
   }
 }

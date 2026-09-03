@@ -11,31 +11,37 @@ interface TenantStatusButtonProps {
   currentStatus: TenantStatus | string
 }
 
-const STATUS_CONFIG: Record<TenantStatus, {
-  label: string
-  icon: React.ElementType
-  className: string
-  next: TenantStatus
-  nextLabel: string
-}> = {
+const STATUS_CONFIG: Record<
+  TenantStatus,
+  {
+    label: string
+    icon: React.ElementType
+    className: string
+    next: TenantStatus
+    nextLabel: string
+  }
+> = {
   active: {
     label: 'Active',
     icon: CheckCircle2,
-    className: 'bg-emerald-500/12 border-emerald-500/30 text-emerald-400 hover:bg-red-500/12 hover:border-red-500/30 hover:text-red-400',
+    className:
+      'bg-emerald-500/12 border-emerald-500/30 text-emerald-400 hover:bg-red-500/12 hover:border-red-500/30 hover:text-red-400',
     next: 'inactive',
     nextLabel: 'Deactivate',
   },
   inactive: {
     label: 'Inactive',
     icon: XCircle,
-    className: 'bg-white/5 border-white/15 text-white/40 hover:bg-emerald-500/12 hover:border-emerald-500/30 hover:text-emerald-400',
+    className:
+      'bg-white/5 border-white/15 text-white/40 hover:bg-emerald-500/12 hover:border-emerald-500/30 hover:text-emerald-400',
     next: 'active',
     nextLabel: 'Activate',
   },
   suspended: {
     label: 'Suspended',
     icon: AlertCircle,
-    className: 'bg-amber-500/12 border-amber-500/30 text-amber-400 hover:bg-emerald-500/12 hover:border-emerald-500/30 hover:text-emerald-400',
+    className:
+      'bg-amber-500/12 border-amber-500/30 text-amber-400 hover:bg-emerald-500/12 hover:border-emerald-500/30 hover:text-emerald-400',
     next: 'active',
     nextLabel: 'Reactivate',
   },
@@ -81,19 +87,17 @@ export function TenantStatusButton({ tenantId, currentStatus }: TenantStatusButt
         config.className
       )}
     >
-      {isPending ? (
-        <Loader2 className="h-3 w-3 animate-spin" />
-      ) : (
-        <Icon className="h-3 w-3" />
-      )}
-      <span>
-        {isHovering && !isPending ? config.nextLabel : config.label}
-      </span>
+      {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />}
+      <span>{isHovering && !isPending ? config.nextLabel : config.label}</span>
     </button>
   )
 }
 
-export function SuspendButton({ tenantId, currentStatus, onStatusChange }: {
+export function SuspendButton({
+  tenantId,
+  currentStatus,
+  onStatusChange,
+}: {
   tenantId: string
   currentStatus: TenantStatus | string
   onStatusChange?: (status: TenantStatus) => void
@@ -131,7 +135,11 @@ export function SuspendButton({ tenantId, currentStatus, onStatusChange }: {
           : 'bg-amber-500/8 border-amber-500/20 text-amber-400/70 hover:bg-amber-500/15 hover:text-amber-400'
       )}
     >
-      {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertCircle className="h-3 w-3" />}
+      {isPending ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        <AlertCircle className="h-3 w-3" />
+      )}
       {isSuspended ? 'Unsuspend' : 'Suspend'}
     </button>
   )

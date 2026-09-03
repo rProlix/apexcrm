@@ -69,7 +69,7 @@ export async function checkStorageHealth(): Promise<StorageHealthReport> {
     return {
       ok: false,
       checkedAt: new Date().toISOString(),
-      buckets: EXPECTED_BUCKETS.map(name => ({
+      buckets: EXPECTED_BUCKETS.map((name) => ({
         name,
         exists: false,
         expectedPublic: isPublicBucket(name),
@@ -88,16 +88,18 @@ export async function checkStorageHealth(): Promise<StorageHealthReport> {
     if (error) {
       errors.push(`listBuckets() error: ${error.message}`)
     } else {
-      liveBuckets = (data ?? []).map(b => ({ id: b.id, public: b.public }))
+      liveBuckets = (data ?? []).map((b) => ({ id: b.id, public: b.public }))
     }
   } catch (err) {
-    errors.push(`Unexpected error contacting Supabase: ${err instanceof Error ? err.message : String(err)}`)
+    errors.push(
+      `Unexpected error contacting Supabase: ${err instanceof Error ? err.message : String(err)}`
+    )
   }
 
   for (const bucketName of EXPECTED_BUCKETS) {
-    const live         = liveBuckets.find(b => b.id === bucketName)
-    const expectedPub  = isPublicBucket(bucketName)
-    const actualPub    = live ? live.public : null
+    const live = liveBuckets.find((b) => b.id === bucketName)
+    const expectedPub = isPublicBucket(bucketName)
+    const actualPub = live ? live.public : null
     let status: BucketHealthEntry['status'] = 'ok'
 
     if (!live) {
@@ -106,23 +108,23 @@ export async function checkStorageHealth(): Promise<StorageHealthReport> {
     } else if (actualPub !== expectedPub) {
       status = 'wrong_visibility'
       errors.push(
-        `Bucket "${bucketName}" has public=${actualPub} but expected public=${expectedPub}.`,
+        `Bucket "${bucketName}" has public=${actualPub} but expected public=${expectedPub}.`
       )
     }
 
     bucketResults.push({
-      name:           bucketName,
-      exists:         !!live,
+      name: bucketName,
+      exists: !!live,
       expectedPublic: expectedPub,
-      actualPublic:   actualPub,
+      actualPublic: actualPub,
       status,
     })
   }
 
   return {
-    ok:          errors.length === 0,
-    checkedAt:   new Date().toISOString(),
-    buckets:     bucketResults,
+    ok: errors.length === 0,
+    checkedAt: new Date().toISOString(),
+    buckets: bucketResults,
     errors,
   }
 }

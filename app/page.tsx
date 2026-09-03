@@ -9,7 +9,9 @@ export default async function HomePage() {
 
   try {
     const supabase = await createSessionServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     isAuthed = Boolean(user)
   } catch {
     // Supabase unavailable — show landing page without auth check
@@ -34,7 +36,8 @@ export default async function HomePage() {
         </h1>
 
         <p className="text-lg text-white/50 leading-relaxed mb-12 max-w-lg mx-auto">
-          A white-labeled CRM platform for modern service businesses. Modular, multi-tenant, and built to scale.
+          A white-labeled CRM platform for modern service businesses. Modular, multi-tenant, and
+          built to scale.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -62,15 +65,21 @@ export default async function HomePage() {
             </div>
           ))}
         </div>
-        <p className="mt-3 text-2xs text-white/20 uppercase tracking-widest">
-          Example tenants
-        </p>
+        <p className="mt-3 text-2xs text-white/20 uppercase tracking-widest">Example tenants</p>
 
         <div className="mt-10 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-white/30">
-          <Link href="/legal/terms" className="transition-colors hover:text-white/65">Terms</Link>
-          <Link href="/legal/privacy" className="transition-colors hover:text-white/65">Privacy</Link>
-          <Link href="/legal/acceptable-use" className="transition-colors hover:text-white/65">Acceptable Use</Link>
-          <Link href="/legal/ai-notice" className="transition-colors hover:text-white/65">AI Notice</Link>
+          <Link href="/legal/terms" className="transition-colors hover:text-white/65">
+            Terms
+          </Link>
+          <Link href="/legal/privacy" className="transition-colors hover:text-white/65">
+            Privacy
+          </Link>
+          <Link href="/legal/acceptable-use" className="transition-colors hover:text-white/65">
+            Acceptable Use
+          </Link>
+          <Link href="/legal/ai-notice" className="transition-colors hover:text-white/65">
+            AI Notice
+          </Link>
         </div>
       </div>
     </main>

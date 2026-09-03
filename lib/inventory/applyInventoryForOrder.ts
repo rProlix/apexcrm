@@ -7,7 +7,7 @@ import { getInventoryClient as getSupabaseServerClient } from '@/lib/inventory/s
 
 interface OrderItem {
   product_id: string
-  quantity:   number
+  quantity: number
 }
 
 /**
@@ -16,13 +16,13 @@ interface OrderItem {
  * checking for existing movements with source_id = orderId.
  */
 export async function applyInventoryForCompletedOrder(
-  orderId:  string,
+  orderId: string,
   tenantId: string
 ): Promise<{ deducted: number; skipped: number; errors: string[] }> {
   const supabase = getSupabaseServerClient()
   const errors: string[] = []
   let deducted = 0
-  let skipped  = 0
+  let skipped = 0
 
   // Check if inventory module is enabled for this tenant
   const { data: moduleRow } = await supabase
@@ -60,7 +60,10 @@ export async function applyInventoryForCompletedOrder(
 
   // Process each order item
   for (const orderItem of orderItems as OrderItem[]) {
-    if (!orderItem.product_id) { skipped++; continue }
+    if (!orderItem.product_id) {
+      skipped++
+      continue
+    }
 
     // Find inventory links for this product (deduct_on_sale = true only)
     const { data: links } = await supabase
@@ -70,7 +73,10 @@ export async function applyInventoryForCompletedOrder(
       .eq('product_id', orderItem.product_id)
       .eq('deduct_on_sale', true)
 
-    if (!links || links.length === 0) { skipped++; continue }
+    if (!links || links.length === 0) {
+      skipped++
+      continue
+    }
 
     for (const link of links) {
       const deductQty = link.quantity_per_product * orderItem.quantity
@@ -90,7 +96,7 @@ export async function applyInventoryForCompletedOrder(
       }
 
       const quantityBefore = Number(item.current_quantity)
-      const quantityAfter  = quantityBefore - deductQty
+      const quantityAfter = quantityBefore - deductQty
 
       // Update quantity
       const { error: updateErr } = await supabase
@@ -105,21 +111,19 @@ export async function applyInventoryForCompletedOrder(
       }
 
       // Record movement
-      const { error: mvErr } = await supabase
-        .from('inventory_movements')
-        .insert({
-          tenant_id:          tenantId,
-          inventory_item_id:  item.id,
-          movement_type:      'sale',
-          quantity_delta:     -deductQty,
-          quantity_before:    quantityBefore,
-          quantity_after:     quantityAfter,
-          order_id:           orderId,
-          product_id:         orderItem.product_id,
-          source_type:        'order',
-          source_id:          orderId,
-          reason:             `Order ${orderId} completed`,
-        })
+      const { error: mvErr } = await supabase.from('inventory_movements').insert({
+        tenant_id: tenantId,
+        inventory_item_id: item.id,
+        movement_type: 'sale',
+        quantity_delta: -deductQty,
+        quantity_before: quantityBefore,
+        quantity_after: quantityAfter,
+        order_id: orderId,
+        product_id: orderItem.product_id,
+        source_type: 'order',
+        source_id: orderId,
+        reason: `Order ${orderId} completed`,
+      })
 
       if (mvErr) {
         errors.push(`Movement record failed for ${item.name}: ${mvErr.message}`)

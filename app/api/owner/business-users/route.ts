@@ -9,7 +9,7 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { BUSINESS_ROLES, ALL_BUSINESS_ROLES } from '@/lib/types/businessUsers'
 import type { BusinessRole, BusinessUserStatus } from '@/lib/types/businessUsers'
-import { sendEmail }            from '@/lib/email/sendEmail'
+import { sendEmail } from '@/lib/email/sendEmail'
 import { buildBusinessInviteEmail } from '@/lib/email/templates/businessInvite'
 import { buildLoginUrl } from '@/lib/email/urls'
 
@@ -23,24 +23,28 @@ function err(code: string, message: string, status = 400) {
 
 export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
-  if (!ctx)               return err('UNAUTHORIZED', 'Authentication required.', 401)
-  if (ctx.role !== 'owner') return err('FORBIDDEN', 'Only the platform owner can create business accounts.', 403)
+  if (!ctx) return err('UNAUTHORIZED', 'Authentication required.', 401)
+  if (ctx.role !== 'owner')
+    return err('FORBIDDEN', 'Only the platform owner can create business accounts.', 403)
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceKey) return err('SUPABASE_SERVICE_ROLE_NOT_CONFIGURED', 'Service role key is not configured.', 500)
+  if (!serviceKey)
+    return err('SUPABASE_SERVICE_ROLE_NOT_CONFIGURED', 'Service role key is not configured.', 500)
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return err('INVALID_JSON', 'Request body must be valid JSON.', 400)
   }
 
-  const tenantId  = typeof body.tenantId  === 'string' ? body.tenantId.trim()  : ''
-  const email     = typeof body.email     === 'string' ? body.email.trim().toLowerCase() : ''
-  const fullName  = typeof body.fullName  === 'string' ? body.fullName.trim()  : ''
-  const role      = typeof body.role      === 'string' ? body.role as BusinessRole : 'staff'
-  const password  = typeof body.password  === 'string' ? body.password : ''
-  const approved  = body.approved !== false
-  const status    = (typeof body.status === 'string' ? body.status : 'active') as BusinessUserStatus
+  const tenantId = typeof body.tenantId === 'string' ? body.tenantId.trim() : ''
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+  const fullName = typeof body.fullName === 'string' ? body.fullName.trim() : ''
+  const role = typeof body.role === 'string' ? (body.role as BusinessRole) : 'staff'
+  const password = typeof body.password === 'string' ? body.password : ''
+  const approved = body.approved !== false
+  const status = (typeof body.status === 'string' ? body.status : 'active') as BusinessUserStatus
 
   // Validation
   if (!tenantId) return err('TENANT_NOT_FOUND', 'tenantId is required.', 400)
@@ -93,24 +97,27 @@ export async function POST(req: NextRequest) {
     password,
     email_confirm: true, // skip email verification — owner created = verified
     user_metadata: {
-      full_name:    fullName,
+      full_name: fullName,
       role,
-      tenant_id:    tenantId,
+      tenant_id: tenantId,
       account_type: 'business',
     },
     app_metadata: {
       role,
-      tenant_id:    tenantId,
+      tenant_id: tenantId,
       account_type: 'business',
-      approved:     true,
-      status:       'active',
+      approved: true,
+      status: 'active',
     },
   })
 
   if (authError) {
     console.error('[POST /api/owner/business-users] auth.admin.createUser:', authError.message)
 
-    if (authError.message?.toLowerCase().includes('already') || authError.message?.toLowerCase().includes('registered')) {
+    if (
+      authError.message?.toLowerCase().includes('already') ||
+      authError.message?.toLowerCase().includes('registered')
+    ) {
       // Auth user exists — look up by email and link membership
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: existingAuth } = await (supabase as any).auth.admin.listUsers()
@@ -131,13 +138,24 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
 
       if (existingMembership) {
-        return err('MEMBERSHIP_ALREADY_EXISTS', 'This user already has access to this business.', 409)
+        return err(
+          'MEMBERSHIP_ALREADY_EXISTS',
+          'This user already has access to this business.',
+          409
+        )
       }
 
       // Link existing auth user
       return await createMembershipRow(supabase, {
-        tenantId, tenantName: tenant.name, email, fullName, role, approved, status,
-        authUserId: found.id, createdBy: ctx.id,
+        tenantId,
+        tenantName: tenant.name,
+        email,
+        fullName,
+        role,
+        approved,
+        status,
+        authUserId: found.id,
+        createdBy: ctx.id,
       })
     }
 
@@ -148,43 +166,51 @@ export async function POST(req: NextRequest) {
   if (!authUserId) return err('AUTH_CREATE_FAILED', 'Auth user creation returned no ID.', 500)
 
   return await createMembershipRow(supabase, {
-    tenantId, tenantName: tenant.name, email, fullName, role, approved, status,
-    authUserId, createdBy: ctx.id,
+    tenantId,
+    tenantName: tenant.name,
+    email,
+    fullName,
+    role,
+    approved,
+    status,
+    authUserId,
+    createdBy: ctx.id,
   })
 }
 
 async function createMembershipRow(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   opts: {
-    tenantId:   string
+    tenantId: string
     tenantName: string
-    email:      string
-    fullName:   string
-    role:       BusinessRole
-    approved:   boolean
-    status:     BusinessUserStatus
+    email: string
+    fullName: string
+    role: BusinessRole
+    approved: boolean
+    status: BusinessUserStatus
     authUserId: string
-    createdBy:  string
+    createdBy: string
   }
 ) {
-  const { tenantId, tenantName, email, fullName, role, approved, status, authUserId, createdBy } = opts
+  const { tenantId, tenantName, email, fullName, role, approved, status, authUserId, createdBy } =
+    opts
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: membership, error: membershipError } = await (supabase as any)
     .from('users')
     .insert({
-      tenant_id:    tenantId,
+      tenant_id: tenantId,
       auth_user_id: authUserId,
       email,
-      full_name:    fullName,
+      full_name: fullName,
       role,
       status,
       approved,
-      approved_by:  createdBy,
-      approved_at:  new Date().toISOString(),
+      approved_by: createdBy,
+      approved_at: new Date().toISOString(),
       metadata: {
-        created_by:  createdBy,
-        created_at:  new Date().toISOString(),
+        created_by: createdBy,
+        created_at: new Date().toISOString(),
         account_type: 'business',
       },
     })
@@ -197,7 +223,9 @@ async function createMembershipRow(
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase as any).auth.admin.deleteUser(authUserId)
-    } catch { /* no-op */ }
+    } catch {
+      /* no-op */
+    }
     return NextResponse.json(
       { ok: false, code: 'MEMBERSHIP_CREATE_FAILED', error: 'Failed to create membership record.' },
       { status: 500 }
@@ -212,43 +240,49 @@ async function createMembershipRow(
         invitedName: fullName || undefined,
         tenantName,
         role,
-        inviteUrl:   loginUrl,
+        inviteUrl: loginUrl,
       })
       await sendEmail({
-        to:       email,
-        subject:  tpl.subject,
-        html:     tpl.html,
-        text:     tpl.text,
+        to: email,
+        subject: tpl.subject,
+        html: tpl.html,
+        text: tpl.text,
         category: 'invite',
         tenantId,
-        fromName: tenantName || undefined,   // white-label: business name as From
+        fromName: tenantName || undefined, // white-label: business name as From
         metadata: { userId: membership.id, createdBy: opts.createdBy },
       })
-    } catch { /* non-fatal */ }
+    } catch {
+      /* non-fatal */
+    }
   })()
 
-  return NextResponse.json({
-    ok:       true,
-    user: {
-      id:           membership.id,
-      authUserId,
-      tenantId,
-      email,
-      fullName:     membership.full_name,
-      role:         membership.role,
-      status:       membership.status,
-      approved:     membership.approved,
+  return NextResponse.json(
+    {
+      ok: true,
+      user: {
+        id: membership.id,
+        authUserId,
+        tenantId,
+        email,
+        fullName: membership.full_name,
+        role: membership.role,
+        status: membership.status,
+        approved: membership.approved,
+      },
+      loginUrl,
     },
-    loginUrl,
-  }, { status: 201 })
+    { status: 201 }
+  )
 }
 
 // ─── GET /api/owner/business-users ───────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   const ctx = await getUserContext()
-  if (!ctx)               return err('UNAUTHORIZED', 'Authentication required.', 401)
-  if (ctx.role !== 'owner') return err('FORBIDDEN', 'Only the platform owner can list business users.', 403)
+  if (!ctx) return err('UNAUTHORIZED', 'Authentication required.', 401)
+  if (ctx.role !== 'owner')
+    return err('FORBIDDEN', 'Only the platform owner can list business users.', 403)
 
   const tenantId = req.nextUrl.searchParams.get('tenantId')
   if (!tenantId) return err('TENANT_NOT_FOUND', 'tenantId query parameter is required.', 400)
@@ -267,7 +301,9 @@ export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: users, error } = await (supabase as any)
     .from('users')
-    .select('id, auth_user_id, email, full_name, role, status, approved, approved_at, created_at, updated_at, metadata')
+    .select(
+      'id, auth_user_id, email, full_name, role, status, approved, approved_at, created_at, updated_at, metadata'
+    )
     .eq('tenant_id', tenantId)
     .in('role', ALL_BUSINESS_ROLES)
     .order('created_at', { ascending: true })
@@ -279,16 +315,16 @@ export async function GET(req: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const members = (users ?? []).map((u: any) => ({
-    id:           u.id,
+    id: u.id,
     auth_user_id: u.auth_user_id,
-    email:        u.email,
-    fullName:     u.full_name,
-    role:         u.role as BusinessRole,
-    status:       u.status as BusinessUserStatus,
-    approved:     u.approved,
-    approved_at:  u.approved_at,
-    created_at:   u.created_at,
-    metadata:     u.metadata ?? {},
+    email: u.email,
+    fullName: u.full_name,
+    role: u.role as BusinessRole,
+    status: u.status as BusinessUserStatus,
+    approved: u.approved,
+    approved_at: u.approved_at,
+    created_at: u.created_at,
+    metadata: u.metadata ?? {},
   }))
 
   return NextResponse.json({ ok: true, members })

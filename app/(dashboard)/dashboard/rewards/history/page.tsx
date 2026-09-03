@@ -40,7 +40,9 @@ export default async function RewardsHistoryPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-white tracking-tight">Rewards History</h1>
-        <p className="text-sm text-white/40 mt-1">View all customer points activity and redemptions.</p>
+        <p className="text-sm text-white/40 mt-1">
+          View all customer points activity and redemptions.
+        </p>
       </div>
 
       <RewardsBalanceList balances={(balancesRes.data ?? []) as any} />

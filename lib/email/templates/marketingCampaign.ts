@@ -5,13 +5,13 @@ import { renderBaseEmail, renderBasePlainText } from './base'
 import type { TemplateResult } from '../types'
 
 export interface MarketingCampaignData {
-  businessName:    string
-  headline:        string
-  message:         string
-  ctaLabel?:       string
-  ctaUrl?:         string
+  businessName: string
+  headline: string
+  message: string
+  ctaLabel?: string
+  ctaUrl?: string
   unsubscribeUrl?: string
-  subject:         string    // caller supplies the subject for marketing emails
+  subject: string // caller supplies the subject for marketing emails
 }
 
 export function buildMarketingCampaignEmail(data: MarketingCampaignData): TemplateResult {
@@ -29,7 +29,10 @@ export function buildMarketingCampaignEmail(data: MarketingCampaignData): Templa
   const bodyHtml = `
     <h1 style="color:#111827;font-size:24px;font-weight:700;margin:0 0 16px;">${headline}</h1>
     <div style="color:#4b5563;font-size:15px;line-height:1.8;margin:0 0 24px;">
-      ${message.split('\n').map(p => p.trim() ? `<p style="margin:0 0 12px;">${p}</p>` : '').join('')}
+      ${message
+        .split('\n')
+        .map((p) => (p.trim() ? `<p style="margin:0 0 12px;">${p}</p>` : ''))
+        .join('')}
     </div>
     ${unsubBlock}
   `
@@ -45,13 +48,13 @@ ${unsubscribeUrl ? `Unsubscribe: ${unsubscribeUrl}` : 'To unsubscribe, reply wit
   return {
     subject,
     html: renderBaseEmail({
-      title:       headline,
+      title: headline,
       previewText: headline,
       bodyHtml,
       ctaLabel,
       ctaUrl,
-      tenantName:  businessName,
-      footerText:  unsubscribeUrl
+      tenantName: businessName,
+      footerText: unsubscribeUrl
         ? `<a href="${unsubscribeUrl}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a>`
         : 'Reply "unsubscribe" to opt out',
     }),

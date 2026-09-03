@@ -12,9 +12,9 @@
 //   Success → { ok: true,  data: { packageId, status: "cancelled", message, framesSaved } }
 //   Error   → { ok: false, error: { type, title, message, details? } }
 
-import { NextRequest, NextResponse }  from 'next/server'
-import { resolveP360ApiUser }         from '@/lib/product-360/auth'
-import { getSupabaseServerClient }    from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { resolveP360ApiUser } from '@/lib/product-360/auth'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,31 +29,52 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // ── Auth ────────────────────────────────────────────────────────────────────
   const user = await resolveP360ApiUser(req)
   if (!user) {
-    return NextResponse.json({
-      ok: false,
-      error: { type: 'auth_error', title: 'Unauthorized', message: 'Authentication required.' },
-    }, { status: 401 })
+    return NextResponse.json(
+      {
+        ok: false,
+        error: { type: 'auth_error', title: 'Unauthorized', message: 'Authentication required.' },
+      },
+      { status: 401 }
+    )
   }
   if (user.role !== 'owner' && user.role !== 'admin') {
-    return NextResponse.json({
-      ok: false,
-      error: { type: 'forbidden', title: 'Forbidden', message: 'Only owners and admins can stop generation.' },
-    }, { status: 403 })
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'forbidden',
+          title: 'Forbidden',
+          message: 'Only owners and admins can stop generation.',
+        },
+      },
+      { status: 403 }
+    )
   }
 
   // ── Tenant ──────────────────────────────────────────────────────────────────
   let body: Record<string, unknown> = {}
-  try { body = await req.json() } catch { /* body optional */ }
+  try {
+    body = await req.json()
+  } catch {
+    /* body optional */
+  }
 
   const tenantId = user.isOwner
-    ? (body.tenantId as string | undefined) ?? user.tenantId
+    ? ((body.tenantId as string | undefined) ?? user.tenantId)
     : user.tenantId
 
   if (!tenantId) {
-    return NextResponse.json({
-      ok: false,
-      error: { type: 'invalid_request', title: 'Missing tenant', message: 'Could not resolve tenant.' },
-    }, { status: 400 })
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'invalid_request',
+          title: 'Missing tenant',
+          message: 'Could not resolve tenant.',
+        },
+      },
+      { status: 400 }
+    )
   }
 
   const supabase = getSupabaseServerClient()
@@ -70,40 +91,63 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   if (fetchErr) {
     console.error('[p360:cancel] fetch error:', fetchErr.message)
-    return NextResponse.json({
-      ok: false,
-      error: { type: 'internal', title: 'Database error', message: 'Failed to load package.', details: fetchErr.message },
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'internal',
+          title: 'Database error',
+          message: 'Failed to load package.',
+          details: fetchErr.message,
+        },
+      },
+      { status: 500 }
+    )
   }
 
   if (!pkg) {
-    return NextResponse.json({
-      ok: false,
-      error: { type: 'not_found', title: 'Package not found', message: 'No package with this ID exists for your account.' },
-    }, { status: 404 })
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'not_found',
+          title: 'Package not found',
+          message: 'No package with this ID exists for your account.',
+        },
+      },
+      { status: 404 }
+    )
   }
 
   const currentStatus = pkg.status as string
-  const framesSaved   = (pkg.frames_done as number) ?? 0
+  const framesSaved = (pkg.frames_done as number) ?? 0
 
   // ── Already cancelled — idempotent return ───────────────────────────────────
   if (currentStatus === 'cancelled') {
     return NextResponse.json({
       ok: true,
-      data: { packageId, status: 'cancelled', framesSaved, message: 'Package is already cancelled.' },
+      data: {
+        packageId,
+        status: 'cancelled',
+        framesSaved,
+        message: 'Package is already cancelled.',
+      },
     })
   }
 
   // ── Cannot cancel completed/ready packages ─────────────────────────────────
   if (currentStatus === 'ready' || currentStatus === 'completed') {
-    return NextResponse.json({
-      ok: false,
-      error: {
-        type:    'invalid_request',
-        title:   'Cannot cancel',
-        message: 'Generation is already complete — there is nothing to stop.',
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'invalid_request',
+          title: 'Cannot cancel',
+          message: 'Generation is already complete — there is nothing to stop.',
+        },
       },
-    }, { status: 409 })
+      { status: 409 }
+    )
   }
 
   // ── If not in an active generation, just mark cancelled directly ────────────
@@ -114,25 +158,38 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const { error: updateErr } = await db
       .from('product_360_packages')
       .update({
-        status:              'cancelled',
-        cancel_requested:    true,
+        status: 'cancelled',
+        cancel_requested: true,
         cancel_requested_at: now,
-        cancelled_at:        now,
-        updated_at:          now,
+        cancelled_at: now,
+        updated_at: now,
       })
       .eq('id', packageId)
       .eq('tenant_id', tenantId)
 
     if (updateErr) {
-      return NextResponse.json({
-        ok: false,
-        error: { type: 'internal', title: 'Update failed', message: 'Failed to cancel package.', details: updateErr.message },
-      }, { status: 500 })
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            type: 'internal',
+            title: 'Update failed',
+            message: 'Failed to cancel package.',
+            details: updateErr.message,
+          },
+        },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({
       ok: true,
-      data: { packageId, status: 'cancelled', framesSaved, message: `Package cancelled. ${framesSaved} frames were saved.` },
+      data: {
+        packageId,
+        status: 'cancelled',
+        framesSaved,
+        message: `Package cancelled. ${framesSaved} frames were saved.`,
+      },
     })
   }
 
@@ -142,34 +199,42 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const { error: cancelErr } = await db
     .from('product_360_packages')
     .update({
-      cancel_requested:    true,
+      cancel_requested: true,
       cancel_requested_at: now,
-      status:              'cancelled',
-      cancelled_at:        now,
-      updated_at:          now,
+      status: 'cancelled',
+      cancelled_at: now,
+      updated_at: now,
     })
     .eq('id', packageId)
     .eq('tenant_id', tenantId)
 
   if (cancelErr) {
     console.error('[p360:cancel] update error:', cancelErr.message)
-    return NextResponse.json({
-      ok: false,
-      error: { type: 'internal', title: 'Update failed', message: 'Failed to request cancellation.', details: cancelErr.message },
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'internal',
+          title: 'Update failed',
+          message: 'Failed to request cancellation.',
+          details: cancelErr.message,
+        },
+      },
+      { status: 500 }
+    )
   }
 
   console.info(
-    `[p360:cancel] pkg=${packageId} cancel_requested=true (was: ${currentStatus}, ${framesSaved} frames saved)`,
+    `[p360:cancel] pkg=${packageId} cancel_requested=true (was: ${currentStatus}, ${framesSaved} frames saved)`
   )
 
   return NextResponse.json({
     ok: true,
     data: {
       packageId,
-      status:      'cancelled',
+      status: 'cancelled',
       framesSaved,
-      message:     `Stopping generation. ${framesSaved} frame${framesSaved !== 1 ? 's' : ''} already generated will be saved.`,
+      message: `Stopping generation. ${framesSaved} frame${framesSaved !== 1 ? 's' : ''} already generated will be saved.`,
     },
   })
 }

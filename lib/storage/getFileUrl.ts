@@ -28,7 +28,7 @@ export function getPublicFileUrl(bucket: StorageBucket, path: string): string {
   if (!isPublicBucket(bucket)) {
     throw new Error(
       `getPublicFileUrl: "${bucket}" is a private bucket. ` +
-      `Use createSignedFileUrl() for private buckets.`,
+        `Use createSignedFileUrl() for private buckets.`
     )
   }
   const supabase = getSupabaseServerClient()
@@ -50,7 +50,7 @@ export function getPublicFileUrl(bucket: StorageBucket, path: string): string {
 export async function createSignedFileUrl(
   bucket: StorageBucket,
   path: string,
-  expiresInSeconds = 3600,
+  expiresInSeconds = 3600
 ): Promise<string> {
   const supabase = getSupabaseServerClient()
   const { data, error } = await supabase.storage
@@ -59,7 +59,7 @@ export async function createSignedFileUrl(
 
   if (error || !data?.signedUrl) {
     throw new Error(
-      `createSignedFileUrl: Failed to sign "${path}" in "${bucket}": ${error?.message ?? 'unknown error'}`,
+      `createSignedFileUrl: Failed to sign "${path}" in "${bucket}": ${error?.message ?? 'unknown error'}`
     )
   }
 
@@ -76,7 +76,7 @@ export async function createSignedFileUrl(
 export async function getFileUrl(
   bucket: StorageBucket,
   path: string,
-  expiresInSeconds = 3600,
+  expiresInSeconds = 3600
 ): Promise<string> {
   if (isPublicBucket(bucket)) {
     return getPublicFileUrl(bucket, path)

@@ -26,49 +26,56 @@ const DEFAULT_TIMEOUT_MS = 90_000
 
 export interface GeminiTextRequestOptions {
   /** Gemini model name, e.g. 'gemini-3-flash-preview' */
-  model:             string
+  model: string
   /** Full prompt text */
-  prompt:            string
+  prompt: string
   /**
    * Feature tag used in log lines — helps identify which feature caused an error.
    * e.g. 'website-autofill', 'image-planner', '360-studio'
    */
-  feature?:          string
-  temperature?:      number
-  topK?:             number
-  topP?:             number
-  maxOutputTokens?:  number
+  feature?: string
+  temperature?: number
+  topK?: number
+  topP?: number
+  maxOutputTokens?: number
   /**
    * When true, the raw text response is parsed as JSON using safeParseGeminiJson.
    * The helper always requests text/plain and parses manually — never uses
    * responseMimeType: 'application/json'.
    */
-  expectJson?:       boolean
-  timeoutMs?:        number
+  expectJson?: boolean
+  timeoutMs?: number
 }
 
 export interface GeminiTextResult<T = string> {
   /** Raw text content from the Gemini response */
-  text:         string
+  text: string
   /** Parsed JSON value (only populated when expectJson: true) */
-  data:         T | null
+  data: T | null
   /** JSON parse error (only populated when expectJson: true and parsing failed) */
-  parseError?:  string
+  parseError?: string
   /** Gemini token usage metadata */
-  tokenUsage:   Record<string, unknown>
+  tokenUsage: Record<string, unknown>
   /** HTTP / network / API-level error (request did not succeed) */
-  error?:       string
+  error?: string
 }
 
 // ─── Internal types ───────────────────────────────────────────────────────────
 
-interface GeminiPart      { text?: string; inlineData?: { mimeType: string; data: string } }
-interface GeminiContent   { parts: GeminiPart[] }
-interface GeminiCandidate { content?: GeminiContent }
+interface GeminiPart {
+  text?: string
+  inlineData?: { mimeType: string; data: string }
+}
+interface GeminiContent {
+  parts: GeminiPart[]
+}
+interface GeminiCandidate {
+  content?: GeminiContent
+}
 interface GeminiApiResponse {
-  candidates?:    GeminiCandidate[]
+  candidates?: GeminiCandidate[]
   usageMetadata?: Record<string, unknown>
-  error?:         { code: number; message: string; status?: string }
+  error?: { code: number; message: string; status?: string }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -89,17 +96,17 @@ interface GeminiApiResponse {
  *   })
  */
 export async function callGeminiText<T = string>(
-  opts: GeminiTextRequestOptions,
+  opts: GeminiTextRequestOptions
 ): Promise<GeminiTextResult<T>> {
   const apiKey = process.env.GEMINI_API_KEY?.trim()
   const feature = opts.feature ?? 'unknown'
 
   if (!apiKey) {
     return {
-      text:       '',
-      data:       null,
+      text: '',
+      data: null,
       tokenUsage: {},
-      error:      `GEMINI_API_KEY is not set. Configure it in environment variables. [feature: ${feature}]`,
+      error: `GEMINI_API_KEY is not set. Configure it in environment variables. [feature: ${feature}]`,
     }
   }
 
@@ -109,38 +116,38 @@ export async function callGeminiText<T = string>(
   // the model needs text/plain to be explicit (currently: never needed by any model we use).
   // Sending 'application/json' here is what caused the HTTP 400 error.
   const generationConfig: Record<string, unknown> = {}
-  if (opts.temperature      !== undefined) generationConfig.temperature      = opts.temperature
-  if (opts.topK             !== undefined) generationConfig.topK             = opts.topK
-  if (opts.topP             !== undefined) generationConfig.topP             = opts.topP
-  if (opts.maxOutputTokens  !== undefined) generationConfig.maxOutputTokens  = opts.maxOutputTokens
+  if (opts.temperature !== undefined) generationConfig.temperature = opts.temperature
+  if (opts.topK !== undefined) generationConfig.topK = opts.topK
+  if (opts.topP !== undefined) generationConfig.topP = opts.topP
+  if (opts.maxOutputTokens !== undefined) generationConfig.maxOutputTokens = opts.maxOutputTokens
 
   const body = {
-    contents:         [{ parts: [{ text: opts.prompt }] }],
+    contents: [{ parts: [{ text: opts.prompt }] }],
     generationConfig: Object.keys(generationConfig).length ? generationConfig : undefined,
   }
 
   console.info(`[geminiRequest] ${feature} → ${opts.model} (expectJson=${!!opts.expectJson})`)
 
   const controller = new AbortController()
-  const timeoutMs  = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
-  const timer      = setTimeout(() => controller.abort(), timeoutMs)
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
 
   let response: Response
   try {
     response = await fetch(url, {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(body),
-      signal:  controller.signal,
+      body: JSON.stringify(body),
+      signal: controller.signal,
     })
   } catch (err: unknown) {
     clearTimeout(timer)
     const isAbort = err instanceof Error && err.name === 'AbortError'
     return {
-      text:       '',
-      data:       null,
+      text: '',
+      data: null,
       tokenUsage: {},
-      error:      isAbort
+      error: isAbort
         ? `AI analysis timed out after ${timeoutMs / 1000}s. Try again.`
         : 'AI analysis is temporarily unavailable. Try again.',
     }
@@ -150,26 +157,33 @@ export async function callGeminiText<T = string>(
 
   if (!response.ok) {
     let errText = ''
-    try { errText = await response.text() } catch { /* ignore */ }
+    try {
+      errText = await response.text()
+    } catch {
+      /* ignore */
+    }
     const snippet = errText.slice(0, 300)
-    console.error(`[geminiRequest] HTTP ${response.status} [feature: ${feature}, model: ${opts.model}]:`, snippet)
+    console.error(
+      `[geminiRequest] HTTP ${response.status} [feature: ${feature}, model: ${opts.model}]:`,
+      snippet
+    )
     return {
-      text:       errText,
-      data:       null,
+      text: errText,
+      data: null,
       tokenUsage: {},
-      error:      `AI analysis request failed (${response.status}). Try again.`,
+      error: `AI analysis request failed (${response.status}). Try again.`,
     }
   }
 
   let json: GeminiApiResponse
   try {
-    json = await response.json() as GeminiApiResponse
+    json = (await response.json()) as GeminiApiResponse
   } catch {
     return {
-      text:       '',
-      data:       null,
+      text: '',
+      data: null,
       tokenUsage: {},
-      error:      'AI analysis returned an unreadable response. Try again.',
+      error: 'AI analysis returned an unreadable response. Try again.',
     }
   }
 
@@ -177,18 +191,23 @@ export async function callGeminiText<T = string>(
   if (json.error) {
     const msg = `Gemini API error ${json.error.code} (${json.error.status ?? ''}): ${json.error.message} [feature: ${feature}]`
     console.error(`[geminiRequest] API-level error:`, msg)
-    return { text: '', data: null, tokenUsage: {}, error: 'AI analysis is temporarily unavailable. Try again.' }
+    return {
+      text: '',
+      data: null,
+      tokenUsage: {},
+      error: 'AI analysis is temporarily unavailable. Try again.',
+    }
   }
 
   const tokenUsage = json.usageMetadata ?? {}
-  const text       = extractTextFromCandidates(json.candidates)
+  const text = extractTextFromCandidates(json.candidates)
 
   if (!text) {
     return {
-      text:       '',
-      data:       null,
+      text: '',
+      data: null,
       tokenUsage,
-      error:      'AI analysis returned no content. Try again.',
+      error: 'AI analysis returned no content. Try again.',
     }
   }
 
@@ -204,7 +223,7 @@ export async function callGeminiText<T = string>(
 // ─── Multimodal support ───────────────────────────────────────────────────────
 
 export interface GeminiMultimodalPart {
-  text?:       string
+  text?: string
   inlineData?: { mimeType: string; data: string }
 }
 
@@ -215,18 +234,22 @@ export interface GeminiMultimodalPart {
  * Never throws — returns { error } on failure.
  */
 export async function callGeminiMultimodal(opts: {
-  model:        string
-  parts:        GeminiMultimodalPart[]
+  model: string
+  parts: GeminiMultimodalPart[]
   temperature?: number
-  feature?:     string
-  timeoutMs?:   number
+  feature?: string
+  timeoutMs?: number
 }): Promise<GeminiTextResult<string>> {
-  const apiKey  = process.env.GEMINI_API_KEY?.trim()
+  const apiKey = process.env.GEMINI_API_KEY?.trim()
   const feature = opts.feature ?? 'multimodal'
 
   if (!apiKey) {
-    return { text: '', data: null, tokenUsage: {},
-      error: `GEMINI_API_KEY is not set [feature: ${feature}]` }
+    return {
+      text: '',
+      data: null,
+      tokenUsage: {},
+      error: `GEMINI_API_KEY is not set [feature: ${feature}]`,
+    }
   }
 
   const url = `${GEMINI_API_BASE}/${opts.model}:generateContent?key=${apiKey}`
@@ -239,47 +262,71 @@ export async function callGeminiMultimodal(opts: {
     generationConfig: Object.keys(generationConfig).length ? generationConfig : undefined,
   }
 
-  console.info(`[geminiRequest] ${feature} → ${opts.model} (multimodal, parts=${opts.parts.length})`)
+  console.info(
+    `[geminiRequest] ${feature} → ${opts.model} (multimodal, parts=${opts.parts.length})`
+  )
 
   const controller = new AbortController()
-  const timeoutMs  = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
-  const timer      = setTimeout(() => controller.abort(), timeoutMs)
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
 
   let response: Response
   try {
     response = await fetch(url, {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(body),
-      signal:  controller.signal,
+      body: JSON.stringify(body),
+      signal: controller.signal,
     })
   } catch (err) {
     clearTimeout(timer)
     const isAbort = err instanceof Error && err.name === 'AbortError'
-    return { text: '', data: null, tokenUsage: {},
+    return {
+      text: '',
+      data: null,
+      tokenUsage: {},
       error: isAbort
         ? `AI analysis timed out after ${timeoutMs / 1000}s. Try again.`
-        : 'AI analysis is temporarily unavailable. Try again.' }
+        : 'AI analysis is temporarily unavailable. Try again.',
+    }
   } finally {
     clearTimeout(timer)
   }
 
   if (!response.ok) {
     let errText = ''
-    try { errText = await response.text() } catch { /* ignore */ }
-    return { text: errText, data: null, tokenUsage: {},
-      error: `AI analysis request failed (${response.status}). Try again.` }
+    try {
+      errText = await response.text()
+    } catch {
+      /* ignore */
+    }
+    return {
+      text: errText,
+      data: null,
+      tokenUsage: {},
+      error: `AI analysis request failed (${response.status}). Try again.`,
+    }
   }
 
   let json: GeminiApiResponse
-  try { json = await response.json() as GeminiApiResponse } catch {
-    return { text: '', data: null, tokenUsage: {},
-      error: 'AI analysis returned an unreadable response. Try again.' }
+  try {
+    json = (await response.json()) as GeminiApiResponse
+  } catch {
+    return {
+      text: '',
+      data: null,
+      tokenUsage: {},
+      error: 'AI analysis returned an unreadable response. Try again.',
+    }
   }
 
   if (json.error) {
-    return { text: '', data: null, tokenUsage: {},
-      error: 'AI analysis is temporarily unavailable. Try again.' }
+    return {
+      text: '',
+      data: null,
+      tokenUsage: {},
+      error: 'AI analysis is temporarily unavailable. Try again.',
+    }
   }
 
   const text = extractTextFromCandidates(json.candidates)
@@ -288,13 +335,9 @@ export async function callGeminiMultimodal(opts: {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-function extractTextFromCandidates(
-  candidates?: GeminiCandidate[],
-): string {
+function extractTextFromCandidates(candidates?: GeminiCandidate[]): string {
   if (!candidates?.length) return ''
   const first = candidates[0]
   const parts = first?.content?.parts ?? []
-  return parts
-    .map(p => p.text ?? '')
-    .join('')
+  return parts.map((p) => p.text ?? '').join('')
 }

@@ -23,9 +23,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect('/dashboard?error=forbidden')
   }
 
-  return (
-    <AdminShell email={ctx.email}>
-      {children}
-    </AdminShell>
-  )
+  return <AdminShell email={ctx.email}>{children}</AdminShell>
 }

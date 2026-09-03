@@ -3,13 +3,21 @@
 // Main AI Website Image Builder panel — plan, generate, approve, apply images.
 
 import { useState, useCallback, useTransition } from 'react'
-import { ImageIcon, Sparkles, RefreshCw, AlertCircle, CheckCircle2, Layers, Terminal } from 'lucide-react'
+import {
+  ImageIcon,
+  Sparkles,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle2,
+  Layers,
+  Terminal,
+} from 'lucide-react'
 import { AiImagePlanCard } from './AiImagePlanCard'
 import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 
 interface Props {
-  tenantId:    string
-  isOwner:     boolean
+  tenantId: string
+  isOwner: boolean
   initialPlans?: WebsiteImagePlan[]
 }
 
@@ -19,20 +27,20 @@ type PanelToast = { type: 'success' | 'error'; message: string } | null
 type ApiErrorCode = 'MISSING_TABLE' | 'MISSING_BUCKET' | 'MISSING_API_KEY' | null
 
 interface BlockingError {
-  code:          ApiErrorCode
-  message:       string
+  code: ApiErrorCode
+  message: string
   missingTable?: string
-  detail?:       string
-  diagnostics?:  string
+  detail?: string
+  diagnostics?: string
 }
 
 export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
-  const [plans, setPlans]               = useState<WebsiteImagePlan[]>(initialPlans)
+  const [plans, setPlans] = useState<WebsiteImagePlan[]>(initialPlans)
   const [loadingPlanId, setLoadingPlan] = useState<string | null>(null)
-  const [globalLoading, setGlobalLoad]  = useState(false)
-  const [toast, setToast]               = useState<PanelToast>(null)
+  const [globalLoading, setGlobalLoad] = useState(false)
+  const [toast, setToast] = useState<PanelToast>(null)
   const [blockingError, setBlockingError] = useState<BlockingError | null>(null)
-  const [, startTransition]             = useTransition()
+  const [, startTransition] = useTransition()
 
   function showToast(type: 'success' | 'error', message: string) {
     setToast({ type, message })
@@ -40,21 +48,21 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
   }
 
   async function apiPost(path: string, body?: Record<string, unknown>) {
-    const res  = await fetch(path, {
-      method:  'POST',
+    const res = await fetch(path, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    body ? JSON.stringify(body) : undefined,
+      body: body ? JSON.stringify(body) : undefined,
     })
-    const json = await res.json() as Record<string, unknown>
+    const json = (await res.json()) as Record<string, unknown>
     if (!res.ok) {
       const code = (json.code as ApiErrorCode) ?? null
       if (code === 'MISSING_TABLE' || code === 'MISSING_BUCKET' || code === 'MISSING_API_KEY') {
         setBlockingError({
           code,
-          message:      (json.error        as string) ?? 'Configuration error.',
-          missingTable: (json.missingTable  as string | undefined),
-          detail:       (json.detail        as string | undefined),
-          diagnostics:  (json.diagnostics   as string | undefined),
+          message: (json.error as string) ?? 'Configuration error.',
+          missingTable: json.missingTable as string | undefined,
+          detail: json.detail as string | undefined,
+          diagnostics: json.diagnostics as string | undefined,
         })
       }
       throw new Error((json.error as string) ?? 'Request failed')
@@ -66,17 +74,24 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
     try {
       const params = new URLSearchParams()
       if (isOwner) params.set('tenantId', tenantId)
-      const res  = await fetch(`/api/website/ai-images/plan?${params}`)
-      const json = await res.json() as { plans: WebsiteImagePlan[]; code?: string; error?: string; missingTable?: string; detail?: string; diagnostics?: string }
+      const res = await fetch(`/api/website/ai-images/plan?${params}`)
+      const json = (await res.json()) as {
+        plans: WebsiteImagePlan[]
+        code?: string
+        error?: string
+        missingTable?: string
+        detail?: string
+        diagnostics?: string
+      }
       if (!res.ok) {
         const code = (json.code as ApiErrorCode) ?? null
         if (code === 'MISSING_TABLE' || code === 'MISSING_BUCKET' || code === 'MISSING_API_KEY') {
           setBlockingError({
             code,
-            message:      json.error ?? 'Configuration error.',
+            message: json.error ?? 'Configuration error.',
             missingTable: json.missingTable as string | undefined,
-            detail:       json.detail as string | undefined,
-            diagnostics:  json.diagnostics as string | undefined,
+            detail: json.detail as string | undefined,
+            diagnostics: json.diagnostics as string | undefined,
           })
           return
         }
@@ -92,7 +107,9 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
   async function handleCreatePlan() {
     setGlobalLoad(true)
     try {
-      const json = await apiPost('/api/website/ai-images/plan', { tenantId: isOwner ? tenantId : undefined }) as { plans: WebsiteImagePlan[] }
+      const json = (await apiPost('/api/website/ai-images/plan', {
+        tenantId: isOwner ? tenantId : undefined,
+      })) as { plans: WebsiteImagePlan[] }
       setPlans(json.plans ?? [])
       showToast('success', `Created ${json.plans?.length ?? 0} image plan(s).`)
     } catch (err) {
@@ -106,7 +123,9 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
     setLoadingPlan(id)
     optimisticallyUpdateStatus(id, 'generating')
     try {
-      const json = await apiPost(`/api/website/ai-images/plans/${id}/generate`) as { plan: WebsiteImagePlan }
+      const json = (await apiPost(`/api/website/ai-images/plans/${id}/generate`)) as {
+        plan: WebsiteImagePlan
+      }
       if (json.plan) replacePlan(json.plan)
       showToast('success', 'Image generated! Preview it and apply when ready.')
     } catch (err) {
@@ -123,7 +142,9 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
     try {
       const body: Record<string, unknown> = {}
       if (newPrompt) body.prompt = newPrompt
-      const json = await apiPost(`/api/website/ai-images/plans/${id}/regenerate`, body) as { plan: WebsiteImagePlan }
+      const json = (await apiPost(`/api/website/ai-images/plans/${id}/regenerate`, body)) as {
+        plan: WebsiteImagePlan
+      }
       if (json.plan) replacePlan(json.plan)
       showToast('success', 'Image regenerated.')
     } catch (err) {
@@ -151,15 +172,17 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
     setLoadingPlan(id)
     optimisticallyUpdateStatus(id, 'generating')
     try {
-      const json = await apiPost(
-        `/api/website/ai-images/plans/${id}/generate-and-apply`,
-      ) as { plan: WebsiteImagePlan; applied: boolean; applySkipped?: boolean }
+      const json = (await apiPost(`/api/website/ai-images/plans/${id}/generate-and-apply`)) as {
+        plan: WebsiteImagePlan
+        applied: boolean
+        applySkipped?: boolean
+      }
       if (json.plan) replacePlan(json.plan)
       const msg = json.applied
         ? 'Image generated and applied to your website!'
         : json.applySkipped
-        ? 'Image generated (no section linked — apply manually when ready).'
-        : 'Image generated.'
+          ? 'Image generated (no section linked — apply manually when ready).'
+          : 'Image generated.'
       showToast('success', msg)
     } catch (err) {
       showToast('error', err instanceof Error ? err.message : 'Generate + Apply failed.')
@@ -194,15 +217,18 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
   }, [])
 
   async function handleBulkGenerate() {
-    const eligible = plans.filter(p => p.status === 'planned' || p.status === 'approved')
+    const eligible = plans.filter((p) => p.status === 'planned' || p.status === 'approved')
     if (!eligible.length) return
     setGlobalLoad(true)
     try {
-      const json = await apiPost('/api/website/ai-images/auto-generate', {
+      const json = (await apiPost('/api/website/ai-images/auto-generate', {
         tenantId: isOwner ? tenantId : undefined,
-        planIds:  eligible.map(p => p.id),
-      }) as { succeeded: number; failed: number }
-      showToast('success', `Generated ${json.succeeded} image(s). ${json.failed > 0 ? `${json.failed} failed.` : ''}`)
+        planIds: eligible.map((p) => p.id),
+      })) as { succeeded: number; failed: number }
+      showToast(
+        'success',
+        `Generated ${json.succeeded} image(s). ${json.failed > 0 ? `${json.failed} failed.` : ''}`
+      )
       await loadPlans()
     } catch (err) {
       showToast('error', err instanceof Error ? err.message : 'Bulk generation failed.')
@@ -212,7 +238,9 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
   }
 
   async function handleBulkApply() {
-    const generated = plans.filter(p => p.status === 'generated' && p.generated_asset_url && p.section_id)
+    const generated = plans.filter(
+      (p) => p.status === 'generated' && p.generated_asset_url && p.section_id
+    )
     if (!generated.length) return
     setGlobalLoad(true)
     try {
@@ -230,20 +258,22 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
 
   function optimisticallyUpdateStatus(id: string, status: WebsiteImagePlan['status']) {
     startTransition(() => {
-      setPlans(prev => prev.map(p => p.id === id ? { ...p, status } : p))
+      setPlans((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)))
     })
   }
 
   function replacePlan(updated: WebsiteImagePlan) {
     startTransition(() => {
-      setPlans(prev => prev.map(p => p.id === updated.id ? updated : p))
+      setPlans((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
     })
   }
 
-  const activePlans   = plans.filter(p => p.status !== 'rejected' && p.status !== 'disabled')
-  const rejectedPlans = plans.filter(p => p.status === 'rejected')
-  const hasGenerated  = plans.some(p => p.status === 'generated' && p.generated_asset_url && p.section_id)
-  const hasEligible   = plans.some(p => p.status === 'planned' || p.status === 'approved')
+  const activePlans = plans.filter((p) => p.status !== 'rejected' && p.status !== 'disabled')
+  const rejectedPlans = plans.filter((p) => p.status === 'rejected')
+  const hasGenerated = plans.some(
+    (p) => p.status === 'generated' && p.generated_asset_url && p.section_id
+  )
+  const hasEligible = plans.some((p) => p.status === 'planned' || p.status === 'approved')
 
   return (
     <div className="space-y-6">
@@ -270,12 +300,18 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
 
       {/* Toast */}
       {toast && (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium border ${
-          toast.type === 'success'
-            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-            : 'bg-red-500/10 border-red-500/20 text-red-400'
-        }`}>
-          {toast.type === 'success' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
+        <div
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium border ${
+            toast.type === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+              : 'bg-red-500/10 border-red-500/20 text-red-400'
+          }`}
+        >
+          {toast.type === 'success' ? (
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+          ) : (
+            <AlertCircle className="h-4 w-4 shrink-0" />
+          )}
           {toast.message}
         </div>
       )}
@@ -286,14 +322,13 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
           <div className="flex items-center gap-2 text-red-400">
             <Terminal className="h-4 w-4 shrink-0" />
             <span className="text-sm font-semibold">
-              {blockingError.code === 'MISSING_TABLE'   && (
-                blockingError.missingTable
+              {blockingError.code === 'MISSING_TABLE' &&
+                (blockingError.missingTable
                   ? `Database table missing: ${blockingError.missingTable}`
-                  : 'Database table missing'
-              )}
-              {blockingError.code === 'MISSING_BUCKET'  && 'Storage bucket missing'}
+                  : 'Database table missing')}
+              {blockingError.code === 'MISSING_BUCKET' && 'Storage bucket missing'}
               {blockingError.code === 'MISSING_API_KEY' && 'AI image service configuration missing'}
-              {!blockingError.code                      && 'Configuration error'}
+              {!blockingError.code && 'Configuration error'}
             </span>
           </div>
 
@@ -309,9 +344,18 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
             <div className="text-[11px] text-white/40 space-y-1 font-mono bg-black/30 rounded-xl p-3">
               <p className="text-white/60 font-sans font-semibold not-italic mb-1">Fix steps:</p>
               <p>1. Open Supabase Dashboard → SQL Editor</p>
-              <p>2. Run: <span className="text-violet-300">054_website_image_plans_complete.sql</span></p>
-              <p>3. Run: <span className="text-violet-300">058_schema_check_helpers.sql</span></p>
-              <p>4. Verify you are running migrations on the <span className="text-yellow-300">same Supabase project</span> as NEXT_PUBLIC_SUPABASE_URL</p>
+              <p>
+                2. Run:{' '}
+                <span className="text-violet-300">054_website_image_plans_complete.sql</span>
+              </p>
+              <p>
+                3. Run: <span className="text-violet-300">058_schema_check_helpers.sql</span>
+              </p>
+              <p>
+                4. Verify you are running migrations on the{' '}
+                <span className="text-yellow-300">same Supabase project</span> as
+                NEXT_PUBLIC_SUPABASE_URL
+              </p>
               <p>5. Redeploy on Vercel, then click &quot;Retry after fixing&quot; below</p>
             </div>
           )}
@@ -320,8 +364,13 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
             <div className="text-[11px] text-white/40 space-y-1 font-mono bg-black/30 rounded-xl p-3">
               <p className="text-white/60 font-sans font-semibold not-italic mb-1">Fix steps:</p>
               <p>1. Open Supabase Dashboard → Storage → New bucket</p>
-              <p>2. Name: <span className="text-violet-300">website-assets</span> — Public: on</p>
-              <p>3. Or re-run: <span className="text-violet-300">054_website_image_plans_complete.sql</span></p>
+              <p>
+                2. Name: <span className="text-violet-300">website-assets</span> — Public: on
+              </p>
+              <p>
+                3. Or re-run:{' '}
+                <span className="text-violet-300">054_website_image_plans_complete.sql</span>
+              </p>
             </div>
           )}
 
@@ -336,7 +385,10 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { setBlockingError(null); void loadPlans() }}
+              onClick={() => {
+                setBlockingError(null)
+                void loadPlans()
+              }}
               className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
             >
               <RefreshCw className="h-3.5 w-3.5" />
@@ -363,7 +415,9 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
           <span className="text-sm font-semibold text-violet-300">How AI Images Work</span>
         </div>
         <ul className="space-y-1 text-xs text-white/50 pl-6 list-disc">
-          <li>AI analysis reviews your website structure and decides which images are needed and why.</li>
+          <li>
+            AI analysis reviews your website structure and decides which images are needed and why.
+          </li>
           <li>AI image generation creates each image from a commercial photography prompt.</li>
           <li>Images are saved to your Supabase Storage and linked to the correct sections.</li>
           <li>Existing product images are never overwritten.</li>
@@ -379,9 +433,13 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
           className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-sm transition-all duration-150 disabled:opacity-50 shadow-lg shadow-violet-500/20"
         >
           {globalLoading ? (
-            <><RefreshCw className="h-4 w-4 animate-spin" /> Planning images…</>
+            <>
+              <RefreshCw className="h-4 w-4 animate-spin" /> Planning images…
+            </>
           ) : (
-            <><Sparkles className="h-4 w-4" /> Analyze Site & Plan Images</>
+            <>
+              <Sparkles className="h-4 w-4" /> Analyze Site & Plan Images
+            </>
           )}
         </button>
       )}
@@ -404,7 +462,8 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 transition-colors disabled:opacity-40"
             >
               <ImageIcon className="h-3.5 w-3.5" />
-              Generate All ({plans.filter(p => p.status === 'planned' || p.status === 'approved').length})
+              Generate All (
+              {plans.filter((p) => p.status === 'planned' || p.status === 'approved').length})
             </button>
           )}
           {hasGenerated && (
@@ -426,17 +485,17 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
           <p className="text-xs font-semibold text-white/30 uppercase tracking-wider">
             {activePlans.length} Image Plan{activePlans.length !== 1 ? 's' : ''}
           </p>
-          {activePlans.map(plan => (
+          {activePlans.map((plan) => (
             <AiImagePlanCard
               key={plan.id}
               plan={plan}
               isLoading={loadingPlanId === plan.id || globalLoading}
-              onGenerate={id => void handleGenerate(id)}
+              onGenerate={(id) => void handleGenerate(id)}
               onRegenerate={(id, p) => void handleRegenerate(id, p)}
-              onApply={id => void handleApply(id)}
-              onGenerateAndApply={id => void handleGenerateAndApply(id)}
-              onReject={id => void handleReject(id)}
-              onApprove={id => void handleApprove(id)}
+              onApply={(id) => void handleApply(id)}
+              onGenerateAndApply={(id) => void handleGenerateAndApply(id)}
+              onReject={(id) => void handleReject(id)}
+              onApprove={(id) => void handleApprove(id)}
             />
           ))}
         </div>
@@ -449,7 +508,7 @@ export function AiImagesPanel({ tenantId, isOwner, initialPlans = [] }: Props) {
             {rejectedPlans.length} rejected plan{rejectedPlans.length !== 1 ? 's' : ''} (hidden)
           </summary>
           <div className="mt-2 space-y-2 opacity-50">
-            {rejectedPlans.map(plan => (
+            {rejectedPlans.map((plan) => (
               <AiImagePlanCard
                 key={plan.id}
                 plan={plan}

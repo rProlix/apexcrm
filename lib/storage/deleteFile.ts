@@ -20,10 +20,7 @@ import { assertSafeStoragePath, type StorageBucket } from '@/lib/storage/buckets
  * @returns `true` on success, `false` on a soft failure (file not found, etc.).
  * @throws  on unexpected errors.
  */
-export async function deleteFile(
-  bucket: StorageBucket,
-  path: string,
-): Promise<boolean> {
+export async function deleteFile(bucket: StorageBucket, path: string): Promise<boolean> {
   assertSafeStoragePath(path)
   const supabase = getSupabaseServerClient()
   const { error } = await supabase.storage.from(bucket).remove([path])
@@ -35,7 +32,9 @@ export async function deleteFile(
     ) {
       return false
     }
-    throw new Error(`[storage:deleteFile] Failed to delete "${path}" from "${bucket}": ${error.message}`)
+    throw new Error(
+      `[storage:deleteFile] Failed to delete "${path}" from "${bucket}": ${error.message}`
+    )
   }
   return true
 }
@@ -49,10 +48,7 @@ export async function deleteFile(
  * @param paths  - Array of full storage paths.
  * @returns number of successfully deleted objects.
  */
-export async function deleteFiles(
-  bucket: StorageBucket,
-  paths: string[],
-): Promise<number> {
+export async function deleteFiles(bucket: StorageBucket, paths: string[]): Promise<number> {
   if (!paths.length) return 0
   paths.forEach(assertSafeStoragePath)
 
@@ -76,10 +72,7 @@ export async function deleteFiles(
  * @param prefix - Path prefix, e.g. `'tenants/abc/360/product-id/pkg-id/'`.
  * @returns total number of deleted objects.
  */
-export async function deleteFilesByPrefix(
-  bucket: StorageBucket,
-  prefix: string,
-): Promise<number> {
+export async function deleteFilesByPrefix(bucket: StorageBucket, prefix: string): Promise<number> {
   assertSafeStoragePath(prefix)
   const supabase = getSupabaseServerClient()
   let totalDeleted = 0
@@ -91,17 +84,19 @@ export async function deleteFilesByPrefix(
       .list(prefix, { limit: 1000 })
 
     if (listErr) {
-      throw new Error(`[storage:deleteFilesByPrefix] list failed — prefix="${prefix}": ${listErr.message}`)
+      throw new Error(
+        `[storage:deleteFilesByPrefix] list failed — prefix="${prefix}": ${listErr.message}`
+      )
     }
     if (!listed?.length) break
 
-    const paths = listed.map(f => `${prefix}${f.name}`)
-    const { data: removed, error: removeErr } = await supabase.storage
-      .from(bucket)
-      .remove(paths)
+    const paths = listed.map((f) => `${prefix}${f.name}`)
+    const { data: removed, error: removeErr } = await supabase.storage.from(bucket).remove(paths)
 
     if (removeErr) {
-      throw new Error(`[storage:deleteFilesByPrefix] remove failed — bucket="${bucket}": ${removeErr.message}`)
+      throw new Error(
+        `[storage:deleteFilesByPrefix] remove failed — bucket="${bucket}": ${removeErr.message}`
+      )
     }
     totalDeleted += removed?.length ?? 0
 

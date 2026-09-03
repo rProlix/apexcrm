@@ -7,10 +7,19 @@ export const maxDuration = 300
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
-import { runDesignImportEngine, runDesignImportFromCanvaImportRecord } from '@/lib/website/import-engine/run-engine'
-import { isMissingColumnError, SCHEMA_MISSING_MESSAGE } from '@/lib/website/canva/ensure-canva-import-schema'
+import {
+  runDesignImportEngine,
+  runDesignImportFromCanvaImportRecord,
+} from '@/lib/website/import-engine/run-engine'
+import {
+  isMissingColumnError,
+  SCHEMA_MISSING_MESSAGE,
+} from '@/lib/website/canva/ensure-canva-import-schema'
 
-function resolveTenantId(ctx: Awaited<ReturnType<typeof getUserContext>>, override?: string | null): string | null {
+function resolveTenantId(
+  ctx: Awaited<ReturnType<typeof getUserContext>>,
+  override?: string | null
+): string | null {
   if (!ctx) return null
   const hint = sanitizeTenantId(override)
   const self = sanitizeTenantId(ctx.tenant_id)
@@ -45,11 +54,17 @@ export async function POST(req: NextRequest) {
     if (useExistingPdf && websiteId && importId && tenantId) {
       try {
         const result = await runDesignImportFromCanvaImportRecord({
-          tenantId, websiteId, importId, createdBy: ctx.id ?? null,
+          tenantId,
+          websiteId,
+          importId,
+          createdBy: ctx.id ?? null,
         })
         if (!result.ok) {
           const status = isMissingColumnError(result.error) ? 503 : 400
-          return NextResponse.json({ ok: false, error: result.error, diagnostics: result.diagnostics }, { status })
+          return NextResponse.json(
+            { ok: false, error: result.error, diagnostics: result.diagnostics },
+            { status }
+          )
         }
         return NextResponse.json({
           ok: true,
@@ -69,7 +84,10 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         const message = e instanceof Error ? e.message : 'import error'
         if (isMissingColumnError(message)) {
-          return NextResponse.json({ ok: false, error: SCHEMA_MISSING_MESSAGE, hasRequiredSchema: false }, { status: 503 })
+          return NextResponse.json(
+            { ok: false, error: SCHEMA_MISSING_MESSAGE, hasRequiredSchema: false },
+            { status: 503 }
+          )
         }
         return NextResponse.json({ ok: false, error: message }, { status: 500 })
       }
@@ -83,13 +101,20 @@ export async function POST(req: NextRequest) {
 
       try {
         const result = await runDesignImportEngine({
-          tenantId, websiteId, importId, createdBy: ctx.id ?? null,
+          tenantId,
+          websiteId,
+          importId,
+          createdBy: ctx.id ?? null,
           input: isPdf
             ? { pdfBuffer: buffer, fileName: file.name }
             : { imageBuffers: [{ buffer, mimeType: mime, fileName: file.name }] },
           options: { userPrompt },
         })
-        if (!result.ok) return NextResponse.json({ ok: false, error: result.error, diagnostics: result.diagnostics }, { status: 400 })
+        if (!result.ok)
+          return NextResponse.json(
+            { ok: false, error: result.error, diagnostics: result.diagnostics },
+            { status: 400 }
+          )
         return NextResponse.json({
           ok: true,
           websiteId,
@@ -106,7 +131,10 @@ export async function POST(req: NextRequest) {
           linkMapping: result.reconstruction?.linkMapping,
         })
       } catch (e) {
-        return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'Import failed' }, { status: 500 })
+        return NextResponse.json(
+          { ok: false, error: e instanceof Error ? e.message : 'Import failed' },
+          { status: 500 }
+        )
       }
     }
   } else {
@@ -121,13 +149,19 @@ export async function POST(req: NextRequest) {
 
   if (!tenantId) return NextResponse.json({ ok: false, error: 'No tenant' }, { status: 400 })
   if (!websiteId || !importId) {
-    return NextResponse.json({ ok: false, error: 'websiteId and importId are required.' }, { status: 400 })
+    return NextResponse.json(
+      { ok: false, error: 'websiteId and importId are required.' },
+      { status: 400 }
+    )
   }
 
   try {
     if (useExistingPdf) {
       const result = await runDesignImportFromCanvaImportRecord({
-        tenantId, websiteId, importId, createdBy: ctx.id ?? null,
+        tenantId,
+        websiteId,
+        importId,
+        createdBy: ctx.id ?? null,
       })
       if (!result.ok) {
         const status = isMissingColumnError(result.error) ? 503 : 400
@@ -153,11 +187,18 @@ export async function POST(req: NextRequest) {
 
     if (url) {
       const result = await runDesignImportEngine({
-        tenantId, websiteId, importId, createdBy: ctx.id ?? null,
+        tenantId,
+        websiteId,
+        importId,
+        createdBy: ctx.id ?? null,
         input: { url, fileName: url },
         options: { userPrompt },
       })
-      if (!result.ok) return NextResponse.json({ ok: false, error: result.error, diagnostics: result.diagnostics }, { status: 400 })
+      if (!result.ok)
+        return NextResponse.json(
+          { ok: false, error: result.error, diagnostics: result.diagnostics },
+          { status: 400 }
+        )
       return NextResponse.json({
         ok: true,
         websiteId,
@@ -175,11 +216,17 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({ ok: false, error: 'Provide url, file upload, or useExistingPdf.' }, { status: 400 })
+    return NextResponse.json(
+      { ok: false, error: 'Provide url, file upload, or useExistingPdf.' },
+      { status: 400 }
+    )
   } catch (e) {
     const message = e instanceof Error ? e.message : 'import error'
     if (isMissingColumnError(message)) {
-      return NextResponse.json({ ok: false, error: SCHEMA_MISSING_MESSAGE, hasRequiredSchema: false }, { status: 503 })
+      return NextResponse.json(
+        { ok: false, error: SCHEMA_MISSING_MESSAGE, hasRequiredSchema: false },
+        { status: 503 }
+      )
     }
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }

@@ -18,44 +18,44 @@ import type { P360GenerationConfig } from '@/lib/ai/360/types'
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
 export interface IdentityBlueprintSubject {
-  productName:             string
+  productName: string
   exactIngredientsOrParts: string[]
-  shape:                   string
-  colorPalette:            string[]
-  surfaceDetails:          string[]
-  mustNotChange:           string[]
+  shape: string
+  colorPalette: string[]
+  surfaceDetails: string[]
+  mustNotChange: string[]
 }
 
 export interface IdentityBlueprintVessel {
-  type:     string
+  type: string
   material: string
-  color:    string
-  size:     string
+  color: string
+  size: string
   position: string
 }
 
 export interface IdentityBlueprintScene {
-  table:          string
-  wall:           string
-  background:     string
-  props:          string[]
-  lighting:       string
+  table: string
+  wall: string
+  background: string
+  props: string[]
+  lighting: string
   cameraDistance: string
-  lens:           string
-  crop:           string
+  lens: string
+  crop: string
 }
 
 export interface IdentityBlueprintRotation {
-  frameCount:        number
-  angleStepDegrees:  number
-  onlyChange:        string
+  frameCount: number
+  angleStepDegrees: number
+  onlyChange: string
 }
 
 export interface IdentityBlueprint {
-  subject:       IdentityBlueprintSubject
-  vessel:        IdentityBlueprintVessel
-  scene:         IdentityBlueprintScene
-  rotation:      IdentityBlueprintRotation
+  subject: IdentityBlueprintSubject
+  vessel: IdentityBlueprintVessel
+  scene: IdentityBlueprintScene
+  rotation: IdentityBlueprintRotation
   negativeRules: string[]
 }
 
@@ -63,34 +63,34 @@ export interface IdentityBlueprint {
 
 export function makeDefaultIdentityBlueprint(
   productName: string,
-  frameCount = 24,
+  frameCount = 24
 ): IdentityBlueprint {
   const step = Math.round(360 / frameCount)
   return {
     subject: {
       productName,
       exactIngredientsOrParts: [],
-      shape:          'round',
-      colorPalette:   [],
+      shape: 'round',
+      colorPalette: [],
       surfaceDetails: [],
-      mustNotChange:  ['product shape', 'product color', 'product details'],
+      mustNotChange: ['product shape', 'product color', 'product details'],
     },
     vessel: {
-      type:     'plate',
+      type: 'plate',
       material: 'ceramic',
-      color:    'white',
-      size:     'medium, 28cm diameter',
+      color: 'white',
+      size: 'medium, 28cm diameter',
       position: 'centered on table',
     },
     scene: {
-      table:          'dark wood surface',
-      wall:           'neutral grey wall',
-      background:     'gradient: warm grey to off-white',
-      props:          [],
-      lighting:       '3-point studio lighting, soft shadows',
+      table: 'dark wood surface',
+      wall: 'neutral grey wall',
+      background: 'gradient: warm grey to off-white',
+      props: [],
+      lighting: '3-point studio lighting, soft shadows',
       cameraDistance: '60cm from product',
-      lens:           '85mm portrait lens',
-      crop:           'full product visible with 15% margin',
+      lens: '85mm portrait lens',
+      crop: 'full product visible with 15% margin',
     },
     rotation: {
       frameCount,
@@ -119,10 +119,10 @@ const PLANNING_MODEL = process.env.P360_PLANNER_MODEL ?? 'gemini-2.0-flash-001'
 function buildPlanningPrompt(
   productName: string,
   productDescription: string,
-  config: P360GenerationConfig,
+  config: P360GenerationConfig
 ): string {
   const frameCount = config.frameCount ?? 24
-  const step       = Math.round(360 / frameCount)
+  const step = Math.round(360 / frameCount)
 
   return `You are a professional 360° product photography art director.
 
@@ -197,9 +197,9 @@ Return ONLY the JSON object, no markdown.`
  * Falls back to a default blueprint if the AI call fails.
  */
 export async function buildIdentityBlueprint(
-  productName:        string,
+  productName: string,
   productDescription: string,
-  config:             P360GenerationConfig,
+  config: P360GenerationConfig
 ): Promise<IdentityBlueprint> {
   const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? ''
 
@@ -209,8 +209,13 @@ export async function buildIdentityBlueprint(
   }
 
   try {
-    const prompt  = buildPlanningPrompt(productName, productDescription, config)
-    const result  = await callGeminiText({ model: PLANNING_MODEL, prompt, temperature: 0.1, feature: '360-identity-blueprint' })
+    const prompt = buildPlanningPrompt(productName, productDescription, config)
+    const result = await callGeminiText({
+      model: PLANNING_MODEL,
+      prompt,
+      temperature: 0.1,
+      feature: '360-identity-blueprint',
+    })
 
     if (result.error) throw new Error(result.error)
 
@@ -230,47 +235,49 @@ export async function buildIdentityBlueprint(
 // ─── Normalization helper ─────────────────────────────────────────────────────
 
 function normalizeBlueprint(
-  raw:         Partial<IdentityBlueprint>,
+  raw: Partial<IdentityBlueprint>,
   productName: string,
-  frameCount:  number,
+  frameCount: number
 ): IdentityBlueprint {
   const step = Math.round(360 / frameCount)
-  const def  = makeDefaultIdentityBlueprint(productName, frameCount)
+  const def = makeDefaultIdentityBlueprint(productName, frameCount)
 
   return {
     subject: {
-      productName:             raw.subject?.productName             ?? productName,
-      exactIngredientsOrParts: raw.subject?.exactIngredientsOrParts ?? def.subject.exactIngredientsOrParts,
-      shape:                   raw.subject?.shape                   ?? def.subject.shape,
-      colorPalette:            raw.subject?.colorPalette            ?? def.subject.colorPalette,
-      surfaceDetails:          raw.subject?.surfaceDetails          ?? def.subject.surfaceDetails,
-      mustNotChange:           raw.subject?.mustNotChange           ?? def.subject.mustNotChange,
+      productName: raw.subject?.productName ?? productName,
+      exactIngredientsOrParts:
+        raw.subject?.exactIngredientsOrParts ?? def.subject.exactIngredientsOrParts,
+      shape: raw.subject?.shape ?? def.subject.shape,
+      colorPalette: raw.subject?.colorPalette ?? def.subject.colorPalette,
+      surfaceDetails: raw.subject?.surfaceDetails ?? def.subject.surfaceDetails,
+      mustNotChange: raw.subject?.mustNotChange ?? def.subject.mustNotChange,
     },
     vessel: {
-      type:     raw.vessel?.type     ?? def.vessel.type,
+      type: raw.vessel?.type ?? def.vessel.type,
       material: raw.vessel?.material ?? def.vessel.material,
-      color:    raw.vessel?.color    ?? def.vessel.color,
-      size:     raw.vessel?.size     ?? def.vessel.size,
+      color: raw.vessel?.color ?? def.vessel.color,
+      size: raw.vessel?.size ?? def.vessel.size,
       position: raw.vessel?.position ?? def.vessel.position,
     },
     scene: {
-      table:          raw.scene?.table          ?? def.scene.table,
-      wall:           raw.scene?.wall           ?? def.scene.wall,
-      background:     raw.scene?.background     ?? def.scene.background,
-      props:          raw.scene?.props          ?? def.scene.props,
-      lighting:       raw.scene?.lighting       ?? def.scene.lighting,
+      table: raw.scene?.table ?? def.scene.table,
+      wall: raw.scene?.wall ?? def.scene.wall,
+      background: raw.scene?.background ?? def.scene.background,
+      props: raw.scene?.props ?? def.scene.props,
+      lighting: raw.scene?.lighting ?? def.scene.lighting,
       cameraDistance: raw.scene?.cameraDistance ?? def.scene.cameraDistance,
-      lens:           raw.scene?.lens           ?? def.scene.lens,
-      crop:           raw.scene?.crop           ?? def.scene.crop,
+      lens: raw.scene?.lens ?? def.scene.lens,
+      crop: raw.scene?.crop ?? def.scene.crop,
     },
     rotation: {
-      frameCount:       raw.rotation?.frameCount       ?? frameCount,
+      frameCount: raw.rotation?.frameCount ?? frameCount,
       angleStepDegrees: raw.rotation?.angleStepDegrees ?? step,
-      onlyChange:       raw.rotation?.onlyChange       ?? def.rotation.onlyChange,
+      onlyChange: raw.rotation?.onlyChange ?? def.rotation.onlyChange,
     },
-    negativeRules: Array.isArray(raw.negativeRules) && raw.negativeRules.length > 0
-      ? raw.negativeRules
-      : def.negativeRules,
+    negativeRules:
+      Array.isArray(raw.negativeRules) && raw.negativeRules.length > 0
+        ? raw.negativeRules
+        : def.negativeRules,
   }
 }
 
@@ -281,13 +288,13 @@ function normalizeBlueprint(
  * Used for Gemini/Imagen prompt injection.
  */
 export function serializeIdentityBlueprintToPrompt(
-  bp:          IdentityBlueprint,
-  angleDeg:    number,
-  frameIndex:  number,
-  totalFrames: number,
+  bp: IdentityBlueprint,
+  angleDeg: number,
+  frameIndex: number,
+  totalFrames: number
 ): string {
   const partsStr = bp.subject.exactIngredientsOrParts.join(', ')
-  const rulesStr = bp.negativeRules.map(r => `• ${r}`).join('\n')
+  const rulesStr = bp.negativeRules.map((r) => `• ${r}`).join('\n')
 
   return `
 === LOCKED SCENE IDENTITY (DO NOT CHANGE) ===
@@ -318,28 +325,30 @@ ${rulesStr}
  * Keep it dense but human-readable — Leonardo reads it as a text instruction.
  */
 export function serializeIdentityBlueprintToTextVariables(
-  bp:          IdentityBlueprint,
-  angleDeg:    number,
-  frameIndex:  number,
+  bp: IdentityBlueprint,
+  angleDeg: number,
+  frameIndex: number,
   totalFrames: number,
-  referenceImageInstruction?: string,
+  referenceImageInstruction?: string
 ): string {
-  const partsStr   = bp.subject.exactIngredientsOrParts.length > 0
-    ? bp.subject.exactIngredientsOrParts.join(', ')
-    : 'as shown in reference'
-  const colorsStr  = bp.subject.colorPalette.join(', ')
+  const partsStr =
+    bp.subject.exactIngredientsOrParts.length > 0
+      ? bp.subject.exactIngredientsOrParts.join(', ')
+      : 'as shown in reference'
+  const colorsStr = bp.subject.colorPalette.join(', ')
   const surfaceStr = bp.subject.surfaceDetails.join(', ')
-  const propsStr   = bp.scene.props.length > 0 ? bp.scene.props.join(', ') : 'none'
-  const rulesStr   = bp.negativeRules.join('; ')
+  const propsStr = bp.scene.props.length > 0 ? bp.scene.props.join(', ') : 'none'
+  const rulesStr = bp.negativeRules.join('; ')
 
-  const refLine = referenceImageInstruction
-    ?? 'Use the reference image as the exact visual anchor. Match every visible detail precisely.'
+  const refLine =
+    referenceImageInstruction ??
+    'Use the reference image as the exact visual anchor. Match every visible detail precisely.'
 
   // Build the locked scene block — everything that must NOT change between frames
   const lockedBlock = [
     `PRODUCT IDENTITY: ${bp.subject.productName}`,
     `PARTS/INGREDIENTS: ${partsStr}`,
-    colorsStr  ? `COLORS: ${colorsStr}` : '',
+    colorsStr ? `COLORS: ${colorsStr}` : '',
     surfaceStr ? `SURFACE TEXTURE: ${surfaceStr}` : '',
     `VESSEL: ${bp.vessel.type} | material: ${bp.vessel.material} | color: ${bp.vessel.color} | size: ${bp.vessel.size} | position: ${bp.vessel.position}`,
     `TABLE: ${bp.scene.table}`,
@@ -349,7 +358,9 @@ export function serializeIdentityBlueprintToTextVariables(
     `CAMERA DISTANCE: ${bp.scene.cameraDistance}`,
     `LENS/FOCAL LENGTH: ${bp.scene.lens}`,
     `CROP/COMPOSITION: ${bp.scene.crop}`,
-  ].filter(Boolean).join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 
   return [
     '=== LOCKED SCENE BLUEPRINT ===',
@@ -368,7 +379,9 @@ export function serializeIdentityBlueprintToTextVariables(
     'DO NOT CHANGE: product identity, ingredients, toppings, vessel type, vessel color, table, wall, background, props, lighting direction, lighting intensity, camera distance, lens focal length, crop, composition, scale, object count, arrangement, shadow style, highlight style.',
     rulesStr ? `ADDITIONAL RULES: ${rulesStr}` : '',
     '=== END ===',
-  ].filter(s => s !== null && s !== undefined).join('\n')
+  ]
+    .filter((s) => s !== null && s !== undefined)
+    .join('\n')
 }
 
 // ─── Type guard ───────────────────────────────────────────────────────────────
@@ -377,16 +390,20 @@ export function isIdentityBlueprint(value: unknown): value is IdentityBlueprint 
   if (!value || typeof value !== 'object') return false
   const bp = value as Record<string, unknown>
   return (
-    typeof bp.subject  === 'object' && bp.subject  !== null &&
-    typeof bp.vessel   === 'object' && bp.vessel   !== null &&
-    typeof bp.scene    === 'object' && bp.scene    !== null &&
-    typeof bp.rotation === 'object' && bp.rotation !== null &&
+    typeof bp.subject === 'object' &&
+    bp.subject !== null &&
+    typeof bp.vessel === 'object' &&
+    bp.vessel !== null &&
+    typeof bp.scene === 'object' &&
+    bp.scene !== null &&
+    typeof bp.rotation === 'object' &&
+    bp.rotation !== null &&
     Array.isArray(bp.negativeRules)
   )
 }
 
 export function getIdentityBlueprint(
-  lockedIdentityBlueprint: Record<string, unknown> | null | undefined,
+  lockedIdentityBlueprint: Record<string, unknown> | null | undefined
 ): IdentityBlueprint | null {
   if (!lockedIdentityBlueprint) return null
   if (isIdentityBlueprint(lockedIdentityBlueprint)) return lockedIdentityBlueprint

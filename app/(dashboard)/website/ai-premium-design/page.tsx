@@ -46,8 +46,8 @@ export default async function AiPremiumDesignPage() {
           </div>
         </div>
         <p className="text-sm text-white/50 leading-relaxed max-w-xl">
-          Generate luxury animations, premium UI styles, and conversion-focused motion design for your business website.
-          One click — your site goes from plain to polished.
+          Generate luxury animations, premium UI styles, and conversion-focused motion design for
+          your business website. One click — your site goes from plain to polished.
         </p>
       </div>
 
@@ -57,8 +57,11 @@ export default async function AiPremiumDesignPage() {
           { icon: '⚡', label: 'AI-generated plan', desc: 'AI analyzes your business' },
           { icon: '✦', label: 'Premium presets', desc: '16 animation + 12 style presets' },
           { icon: '♿', label: 'Always accessible', desc: 'Reduced motion respected' },
-        ].map(f => (
-          <div key={f.label} className="rounded-2xl bg-white/3 border border-white/8 p-4 text-center">
+        ].map((f) => (
+          <div
+            key={f.label}
+            className="rounded-2xl bg-white/3 border border-white/8 p-4 text-center"
+          >
             <div className="text-2xl mb-2">{f.icon}</div>
             <p className="text-xs font-semibold text-white/70">{f.label}</p>
             <p className="text-2xs text-white/30 mt-0.5 leading-relaxed">{f.desc}</p>
@@ -68,7 +71,9 @@ export default async function AiPremiumDesignPage() {
 
       {/* How it works */}
       <div className="rounded-2xl bg-white/3 border border-white/8 px-5 py-4 mb-8">
-        <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">How it works</p>
+        <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">
+          How it works
+        </p>
         <ol className="space-y-2">
           {[
             'Choose a design vibe that matches your brand',
@@ -96,9 +101,10 @@ export default async function AiPremiumDesignPage() {
       {/* Info footer */}
       <div className="mt-6 px-4 py-3 rounded-xl bg-white/2 border border-white/5 text-2xs text-white/25 leading-relaxed">
         <strong className="text-white/40">In the live editor:</strong> Click the{' '}
-        <strong className="text-amber-400/70">✦ Premium Design</strong> button in the top bar of your website preview
-        to open this panel as a floating drawer — no section selection required.
-        Animations are visible to your visitors once applied; editor preview shows the site as-is.
+        <strong className="text-amber-400/70">✦ Premium Design</strong> button in the top bar of
+        your website preview to open this panel as a floating drawer — no section selection
+        required. Animations are visible to your visitors once applied; editor preview shows the
+        site as-is.
       </div>
     </div>
   )

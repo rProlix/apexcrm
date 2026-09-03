@@ -34,9 +34,17 @@ export interface ReconstructPipelineResult {
 }
 
 function isVisualSectionType(t: string): boolean {
-  return t === 'canva_pdf_page_visual' || t === 'canva_pdf_visual_section' ||
-    t === 'hero' || t === 'about' || t === 'feature_grid' || t === 'image_gallery' ||
-    t === 'rich_text' || t === 'banner' || t === 'faq'
+  return (
+    t === 'canva_pdf_page_visual' ||
+    t === 'canva_pdf_visual_section' ||
+    t === 'hero' ||
+    t === 'about' ||
+    t === 'feature_grid' ||
+    t === 'image_gallery' ||
+    t === 'rich_text' ||
+    t === 'banner' ||
+    t === 'faq'
+  )
 }
 
 function isButtonOnly(sections: ReconstructedSection[]): boolean {
@@ -47,7 +55,7 @@ function isButtonOnly(sections: ReconstructedSection[]): boolean {
 function buildPdfVisualSections(
   extraction: DesignImportExtraction,
   linkMapping: ReturnType<typeof buildPdfLinkMapping>,
-  animationLevel: AnimationLevel,
+  animationLevel: AnimationLevel
 ): { sections: ReconstructedSection[]; overlaysCount: number; fallbackButtonsCount: number } {
   const sections: ReconstructedSection[] = []
   let overlaysCount = 0
@@ -55,7 +63,8 @@ function buildPdfVisualSections(
 
   for (const page of extraction.renderedPages) {
     if (!page.publicUrl) continue
-    const pageText = extraction.text.split('\n')[page.pageNumber - 1] ?? extraction.text.slice(0, 500)
+    const pageText =
+      extraction.text.split('\n')[page.pageNumber - 1] ?? extraction.text.slice(0, 500)
     const visualAnim = mapPageVisualAnimation(page.pageNumber, pageText, animationLevel)
     const { overlays, fallbackActions } = overlaysAndFallbacksForPage(page.pageNumber, linkMapping)
     overlaysCount += overlays.length
@@ -79,7 +88,11 @@ function buildPdfVisualSections(
         fallbackActions,
         mobileBehavior: 'stack_actions_below',
       },
-      animation: buildSectionAnimation('hero', page.pageNumber - 1, animationLevel) as unknown as Record<string, unknown>,
+      animation: buildSectionAnimation(
+        'hero',
+        page.pageNumber - 1,
+        animationLevel
+      ) as unknown as Record<string, unknown>,
     })
   }
 
@@ -89,10 +102,12 @@ function buildPdfVisualSections(
 function mergeReconstructions(
   ai: DesignImportReconstruction,
   visualBaseline: ReconstructedSection[],
-  extraction: DesignImportExtraction,
+  extraction: DesignImportExtraction
 ): DesignImportReconstruction {
   const home = ai.pages[0] ?? { title: 'Home', slug: 'home', sections: [] }
-  const aiSections = home.sections.filter((s) => isVisualSectionType(s.section_type) || s.section_type !== 'cta')
+  const aiSections = home.sections.filter(
+    (s) => isVisualSectionType(s.section_type) || s.section_type !== 'cta'
+  )
 
   let mergedSections: ReconstructedSection[]
 
@@ -101,7 +116,10 @@ function mergeReconstructions(
     if (hasPdfVisual) {
       mergedSections = aiSections
     } else if (aiSections.length >= 2 && !isButtonOnly(aiSections)) {
-      mergedSections = [...visualBaseline, ...aiSections.filter((s) => s.section_type !== 'canva_pdf_page_visual')]
+      mergedSections = [
+        ...visualBaseline,
+        ...aiSections.filter((s) => s.section_type !== 'canva_pdf_page_visual'),
+      ]
     } else {
       mergedSections = visualBaseline
     }
@@ -121,7 +139,7 @@ function mergeReconstructions(
     ai.detectedComponentCount,
     mergedSections.length,
     extraction.renderedPages.length,
-    extraction.assets.length,
+    extraction.assets.length
   )
 
   return {
@@ -135,19 +153,21 @@ function buildImageHeroFallback(extraction: DesignImportExtraction): Reconstruct
   const first = extraction.renderedPages[0] ?? extraction.assets[0]
   if (!first?.publicUrl) return []
 
-  return [{
-    section_type: 'hero',
-    section_key: 'import-hero',
-    content: {
-      headline: 'Welcome',
-      subheadline: '',
-      backgroundImage: first.publicUrl,
-      overlay: true,
-      overlayOpacity: 40,
-      align: 'center',
+  return [
+    {
+      section_type: 'hero',
+      section_key: 'import-hero',
+      content: {
+        headline: 'Welcome',
+        subheadline: '',
+        backgroundImage: first.publicUrl,
+        overlay: true,
+        overlayOpacity: 40,
+        align: 'center',
+      },
+      animation: { preset: 'fadeUp' },
     },
-    animation: { preset: 'fadeUp' },
-  }]
+  ]
 }
 
 export function runReconstructPipeline(opts: {
@@ -182,17 +202,23 @@ export function runReconstructPipeline(opts: {
   const deadLinksCount = deadPdfLinkCount(linkMapping)
   if (deadLinksCount > 0) warnings.push('Some buttons need destination review.')
 
-  const { sections: visualBaseline, overlaysCount, fallbackButtonsCount } = buildPdfVisualSections(
-    opts.extraction,
-    linkMapping,
-    animationLevel,
-  )
+  const {
+    sections: visualBaseline,
+    overlaysCount,
+    fallbackButtonsCount,
+  } = buildPdfVisualSections(opts.extraction, linkMapping, animationLevel)
 
   const baseAi: DesignImportReconstruction = opts.aiReconstruction ?? {
-    theme: { colors: { background: '#0b0b0b', text: '#ffffff', primary: '#7c3aed', accent: '#db2777' } },
+    theme: {
+      colors: { background: '#0b0b0b', text: '#ffffff', primary: '#7c3aed', accent: '#db2777' },
+    },
     pages: [{ title: 'Home', slug: 'home', sections: [] }],
     linkMapping: linkMapping.map((l) => ({
-      id: l.id, label: l.label, href: l.href, actionType: l.actionType, dead: l.dead,
+      id: l.id,
+      label: l.label,
+      href: l.href,
+      actionType: l.actionType,
+      dead: l.dead,
     })),
     animations: { globalStyle: animationLevel },
     detectedComponentCount: Math.max(visualBaseline.length, opts.extraction.assets.length),
@@ -201,7 +227,11 @@ export function runReconstructPipeline(opts: {
 
   const reconstruction = mergeReconstructions(baseAi, visualBaseline, opts.extraction)
   reconstruction.linkMapping = linkMapping.map((l) => ({
-    id: l.id, label: l.label, href: l.href, actionType: l.actionType, dead: l.dead,
+    id: l.id,
+    label: l.label,
+    href: l.href,
+    actionType: l.actionType,
+    dead: l.dead,
   }))
 
   const rsvpEnabled = reconstruction.rsvp?.enabled ?? rsvpDetected
@@ -214,8 +244,12 @@ export function runReconstructPipeline(opts: {
 
   const allSections = reconstruction.pages.flatMap((p) => p.sections)
   const animationMapping = buildAnimationMapping(
-    allSections.map((s) => ({ section_key: s.section_key, section_type: s.section_type, content: s.content })),
-    animationLevel,
+    allSections.map((s) => ({
+      section_key: s.section_key,
+      section_type: s.section_type,
+      content: s.content,
+    })),
+    animationLevel
   )
 
   warnings.push(...reconstruction.warnings)

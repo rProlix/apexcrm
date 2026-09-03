@@ -8,29 +8,29 @@ import { SafeSectionRenderer } from './SafeSectionRenderer'
 // Lazy-load client-side template components.
 // ssr: false is NOT allowed in Server Components — these components guard
 // browser APIs with useEffect + state, so SSR renders a safe placeholder.
-const ParallaxOnePage = dynamic(
-  () => import('./premium/ParallaxOnePage').then((m) => m.ParallaxOnePage),
+const ParallaxOnePage = dynamic(() =>
+  import('./premium/ParallaxOnePage').then((m) => m.ParallaxOnePage)
 )
-const ProductStoryScroll = dynamic(
-  () => import('./premium/ProductStoryScroll').then((m) => m.ProductStoryScroll),
+const ProductStoryScroll = dynamic(() =>
+  import('./premium/ProductStoryScroll').then((m) => m.ProductStoryScroll)
 )
 
 interface RawSection {
-  id:           string
+  id: string
   section_type: string
-  is_visible?:  boolean
-  sort_order?:  number | null
-  content?:     Record<string, unknown>
+  is_visible?: boolean
+  sort_order?: number | null
+  content?: Record<string, unknown>
   style_config?: Record<string, unknown> | null
   animation_config?: Record<string, unknown> | null
 }
 
 interface Props {
   activeTemplateKey?: string | null
-  sections:          RawSection[]
-  tenantId:          string
-  mode?:             'public' | 'preview' | 'editor'
-  templateConfig?:   Record<string, unknown>
+  sections: RawSection[]
+  tenantId: string
+  mode?: 'public' | 'preview' | 'editor'
+  templateConfig?: Record<string, unknown>
 }
 
 // ── Template-specific scene extraction ───────────────────────────────────────
@@ -42,12 +42,13 @@ function extractProductScenes(sections: RawSection[]) {
   const scenes = []
   if (hero?.content) {
     scenes.push({
-      headline:    (hero.content.headline as string) || 'Our Featured Product',
+      headline: (hero.content.headline as string) || 'Our Featured Product',
       description: (hero.content.subheadline as string) || 'Experience the difference.',
     })
   }
   if (featureGrid?.content) {
-    const items = (featureGrid.content.items as Array<{ title?: string; description?: string }>) ?? []
+    const items =
+      (featureGrid.content.items as Array<{ title?: string; description?: string }>) ?? []
     for (const item of items.slice(0, 3)) {
       if (item.title) scenes.push({ headline: item.title, description: item.description ?? '' })
     }
@@ -79,16 +80,11 @@ export async function TemplateRenderer({
   if (activeTemplateKey === 'luxe_one_page_parallax') {
     // Build section data for ParallaxOnePage (SSR-safe placeholder; client renders animations)
     const parallaxSections = visibleSections.map((section) => ({
-      id:          section.id,
+      id: section.id,
       sectionType: section.section_type,
-      fullHeight:  section.section_type === 'hero',
+      fullHeight: section.section_type === 'hero',
       children: (
-        <SafeSectionRenderer
-          key={section.id}
-          section={section}
-          tenantId={tenantId}
-          mode={mode}
-        />
+        <SafeSectionRenderer key={section.id} section={section} tenantId={tenantId} mode={mode} />
       ),
     }))
 
@@ -140,7 +136,7 @@ export async function TemplateRenderer({
             mode={mode}
             index={index}
           />
-        )),
+        ))
       )}
     </>
   )

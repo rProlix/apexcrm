@@ -1,24 +1,25 @@
 // modules/product_360/index.ts
-import { Rotate3D }                from 'lucide-react'
-import type { ModuleDefinition }   from '@/modules/shared/moduleTypes'
+import { Rotate3D } from 'lucide-react'
+import type { ModuleDefinition } from '@/modules/shared/moduleTypes'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const product360Module: ModuleDefinition = {
-  key:         'product_360',
-  label:       '360 Product Studio',
-  description: 'Create interactive 360° product viewers — AI-generated or manually uploaded. Drag to spin on the storefront. Supports multiple packages per product, promo scheduling, hotspots, and AR.',
-  icon:        Rotate3D,
-  href:        '/dashboard/product-360',
-  color:       'text-fuchsia-400',
-  bgColor:     'bg-fuchsia-400/10',
-  order:       12,
+  key: 'product_360',
+  label: '360 Product Studio',
+  description:
+    'Create interactive 360° product viewers — AI-generated or manually uploaded. Drag to spin on the storefront. Supports multiple packages per product, promo scheduling, hotspots, and AR.',
+  icon: Rotate3D,
+  href: '/dashboard/product-360',
+  color: 'text-fuchsia-400',
+  bgColor: 'bg-fuchsia-400/10',
+  order: 12,
 
   stats: [
     {
-      key:          'p360_ready_packages',
-      label:        'Ready Packages',
-      category:     'usage',
-      color:        'text-fuchsia-400',
+      key: 'p360_ready_packages',
+      label: 'Ready Packages',
+      category: 'usage',
+      color: 'text-fuchsia-400',
       emptyMessage: 'No 360° packages yet',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -32,10 +33,10 @@ export const product360Module: ModuleDefinition = {
       },
     },
     {
-      key:          'p360_enabled_packages',
-      label:        'Live on Storefront',
-      category:     'usage',
-      color:        'text-emerald-400',
+      key: 'p360_enabled_packages',
+      label: 'Live on Storefront',
+      category: 'usage',
+      color: 'text-emerald-400',
       emptyMessage: 'None enabled',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -69,7 +70,7 @@ export const product360Module: ModuleDefinition = {
         .eq('is_enabled', true),
     ])
     return [
-      { label: 'Ready Packages',     value: ready   ?? 0 },
+      { label: 'Ready Packages', value: ready ?? 0 },
       { label: 'Live on Storefront', value: enabled ?? 0 },
     ]
   },

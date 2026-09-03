@@ -10,39 +10,39 @@ import { staggerContainer, fadeUp } from '@/lib/motion'
 import type { ImportJobStatus } from '@/lib/website-import/types'
 
 export interface JobListItem {
-  id:          string
-  status:      ImportJobStatus
-  progress:    number
+  id: string
+  status: ImportJobStatus
+  progress: number
   source_urls: string[]
-  notes:       string | null
+  notes: string | null
   error_message: string | null
-  started_at:  string | null
+  started_at: string | null
   completed_at: string | null
-  created_at:  string
-  updated_at:  string
+  created_at: string
+  updated_at: string
   website_import_sources?: Array<{
-    id:               string
-    source_url:       string
-    source_type:      string
-    fetched_status:   string
+    id: string
+    source_url: string
+    source_type: string
+    fetched_status: string
     confidence_score: number
-    page_title:       string | null
+    page_title: string | null
   }>
 }
 
 interface Props {
-  jobs:          JobListItem[]
-  activeJobId?:  string
-  onSelect?:     (job: JobListItem) => void
+  jobs: JobListItem[]
+  activeJobId?: string
+  onSelect?: (job: JobListItem) => void
 }
 
 function formatRelativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60_000)
-  if (mins < 1)  return 'just now'
+  if (mins < 1) return 'just now'
   if (mins < 60) return `${mins}m ago`
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24)  return `${hrs}h ago`
+  if (hrs < 24) return `${hrs}h ago`
   const days = Math.floor(hrs / 24)
   return `${days}d ago`
 }
@@ -66,13 +66,17 @@ export function ImportJobList({ jobs, activeJobId, onSelect }: Props) {
       className="space-y-2"
     >
       {jobs.map((job) => {
-        const sources     = job.website_import_sources ?? []
-        const avgConf     = sources.length
+        const sources = job.website_import_sources ?? []
+        const avgConf = sources.length
           ? sources.reduce((s, r) => s + r.confidence_score, 0) / sources.length
           : 0
-        const primaryUrl  = sources[0]?.source_url ?? job.source_urls[0] ?? ''
+        const primaryUrl = sources[0]?.source_url ?? job.source_urls[0] ?? ''
         let displayDomain = ''
-        try { displayDomain = new URL(primaryUrl).hostname } catch { displayDomain = primaryUrl.slice(0, 40) }
+        try {
+          displayDomain = new URL(primaryUrl).hostname
+        } catch {
+          displayDomain = primaryUrl.slice(0, 40)
+        }
 
         const isActive = job.id === activeJobId
 
@@ -85,10 +89,15 @@ export function ImportJobList({ jobs, activeJobId, onSelect }: Props) {
                   'w-full text-left rounded-xl border p-4 transition-all duration-200 group',
                   isActive
                     ? 'border-amber-400/30 bg-amber-400/[0.06]'
-                    : 'border-white/8 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]',
+                    : 'border-white/8 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]'
                 )}
               >
-                <JobRowContent job={job} displayDomain={displayDomain} avgConf={avgConf} sources={sources} />
+                <JobRowContent
+                  job={job}
+                  displayDomain={displayDomain}
+                  avgConf={avgConf}
+                  sources={sources}
+                />
               </button>
             ) : (
               <Link
@@ -97,10 +106,15 @@ export function ImportJobList({ jobs, activeJobId, onSelect }: Props) {
                   'block rounded-xl border p-4 transition-all duration-200 group',
                   isActive
                     ? 'border-amber-400/30 bg-amber-400/[0.06]'
-                    : 'border-white/8 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]',
+                    : 'border-white/8 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]'
                 )}
               >
-                <JobRowContent job={job} displayDomain={displayDomain} avgConf={avgConf} sources={sources} />
+                <JobRowContent
+                  job={job}
+                  displayDomain={displayDomain}
+                  avgConf={avgConf}
+                  sources={sources}
+                />
               </Link>
             )}
           </motion.div>
@@ -116,10 +130,10 @@ function JobRowContent({
   avgConf,
   sources,
 }: {
-  job:           JobListItem
+  job: JobListItem
   displayDomain: string
-  avgConf:       number
-  sources:       JobListItem['website_import_sources']
+  avgConf: number
+  sources: JobListItem['website_import_sources']
 }) {
   return (
     <div className="space-y-3">
@@ -131,7 +145,10 @@ function JobRowContent({
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <ImportStatusBadge status={job.status} />
-          <ArrowRight size={13} className="text-white/20 group-hover:text-amber-300/50 transition-colors" />
+          <ArrowRight
+            size={13}
+            className="text-white/20 group-hover:text-amber-300/50 transition-colors"
+          />
         </div>
       </div>
 
@@ -141,7 +158,7 @@ function JobRowContent({
           <div
             className={cn(
               'h-full rounded-full transition-all duration-500',
-              job.status === 'completed' ? 'bg-emerald-400' : 'bg-amber-400',
+              job.status === 'completed' ? 'bg-emerald-400' : 'bg-amber-400'
             )}
             style={{ width: `${job.progress}%` }}
           />
@@ -156,7 +173,9 @@ function JobRowContent({
             {formatRelativeTime(job.created_at)}
           </span>
           {(sources?.length ?? 0) > 0 && (
-            <span>{sources?.length} source{(sources?.length ?? 0) !== 1 ? 's' : ''}</span>
+            <span>
+              {sources?.length} source{(sources?.length ?? 0) !== 1 ? 's' : ''}
+            </span>
           )}
         </div>
 

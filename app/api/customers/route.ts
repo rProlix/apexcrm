@@ -15,16 +15,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const params   = req.nextUrl.searchParams
-  const limit    = Math.min(Number(params.get('limit')  ?? 50), 100)
-  const offset   = Number(params.get('offset') ?? 0)
-  const status   = params.get('status')   ?? undefined
-  const search   = params.get('search')   ?? undefined
+  const params = req.nextUrl.searchParams
+  const limit = Math.min(Number(params.get('limit') ?? 50), 100)
+  const offset = Number(params.get('offset') ?? 0)
+  const status = params.get('status') ?? undefined
+  const search = params.get('search') ?? undefined
 
   // Owner can pass an explicit tenant_id; admin is always their own tenant
-  const tenantId = ctx.role === 'owner'
-    ? (params.get('tenant_id') ?? ctx.tenant_id)
-    : ctx.tenant_id
+  const tenantId = ctx.role === 'owner' ? (params.get('tenant_id') ?? ctx.tenant_id) : ctx.tenant_id
 
   if (!tenantId) {
     return NextResponse.json({ error: 'tenant_id required' }, { status: 400 })
@@ -44,19 +42,20 @@ export async function POST(req: NextRequest) {
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const tenantId = ctx.role === 'owner'
-    ? (body.tenant_id as string | undefined ?? ctx.tenant_id)
-    : ctx.tenant_id
+  const tenantId =
+    ctx.role === 'owner' ? ((body.tenant_id as string | undefined) ?? ctx.tenant_id) : ctx.tenant_id
 
   if (!tenantId) {
     return NextResponse.json({ error: 'tenant_id required' }, { status: 400 })
   }
 
-  const name  = typeof body.name  === 'string' ? body.name.trim()  : undefined
+  const name = typeof body.name === 'string' ? body.name.trim() : undefined
   const email = typeof body.email === 'string' ? body.email.trim() : undefined
   const phone = typeof body.phone === 'string' ? body.phone.trim() : undefined
 
@@ -83,9 +82,12 @@ export async function POST(req: NextRequest) {
       .eq('tenant_id', tenantId)
       .maybeSingle()
 
-    return NextResponse.json({ customer, created: result.created }, {
-      status: result.created ? 201 : 200,
-    })
+    return NextResponse.json(
+      { customer, created: result.created },
+      {
+        status: result.created ? 201 : 200,
+      }
+    )
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('[POST /api/customers]', msg)

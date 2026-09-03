@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/Button'
 
 interface Props {
   selectedCount: number
-  applying:      boolean
-  onApplyDraft:  () => void
+  applying: boolean
+  onApplyDraft: () => void
   onApplyPublish: () => void
-  onCancel:      () => void
+  onCancel: () => void
 }
 
 export function ApplySuggestionsBar({
@@ -27,21 +27,11 @@ export function ApplySuggestionsBar({
         {selectedCount} suggestion{selectedCount !== 1 ? 's' : ''} selected
       </span>
       <div className="w-px h-5 bg-white/10" />
-      <Button
-        variant="secondary"
-        onClick={onApplyDraft}
-        loading={applying}
-        disabled={applying}
-      >
+      <Button variant="secondary" onClick={onApplyDraft} loading={applying} disabled={applying}>
         <CheckCheck className="h-4 w-4" />
         Apply to draft
       </Button>
-      <Button
-        variant="primary"
-        onClick={onApplyPublish}
-        loading={applying}
-        disabled={applying}
-      >
+      <Button variant="primary" onClick={onApplyPublish} loading={applying} disabled={applying}>
         <Zap className="h-4 w-4" />
         Apply &amp; publish
       </Button>

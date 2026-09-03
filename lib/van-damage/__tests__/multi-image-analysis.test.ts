@@ -61,7 +61,10 @@ test('migration enforces image-scoped idempotency and does not delete sibling fi
     'utf8'
   )
   const correction = readFileSync(
-    resolve(process.cwd(), 'supabase/migrations/20260729010000_fix_multi_image_job_idempotency.sql'),
+    resolve(
+      process.cwd(),
+      'supabase/migrations/20260729010000_fix_multi_image_job_idempotency.sql'
+    ),
     'utf8'
   )
   for (const sql of [migration, correction]) {

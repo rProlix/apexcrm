@@ -13,9 +13,11 @@ const customerSources = [
 ]
 
 test('customer-facing AI copy does not expose provider branding', async () => {
-  const combined = (await Promise.all(
-    customerSources.map((path) => readFile(new URL(path, import.meta.url), 'utf8'))
-  )).join('\n')
+  const combined = (
+    await Promise.all(
+      customerSources.map((path) => readFile(new URL(path, import.meta.url), 'utf8'))
+    )
+  ).join('\n')
   const provider = ['Gem', 'ini'].join('')
   const imageModel = ['Ima', 'gen'].join('')
   for (const phrase of [

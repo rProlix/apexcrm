@@ -36,12 +36,18 @@ export interface SaveConfigEventDraftResult {
   eventSlug?: string
 }
 
-export async function saveConfigEventDraft(params: SaveConfigEventDraftParams): Promise<SaveConfigEventDraftResult> {
+export async function saveConfigEventDraft(
+  params: SaveConfigEventDraftParams
+): Promise<SaveConfigEventDraftResult> {
   const db = getSupabaseServerClient() as DB
   const { tenantId, websiteId, importId } = params
 
-  const { data: site } = await db.from('websites').select('*')
-    .eq('id', websiteId).eq('tenant_id', tenantId).maybeSingle()
+  const { data: site } = await db
+    .from('websites')
+    .select('*')
+    .eq('id', websiteId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
   if (!site) return { ok: false, error: 'Event website record not found.' }
 
   const eventSlug = String(site.public_slug ?? '')
@@ -53,7 +59,7 @@ export async function saveConfigEventDraft(params: SaveConfigEventDraftParams): 
     p.sections.map((s) => ({
       ...s,
       animation: s.animation ?? { preset: 'fadeUp' },
-    })),
+    }))
   )
 
   const draftConfig: Record<string, unknown> = {
@@ -93,46 +99,55 @@ export async function saveConfigEventDraft(params: SaveConfigEventDraftParams): 
   }
 
   const newStatus = site.status === 'published' ? 'published' : 'draft'
-  const { error: upErr } = await db.from('websites').update({
-    draft_config: draftConfig,
-    canva_import_enabled: true,
-    canva_import_id: importId,
-    status: newStatus,
-  }).eq('id', websiteId).eq('tenant_id', tenantId)
+  const { error: upErr } = await db
+    .from('websites')
+    .update({
+      draft_config: draftConfig,
+      canva_import_enabled: true,
+      canva_import_id: importId,
+      status: newStatus,
+    })
+    .eq('id', websiteId)
+    .eq('tenant_id', tenantId)
 
   if (upErr) return { ok: false, error: `Failed to save converted draft: ${upErr.message}` }
 
   try {
-    await db.from('website_canva_imports').update({
-      status: 'converted',
-      ai_conversion_status: 'converted',
-      animation_preservation: 'approximate',
-      pdf_analysis: {
-        engineVersion: 1,
-        sourceType: params.extraction.sourceType,
-        textLength: params.extraction.text.length,
-      },
-      visual_extraction: {
-        pageCount: params.extraction.pageCount,
-        renderedPageCount: params.extraction.renderedPages.length,
-      },
-      rendered_pages: params.renderedPages,
-      link_mapping: params.linkMapping,
-      rsvp_mapping: draftConfig.rsvp,
-      interactive_overlays: sections.flatMap((s) => (s.content?.overlays as unknown[]) ?? []),
-      converted_pages: draftConfig.pages,
-      animation_mapping: params.animationMapping,
-      ai_conversion_summary: {
-        engine: 'design-import-engine',
-        version: 1,
-        sectionsCreated: sections.length,
-        confidence: params.diagnostics.confidence,
-        attemptCount: params.diagnostics.attemptCount,
-      },
-      design_import_diagnostics: params.diagnostics,
-      warnings,
-    }).eq('id', importId)
-  } catch { /* non-fatal if migration not applied */ }
+    await db
+      .from('website_canva_imports')
+      .update({
+        status: 'converted',
+        ai_conversion_status: 'converted',
+        animation_preservation: 'approximate',
+        pdf_analysis: {
+          engineVersion: 1,
+          sourceType: params.extraction.sourceType,
+          textLength: params.extraction.text.length,
+        },
+        visual_extraction: {
+          pageCount: params.extraction.pageCount,
+          renderedPageCount: params.extraction.renderedPages.length,
+        },
+        rendered_pages: params.renderedPages,
+        link_mapping: params.linkMapping,
+        rsvp_mapping: draftConfig.rsvp,
+        interactive_overlays: sections.flatMap((s) => (s.content?.overlays as unknown[]) ?? []),
+        converted_pages: draftConfig.pages,
+        animation_mapping: params.animationMapping,
+        ai_conversion_summary: {
+          engine: 'design-import-engine',
+          version: 1,
+          sectionsCreated: sections.length,
+          confidence: params.diagnostics.confidence,
+          attemptCount: params.diagnostics.attemptCount,
+        },
+        design_import_diagnostics: params.diagnostics,
+        warnings,
+      })
+      .eq('id', importId)
+  } catch {
+    /* non-fatal if migration not applied */
+  }
 
   try {
     await db.from('website_canva_import_runs').insert({
@@ -148,7 +163,9 @@ export async function saveConfigEventDraft(params: SaveConfigEventDraftParams): 
       created_by: params.createdBy ?? null,
       completed_at: now,
     })
-  } catch { /* non-fatal */ }
+  } catch {
+    /* non-fatal */
+  }
 
   return {
     ok: true,

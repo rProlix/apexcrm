@@ -21,34 +21,37 @@ import {
 // if a label still reaches here it is silently dropped instead of throwing.
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-const nullableUuid = z.preprocess(
-  (val) => {
-    if (val === null || val === undefined || val === '') return null
-    if (typeof val === 'string' && UUID_REGEX.test(val)) return val
-    // Any other string (e.g. "hero", "features") → strip to null
-    return null
-  },
-  z.string().uuid().nullable().optional(),
-)
+const nullableUuid = z.preprocess((val) => {
+  if (val === null || val === undefined || val === '') return null
+  if (typeof val === 'string' && UUID_REGEX.test(val)) return val
+  // Any other string (e.g. "hero", "features") → strip to null
+  return null
+}, z.string().uuid().nullable().optional())
 
-const hexColor = z.string().regex(/^#[0-9a-fA-F]{3,8}$/, 'Must be a hex color').default('#000000')
+const hexColor = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{3,8}$/, 'Must be a hex color')
+  .default('#000000')
 
 const paletteSchema = z.object({
-  primary:    hexColor,
-  accent:     hexColor,
+  primary: hexColor,
+  accent: hexColor,
   background: hexColor,
-  surface:    hexColor,
-  text:       hexColor,
+  surface: hexColor,
+  text: hexColor,
 })
 
 const globalStyleSchema = z.object({
-  visualTier:     z.enum(VISUAL_TIERS).default('premium'),
-  mood:           z.enum(MOOD_VALUES).default('modern'),
+  visualTier: z.enum(VISUAL_TIERS).default('premium'),
+  mood: z.enum(MOOD_VALUES).default('modern'),
   typographyTone: z.enum(TYPOGRAPHY_TONES).default('minimal'),
-  surfaceStyle:   z.enum(SURFACE_STYLES).default('soft_shadow'),
+  surfaceStyle: z.enum(SURFACE_STYLES).default('soft_shadow'),
   recommendedPalette: paletteSchema.default({
-    primary: '#1a1a2e', accent: '#7c3aed',
-    background: '#ffffff', surface: '#f9f9f9', text: '#1a1a1a',
+    primary: '#1a1a2e',
+    accent: '#7c3aed',
+    background: '#ffffff',
+    surface: '#f9f9f9',
+    text: '#1a1a1a',
   }),
 })
 
@@ -58,23 +61,67 @@ const globalStyleSchema = z.object({
 // from server-only lib code.
 const TARGET_TYPE_COERCE: Record<string, 'page' | 'section' | 'component'> = {
   // page
-  page:'page', website:'page', site:'page', global:'page', fullpage:'page',
-  full_page:'page', layout:'page', background:'page', whole:'page', all:'page',
+  page: 'page',
+  website: 'page',
+  site: 'page',
+  global: 'page',
+  fullpage: 'page',
+  full_page: 'page',
+  layout: 'page',
+  background: 'page',
+  whole: 'page',
+  all: 'page',
   // section
-  section:'section', hero:'section', hero_banner:'section', banner:'section',
-  feature_grid:'section', features:'section', about:'section', about_us:'section',
-  testimonials:'section', reviews:'section', faq:'section', contact:'section',
-  pricing:'section', gallery:'section', products:'section', shop:'section',
-  services:'section', footer:'section', navigation:'section',
+  section: 'section',
+  hero: 'section',
+  hero_banner: 'section',
+  banner: 'section',
+  feature_grid: 'section',
+  features: 'section',
+  about: 'section',
+  about_us: 'section',
+  testimonials: 'section',
+  reviews: 'section',
+  faq: 'section',
+  contact: 'section',
+  pricing: 'section',
+  gallery: 'section',
+  products: 'section',
+  shop: 'section',
+  services: 'section',
+  footer: 'section',
+  navigation: 'section',
   // component — everything else
-  component:'component', text:'component', heading:'component', headline:'component',
-  subheading:'component', paragraph:'component', copy:'component', card:'component',
-  feature_card:'component', testimonial_card:'component', product_card:'component',
-  button:'component', cta:'component', image:'component', logo:'component',
-  icon:'component', badge:'component', form:'component', input:'component',
-  nav:'component', menu:'component', carousel:'component', grid:'component',
-  list:'component', stat:'component', counter:'component', video:'component',
-  product_viewer:'component', product_360:'component', spin_360:'component',
+  component: 'component',
+  text: 'component',
+  heading: 'component',
+  headline: 'component',
+  subheading: 'component',
+  paragraph: 'component',
+  copy: 'component',
+  card: 'component',
+  feature_card: 'component',
+  testimonial_card: 'component',
+  product_card: 'component',
+  button: 'component',
+  cta: 'component',
+  image: 'component',
+  logo: 'component',
+  icon: 'component',
+  badge: 'component',
+  form: 'component',
+  input: 'component',
+  nav: 'component',
+  menu: 'component',
+  carousel: 'component',
+  grid: 'component',
+  list: 'component',
+  stat: 'component',
+  counter: 'component',
+  video: 'component',
+  product_viewer: 'component',
+  product_360: 'component',
+  spin_360: 'component',
 }
 
 // Preprocess targetType: coerce ANY invalid string to a valid enum value.
@@ -93,27 +140,50 @@ const coerceTargetType = (val: unknown): 'page' | 'section' | 'component' => {
   return TARGET_TYPE_COERCE[key] ?? 'component'
 }
 
-const safeTargetType = z.preprocess(
-  coerceTargetType,
-  z.enum(['page', 'section', 'component']),
-)
+const safeTargetType = z.preprocess(coerceTargetType, z.enum(['page', 'section', 'component']))
 
 // ── Animation intensity normalizer ────────────────────────────────────────────
 // Exported so normalizers and renderers can reuse the same logic.
 // Maps Gemini-generated values ("high", "medium", "bold", etc.) to the
 // canonical three-value enum the rest of the system uses.
 
-export function normalizeAnimationIntensity(
-  value: unknown,
-): 'subtle' | 'balanced' | 'cinematic' {
-  const raw = String(value ?? '').toLowerCase().trim()
+export function normalizeAnimationIntensity(value: unknown): 'subtle' | 'balanced' | 'cinematic' {
+  const raw = String(value ?? '')
+    .toLowerCase()
+    .trim()
   if (['low', 'light', 'soft', 'minimal', 'gentle', 'subtle', 'quiet'].includes(raw))
     return 'subtle'
-  if (['high', 'strong', 'bold', 'dramatic', 'premium', 'luxury',
-       'cinematic', 'expensive', 'ultra', 'intense', 'maximum', 'max'].includes(raw))
+  if (
+    [
+      'high',
+      'strong',
+      'bold',
+      'dramatic',
+      'premium',
+      'luxury',
+      'cinematic',
+      'expensive',
+      'ultra',
+      'intense',
+      'maximum',
+      'max',
+    ].includes(raw)
+  )
     return 'cinematic'
-  if (['medium', 'moderate', 'normal', 'standard', 'balanced',
-       'default', 'mid', 'middle', 'regular', 'average'].includes(raw))
+  if (
+    [
+      'medium',
+      'moderate',
+      'normal',
+      'standard',
+      'balanced',
+      'default',
+      'mid',
+      'middle',
+      'regular',
+      'average',
+    ].includes(raw)
+  )
     return 'balanced'
   // If it's already a valid canonical value, pass through
   if (raw === 'subtle' || raw === 'balanced' || raw === 'cinematic')
@@ -125,10 +195,7 @@ export function normalizeAnimationIntensity(
 const coerceIntensity = (val: unknown): 'subtle' | 'balanced' | 'cinematic' =>
   normalizeAnimationIntensity(val)
 
-const safeIntensity = z.preprocess(
-  coerceIntensity,
-  z.enum(['subtle', 'balanced', 'cinematic']),
-)
+const safeIntensity = z.preprocess(coerceIntensity, z.enum(['subtle', 'balanced', 'cinematic']))
 
 // Also export a safe easing coercer
 const VALID_EASING = new Set(['standard', 'smooth', 'luxury', 'spring'])
@@ -140,45 +207,47 @@ const coerceEasing = (val: unknown): string => {
 }
 const safeEasing = z.preprocess(coerceEasing, z.enum(['standard', 'smooth', 'luxury', 'spring']))
 
-const animationItemSchema = z.object({
-  targetType:         safeTargetType,
-  originalTargetType: z.string().optional(),
-  targetKey:          z.string().max(80).default('global'),
-  animationPreset:    z.enum(ANIMATION_PRESETS).default('fade_up'),
-  intensity:          safeIntensity,
-  durationMs:         z.number().int().min(100).max(3000).default(600),
-  delayMs:            z.number().int().min(0).max(2000).default(0),
-  staggerMs:          z.number().int().min(0).max(800).default(80),
-  easing:             safeEasing,
-  mobileEnabled:      z.boolean().default(true),
-  reason:             z.string().max(500).default(''),
-  sectionId:          nullableUuid,
-  componentType:      z.string().max(80).optional().nullable(),
-  componentKey:       z.string().max(80).optional().nullable(),
-  componentSelector:  z.string().max(200).optional().nullable(),
-}).passthrough()
+const animationItemSchema = z
+  .object({
+    targetType: safeTargetType,
+    originalTargetType: z.string().optional(),
+    targetKey: z.string().max(80).default('global'),
+    animationPreset: z.enum(ANIMATION_PRESETS).default('fade_up'),
+    intensity: safeIntensity,
+    durationMs: z.number().int().min(100).max(3000).default(600),
+    delayMs: z.number().int().min(0).max(2000).default(0),
+    staggerMs: z.number().int().min(0).max(800).default(80),
+    easing: safeEasing,
+    mobileEnabled: z.boolean().default(true),
+    reason: z.string().max(500).default(''),
+    sectionId: nullableUuid,
+    componentType: z.string().max(80).optional().nullable(),
+    componentKey: z.string().max(80).optional().nullable(),
+    componentSelector: z.string().max(200).optional().nullable(),
+  })
+  .passthrough()
 
 const sectionUpgradeSchema = z.object({
-  sectionId:            nullableUuid,
-  sectionType:          z.string().max(60).default(''),
-  stylePreset:          z.enum(STYLE_PRESETS).default('none'),
+  sectionId: nullableUuid,
+  sectionType: z.string().max(60).default(''),
+  stylePreset: z.enum(STYLE_PRESETS).default('none'),
   layoutRecommendation: z.string().max(500).default(''),
-  imageTreatment:       z.enum(IMAGE_TREATMENTS).default('none'),
-  buttonTreatment:      z.enum(BUTTON_TREATMENTS).default('standard'),
-  notes:                z.string().max(500).default(''),
+  imageTreatment: z.enum(IMAGE_TREATMENTS).default('none'),
+  buttonTreatment: z.enum(BUTTON_TREATMENTS).default('standard'),
+  notes: z.string().max(500).default(''),
 })
 
 const performanceRulesSchema = z.object({
-  avoidHeavyAnimationsOnMobile:   z.boolean().default(true),
-  respectReducedMotion:           z.literal(true).default(true),
-  lazyLoadBelowFold:              z.boolean().default(true),
+  avoidHeavyAnimationsOnMobile: z.boolean().default(true),
+  respectReducedMotion: z.literal(true).default(true),
+  lazyLoadBelowFold: z.boolean().default(true),
   maxAnimatedElementsPerViewport: z.number().int().min(1).max(20).default(8),
 })
 
 export const aiAnimationPlanSchema = z.object({
-  summary:         z.string().max(1000).default(''),
-  globalStyle:     globalStyleSchema.default({}),
-  animations:      z.array(animationItemSchema).max(30).default([]),
+  summary: z.string().max(1000).default(''),
+  globalStyle: globalStyleSchema.default({}),
+  animations: z.array(animationItemSchema).max(30).default([]),
   sectionUpgrades: z.array(sectionUpgradeSchema).max(30).default([]),
   performanceRules: performanceRulesSchema.default({}),
 })
@@ -190,11 +259,11 @@ export type ValidatedAiAnimationPlan = z.infer<typeof aiAnimationPlanSchema>
  * Returns a validated plan or an error string.
  */
 export function validateAiAnimationPlan(
-  raw: unknown,
+  raw: unknown
 ): { plan: ValidatedAiAnimationPlan; error: null } | { plan: null; error: string } {
   const result = aiAnimationPlanSchema.safeParse(raw)
   if (!result.success) {
-    const msgs = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ')
+    const msgs = result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ')
     return { plan: null, error: `AI plan validation failed: ${msgs}` }
   }
   return { plan: result.data, error: null }
@@ -202,52 +271,60 @@ export function validateAiAnimationPlan(
 
 // ── Per-component animation entry ─────────────────────────────────────────────
 
-const componentAnimEntrySchema = z.object({
-  preset:       z.string().optional(),      // preset name; loose string for forward compat
-  intensity:    z.enum(['subtle', 'balanced', 'cinematic']).optional(),
-  durationMs:   z.number().int().min(100).max(3000).optional(),
-  delayMs:      z.number().int().min(0).max(2000).optional(),
-  staggerMs:    z.number().int().min(0).max(800).optional(),
-  easing:       z.string().optional(),
-  mobileEnabled: z.boolean().optional(),
-  disabled:     z.boolean().optional(),
-}).passthrough()
+const componentAnimEntrySchema = z
+  .object({
+    preset: z.string().optional(), // preset name; loose string for forward compat
+    intensity: z.enum(['subtle', 'balanced', 'cinematic']).optional(),
+    durationMs: z.number().int().min(100).max(3000).optional(),
+    delayMs: z.number().int().min(0).max(2000).optional(),
+    staggerMs: z.number().int().min(0).max(800).optional(),
+    easing: z.string().optional(),
+    mobileEnabled: z.boolean().optional(),
+    disabled: z.boolean().optional(),
+  })
+  .passthrough()
 
 export type ComponentAnimEntry = z.infer<typeof componentAnimEntrySchema>
 
 // ── Section animation config schema ───────────────────────────────────────────
 
 export const sectionAnimationConfigSchema = z.object({
-  v:        z.number().int().min(1).default(1),
-  enabled:  z.boolean().default(true),
-  animation: z.object({
-    preset:        z.enum(ANIMATION_PRESETS).optional(),
-    intensity:     z.preprocess(
-                     (v) => v === undefined || v === null ? undefined : normalizeAnimationIntensity(v),
-                     z.enum(['subtle', 'balanced', 'cinematic']).optional()
-                   ),
-    durationMs:    z.number().int().min(100).max(3000).optional(),
-    delayMs:       z.number().int().min(0).max(2000).optional(),
-    staggerMs:     z.number().int().min(0).max(800).optional(),
-    easing:        z.preprocess(
-                     (v) => v === undefined || v === null ? undefined : coerceEasing(v),
-                     z.enum(['standard', 'smooth', 'luxury', 'spring']).optional()
-                   ),
-    mobileEnabled: z.boolean().optional(),
-    disabled:      z.boolean().optional(),
-  }).default({}),
-  style: z.object({
-    stylePreset:          z.enum(STYLE_PRESETS).optional(),
-    imageTreatment:       z.enum(IMAGE_TREATMENTS).optional(),
-    buttonTreatment:      z.enum(BUTTON_TREATMENTS).optional(),
-    layoutRecommendation: z.string().max(300).optional(),
-    notes:                z.string().max(300).optional(),
-  }).default({}),
-  performance: z.object({
-    avoidHeavyAnimationsOnMobile:   z.boolean().optional(),
-    lazyLoadBelowFold:              z.boolean().optional(),
-    maxAnimatedElementsPerViewport: z.number().int().min(1).max(20).optional(),
-  }).default({}),
+  v: z.number().int().min(1).default(1),
+  enabled: z.boolean().default(true),
+  animation: z
+    .object({
+      preset: z.enum(ANIMATION_PRESETS).optional(),
+      intensity: z.preprocess(
+        (v) => (v === undefined || v === null ? undefined : normalizeAnimationIntensity(v)),
+        z.enum(['subtle', 'balanced', 'cinematic']).optional()
+      ),
+      durationMs: z.number().int().min(100).max(3000).optional(),
+      delayMs: z.number().int().min(0).max(2000).optional(),
+      staggerMs: z.number().int().min(0).max(800).optional(),
+      easing: z.preprocess(
+        (v) => (v === undefined || v === null ? undefined : coerceEasing(v)),
+        z.enum(['standard', 'smooth', 'luxury', 'spring']).optional()
+      ),
+      mobileEnabled: z.boolean().optional(),
+      disabled: z.boolean().optional(),
+    })
+    .default({}),
+  style: z
+    .object({
+      stylePreset: z.enum(STYLE_PRESETS).optional(),
+      imageTreatment: z.enum(IMAGE_TREATMENTS).optional(),
+      buttonTreatment: z.enum(BUTTON_TREATMENTS).optional(),
+      layoutRecommendation: z.string().max(300).optional(),
+      notes: z.string().max(300).optional(),
+    })
+    .default({}),
+  performance: z
+    .object({
+      avoidHeavyAnimationsOnMobile: z.boolean().optional(),
+      lazyLoadBelowFold: z.boolean().optional(),
+      maxAnimatedElementsPerViewport: z.number().int().min(1).max(20).optional(),
+    })
+    .default({}),
   // Component-level animations: keyed by componentType (heading, button, card, image…)
   componentAnimations: z.record(z.string(), componentAnimEntrySchema).optional(),
   sourcePlanId: z.string().uuid().optional(),

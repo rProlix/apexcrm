@@ -22,10 +22,5 @@ export default async function ProductsPage() {
     .eq('tenant_id', ctx.tenant_id ?? '')
     .order('created_at', { ascending: false })
 
-  return (
-    <ProductsClient
-      initialProducts={products ?? []}
-      tenantId={ctx.tenant_id ?? ''}
-    />
-  )
+  return <ProductsClient initialProducts={products ?? []} tenantId={ctx.tenant_id ?? ''} />
 }

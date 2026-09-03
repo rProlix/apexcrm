@@ -45,11 +45,17 @@ function pageVariants(preset: PageVisualAnimationPreset, duration: number, delay
   const t = { duration, delay, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }
   switch (preset) {
     case 'premiumBlurReveal':
-      return { hidden: { opacity: 0, filter: 'blur(14px)', scale: 1.02 }, show: { opacity: 1, filter: 'blur(0px)', scale: 1, transition: t } }
+      return {
+        hidden: { opacity: 0, filter: 'blur(14px)', scale: 1.02 },
+        show: { opacity: 1, filter: 'blur(0px)', scale: 1, transition: t },
+      }
     case 'softZoomIn':
       return { hidden: { opacity: 0, scale: 1.04 }, show: { opacity: 1, scale: 1, transition: t } }
     case 'characterPopIn':
-      return { hidden: { opacity: 0, scale: 0.92, y: 24 }, show: { opacity: 1, scale: 1, y: 0, transition: t } }
+      return {
+        hidden: { opacity: 0, scale: 0.92, y: 24 },
+        show: { opacity: 1, scale: 1, y: 0, transition: t },
+      }
     case 'fadeUp':
       return { hidden: { opacity: 0, y: 32 }, show: { opacity: 1, y: 0, transition: t } }
     case 'fadeIn':
@@ -58,27 +64,54 @@ function pageVariants(preset: PageVisualAnimationPreset, duration: number, delay
   }
 }
 
-function ActionLink({ href, label, style }: { href: string; label: string; style?: React.CSSProperties }) {
+function ActionLink({
+  href,
+  label,
+  style,
+}: {
+  href: string
+  label: string
+  style?: React.CSSProperties
+}) {
   const isExternal = /^https?:\/\//i.test(href)
   const base: React.CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    padding: '0.65rem 1.25rem', borderRadius: 999, fontSize: '0.875rem', fontWeight: 600,
-    textDecoration: 'none', color: '#fff',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0.65rem 1.25rem',
+    borderRadius: 999,
+    fontSize: '0.875rem',
+    fontWeight: 600,
+    textDecoration: 'none',
+    color: '#fff',
     background: 'linear-gradient(135deg,var(--color-primary,#7c3aed),var(--color-accent,#db2777))',
-    border: 'none', cursor: 'pointer', ...style,
+    border: 'none',
+    cursor: 'pointer',
+    ...style,
   }
   if (href.startsWith('/') && !isExternal) {
-    return <Link href={href} style={base} aria-label={label}>{label}</Link>
+    return (
+      <Link href={href} style={base} aria-label={label}>
+        {label}
+      </Link>
+    )
   }
   return (
-    <a href={href} style={base} target={isExternal ? '_blank' : undefined} rel={isExternal ? 'noopener noreferrer' : undefined}>
+    <a
+      href={href}
+      style={base}
+      target={isExternal ? '_blank' : undefined}
+      rel={isExternal ? 'noopener noreferrer' : undefined}
+    >
       {label}
     </a>
   )
 }
 
 export function CanvaPdfPageVisualSection({ config }: { config: CanvaPdfPageVisualConfig }) {
-  const preset = (config.visualAnimation?.preset ?? config.animationPreset ?? 'softZoomIn') as PageVisualAnimationPreset
+  const preset = (config.visualAnimation?.preset ??
+    config.animationPreset ??
+    'softZoomIn') as PageVisualAnimationPreset
   const duration = config.visualAnimation?.duration ?? 0.85
   const delay = config.visualAnimation?.delay ?? 0
   const aspect = config.aspectRatio > 0 ? config.aspectRatio : 1.414
@@ -173,12 +206,16 @@ export function CanvaPdfPageVisualSection({ config }: { config: CanvaPdfPageVisu
             margin: '0 auto',
           }}
         >
-          {overlays.filter((o) => o.style === 'visible_button' && o.href).map((o) => (
-            <ActionLink key={o.id} href={o.href!} label={o.label} />
-          ))}
-          {fallbacks.filter((f) => f.href).map((f, i) => (
-            <ActionLink key={`fb-${i}`} href={f.href!} label={f.label} />
-          ))}
+          {overlays
+            .filter((o) => o.style === 'visible_button' && o.href)
+            .map((o) => (
+              <ActionLink key={o.id} href={o.href!} label={o.label} />
+            ))}
+          {fallbacks
+            .filter((f) => f.href)
+            .map((f, i) => (
+              <ActionLink key={`fb-${i}`} href={f.href!} label={f.label} />
+            ))}
         </motion.div>
       )}
     </section>

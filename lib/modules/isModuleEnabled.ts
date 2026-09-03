@@ -15,10 +15,7 @@ import { getDefaultModuleState } from '@/lib/modules/defaultModules'
  * @param tenantId  - Tenant UUID
  * @param moduleKey - Module key (e.g. 'payments', 'rewards')
  */
-export async function isModuleEnabled(
-  tenantId:  string,
-  moduleKey: string,
-): Promise<boolean> {
+export async function isModuleEnabled(tenantId: string, moduleKey: string): Promise<boolean> {
   const supabase = getSupabaseServerClient()
 
   const { data, error } = await supabase

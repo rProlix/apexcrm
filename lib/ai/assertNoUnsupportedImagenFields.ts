@@ -5,12 +5,7 @@
 // Called by imagenGenerate.ts immediately before fetch().
 // Ensures no future refactor accidentally re-introduces the banned fields.
 
-const BANNED_KEYS = [
-  'negativePrompt',
-  'negative_prompt',
-  'negativePrompts',
-  'negative_prompts',
-]
+const BANNED_KEYS = ['negativePrompt', 'negative_prompt', 'negativePrompts', 'negative_prompts']
 
 /**
  * Throws if `payload` (serialized to JSON) contains any banned Imagen field.
@@ -25,9 +20,9 @@ export function assertNoUnsupportedImagenFields(payload: unknown): void {
     if (text.includes(`"${key}"`)) {
       throw new Error(
         `Imagen payload contains unsupported field "${key}". ` +
-        `Imagen no longer accepts negativePrompt. ` +
-        `Use mergeNegativePromptIntoPrompt() from lib/ai/promptSafety.ts to ` +
-        `fold constraints into the positive prompt before building the payload.`,
+          `Imagen no longer accepts negativePrompt. ` +
+          `Use mergeNegativePromptIntoPrompt() from lib/ai/promptSafety.ts to ` +
+          `fold constraints into the positive prompt before building the payload.`
       )
     }
   }

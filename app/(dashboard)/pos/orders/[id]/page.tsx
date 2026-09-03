@@ -24,14 +24,16 @@ export default async function POSOrderDetailPage({ params }: Props) {
 
   const { data: order } = await supabase
     .from('pos_orders')
-    .select(`
+    .select(
+      `
       *,
       customers(name,email,phone),
       pos_order_items(*, pos_order_item_modifiers(*)),
       pos_payments(*),
       pos_order_events(*),
       pos_refunds(*)
-    `)
+    `
+    )
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .single()

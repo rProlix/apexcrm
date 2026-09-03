@@ -3,15 +3,15 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ensureCustomerProfile, type CustomerProfile } from './getCustomerProfile'
 
 export interface UpdateProfileInput {
-  preferences?:      Record<string, unknown>
+  preferences?: Record<string, unknown>
   marketing_opt_in?: boolean
 }
 
 export interface AddNoteInput {
-  tenantId:   string
+  tenantId: string
   customerId: string
-  text:       string
-  author:     string
+  text: string
+  author: string
 }
 
 /**
@@ -20,9 +20,9 @@ export interface AddNoteInput {
  * Strictly scoped to tenant_id + customer_id — cannot update other tenants.
  */
 export async function updateCustomerProfile(
-  tenantId:    string,
-  customerId:  string,
-  updates:     UpdateProfileInput
+  tenantId: string,
+  customerId: string,
+  updates: UpdateProfileInput
 ): Promise<CustomerProfile> {
   await ensureCustomerProfile(tenantId, customerId)
 
@@ -36,7 +36,9 @@ export async function updateCustomerProfile(
     })
     .eq('tenant_id', tenantId)
     .eq('customer_id', customerId)
-    .select('id, tenant_id, customer_id, preferences, notes, marketing_opt_in, created_at, updated_at')
+    .select(
+      'id, tenant_id, customer_id, preferences, notes, marketing_opt_in, created_at, updated_at'
+    )
     .single()
 
   if (error || !data) {
@@ -46,7 +48,7 @@ export async function updateCustomerProfile(
   return {
     ...data,
     preferences: data.preferences ?? {},
-    notes:       Array.isArray(data.notes) ? data.notes : [],
+    notes: Array.isArray(data.notes) ? data.notes : [],
   } as CustomerProfile
 }
 
@@ -60,8 +62,8 @@ export async function addCustomerNote(input: AddNoteInput): Promise<CustomerProf
   const profile = await ensureCustomerProfile(tenantId, customerId)
 
   const newNote = {
-    id:         crypto.randomUUID(),
-    text:       text.trim(),
+    id: crypto.randomUUID(),
+    text: text.trim(),
     author,
     created_at: new Date().toISOString(),
   }
@@ -75,7 +77,9 @@ export async function addCustomerNote(input: AddNoteInput): Promise<CustomerProf
     .update({ notes: updatedNotes, updated_at: new Date().toISOString() })
     .eq('tenant_id', tenantId)
     .eq('customer_id', customerId)
-    .select('id, tenant_id, customer_id, preferences, notes, marketing_opt_in, created_at, updated_at')
+    .select(
+      'id, tenant_id, customer_id, preferences, notes, marketing_opt_in, created_at, updated_at'
+    )
     .single()
 
   if (error || !data) {
@@ -85,7 +89,7 @@ export async function addCustomerNote(input: AddNoteInput): Promise<CustomerProf
   return {
     ...data,
     preferences: data.preferences ?? {},
-    notes:       Array.isArray(data.notes) ? data.notes : [],
+    notes: Array.isArray(data.notes) ? data.notes : [],
   } as CustomerProfile
 }
 
@@ -94,15 +98,15 @@ export async function addCustomerNote(input: AddNoteInput): Promise<CustomerProf
  * Strictly scoped to tenant_id.
  */
 export async function updateTenantCustomer(
-  tenantId:   string,
+  tenantId: string,
   customerId: string,
   updates: {
-    name?:         string
-    email?:        string | null
-    phone?:        string | null
+    name?: string
+    email?: string | null
+    phone?: string | null
     display_name?: string | null
-    status?:       string
-    metadata?:     Record<string, unknown>
+    status?: string
+    metadata?: Record<string, unknown>
   }
 ): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

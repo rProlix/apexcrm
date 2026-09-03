@@ -18,10 +18,7 @@ import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: planId } = await params
   const ctx = await getUserContext()
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -39,13 +36,16 @@ export async function POST(
     if (isSchemaCacheError(planErr)) {
       const tbl = extractMissingTableName(planErr)
       console.error('[AI-IMAGE][generate] Schema/table error loading plan:', planErr.message)
-      return NextResponse.json({
-        error:        buildTableMissingMessage(tbl ?? 'website_image_plans'),
-        code:         'MISSING_TABLE',
-        missingTable: tbl ?? 'website_image_plans',
-        detail:       planErr.message,
-        diagnostics:  '/api/owner/diagnostics/website-images',
-      }, { status: 503 })
+      return NextResponse.json(
+        {
+          error: buildTableMissingMessage(tbl ?? 'website_image_plans'),
+          code: 'MISSING_TABLE',
+          missingTable: tbl ?? 'website_image_plans',
+          detail: planErr.message,
+          diagnostics: '/api/owner/diagnostics/website-images',
+        },
+        { status: 503 }
+      )
     }
     console.error('[AI-IMAGE][generate] Plan load error:', planErr.message)
     return NextResponse.json({ error: planErr.message }, { status: 500 })
@@ -54,14 +54,15 @@ export async function POST(
 
   // Validate API key before attempting generation
   if (!process.env.GEMINI_API_KEY) {
-    return NextResponse.json({ error: MISSING_API_KEY_MESSAGE, code: 'MISSING_API_KEY' }, { status: 503 })
+    return NextResponse.json(
+      { error: MISSING_API_KEY_MESSAGE, code: 'MISSING_API_KEY' },
+      { status: 503 }
+    )
   }
 
   const typedPlan = plan as WebsiteImagePlan
 
-  const access = await requireAiAutofillAccess(
-    ctx.role === 'owner' ? typedPlan.tenant_id : null,
-  )
+  const access = await requireAiAutofillAccess(ctx.role === 'owner' ? typedPlan.tenant_id : null)
   if (!access || access.tenantId !== typedPlan.tenant_id)
     return NextResponse.json({ error: 'Tenant access denied.' }, { status: 403 })
 
@@ -82,10 +83,10 @@ export async function POST(
     .single()
 
   const result = await generateWebsiteImage({
-    plan:         typedPlan,
-    tenantId:     typedPlan.tenant_id,
+    plan: typedPlan,
+    tenantId: typedPlan.tenant_id,
     businessType: null,
-    createdBy:    getSafeCreatedBy(ctx.auth_id),
+    createdBy: getSafeCreatedBy(ctx.auth_id),
   })
 
   if (result.error) {
@@ -100,11 +101,11 @@ export async function POST(
     .single()
 
   return NextResponse.json({
-    plan:       updatedPlan,
-    jobId:      result.jobId,
-    publicUrl:  result.publicUrl,
+    plan: updatedPlan,
+    jobId: result.jobId,
+    publicUrl: result.publicUrl,
     storagePath: result.storagePath,
-    altText:    result.altText,
+    altText: result.altText,
     tenantName: tenant?.name,
   })
 }

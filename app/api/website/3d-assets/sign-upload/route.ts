@@ -12,15 +12,23 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserContext }           from '@/lib/auth/getUserContext'
-import { getSupabaseServerClient }  from '@/lib/supabase/server'
-import { STORAGE_BUCKETS }          from '@/lib/storage/buckets'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { STORAGE_BUCKETS } from '@/lib/storage/buckets'
 
 const BUCKET = STORAGE_BUCKETS.WEBSITE_ASSETS
 
 const VALID_ASSET_TYPES = new Set([
-  'glb', 'gltf', 'video', 'image_sequence', 'image_sequence_frame', 'thumbnail',
-  'poster', 'fallback', 'environment', 'texture',
+  'glb',
+  'gltf',
+  'video',
+  'image_sequence',
+  'image_sequence_frame',
+  'thumbnail',
+  'poster',
+  'fallback',
+  'environment',
+  'texture',
 ])
 const VALID_RENDER_MODES = new Set(['three_model', 'video_scrub'])
 const BLOCKED_EXT = new Set(['splinecode', 'spline'])
@@ -36,9 +44,13 @@ export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const body = await req.json().catch(() => ({})) as {
-    tenant_id?: string; asset_type?: string; render_mode?: string
-    website_id?: string; section_id?: string; filename?: string
+  const body = (await req.json().catch(() => ({}))) as {
+    tenant_id?: string
+    asset_type?: string
+    render_mode?: string
+    website_id?: string
+    section_id?: string
+    filename?: string
   }
 
   const tenantId = ctx.tenant_id ?? body.tenant_id ?? ''
@@ -50,7 +62,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Invalid asset_type "${assetType}"` }, { status: 422 })
   }
   if (body.render_mode && !VALID_RENDER_MODES.has(body.render_mode)) {
-    return NextResponse.json({ error: `Invalid render_mode "${body.render_mode}"` }, { status: 422 })
+    return NextResponse.json(
+      { error: `Invalid render_mode "${body.render_mode}"` },
+      { status: 422 }
+    )
   }
 
   const rawName = body.filename ?? 'asset'
@@ -59,14 +74,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Spline files are not supported' }, { status: 415 })
   }
 
-  const scope = body.website_id ? `${body.website_id}/${body.section_id ?? 'unassigned'}` : '_library'
+  const scope = body.website_id
+    ? `${body.website_id}/${body.section_id ?? 'unassigned'}`
+    : '_library'
   const path = `tenants/${tenantId}/website-builder/3d-hero/${scope}/${assetType}/${Date.now()}-${sanitize(rawName)}`
 
   const db = getSupabaseServerClient()
 
   const sign = () => db.storage.from(BUCKET).createSignedUploadUrl(path)
   let { data, error } = await sign()
-  if (error && (error.message.includes('not found') || error.message.includes('Bucket not found'))) {
+  if (
+    error &&
+    (error.message.includes('not found') || error.message.includes('Bucket not found'))
+  ) {
     await db.storage.createBucket(BUCKET, { public: true })
     ;({ data, error } = await sign())
   }
@@ -77,9 +97,9 @@ export async function POST(req: NextRequest) {
   const { data: pub } = db.storage.from(BUCKET).getPublicUrl(path)
 
   return NextResponse.json({
-    bucket:    BUCKET,
+    bucket: BUCKET,
     path,
-    token:     data.token,
+    token: data.token,
     signedUrl: data.signedUrl,
     publicUrl: pub.publicUrl,
   })

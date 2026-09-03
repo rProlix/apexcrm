@@ -8,19 +8,19 @@ import { Button } from '@/components/ui/Button'
 
 interface Props {
   suggestion: {
-    id:          string
-    title:       string | null
+    id: string
+    title: string | null
     description: string | null
     admin_notes: string | null
   }
-  onSave:  (updates: Record<string, string>) => Promise<void>
+  onSave: (updates: Record<string, string>) => Promise<void>
   onClose: () => void
 }
 
 export function SuggestionEditor({ suggestion, onSave, onClose }: Props) {
-  const [title,      setTitle]      = useState(suggestion.title ?? '')
+  const [title, setTitle] = useState(suggestion.title ?? '')
   const [adminNotes, setAdminNotes] = useState(suggestion.admin_notes ?? '')
-  const [saving,     setSaving]     = useState(false)
+  const [saving, setSaving] = useState(false)
 
   async function handleSave() {
     setSaving(true)
@@ -35,7 +35,9 @@ export function SuggestionEditor({ suggestion, onSave, onClose }: Props) {
   return (
     <div className="mt-3 rounded-xl bg-graphite-700/50 border border-white/10 p-4 space-y-3">
       <div className="flex items-center justify-between mb-1">
-        <p className="text-xs font-semibold text-white/60 uppercase tracking-wide">Edit suggestion</p>
+        <p className="text-xs font-semibold text-white/60 uppercase tracking-wide">
+          Edit suggestion
+        </p>
         <button onClick={onClose} className="text-white/30 hover:text-white/70 transition-colors">
           <X className="h-4 w-4" />
         </button>
@@ -59,7 +61,10 @@ export function SuggestionEditor({ suggestion, onSave, onClose }: Props) {
         />
       </div>
       <div className="flex gap-2 justify-end">
-        <button onClick={onClose} className="text-xs text-white/40 hover:text-white/70 px-3 py-1.5 transition-colors">
+        <button
+          onClick={onClose}
+          className="text-xs text-white/40 hover:text-white/70 px-3 py-1.5 transition-colors"
+        >
           Cancel
         </button>
         <Button variant="primary" onClick={handleSave} loading={saving}>

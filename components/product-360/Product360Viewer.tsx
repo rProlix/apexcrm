@@ -13,58 +13,62 @@
 //   - Resize observer
 //   - Proper Three.js cleanup on unmount
 
-import {
-  useEffect, useRef, useState, useCallback, useId,
-} from 'react'
+import { useEffect, useRef, useState, useCallback, useId } from 'react'
 import * as THREE from 'three'
-import type { P360Frame, P360Hotspot, P360ViewerSettings, P360LightingConfig, P360CameraConfig } from '@/lib/product-360/types'
+import type {
+  P360Frame,
+  P360Hotspot,
+  P360ViewerSettings,
+  P360LightingConfig,
+  P360CameraConfig,
+} from '@/lib/product-360/types'
 import { getWebGLSupport } from '@/lib/viewer/webgl'
 import Product360SequencePreview from './Product360SequencePreview'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface Product360ViewerProps {
-  frames:          P360Frame[]
-  hotspots?:       P360Hotspot[]
+  frames: P360Frame[]
+  hotspots?: P360Hotspot[]
   viewerSettings?: P360ViewerSettings
   lightingConfig?: P360LightingConfig
-  cameraConfig?:   P360CameraConfig
-  initialFrame?:   number
-  productName?:    string
-  packageName?:    string
-  className?:      string
+  cameraConfig?: P360CameraConfig
+  initialFrame?: number
+  productName?: string
+  packageName?: string
+  className?: string
   /** If true, show control buttons overlay */
-  showControls?:   boolean
+  showControls?: boolean
   /** If true, emit package name label */
-  showLabel?:      boolean
+  showLabel?: boolean
 }
 
 // ─── Internal state ───────────────────────────────────────────────────────────
 
 interface ViewerState {
-  renderer:      THREE.WebGLRenderer | null
-  scene:         THREE.Scene | null
-  camera:        THREE.OrthographicCamera | null
-  mesh:          THREE.Mesh | null
-  textures:      (THREE.Texture | null)[]
-  currentFrame:  number
-  totalFrames:   number
-  isDragging:    boolean
-  dragStartX:    number
-  accumDelta:    number
-  sensitivity:   number
-  animId:        number
+  renderer: THREE.WebGLRenderer | null
+  scene: THREE.Scene | null
+  camera: THREE.OrthographicCamera | null
+  mesh: THREE.Mesh | null
+  textures: (THREE.Texture | null)[]
+  currentFrame: number
+  totalFrames: number
+  isDragging: boolean
+  dragStartX: number
+  accumDelta: number
+  sensitivity: number
+  animId: number
   // zoom
-  zoom:          number
-  minZoom:       number
-  maxZoom:       number
+  zoom: number
+  minZoom: number
+  maxZoom: number
   // momentum
-  lastVelocity:  number
-  momentumId:    number
+  lastVelocity: number
+  momentumId: number
   // auto-rotate
-  autoRotating:  boolean
-  autoRotateId:  number
-  idleTimer:     ReturnType<typeof setTimeout> | null
+  autoRotating: boolean
+  autoRotateId: number
+  idleTimer: ReturnType<typeof setTimeout> | null
   // pinch
   lastPinchDist: number
 }
@@ -73,50 +77,50 @@ interface ViewerState {
 
 export function Product360Viewer({
   frames,
-  hotspots        = [],
-  viewerSettings  = {},
-  lightingConfig  = {},
-  cameraConfig    = {},
-  initialFrame    = 0,
+  hotspots = [],
+  viewerSettings = {},
+  lightingConfig = {},
+  cameraConfig = {},
+  initialFrame = 0,
   productName,
   packageName,
-  className       = '',
-  showControls    = true,
-  showLabel       = false,
+  className = '',
+  showControls = true,
+  showLabel = false,
 }: Product360ViewerProps) {
   const containerId = useId()
   const containerRef = useRef<HTMLDivElement>(null)
-  const canvasRef    = useRef<HTMLCanvasElement>(null)
-  const overlayRef   = useRef<HTMLDivElement>(null)
-  const stateRef     = useRef<ViewerState>({
-    renderer:     null,
-    scene:        null,
-    camera:       null,
-    mesh:         null,
-    textures:     [],
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const stateRef = useRef<ViewerState>({
+    renderer: null,
+    scene: null,
+    camera: null,
+    mesh: null,
+    textures: [],
     currentFrame: initialFrame,
-    totalFrames:  0,
-    isDragging:   false,
-    dragStartX:   0,
-    accumDelta:   0,
-    sensitivity:  viewerSettings.dragSensitivity ?? 4,
-    animId:       0,
-    zoom:         1,
-    minZoom:      cameraConfig.minZoom ?? 0.5,
-    maxZoom:      cameraConfig.maxZoom ?? 3,
+    totalFrames: 0,
+    isDragging: false,
+    dragStartX: 0,
+    accumDelta: 0,
+    sensitivity: viewerSettings.dragSensitivity ?? 4,
+    animId: 0,
+    zoom: 1,
+    minZoom: cameraConfig.minZoom ?? 0.5,
+    maxZoom: cameraConfig.maxZoom ?? 3,
     lastVelocity: 0,
-    momentumId:   0,
+    momentumId: 0,
     autoRotating: viewerSettings.autoRotate ?? false,
     autoRotateId: 0,
-    idleTimer:    null,
+    idleTimer: null,
     lastPinchDist: 0,
   })
 
-  const [progress,           setProgress]          = useState(0)
-  const [isReady,            setIsReady]           = useState(false)
-  const [showHint,           setShowHint]          = useState(true)
-  const [isFullscreen,       setIsFullscreen]      = useState(false)
-  const [activeHotspot,      setActiveHotspot]     = useState<P360Hotspot | null>(null)
+  const [progress, setProgress] = useState(0)
+  const [isReady, setIsReady] = useState(false)
+  const [showHint, setShowHint] = useState(true)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [activeHotspot, setActiveHotspot] = useState<P360Hotspot | null>(null)
   /** Set to true when WebGL is unavailable or Three.js renderer throws. */
   const [fallbackToSequence, setFallbackToSequence] = useState(false)
 
@@ -133,11 +137,11 @@ export function Product360Viewer({
       throw new Error(`WebGL not supported on this device: ${webGLCheck.reason}`)
     }
 
-    const canvas    = canvasRef.current
+    const canvas = canvasRef.current
     const container = containerRef.current
     if (!canvas || !container) return
 
-    const w = container.clientWidth  || 400
+    const w = container.clientWidth || 400
     const h = container.clientHeight || 400
 
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
@@ -145,7 +149,7 @@ export function Product360Viewer({
     renderer.setSize(w, h)
     renderer.outputColorSpace = THREE.SRGBColorSpace
 
-    const scene  = new THREE.Scene()
+    const scene = new THREE.Scene()
     scene.background = new THREE.Color(viewerSettings.bgColor ?? '#0a0a0a')
 
     const aspect = w / h
@@ -165,10 +169,10 @@ export function Product360Viewer({
     scene.add(dir)
 
     const s = stateRef.current
-    s.renderer    = renderer
-    s.scene       = scene
-    s.camera      = camera
-    s.mesh        = mesh
+    s.renderer = renderer
+    s.scene = scene
+    s.camera = camera
+    s.mesh = mesh
     s.totalFrames = sorted.length
     s.currentFrame = Math.min(initialFrame, Math.max(0, sorted.length - 1))
   }, [sorted.length, initialFrame, viewerSettings.bgColor, lightingConfig])
@@ -176,30 +180,35 @@ export function Product360Viewer({
   // ── Texture loading ────────────────────────────────────────────────────────
   const loadTextures = useCallback(async () => {
     const loader = new THREE.TextureLoader()
-    const s      = stateRef.current
-    s.textures   = new Array(sorted.length).fill(null)
+    const s = stateRef.current
+    s.textures = new Array(sorted.length).fill(null)
 
     let loaded = 0
     await Promise.all(
-      sorted.map((frame, idx) =>
-        new Promise<void>(resolve => {
-          loader.load(
-            frame.image_url,
-            texture => {
-              texture.minFilter      = THREE.LinearFilter
-              texture.magFilter      = THREE.LinearFilter
-              texture.generateMipmaps = false
-              texture.colorSpace      = THREE.SRGBColorSpace
-              s.textures[idx] = texture
-              loaded++
-              setProgress(Math.round((loaded / sorted.length) * 100))
-              resolve()
-            },
-            undefined,
-            () => { loaded++; setProgress(Math.round((loaded / sorted.length) * 100)); resolve() },
-          )
-        }),
-      ),
+      sorted.map(
+        (frame, idx) =>
+          new Promise<void>((resolve) => {
+            loader.load(
+              frame.image_url,
+              (texture) => {
+                texture.minFilter = THREE.LinearFilter
+                texture.magFilter = THREE.LinearFilter
+                texture.generateMipmaps = false
+                texture.colorSpace = THREE.SRGBColorSpace
+                s.textures[idx] = texture
+                loaded++
+                setProgress(Math.round((loaded / sorted.length) * 100))
+                resolve()
+              },
+              undefined,
+              () => {
+                loaded++
+                setProgress(Math.round((loaded / sorted.length) * 100))
+                resolve()
+              }
+            )
+          })
+      )
     )
   }, [sorted])
 
@@ -210,7 +219,7 @@ export function Product360Viewer({
     const tex = s.textures[idx]
     if (!tex) return
     const mat = s.mesh.material as THREE.MeshBasicMaterial
-    mat.map         = tex
+    mat.map = tex
     mat.needsUpdate = true
   }, [])
 
@@ -228,12 +237,12 @@ export function Product360Viewer({
 
   // ── Auto-rotate ────────────────────────────────────────────────────────────
   const startAutoRotate = useCallback(() => {
-    const s    = stateRef.current
-    const spd  = (viewerSettings.autoRotateSpeed ?? 20) // ms per frame
+    const s = stateRef.current
+    const spd = viewerSettings.autoRotateSpeed ?? 20 // ms per frame
     let lastTime = performance.now()
 
     const tick = () => {
-      const now   = performance.now()
+      const now = performance.now()
       if (now - lastTime > spd) {
         lastTime = now
         s.currentFrame = (s.currentFrame + 1) % s.totalFrames
@@ -269,33 +278,39 @@ export function Product360Viewer({
   }, [])
 
   // ── Drag handlers ──────────────────────────────────────────────────────────
-  const onDragStart = useCallback((clientX: number) => {
-    const s        = stateRef.current
-    s.isDragging   = true
-    s.dragStartX   = clientX
-    s.accumDelta   = 0
-    s.lastVelocity = 0
-    cancelAnimationFrame(s.momentumId)
-    stopAutoRotate()
-    setShowHint(false)
-  }, [stopAutoRotate])
+  const onDragStart = useCallback(
+    (clientX: number) => {
+      const s = stateRef.current
+      s.isDragging = true
+      s.dragStartX = clientX
+      s.accumDelta = 0
+      s.lastVelocity = 0
+      cancelAnimationFrame(s.momentumId)
+      stopAutoRotate()
+      setShowHint(false)
+    },
+    [stopAutoRotate]
+  )
 
-  const onDragMove = useCallback((clientX: number) => {
-    const s = stateRef.current
-    if (!s.isDragging || s.totalFrames === 0) return
+  const onDragMove = useCallback(
+    (clientX: number) => {
+      const s = stateRef.current
+      if (!s.isDragging || s.totalFrames === 0) return
 
-    const delta   = clientX - s.dragStartX
-    s.dragStartX  = clientX
-    s.accumDelta += delta
-    s.lastVelocity = delta
+      const delta = clientX - s.dragStartX
+      s.dragStartX = clientX
+      s.accumDelta += delta
+      s.lastVelocity = delta
 
-    const steps = Math.round(s.accumDelta / s.sensitivity)
-    if (steps === 0) return
-    s.accumDelta -= steps * s.sensitivity
+      const steps = Math.round(s.accumDelta / s.sensitivity)
+      if (steps === 0) return
+      s.accumDelta -= steps * s.sensitivity
 
-    s.currentFrame = ((s.currentFrame - steps) % s.totalFrames + s.totalFrames) % s.totalFrames
-    showFrame(s.currentFrame)
-  }, [showFrame])
+      s.currentFrame = (((s.currentFrame - steps) % s.totalFrames) + s.totalFrames) % s.totalFrames
+      showFrame(s.currentFrame)
+    },
+    [showFrame]
+  )
 
   const onDragEnd = useCallback(() => {
     const s = stateRef.current
@@ -311,7 +326,8 @@ export function Product360Viewer({
       const steps = Math.round(s.accumDelta / s.sensitivity)
       if (steps !== 0) {
         s.accumDelta -= steps * s.sensitivity
-        s.currentFrame = ((s.currentFrame - steps) % s.totalFrames + s.totalFrames) % s.totalFrames
+        s.currentFrame =
+          (((s.currentFrame - steps) % s.totalFrames) + s.totalFrames) % s.totalFrames
         showFrame(s.currentFrame)
       }
       s.momentumId = requestAnimationFrame(decay)
@@ -330,9 +346,9 @@ export function Product360Viewer({
     const h = c.clientHeight
     s.renderer.setSize(w, h)
     const aspect = w / h
-    const cam    = s.camera as THREE.OrthographicCamera
-    cam.left   = -aspect
-    cam.right  =  aspect
+    const cam = s.camera as THREE.OrthographicCamera
+    cam.left = -aspect
+    cam.right = aspect
     cam.updateProjectionMatrix()
     // Update plane geometry
     if (s.mesh) {
@@ -350,7 +366,7 @@ export function Product360Viewer({
     } else {
       document.exitFullscreen().catch(() => setIsFullscreen(false))
     }
-    setIsFullscreen(f => !f)
+    setIsFullscreen((f) => !f)
   }, [])
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -366,20 +382,24 @@ export function Product360Viewer({
       initScene()
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err)
-      console.warn(`[360-viewer] Three.js init failed — switching to sequence fallback. Reason: ${reason}`)
+      console.warn(
+        `[360-viewer] Three.js init failed — switching to sequence fallback. Reason: ${reason}`
+      )
       setFallbackToSequence(true)
       return
     }
 
-    loadTextures().then(() => {
-      showFrame(stateRef.current.currentFrame)
-      setIsReady(true)
-      startRenderLoop()
-      if (viewerSettings.autoRotate) startAutoRotate()
-    }).catch(err => {
-      console.warn('[360-viewer] Texture loading failed:', err)
-      setFallbackToSequence(true)
-    })
+    loadTextures()
+      .then(() => {
+        showFrame(stateRef.current.currentFrame)
+        setIsReady(true)
+        startRenderLoop()
+        if (viewerSettings.autoRotate) startAutoRotate()
+      })
+      .catch((err) => {
+        console.warn('[360-viewer] Texture loading failed:', err)
+        setFallbackToSequence(true)
+      })
 
     const ro = new ResizeObserver(handleResize)
     if (containerRef.current) ro.observe(containerRef.current)
@@ -391,13 +411,13 @@ export function Product360Viewer({
       cancelAnimationFrame(s.momentumId)
       cancelAnimationFrame(s.autoRotateId)
       if (s.idleTimer) clearTimeout(s.idleTimer)
-      s.textures.forEach(t => t?.dispose())
+      s.textures.forEach((t) => t?.dispose())
       ;(s.mesh?.material as THREE.MeshBasicMaterial | undefined)?.dispose()
       s.mesh?.geometry.dispose()
       s.renderer?.dispose()
       s.renderer = null
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sorted.length])
 
   // ── Wheel zoom ─────────────────────────────────────────────────────────────
@@ -413,16 +433,16 @@ export function Product360Viewer({
   }, [applyZoom, cameraConfig.enablePan])
 
   // ── Visible hotspots for current frame ────────────────────────────────────
-  const visibleHotspots = hotspots.filter(h =>
-    h.is_enabled &&
-    (h.frame_index === null || h.frame_index === stateRef.current.currentFrame)
+  const visibleHotspots = hotspots.filter(
+    (h) =>
+      h.is_enabled && (h.frame_index === null || h.frame_index === stateRef.current.currentFrame)
   )
 
   // ── Fallback: no Three.js ─────────────────────────────────────────────────
   // Rendered when WebGL is unavailable, getShaderPrecisionFormat throws,
   // or any other Three.js initialization error occurs.
   if (fallbackToSequence) {
-    const frameUrls = sorted.map(f => f.image_url).filter(Boolean) as string[]
+    const frameUrls = sorted.map((f) => f.image_url).filter(Boolean) as string[]
     return (
       <div className={className}>
         <div className="mb-1.5 text-[10px] text-amber-400/70 bg-amber-400/10 border border-amber-400/20 rounded-xl px-3 py-1.5">
@@ -439,7 +459,9 @@ export function Product360Viewer({
 
   if (sorted.length === 0) {
     return (
-      <div className={`relative flex items-center justify-center aspect-square rounded-2xl bg-white/4 border border-white/8 ${className}`}>
+      <div
+        className={`relative flex items-center justify-center aspect-square rounded-2xl bg-white/4 border border-white/8 ${className}`}
+      >
         <div className="text-center space-y-2">
           <div className="text-white/20 text-4xl">⟳</div>
           <p className="text-xs text-white/30">No frames loaded</p>
@@ -455,29 +477,29 @@ export function Product360Viewer({
       className={`relative w-full aspect-square select-none overflow-hidden rounded-2xl bg-[#0a0a0a] ${isFullscreen ? 'fixed inset-0 z-[999] rounded-none aspect-auto h-full' : ''} ${className}`}
       style={{ touchAction: 'none' }}
       // Mouse
-      onMouseDown={e => onDragStart(e.clientX)}
-      onMouseMove={e => onDragMove(e.clientX)}
+      onMouseDown={(e) => onDragStart(e.clientX)}
+      onMouseMove={(e) => onDragMove(e.clientX)}
       onMouseUp={onDragEnd}
       onMouseLeave={onDragEnd}
       // Touch
-      onTouchStart={e => {
+      onTouchStart={(e) => {
         if (e.touches.length === 1) {
           onDragStart(e.touches[0].clientX)
         } else if (e.touches.length === 2) {
           stateRef.current.lastPinchDist = Math.hypot(
             e.touches[0].clientX - e.touches[1].clientX,
-            e.touches[0].clientY - e.touches[1].clientY,
+            e.touches[0].clientY - e.touches[1].clientY
           )
         }
       }}
-      onTouchMove={e => {
+      onTouchMove={(e) => {
         e.preventDefault()
         if (e.touches.length === 1) {
           onDragMove(e.touches[0].clientX)
         } else if (e.touches.length === 2) {
           const dist = Math.hypot(
             e.touches[0].clientX - e.touches[1].clientX,
-            e.touches[0].clientY - e.touches[1].clientY,
+            e.touches[0].clientY - e.touches[1].clientY
           )
           const delta = (dist - stateRef.current.lastPinchDist) * 0.005
           stateRef.current.lastPinchDist = dist
@@ -490,8 +512,11 @@ export function Product360Viewer({
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
 
       {/* Vignette overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-2xl"
-        style={{ background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%)' }}
+      <div
+        className="pointer-events-none absolute inset-0 rounded-2xl"
+        style={{
+          background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%)',
+        }}
       />
 
       {/* Loading skeleton */}
@@ -510,25 +535,27 @@ export function Product360Viewer({
       )}
 
       {/* Hotspots */}
-      {isReady && viewerSettings.enableHotspots !== false && visibleHotspots.map(hs => (
-        <button
-          key={hs.id}
-          onClick={() => setActiveHotspot(activeHotspot?.id === hs.id ? null : hs)}
-          className="absolute z-20 -translate-x-1/2 -translate-y-1/2 group"
-          style={{ left: `${hs.x}%`, top: `${hs.y}%` }}
-          aria-label={hs.label}
-        >
-          <div className="w-6 h-6 rounded-full bg-amber-400 border-2 border-white shadow-lg flex items-center justify-center text-xs font-bold text-black animate-pulse group-hover:scale-110 transition-transform">
-            ✦
-          </div>
-          {activeHotspot?.id === hs.id && (
-            <div className="absolute left-8 top-0 z-30 w-48 rounded-xl bg-black/90 border border-white/10 p-3 shadow-xl backdrop-blur-sm">
-              <p className="text-xs font-semibold text-white mb-1">{hs.label}</p>
-              {hs.description && <p className="text-xs text-white/50">{hs.description}</p>}
+      {isReady &&
+        viewerSettings.enableHotspots !== false &&
+        visibleHotspots.map((hs) => (
+          <button
+            key={hs.id}
+            onClick={() => setActiveHotspot(activeHotspot?.id === hs.id ? null : hs)}
+            className="absolute z-20 -translate-x-1/2 -translate-y-1/2 group"
+            style={{ left: `${hs.x}%`, top: `${hs.y}%` }}
+            aria-label={hs.label}
+          >
+            <div className="w-6 h-6 rounded-full bg-amber-400 border-2 border-white shadow-lg flex items-center justify-center text-xs font-bold text-black animate-pulse group-hover:scale-110 transition-transform">
+              ✦
             </div>
-          )}
-        </button>
-      ))}
+            {activeHotspot?.id === hs.id && (
+              <div className="absolute left-8 top-0 z-30 w-48 rounded-xl bg-black/90 border border-white/10 p-3 shadow-xl backdrop-blur-sm">
+                <p className="text-xs font-semibold text-white mb-1">{hs.label}</p>
+                {hs.description && <p className="text-xs text-white/50">{hs.description}</p>}
+              </div>
+            )}
+          </button>
+        ))}
 
       {/* Controls overlay */}
       {isReady && showControls && (
@@ -540,27 +567,39 @@ export function Product360Viewer({
                 onClick={() => applyZoom(0.2)}
                 className="h-7 w-7 rounded-lg bg-black/60 border border-white/10 text-white/60 hover:text-white text-sm flex items-center justify-center backdrop-blur-sm transition-colors"
                 aria-label="Zoom in"
-              >+</button>
+              >
+                +
+              </button>
               <button
                 onClick={() => applyZoom(-0.2)}
                 className="h-7 w-7 rounded-lg bg-black/60 border border-white/10 text-white/60 hover:text-white text-sm flex items-center justify-center backdrop-blur-sm transition-colors"
                 aria-label="Zoom out"
-              >−</button>
+              >
+                −
+              </button>
             </>
           )}
           {/* Reset */}
           <button
-            onClick={() => { applyZoom(1 - stateRef.current.zoom); showFrame(0); stateRef.current.currentFrame = 0 }}
+            onClick={() => {
+              applyZoom(1 - stateRef.current.zoom)
+              showFrame(0)
+              stateRef.current.currentFrame = 0
+            }}
             className="h-7 px-2 rounded-lg bg-black/60 border border-white/10 text-white/50 hover:text-white text-xs backdrop-blur-sm transition-colors"
             aria-label="Reset view"
-          >⟳</button>
+          >
+            ⟳
+          </button>
           {/* Fullscreen */}
           {viewerSettings.showFullscreen !== false && (
             <button
               onClick={toggleFullscreen}
               className="h-7 w-7 rounded-lg bg-black/60 border border-white/10 text-white/60 hover:text-white text-sm flex items-center justify-center backdrop-blur-sm transition-colors"
               aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            >{isFullscreen ? '⤡' : '⤢'}</button>
+            >
+              {isFullscreen ? '⤡' : '⤢'}
+            </button>
           )}
         </div>
       )}

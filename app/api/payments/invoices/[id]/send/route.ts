@@ -32,15 +32,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   let body: Record<string, unknown> = {}
-  try { body = await req.json() } catch { /* no body required */ }
+  try {
+    body = await req.json()
+  } catch {
+    /* no body required */
+  }
 
   try {
     const link = await createPaymentLink({
-      tenantId:   invoice.tenant_id,
-      invoiceId:  invoice.id,
-      title:      invoice.title ?? `Invoice ${invoice.invoice_number}`,
-      amount:     Number(invoice.amount),
-      currency:   invoice.currency,
+      tenantId: invoice.tenant_id,
+      invoiceId: invoice.id,
+      title: invoice.title ?? `Invoice ${invoice.invoice_number}`,
+      amount: Number(invoice.amount),
+      currency: invoice.currency,
       providerKey: body.provider_key as string | undefined,
     })
 
@@ -48,8 +52,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await supabase
       .from('invoices')
       .update({
-        status:             'pending',
-        provider_key:       link.providerKey,
+        status: 'pending',
+        provider_key: link.providerKey,
         provider_reference: link.providerLinkId,
       })
       .eq('id', invoice.id)

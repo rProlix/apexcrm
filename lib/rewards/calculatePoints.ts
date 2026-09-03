@@ -22,14 +22,14 @@ import { getEarningRules } from './getRewardsProgram'
  * Returns 0 if rewards_enabled is false on the product.
  */
 function calculatePointsForItem(
-  item:          OrderItemForRewards,
-  product:       ProductWithRewards,
-  earningRules:  EarningRules,
+  item: OrderItemForRewards,
+  product: ProductWithRewards,
+  earningRules: EarningRules
 ): PointsBreakdownItem {
   const base: Omit<PointsBreakdownItem, 'points' | 'source'> = {
-    product_id:   product.id,
+    product_id: product.id,
     product_name: product.name,
-    quantity:     item.quantity,
+    quantity: item.quantity,
   }
 
   if (!product.rewards_enabled) {
@@ -49,7 +49,7 @@ function calculatePointsForItem(
 
   // Priority 2: product-specific bonus in earning rules
   const bonusEntry = (earningRules.bonus_points_products ?? []).find(
-    (b) => b.product_id === product.id,
+    (b) => b.product_id === product.id
   )
   if (bonusEntry) {
     return {
@@ -80,9 +80,9 @@ function calculatePointsForItem(
  *  - all products have rewards_enabled = false
  */
 export async function calculatePoints(
-  tenantId:  string,
+  tenantId: string,
   programId: string | null,
-  items:     OrderItemForRewards[],
+  items: OrderItemForRewards[]
 ): Promise<PointsCalculationResult> {
   if (!items.length) {
     return { total_points: 0, breakdown: [], program_id: programId }
@@ -101,7 +101,9 @@ export async function calculatePoints(
   const productIds = [...new Set(items.map((i) => i.product_id))]
   const { data: productsRaw } = await supabase
     .from('products')
-    .select('id, tenant_id, name, description, price, currency, inventory_count, is_active, rewards_points_earned, rewards_enabled, rewards_multiplier, created_at')
+    .select(
+      'id, tenant_id, name, description, price, currency, inventory_count, is_active, rewards_points_earned, rewards_enabled, rewards_multiplier, created_at'
+    )
     .in('id', productIds)
     .eq('tenant_id', tenantId)
 
@@ -125,10 +127,7 @@ export async function calculatePoints(
  * Quick estimate of points for a dollar amount. Used in UI previews.
  * Does not account for product-specific rules.
  */
-export function estimatePointsForAmount(
-  amount:        number,
-  earningRules:  EarningRules,
-): number {
+export function estimatePointsForAmount(amount: number, earningRules: EarningRules): number {
   if (earningRules.enabled === false) return 0
   return Math.floor((earningRules.points_per_dollar ?? 10) * amount)
 }

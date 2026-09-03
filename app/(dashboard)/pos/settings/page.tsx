@@ -20,7 +20,10 @@ export default async function POSSettingsPage() {
 
   const [{ data: settings }, { data: providers }] = await Promise.all([
     supabase.from('pos_settings').select('*').eq('tenant_id', tenantId).maybeSingle(),
-    supabase.from('payment_providers').select('provider_key,is_enabled,is_default').eq('tenant_id', tenantId),
+    supabase
+      .from('payment_providers')
+      .select('provider_key,is_enabled,is_default')
+      .eq('tenant_id', tenantId),
   ])
 
   return (

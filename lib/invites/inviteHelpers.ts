@@ -9,7 +9,7 @@ import { randomBytes, createHash } from 'crypto'
  * Only the hash is stored in the database; the raw token is sent in the invite URL.
  */
 export function generateInviteToken(): { token: string; tokenHash: string } {
-  const token     = randomBytes(32).toString('hex') // 64-char hex string
+  const token = randomBytes(32).toString('hex') // 64-char hex string
   const tokenHash = hashToken(token)
   return { token, tokenHash }
 }
@@ -26,8 +26,8 @@ export function hashToken(token: string): string {
  * Prefers the tenant's custom domain → subdomain → app base URL fallback.
  */
 export function buildInviteUrl(opts: {
-  token:       string
-  subdomain?:  string | null
+  token: string
+  subdomain?: string | null
   customDomain?: string | null
 }): string {
   const { token, subdomain, customDomain } = opts

@@ -670,17 +670,19 @@ async function loadFleetWeeklyInspectionsReport(
     .order('created_at', { ascending: false })
     .limit(5000)
   if (error) throw new Error(error.code)
-  const rawRows = ((data ?? []) as Array<Record<string, unknown>>)
+  const rawRows = (data ?? []) as Array<Record<string, unknown>>
   const inspectionIds = rawRows.map((row) => text(row.id)).filter(Boolean)
   const [imageCounts, damageCounts] = await Promise.all([
     loadInspectionImageCounts(context, inspectionIds),
     loadInspectionDamageCounts(context, inspectionIds),
   ])
-  const vehicles = await loadReportVehicles(context, rawRows.map((row) => text(row.van_id)))
+  const vehicles = await loadReportVehicles(
+    context,
+    rawRows.map((row) => text(row.van_id))
+  )
   const rows = rawRows.map((row) => ({
     created_at: formatDate(row.created_at, context.timeZone),
-    vehicle:
-      vehicleLabel(vehicles, text(row.van_id)) || text(row.title) || 'Unassigned',
+    vehicle: vehicleLabel(vehicles, text(row.van_id)) || text(row.title) || 'Unassigned',
     status: text(row.review_status || row.status),
     images: imageCounts.get(text(row.id)) ?? number(row.image_count),
     damage: damageCounts.get(text(row.id)) ?? number(row.damage_count),
@@ -691,8 +693,9 @@ async function loadFleetWeeklyInspectionsReport(
       { label: 'Inspections', value: rows.length },
       {
         label: 'Needs review',
-        value: rawRows.filter((row) => /review|pending/i.test(text(row.review_status || row.status)))
-          .length,
+        value: rawRows.filter((row) =>
+          /review|pending/i.test(text(row.review_status || row.status))
+        ).length,
       },
       {
         label: 'Images received',
@@ -731,16 +734,20 @@ async function loadFleetDamageByVanReport(
     .order('updated_at', { ascending: false })
     .limit(5000)
   if (error) throw new Error(error.code)
-  const rawRows = ((data ?? []) as Array<Record<string, unknown>>)
-  const vehicles = await loadReportVehicles(context, rawRows.map((row) => text(row.van_id)))
+  const rawRows = (data ?? []) as Array<Record<string, unknown>>
+  const vehicles = await loadReportVehicles(
+    context,
+    rawRows.map((row) => text(row.van_id))
+  )
   const rows = rawRows.map((row) => ({
     created_at: formatDate(row.last_observed_at, context.timeZone),
     vehicle: vehicleLabel(vehicles, text(row.van_id)) || 'Unassigned',
     inspection: `Inspection ${text(row.latest_observed_inspection_id || row.first_detected_inspection_id).slice(0, 8)}`,
     area: text(row.canonical_region).replaceAll('_', ' ') || 'Unspecified',
     type:
-      text(row.effective_damage_type || row.normalized_damage_type || row.original_damage_type)
-        .replaceAll('_', ' ') || 'Unspecified',
+      text(
+        row.effective_damage_type || row.normalized_damage_type || row.original_damage_type
+      ).replaceAll('_', ' ') || 'Unspecified',
     severity:
       text(row.effective_severity || row.current_severity || row.max_observed_severity).replaceAll(
         '_',
@@ -806,8 +813,11 @@ async function loadFleetMaintenanceCostReport(
     .order('latest_activity_at', { ascending: false })
     .limit(5000)
   if (error) throw new Error(error.code)
-  const rawRows = ((data ?? []) as Array<Record<string, unknown>>)
-  const vehicles = await loadReportVehicles(context, rawRows.map((row) => text(row.van_id)))
+  const rawRows = (data ?? []) as Array<Record<string, unknown>>
+  const vehicles = await loadReportVehicles(
+    context,
+    rawRows.map((row) => text(row.van_id))
+  )
   const rows = rawRows.map((row) => ({
     reported_at: formatDate(row.latest_activity_at || row.reported_at, context.timeZone),
     item: `#${number(row.maintenance_number)} ${text(row.title)}`,
@@ -882,15 +892,21 @@ async function loadFleetDriverUploadHistoryReport(
     .order('upload_started_at', { ascending: false })
     .limit(5000)
   if (error) throw new Error(error.code)
-  const rawRows = ((data ?? []) as Array<Record<string, unknown>>)
+  const rawRows = (data ?? []) as Array<Record<string, unknown>>
   const sessionImageCounts = await loadSessionImageCounts(
     context,
     rawRows.map((row) => text(row.id)).filter(Boolean)
   )
-  const vehicles = await loadReportVehicles(context, rawRows.map((row) => text(row.van_id)))
+  const vehicles = await loadReportVehicles(
+    context,
+    rawRows.map((row) => text(row.van_id))
+  )
   const rows = rawRows.map((row) => ({
     created_at: formatDate(row.upload_started_at, context.timeZone),
-    driver: formatDriverName(asRecord(row.driver_snapshot)) || text(row.slack_user_id) || 'Unknown uploader',
+    driver:
+      formatDriverName(asRecord(row.driver_snapshot)) ||
+      text(row.slack_user_id) ||
+      'Unknown uploader',
     inspection: `Inspection ${text(row.inspection_id).slice(0, 8)}`,
     vehicle: vehicleLabel(vehicles, text(row.van_id)) || 'Unassigned',
     images: sessionImageCounts.get(text(row.id)) ?? number(row.image_count),
@@ -903,7 +919,9 @@ async function loadFleetDriverUploadHistoryReport(
         label: 'Known uploaders',
         value: new Set(
           rawRows
-            .map((row) => formatDriverName(asRecord(row.driver_snapshot)) || text(row.slack_user_id))
+            .map(
+              (row) => formatDriverName(asRecord(row.driver_snapshot)) || text(row.slack_user_id)
+            )
             .filter(Boolean)
         ).size,
       },

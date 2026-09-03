@@ -111,7 +111,10 @@ test('signup provisioning recalculates pricing server-side and enables the exact
   )
 
   assert.match(onboardingSource, /calculateSignupQuote\(selectedModules,\s*billingInterval\)/)
-  assert.match(onboardingSource, /new Set\(normalizeSignupModuleSelection\(args\.selectedModules\)\)/)
+  assert.match(
+    onboardingSource,
+    /new Set\(normalizeSignupModuleSelection\(args\.selectedModules\)\)/
+  )
   assert.match(onboardingSource, /Object\.keys\(MODULE_REGISTRY\)/)
   assert.doesNotMatch(onboardingSource, /getModulesForPlan/)
   assert.match(completionRoute, /hasOnlyValidSignupModules\(body\.selectedModules\)/)

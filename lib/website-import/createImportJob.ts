@@ -4,7 +4,7 @@ import { validateImportUrl } from './fetchSource'
 import type { CreateImportJobInput, ImportJob, ImportSource } from './types'
 
 export interface CreateImportJobResult {
-  job:     ImportJob
+  job: ImportJob
   sources: ImportSource[]
 }
 
@@ -13,9 +13,7 @@ export interface CreateImportJobResult {
  * Validates each URL before persisting — invalid URLs are silently dropped.
  * Throws if no valid URLs remain after filtering.
  */
-export async function createImportJob(
-  input: CreateImportJobInput,
-): Promise<CreateImportJobResult> {
+export async function createImportJob(input: CreateImportJobInput): Promise<CreateImportJobResult> {
   const db = getSupabaseServerClient() as any
 
   const validUrls = input.sourceUrls.filter((u) => validateImportUrl(u) === null)
@@ -28,12 +26,12 @@ export async function createImportJob(
   const { data: job, error: jobErr } = await db
     .from('website_import_jobs')
     .insert({
-      tenant_id:   input.tenantId,
-      created_by:  input.createdBy,
-      status:      'queued',
+      tenant_id: input.tenantId,
+      created_by: input.createdBy,
+      status: 'queued',
       source_urls: validUrls,
-      notes:       input.notes ?? null,
-      progress:    0,
+      notes: input.notes ?? null,
+      progress: 0,
     })
     .select('*')
     .single()
@@ -44,10 +42,10 @@ export async function createImportJob(
 
   // Insert source rows (one per URL)
   const sourceRows = validUrls.map((url) => ({
-    tenant_id:     input.tenantId,
-    job_id:        job.id,
-    source_url:    url,
-    source_type:   detectSourceType(url),
+    tenant_id: input.tenantId,
+    job_id: job.id,
+    source_url: url,
+    source_type: detectSourceType(url),
     fetched_status: 'pending' as const,
   }))
 
@@ -63,9 +61,9 @@ export async function createImportJob(
   // Audit
   await db.from('website_import_audit').insert({
     tenant_id: input.tenantId,
-    job_id:    job.id,
-    action:    'job_created',
-    metadata:  { url_count: validUrls.length, urls: validUrls },
+    job_id: job.id,
+    action: 'job_created',
+    metadata: { url_count: validUrls.length, urls: validUrls },
   })
 
   return { job: job as ImportJob, sources: (sources ?? []) as ImportSource[] }

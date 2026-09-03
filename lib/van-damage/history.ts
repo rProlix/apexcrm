@@ -28,7 +28,13 @@ export type DamageObservationDecision =
   | { kind: 'recurrent_damage'; previousCaseId: string; fingerprint: string }
 
 const unresolvedCaseStates = new Set([
-  'active', 'needs_review', 'confirmed', 'repair_scheduled', 'in_repair', 'awaiting_verification', 'recurrent',
+  'active',
+  'needs_review',
+  'confirmed',
+  'repair_scheduled',
+  'in_repair',
+  'awaiting_verification',
+  'recurrent',
 ])
 const repairedCaseStates = new Set(['repaired', 'resolved'])
 
@@ -41,8 +47,9 @@ export function slackTsToIso(slackTs: string | null | undefined): string | null 
 
 export function formatDriverName(snapshot: SlackDriverSnapshot | null | undefined): string {
   if (!snapshot) return 'Unknown driver'
-  const named = [snapshot.displayName, snapshot.realName, snapshot.username]
-    .find((value) => typeof value === 'string' && value.trim())
+  const named = [snapshot.displayName, snapshot.realName, snapshot.username].find(
+    (value) => typeof value === 'string' && value.trim()
+  )
   if (named) return named.trim()
   if (snapshot.slackUserId) return `Slack user ${snapshot.slackUserId.slice(0, 6)}`
   return 'Unknown driver'
@@ -55,7 +62,8 @@ export function canonicalDamageType(value: string | null | undefined): string {
   if (raw.includes('scratch') || raw.includes('scuff')) return 'scratch'
   if (raw.includes('dent')) return 'dent'
   if (raw.includes('crack')) return 'crack'
-  if (raw.includes('glass') || raw.includes('window') || raw.includes('windshield')) return 'glass_damage'
+  if (raw.includes('glass') || raw.includes('window') || raw.includes('windshield'))
+    return 'glass_damage'
   if (raw.includes('mirror')) return 'broken_mirror'
   if (raw.includes('light')) return 'broken_light'
   if (raw.includes('paint')) return 'paint_damage'
@@ -90,7 +98,9 @@ export function buildDamageFingerprint(input: DamageFingerprintInput): string {
   ].join(':')
 }
 
-export function orderSlackFiles<T extends { id: string; created?: number | null }>(files: T[]): Array<T & { uploadOrder: number }> {
+export function orderSlackFiles<T extends { id: string; created?: number | null }>(
+  files: T[]
+): Array<T & { uploadOrder: number }> {
   return files
     .map((file, index) => ({ ...file, originalIndex: index }))
     .sort((a, b) => {
@@ -104,23 +114,40 @@ export function orderSlackFiles<T extends { id: string; created?: number | null 
 
 export function classifyDamageObservation(
   finding: DamageFingerprintInput & { confidence?: number | null },
-  candidates: DamageCaseCandidate[],
+  candidates: DamageCaseCandidate[]
 ): DamageObservationDecision {
   const fingerprint = buildDamageFingerprint(finding)
   const region = canonicalVehicleRegion(finding.vehicleArea)
   const type = canonicalDamageType(finding.damageType)
   if (region === 'unspecified' || type === 'unknown' || (finding.confidence ?? 1) < 0.55) {
     const candidateIds = candidates.map((candidate) => candidate.id)
-    return { kind: 'possible_duplicate', candidateIds, fingerprint, reason: 'Ambiguous region, type, or confidence requires human review.' }
+    return {
+      kind: 'possible_duplicate',
+      candidateIds,
+      fingerprint,
+      reason: 'Ambiguous region, type, or confidence requires human review.',
+    }
   }
 
-  const sameFingerprint = candidates.filter((candidate) => buildDamageFingerprint(candidate) === fingerprint)
-  const unresolved = sameFingerprint.filter((candidate) => unresolvedCaseStates.has(candidate.lifecycleStatus))
-  if (unresolved.length === 1) return { kind: 'existing_damage_observed', caseId: unresolved[0].id, fingerprint }
+  const sameFingerprint = candidates.filter(
+    (candidate) => buildDamageFingerprint(candidate) === fingerprint
+  )
+  const unresolved = sameFingerprint.filter((candidate) =>
+    unresolvedCaseStates.has(candidate.lifecycleStatus)
+  )
+  if (unresolved.length === 1)
+    return { kind: 'existing_damage_observed', caseId: unresolved[0].id, fingerprint }
   if (unresolved.length > 1) {
-    return { kind: 'possible_duplicate', candidateIds: unresolved.map((candidate) => candidate.id), fingerprint, reason: 'Multiple active cases share this fingerprint.' }
+    return {
+      kind: 'possible_duplicate',
+      candidateIds: unresolved.map((candidate) => candidate.id),
+      fingerprint,
+      reason: 'Multiple active cases share this fingerprint.',
+    }
   }
-  const repaired = sameFingerprint.find((candidate) => repairedCaseStates.has(candidate.lifecycleStatus))
+  const repaired = sameFingerprint.find((candidate) =>
+    repairedCaseStates.has(candidate.lifecycleStatus)
+  )
   if (repaired) return { kind: 'recurrent_damage', previousCaseId: repaired.id, fingerprint }
   return { kind: 'new_damage', fingerprint }
 }

@@ -6,11 +6,11 @@ import { AppointmentCard } from './AppointmentCard'
 import type { Appointment } from '@/lib/appointments/types'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
-const HOUR_H = 56  // px per hour
+const HOUR_H = 56 // px per hour
 
 function getWeekDays(anchor: Date): Date[] {
   const start = new Date(anchor)
-  start.setDate(anchor.getDate() - anchor.getDay())  // Sunday
+  start.setDate(anchor.getDate() - anchor.getDay()) // Sunday
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(start)
     d.setDate(start.getDate() + i)
@@ -33,7 +33,7 @@ function getHeightPercent(starts: string, ends: string) {
 }
 
 function fmtHour(h: number) {
-  if (h === 0)  return '12 AM'
+  if (h === 0) return '12 AM'
   if (h === 12) return '12 PM'
   return h < 12 ? `${h} AM` : `${h - 12} PM`
 }
@@ -43,15 +43,15 @@ function fmtDay(d: Date) {
 }
 
 interface Props {
-  anchor:       Date
+  anchor: Date
   appointments: Appointment[]
-  onSelect:     (appt: Appointment) => void
+  onSelect: (appt: Appointment) => void
 }
 
 export function WeekView({ anchor, appointments, onSelect }: Props) {
-  const days  = getWeekDays(anchor)
+  const days = getWeekDays(anchor)
   const today = new Date().toISOString().slice(0, 10)
-  const now   = new Date()
+  const now = new Date()
   const nowTop = (now.getHours() + now.getMinutes() / 60) * HOUR_H
 
   const byDay: Record<string, Appointment[]> = {}
@@ -79,18 +79,25 @@ export function WeekView({ anchor, appointments, onSelect }: Props) {
       {/* Day columns */}
       <div className="flex flex-1 min-w-0">
         {days.map((day) => {
-          const key     = dateKey(day)
+          const key = dateKey(day)
           const isToday = key === today
           const dayAppts = byDay[key] ?? []
 
           return (
-            <div key={key} className="flex-1 min-w-0 border-r border-surface-border/30 last:border-r-0">
+            <div
+              key={key}
+              className="flex-1 min-w-0 border-r border-surface-border/30 last:border-r-0"
+            >
               {/* Header */}
-              <div className={`
+              <div
+                className={`
                 sticky top-0 z-10 h-8 flex items-center justify-center border-b border-surface-border/50
                 ${isToday ? 'bg-gold-400/8' : 'bg-graphite-900/80 backdrop-blur-sm'}
-              `}>
-                <span className={`text-xs font-medium ${isToday ? 'text-gold-400' : 'text-white/40'}`}>
+              `}
+              >
+                <span
+                  className={`text-xs font-medium ${isToday ? 'text-gold-400' : 'text-white/40'}`}
+                >
                   {fmtDay(day)}
                 </span>
               </div>
@@ -119,7 +126,7 @@ export function WeekView({ anchor, appointments, onSelect }: Props) {
 
                 {/* Appointments */}
                 {dayAppts.map((appt) => {
-                  const top    = getTopPercent(appt.starts_at)
+                  const top = getTopPercent(appt.starts_at)
                   const height = Math.max(getHeightPercent(appt.starts_at, appt.ends_at), 24)
 
                   return (

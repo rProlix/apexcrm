@@ -7,45 +7,41 @@
 //
 // SERVER-ONLY. Never import from client components.
 
-import { getSupabaseServerClient }  from '@/lib/supabase/server'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 export const P360_BUCKET = process.env.P360_STORAGE_BUCKET ?? 'product-360-frames'
 export const P360_REFERENCE_BUCKET = process.env.P360_REFERENCE_BUCKET ?? 'product-360-references'
 
 // ─── Path helpers ─────────────────────────────────────────────────────────────
 
 export function getFramePath(
-  tenantId:   string,
-  productId:  string,
-  packageId:  string,
+  tenantId: string,
+  productId: string,
+  packageId: string,
   frameIndex: number,
-  ext = 'png',
+  ext = 'png'
 ): string {
   const padded = String(frameIndex + 1).padStart(4, '0')
   return `${tenantId}/${productId}/${packageId}/frames/frame-${padded}.${ext}`
 }
 
 export function getReferencePath(
-  tenantId:  string,
+  tenantId: string,
   productId: string,
   packageId: string,
-  ext = 'png',
+  ext = 'png'
 ): string {
   return `${tenantId}/${productId}/${packageId}/reference/reference.${ext}`
 }
 
-export function getCoverPath(
-  tenantId:  string,
-  productId: string,
-  packageId: string,
-): string {
+export function getCoverPath(tenantId: string, productId: string, packageId: string): string {
   return `tenants/${tenantId}/360/${productId}/packages/${packageId}/cover.webp`
 }
 
 export function getModelPath(
-  tenantId:  string,
+  tenantId: string,
   productId: string,
   packageId: string,
-  filename = 'model.glb',
+  filename = 'model.glb'
 ): string {
   return `tenants/${tenantId}/360/${productId}/packages/${packageId}/models/${filename}`
 }
@@ -61,28 +57,33 @@ export function getPublicUrl(storagePath: string): string {
 // ─── Upload ───────────────────────────────────────────────────────────────────
 
 export interface UploadFrameParams {
-  tenantId:    string
-  productId:   string
-  packageId:   string
-  frameIndex:  number
-  buffer:      Uint8Array | ArrayBuffer
+  tenantId: string
+  productId: string
+  packageId: string
+  frameIndex: number
+  buffer: Uint8Array | ArrayBuffer
   contentType?: string
-  ext?:        string
+  ext?: string
 }
 
 export interface UploadResult {
-  imageUrl:    string
+  imageUrl: string
   storagePath: string
 }
 
 export async function uploadFrame(params: UploadFrameParams): Promise<UploadResult> {
   const {
-    tenantId, productId, packageId, frameIndex,
-    buffer, contentType = 'image/png', ext = 'png',
+    tenantId,
+    productId,
+    packageId,
+    frameIndex,
+    buffer,
+    contentType = 'image/png',
+    ext = 'png',
   } = params
-  const supabase    = getSupabaseServerClient()
+  const supabase = getSupabaseServerClient()
   const storagePath = getFramePath(tenantId, productId, packageId, frameIndex, ext)
-  const data        = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer)
+  const data = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer)
 
   const { error } = await supabase.storage
     .from(P360_BUCKET)
@@ -93,7 +94,7 @@ export async function uploadFrame(params: UploadFrameParams): Promise<UploadResu
     if (msg.includes('bucket') || msg.includes('not found')) {
       throw new Error(
         `Storage bucket "${P360_BUCKET}" is not configured. ` +
-        `Run the product 360 Leonardo reference workflow migration to create all required buckets.`,
+          `Run the product 360 Leonardo reference workflow migration to create all required buckets.`
       )
     }
     throw new Error(`Storage upload failed: ${error.message}`)
@@ -103,12 +104,12 @@ export async function uploadFrame(params: UploadFrameParams): Promise<UploadResu
 }
 
 export async function fetchAndUploadFrame(params: {
-  tenantId:   string
-  productId:  string
-  packageId:  string
+  tenantId: string
+  productId: string
+  packageId: string
   frameIndex: number
-  sourceUrl:  string
-  ext?:       string
+  sourceUrl: string
+  ext?: string
 }): Promise<UploadResult> {
   const { sourceUrl, ...rest } = params
   const res = await fetch(sourceUrl)
@@ -117,7 +118,9 @@ export async function fetchAndUploadFrame(params: {
   }
   const contentType = res.headers.get('content-type') ?? ''
   if (!contentType.toLowerCase().startsWith('image/')) {
-    throw new Error(`Remote frame URL did not return an image content-type. Got: ${contentType || 'unknown'}`)
+    throw new Error(
+      `Remote frame URL did not return an image content-type. Got: ${contentType || 'unknown'}`
+    )
   }
   const buffer = await res.arrayBuffer()
   return uploadFrame({
@@ -130,15 +133,17 @@ export async function fetchAndUploadFrame(params: {
 // ─── Delete ───────────────────────────────────────────────────────────────────
 
 export async function deletePackageStorage(
-  tenantId:  string,
+  tenantId: string,
   productId: string,
-  packageId: string,
+  packageId: string
 ): Promise<boolean> {
   try {
     const supabase = getSupabaseServerClient()
-    const prefix   = `tenants/${tenantId}/360/${productId}/packages/${packageId}/`
+    const prefix = `tenants/${tenantId}/360/${productId}/packages/${packageId}/`
 
-    const { data, error: listErr } = await supabase.storage.from(P360_BUCKET).list(prefix, { limit: 1000 })
+    const { data, error: listErr } = await supabase.storage
+      .from(P360_BUCKET)
+      .list(prefix, { limit: 1000 })
     if (listErr) {
       console.warn(`[p360:deletePackageStorage] list error: ${listErr.message}`)
       return false

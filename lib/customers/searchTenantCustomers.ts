@@ -9,8 +9,8 @@ import type { TenantCustomer } from './getTenantCustomers'
  */
 export async function searchTenantCustomers(
   tenantId: string,
-  query:    string,
-  limit:    number = 20
+  query: string,
+  limit: number = 20
 ): Promise<TenantCustomer[]> {
   const trimmed = query.trim()
   if (!trimmed) return []
@@ -19,7 +19,9 @@ export async function searchTenantCustomers(
 
   const { data, error } = await supabase
     .from('customers')
-    .select('id, tenant_id, name, display_name, email, phone, status, metadata, created_at, updated_at')
+    .select(
+      'id, tenant_id, name, display_name, email, phone, status, metadata, created_at, updated_at'
+    )
     .eq('tenant_id', tenantId)
     .or(`name.ilike.%${trimmed}%,email.ilike.%${trimmed}%,phone.ilike.%${trimmed}%`)
     .order('name')

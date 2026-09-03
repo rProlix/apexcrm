@@ -14,9 +14,17 @@ const DEFAULT_MODEL = 'imagen-4.0-ultra-generate-001'
 // Imagen 4 removed negativePrompt support.
 // generateWithImagen() merges these into the positive prompt automatically.
 const AVOID_HINTS = [
-  'text', 'watermarks', 'logos', 'blurry', 'distorted',
-  'extra hands', 'extra people', 'extra objects', 'low quality',
-  'overexposed', 'underexposed',
+  'text',
+  'watermarks',
+  'logos',
+  'blurry',
+  'distorted',
+  'extra hands',
+  'extra people',
+  'extra objects',
+  'low quality',
+  'overexposed',
+  'underexposed',
 ].join(', ')
 
 function getModel(): string {
@@ -33,7 +41,7 @@ export class ImagenApiError extends Error {
   readonly statusCode: number
   constructor(message: string, statusCode: number) {
     super(message)
-    this.name       = 'ImagenApiError'
+    this.name = 'ImagenApiError'
     this.statusCode = statusCode
   }
 }
@@ -41,29 +49,26 @@ export class ImagenApiError extends Error {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export const imagenProvider: P360ImageProvider = {
-  name:  'imagen',
+  name: 'imagen',
   model: getModel(),
 
   isAvailable() {
-    return !!(
-      process.env.GEMINI_API_KEY?.trim() ||
-      process.env.GOOGLE_API_KEY?.trim()
-    )
+    return !!(process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_API_KEY?.trim())
   },
 
   async generateFrame(params: P360GenerateFrameParams): Promise<P360GenerateFrameResult> {
-    const model       = getModel()
+    const model = getModel()
     const aspectRatio = deriveAspectRatio(params.width, params.height)
 
     const result = await generateWithImagen({
-      prompt:                  params.prompt,
-      negativePrompt:          params.negativePrompt ?? AVOID_HINTS,
+      prompt: params.prompt,
+      negativePrompt: params.negativePrompt ?? AVOID_HINTS,
       aspectRatio,
-      numberOfImages:          1,
+      numberOfImages: 1,
       model,
-      timeoutMs:               params.timeoutMs,
-      referenceImageBase64:    params.referenceImageBase64,
-      referenceImageMimeType:  params.referenceImageMimeType,
+      timeoutMs: params.timeoutMs,
+      referenceImageBase64: params.referenceImageBase64,
+      referenceImageMimeType: params.referenceImageMimeType,
     })
 
     if (result.error || !result.images.length) {
@@ -79,7 +84,7 @@ export const imagenProvider: P360ImageProvider = {
       throw new ImagenApiError(msg, result.statusCode ?? 0)
     }
 
-    const img         = result.images[0]
+    const img = result.images[0]
     const imageBuffer = Buffer.from(img.base64, 'base64')
 
     return {

@@ -11,9 +11,10 @@ export async function GET(req: NextRequest) {
 
   const dashUser = await resolveStoreUser(req)
   if (dashUser && (dashUser.role === 'admin' || dashUser.role === 'owner')) {
-    const tenantId = dashUser.role === 'owner'
-      ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
-      : dashUser.tenant_id
+    const tenantId =
+      dashUser.role === 'owner'
+        ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
+        : dashUser.tenant_id
 
     const { data, error } = await supabase
       .from('rewards_balances')
@@ -39,8 +40,8 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     balance: data ?? {
-      points_balance:           0,
-      lifetime_points_earned:   0,
+      points_balance: 0,
+      lifetime_points_earned: 0,
       lifetime_points_redeemed: 0,
     },
   })

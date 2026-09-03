@@ -37,76 +37,76 @@ import {
 export interface Product360SceneBlueprint {
   // ── Subject ───────────────────────────────────────────────────────────────
   subject: {
-    name:            string
-    description:     string
-    category:        string
-    vessel:          string         // e.g. "ceramic bowl" / "glass bottle"
-    vesselMaterial:  string         // e.g. "matte ceramic" / "borosilicate glass"
-    vesselColor:     string         // e.g. "deep charcoal grey"
-    servingSize:     string         // e.g. "standard serving, ~80% full"
-    arrangement:     string         // how food/product is placed inside/on vessel
-    keyIngredients:  string[]       // main contents visible
-    ingredients:     string[]       // alias for keyIngredients (backward compat)
-    garnish:         string[]       // garnish items
-    garnishLayout:   string         // exact placement: "2 lime wedges at 4 o'clock"
-    utensils:        string[]       // utensils related to subject (backward compat)
-    colorNotes:      string[]       // dominant colors: ["rich brown broth", "green herbs"]
-    textureNotes:    string[]       // textures: ["glossy broth", "matte ceramic rim"]
+    name: string
+    description: string
+    category: string
+    vessel: string // e.g. "ceramic bowl" / "glass bottle"
+    vesselMaterial: string // e.g. "matte ceramic" / "borosilicate glass"
+    vesselColor: string // e.g. "deep charcoal grey"
+    servingSize: string // e.g. "standard serving, ~80% full"
+    arrangement: string // how food/product is placed inside/on vessel
+    keyIngredients: string[] // main contents visible
+    ingredients: string[] // alias for keyIngredients (backward compat)
+    garnish: string[] // garnish items
+    garnishLayout: string // exact placement: "2 lime wedges at 4 o'clock"
+    utensils: string[] // utensils related to subject (backward compat)
+    colorNotes: string[] // dominant colors: ["rich brown broth", "green herbs"]
+    textureNotes: string[] // textures: ["glossy broth", "matte ceramic rim"]
   }
   // ── Environment ───────────────────────────────────────────────────────────
   environment: {
-    backgroundType:   string        // "solid" | "gradient" | "studio" | "scene"
-    backgroundColor:  string        // exact color description
-    surfaceType:      string        // "slate" | "marble" | "wood" | "fabric" | "none"
-    surfaceColor:     string        // e.g. "dark grey slate"
-    props:            string[]      // scene props with positions
-    utensils:         string[]      // utensils with positions: "white spoon at 9 o'clock"
-    reflections:      string        // surface reflection description
-    shadows:          string        // contact shadow description
+    backgroundType: string // "solid" | "gradient" | "studio" | "scene"
+    backgroundColor: string // exact color description
+    surfaceType: string // "slate" | "marble" | "wood" | "fabric" | "none"
+    surfaceColor: string // e.g. "dark grey slate"
+    props: string[] // scene props with positions
+    utensils: string[] // utensils with positions: "white spoon at 9 o'clock"
+    reflections: string // surface reflection description
+    shadows: string // contact shadow description
   }
   // ── Camera ────────────────────────────────────────────────────────────────
   camera: {
-    orbitMode:    'turntable_orbit'
-    focalLength:  string            // e.g. "70mm equivalent"
-    distance:     string            // e.g. "fixed 80cm from product center"
-    height:       string            // e.g. "eye level, 10° downward tilt"
-    pitch:        string            // e.g. "slight top-down"
-    framing:      string            // e.g. "product fills ~70% of frame height"
-    zoom:         string            // "fixed — do not change"
-    crop:         string            // e.g. "square, medium-close, centered"
-    perspective:  string            // e.g. "premium ecommerce product photography"
+    orbitMode: 'turntable_orbit'
+    focalLength: string // e.g. "70mm equivalent"
+    distance: string // e.g. "fixed 80cm from product center"
+    height: string // e.g. "eye level, 10° downward tilt"
+    pitch: string // e.g. "slight top-down"
+    framing: string // e.g. "product fills ~70% of frame height"
+    zoom: string // "fixed — do not change"
+    crop: string // e.g. "square, medium-close, centered"
+    perspective: string // e.g. "premium ecommerce product photography"
     // backward compat aliases
-    heightAngle:  string
-    focalFeel:    string
+    heightAngle: string
+    focalFeel: string
   }
   // ── Lighting ──────────────────────────────────────────────────────────────
   lighting: {
-    preset:           string
-    keyLight:         string        // e.g. "large softbox 45° front-left, warm white"
-    fillLight:        string        // e.g. "soft reflector front-right"
-    rimLight:         string        // e.g. "subtle warm rim at rear"
-    highlights:       string        // specular highlight description
-    shadowSoftness:   string        // shadow character
+    preset: string
+    keyLight: string // e.g. "large softbox 45° front-left, warm white"
+    fillLight: string // e.g. "soft reflector front-right"
+    rimLight: string // e.g. "subtle warm rim at rear"
+    highlights: string // specular highlight description
+    shadowSoftness: string // shadow character
     consistencyNotes: string
     // backward compat aliases
-    style:            string
-    direction:        string
-    shadowStyle:      string
+    style: string
+    direction: string
+    shadowStyle: string
   }
   // ── Background (backward compat) ─────────────────────────────────────────
   background: {
-    style:   string
+    style: string
     surface: string
   }
   // ── Composition flags ─────────────────────────────────────────────────────
   composition: {
-    centerSubject:             boolean
-    maintainScale:             boolean
-    maintainCrop:              boolean
-    maintainTablePosition:     boolean
-    maintainPropPlacement:     boolean
-    maintainGarnishPlacement:  boolean
-    maintainUtensilPlacement:  boolean
+    centerSubject: boolean
+    maintainScale: boolean
+    maintainCrop: boolean
+    maintainTablePosition: boolean
+    maintainPropPlacement: boolean
+    maintainGarnishPlacement: boolean
+    maintainUtensilPlacement: boolean
   }
   // ── Consistency rule set ──────────────────────────────────────────────────
   /** Can be either the legacy string[] OR the new object. Both supported. */
@@ -119,41 +119,41 @@ export interface Product360SceneBlueprint {
    *  instead of the looser subject/environment fields above. */
   lockedScene?: import('../../product-360/lockedSceneVariables').Product360LockedScene
   // ── Meta ──────────────────────────────────────────────────────────────────
-  consistencyMode:  'standard' | 'strict' | 'ultra_strict'
-  productCategory:  string
-  createdAt:        string
-  analysisVersion:  number    // 1=text-only, 2=vision-grounded from Gemini
+  consistencyMode: 'standard' | 'strict' | 'ultra_strict'
+  productCategory: string
+  createdAt: string
+  analysisVersion: number // 1=text-only, 2=vision-grounded from Gemini
 }
 
 /** Object form of the consistency rule set (new packages). */
 export interface Product360ConsistencyRuleSet {
-  changeOnlyAngle:          boolean
-  lockSubjectIdentity:      boolean
-  lockVessel:               boolean
-  lockIngredients:          boolean
-  lockGarnish:              boolean
-  lockBackground:           boolean
-  lockSurface:              boolean
-  lockProps:                boolean
-  lockLighting:             boolean
-  lockFraming:              boolean
-  lockZoom:                 boolean
-  lockScale:                boolean
-  prohibitNewObjects:       boolean
-  prohibitMissingObjects:   boolean
+  changeOnlyAngle: boolean
+  lockSubjectIdentity: boolean
+  lockVessel: boolean
+  lockIngredients: boolean
+  lockGarnish: boolean
+  lockBackground: boolean
+  lockSurface: boolean
+  lockProps: boolean
+  lockLighting: boolean
+  lockFraming: boolean
+  lockZoom: boolean
+  lockScale: boolean
+  prohibitNewObjects: boolean
+  prohibitMissingObjects: boolean
 }
 
 /** Vision-grounded exact details embedded inside the blueprint. */
 export interface MasterFrameAnalysisEmbed {
-  vesselExact:        string
-  arrangementExact:   string
-  garnishExact:       string
-  surfaceExact:       string
-  backgroundExact:    string
-  lightingExact:      string
-  cropExact:          string
-  utensilsExact:      string
-  rawSummary:         string
+  vesselExact: string
+  arrangementExact: string
+  garnishExact: string
+  surfaceExact: string
+  backgroundExact: string
+  lightingExact: string
+  cropExact: string
+  utensilsExact: string
+  rawSummary: string
 }
 
 /** Legacy alias — all old code referencing SceneBlueprint continues to compile. */
@@ -162,49 +162,49 @@ export type SceneBlueprint = Product360SceneBlueprint
 // ─── Preset description lookups ───────────────────────────────────────────────
 
 const LIGHTING_DESC: Record<string, string> = {
-  luxury_softbox:           'large premium softboxes, silky wrap-around light, ultra-soft shadows',
-  gold_rim_light:           'warm gold rim backlighting, golden glow on product edges',
-  clean_ecommerce_white:    'bright flat white studio, minimal shadows',
-  dramatic_black_studio:    'dark studio, high-contrast selective rim light',
-  natural_window_light:     'soft natural daylight from one side, gentle shadows',
-  neon_showcase:            'vibrant neon accent lights, colorful rim lighting',
+  luxury_softbox: 'large premium softboxes, silky wrap-around light, ultra-soft shadows',
+  gold_rim_light: 'warm gold rim backlighting, golden glow on product edges',
+  clean_ecommerce_white: 'bright flat white studio, minimal shadows',
+  dramatic_black_studio: 'dark studio, high-contrast selective rim light',
+  natural_window_light: 'soft natural daylight from one side, gentle shadows',
+  neon_showcase: 'vibrant neon accent lights, colorful rim lighting',
   warm_restaurant_tabletop: 'warm golden ambient restaurant light',
-  automotive_showroom:      'crisp dealership-quality studio lighting',
-  jewelry_macro_shine:      'intense macro sparkle, brilliant facet highlights',
-  matte_product_soft_glow:  'soft diffused warm glow, matte texture emphasis',
-  studio_soft:              'soft wraparound softboxes, gentle even shadows',
-  high_key_clean:           'high-key white, minimal shadows',
-  luxury_dramatic:          'high-contrast luxury, deep shadows, rich highlights',
-  retail_bright:            'bright commercial retail lighting',
-  natural_daylight:         'soft window light, airy atmosphere',
-  warm_food_commercial:     'warm golden food photography lighting',
-  moody_premium:            'dark background, selective rim light',
-  glossy_reflective:        'sharp specular highlights, surface sheen',
-  matte_catalog:            'flat even catalog lighting, no harsh shadows',
+  automotive_showroom: 'crisp dealership-quality studio lighting',
+  jewelry_macro_shine: 'intense macro sparkle, brilliant facet highlights',
+  matte_product_soft_glow: 'soft diffused warm glow, matte texture emphasis',
+  studio_soft: 'soft wraparound softboxes, gentle even shadows',
+  high_key_clean: 'high-key white, minimal shadows',
+  luxury_dramatic: 'high-contrast luxury, deep shadows, rich highlights',
+  retail_bright: 'bright commercial retail lighting',
+  natural_daylight: 'soft window light, airy atmosphere',
+  warm_food_commercial: 'warm golden food photography lighting',
+  moody_premium: 'dark background, selective rim light',
+  glossy_reflective: 'sharp specular highlights, surface sheen',
+  matte_catalog: 'flat even catalog lighting, no harsh shadows',
 }
 
 const BACKGROUND_DESC: Record<string, string> = {
-  pure_white:             'pure white seamless studio background',
-  soft_gray_gradient:     'soft light-grey gradient background',
-  deep_black_glass:       'near-black glossy surface background',
-  warm_beige_studio:      'warm beige linen studio backdrop',
-  luxury_gold_accent:     'rich warm gold accent background',
-  restaurant_table:       'restaurant-quality tabletop',
-  marble_surface:         'white marble with natural veining',
-  garage_showroom:        'clean garage floor setting',
-  transparent_isolated:   'clean neutral isolated background',
-  soft_gradient:          'light grey gradient background',
-  dark_luxury:            'near-black dark luxury background',
-  warm_beige:             'warm beige linen studio background',
-  restaurant_tabletop:    'restaurant tabletop, marble or slate',
-  neutral_studio:         'neutral mid-grey studio background',
+  pure_white: 'pure white seamless studio background',
+  soft_gray_gradient: 'soft light-grey gradient background',
+  deep_black_glass: 'near-black glossy surface background',
+  warm_beige_studio: 'warm beige linen studio backdrop',
+  luxury_gold_accent: 'rich warm gold accent background',
+  restaurant_table: 'restaurant-quality tabletop',
+  marble_surface: 'white marble with natural veining',
+  garage_showroom: 'clean garage floor setting',
+  transparent_isolated: 'clean neutral isolated background',
+  soft_gradient: 'light grey gradient background',
+  dark_luxury: 'near-black dark luxury background',
+  warm_beige: 'warm beige linen studio background',
+  restaurant_tabletop: 'restaurant tabletop, marble or slate',
+  neutral_studio: 'neutral mid-grey studio background',
 }
 
 const CAMERA_ANGLE_DESC: Record<string, string> = {
-  eye_level_product:     'straight-on eye level, classic product height',
-  slight_top_down:       'gently elevated (~15° down), shows top surface',
-  hero_low_angle:        'low heroic angle, slightly upward looking',
-  macro_detail:          'close macro framing',
+  eye_level_product: 'straight-on eye level, classic product height',
+  slight_top_down: 'gently elevated (~15° down), shows top surface',
+  hero_low_angle: 'low heroic angle, slightly upward looking',
+  macro_detail: 'close macro framing',
   floating_catalog_view: 'slight elevated catalog angle',
 }
 
@@ -224,9 +224,9 @@ const CAMERA_ANGLE_DESC: Record<string, string> = {
  * NEVER throws. Always returns a fully populated Product360SceneBlueprint.
  */
 export function normalizeSceneBlueprint(
-  raw:     unknown,
+  raw: unknown,
   subject: NormalizedProductSubject,
-  config:  P360GenerationConfig,
+  config: P360GenerationConfig
 ): Product360SceneBlueprint {
   const defaults = buildSceneBlueprint(subject, config)
 
@@ -237,7 +237,9 @@ export function normalizeSceneBlueprint(
     try {
       const p = JSON.parse(raw)
       if (p && typeof p === 'object' && !Array.isArray(p)) parsed = p as Record<string, unknown>
-    } catch { return defaults }
+    } catch {
+      return defaults
+    }
   } else if (typeof raw === 'object' && !Array.isArray(raw)) {
     parsed = raw as Record<string, unknown>
   } else {
@@ -247,18 +249,18 @@ export function normalizeSceneBlueprint(
   if (Object.keys(parsed).length === 0) return defaults
 
   const safeStr = (v: unknown, fb: string): string =>
-    (typeof v === 'string' && v.trim().length > 0) ? v : fb
+    typeof v === 'string' && v.trim().length > 0 ? v : fb
 
   const safeArr = (v: unknown, fb: string[]): string[] =>
-    Array.isArray(v) ? (v as unknown[]).filter(x => typeof x === 'string') as string[] : fb
+    Array.isArray(v) ? ((v as unknown[]).filter((x) => typeof x === 'string') as string[]) : fb
 
-  const rawSubj  = (parsed.subject   as Record<string, unknown> | null | undefined) ?? {}
-  const rawEnv   = (parsed.environment as Record<string, unknown> | null | undefined) ?? {}
-  const rawCam   = (parsed.camera    as Record<string, unknown> | null | undefined) ?? {}
-  const rawLit   = (parsed.lighting  as Record<string, unknown> | null | undefined) ?? {}
-  const rawBg    = (parsed.background as Record<string, unknown> | null | undefined) ?? {}
-  const rawComp  = (parsed.composition as Record<string, unknown> | null | undefined) ?? {}
-  const rawCR    = parsed.consistencyRules
+  const rawSubj = (parsed.subject as Record<string, unknown> | null | undefined) ?? {}
+  const rawEnv = (parsed.environment as Record<string, unknown> | null | undefined) ?? {}
+  const rawCam = (parsed.camera as Record<string, unknown> | null | undefined) ?? {}
+  const rawLit = (parsed.lighting as Record<string, unknown> | null | undefined) ?? {}
+  const rawBg = (parsed.background as Record<string, unknown> | null | undefined) ?? {}
+  const rawComp = (parsed.composition as Record<string, unknown> | null | undefined) ?? {}
+  const rawCR = parsed.consistencyRules
 
   // ── Subject ───────────────────────────────────────────────────────────────
   const keyIngredients = safeArr(rawSubj.keyIngredients, []) as string[]
@@ -271,102 +273,111 @@ export function normalizeSceneBlueprint(
   const mergedUtensils = envUtensils.length > 0 ? envUtensils : subjUtensils
 
   const consistencyRulesNorm: Product360ConsistencyRuleSet = {
-    changeOnlyAngle:         true,
-    lockSubjectIdentity:     true,
-    lockVessel:              true,
-    lockIngredients:         true,
-    lockGarnish:             true,
-    lockBackground:          true,
-    lockSurface:             true,
-    lockProps:               true,
-    lockLighting:            true,
-    lockFraming:             true,
-    lockZoom:                true,
-    lockScale:               true,
-    prohibitNewObjects:      true,
-    prohibitMissingObjects:  true,
+    changeOnlyAngle: true,
+    lockSubjectIdentity: true,
+    lockVessel: true,
+    lockIngredients: true,
+    lockGarnish: true,
+    lockBackground: true,
+    lockSurface: true,
+    lockProps: true,
+    lockLighting: true,
+    lockFraming: true,
+    lockZoom: true,
+    lockScale: true,
+    prohibitNewObjects: true,
+    prohibitMissingObjects: true,
   }
   // If old string[] rules exist, preserve them as-is (still used by buildLockedGenerationPrompt)
-  const consistencyRules = (Array.isArray(rawCR) && rawCR.length > 0)
-    ? rawCR as string[]
-    : typeof rawCR === 'object' && rawCR !== null
-      ? rawCR as Product360ConsistencyRuleSet
-      : consistencyRulesNorm
+  const consistencyRules =
+    Array.isArray(rawCR) && rawCR.length > 0
+      ? (rawCR as string[])
+      : typeof rawCR === 'object' && rawCR !== null
+        ? (rawCR as Product360ConsistencyRuleSet)
+        : consistencyRulesNorm
 
   const rawAnalysis = parsed.masterFrameAnalysis as MasterFrameAnalysisEmbed | null | undefined
 
   return {
     subject: {
-      name:           safeStr(rawSubj.name,           defaults.subject.name),
-      description:    safeStr(rawSubj.description,    defaults.subject.description),
-      category:       safeStr(rawSubj.category,       defaults.subject.category),
-      vessel:         safeStr(rawSubj.vessel,         defaults.subject.vessel),
+      name: safeStr(rawSubj.name, defaults.subject.name),
+      description: safeStr(rawSubj.description, defaults.subject.description),
+      category: safeStr(rawSubj.category, defaults.subject.category),
+      vessel: safeStr(rawSubj.vessel, defaults.subject.vessel),
       vesselMaterial: safeStr(rawSubj.vesselMaterial, defaults.subject.vesselMaterial),
-      vesselColor:    safeStr(rawSubj.vesselColor,    defaults.subject.vesselColor),
-      servingSize:    safeStr(rawSubj.servingSize,    defaults.subject.servingSize),
-      arrangement:    safeStr(rawSubj.arrangement,    defaults.subject.arrangement),
-      keyIngredients: mergedIngredients.length > 0 ? mergedIngredients : defaults.subject.keyIngredients,
-      ingredients:    mergedIngredients.length > 0 ? mergedIngredients : defaults.subject.keyIngredients,
-      garnish:        safeArr(rawSubj.garnish,        defaults.subject.garnish),
-      garnishLayout:  safeStr(rawSubj.garnishLayout,  defaults.subject.garnishLayout),
-      utensils:       subjUtensils.length > 0 ? subjUtensils : defaults.subject.utensils,
-      colorNotes:     safeArr(rawSubj.colorNotes,     defaults.subject.colorNotes),
-      textureNotes:   safeArr(rawSubj.textureNotes,   defaults.subject.textureNotes),
+      vesselColor: safeStr(rawSubj.vesselColor, defaults.subject.vesselColor),
+      servingSize: safeStr(rawSubj.servingSize, defaults.subject.servingSize),
+      arrangement: safeStr(rawSubj.arrangement, defaults.subject.arrangement),
+      keyIngredients:
+        mergedIngredients.length > 0 ? mergedIngredients : defaults.subject.keyIngredients,
+      ingredients:
+        mergedIngredients.length > 0 ? mergedIngredients : defaults.subject.keyIngredients,
+      garnish: safeArr(rawSubj.garnish, defaults.subject.garnish),
+      garnishLayout: safeStr(rawSubj.garnishLayout, defaults.subject.garnishLayout),
+      utensils: subjUtensils.length > 0 ? subjUtensils : defaults.subject.utensils,
+      colorNotes: safeArr(rawSubj.colorNotes, defaults.subject.colorNotes),
+      textureNotes: safeArr(rawSubj.textureNotes, defaults.subject.textureNotes),
     },
     environment: {
-      backgroundType:  safeStr(rawEnv.backgroundType,  defaults.environment.backgroundType),
+      backgroundType: safeStr(rawEnv.backgroundType, defaults.environment.backgroundType),
       backgroundColor: safeStr(rawEnv.backgroundColor, defaults.environment.backgroundColor),
-      surfaceType:     safeStr(rawEnv.surfaceType,     defaults.environment.surfaceType),
-      surfaceColor:    safeStr(rawEnv.surfaceColor,    defaults.environment.surfaceColor),
-      props:           safeArr(rawEnv.props,           defaults.environment.props),
-      utensils:        mergedUtensils.length > 0 ? mergedUtensils : defaults.environment.utensils,
-      reflections:     safeStr(rawEnv.reflections,    defaults.environment.reflections),
-      shadows:         safeStr(rawEnv.shadows,        defaults.environment.shadows),
+      surfaceType: safeStr(rawEnv.surfaceType, defaults.environment.surfaceType),
+      surfaceColor: safeStr(rawEnv.surfaceColor, defaults.environment.surfaceColor),
+      props: safeArr(rawEnv.props, defaults.environment.props),
+      utensils: mergedUtensils.length > 0 ? mergedUtensils : defaults.environment.utensils,
+      reflections: safeStr(rawEnv.reflections, defaults.environment.reflections),
+      shadows: safeStr(rawEnv.shadows, defaults.environment.shadows),
     },
     camera: {
-      orbitMode:   'turntable_orbit',
+      orbitMode: 'turntable_orbit',
       focalLength: safeStr(rawCam.focalLength, defaults.camera.focalLength),
-      distance:    safeStr(rawCam.distance,    defaults.camera.distance),
-      height:      safeStr(rawCam.height,      defaults.camera.height),
-      pitch:       safeStr(rawCam.pitch,       defaults.camera.pitch),
-      framing:     safeStr(rawCam.framing,     defaults.camera.framing),
-      zoom:        safeStr(rawCam.zoom,        defaults.camera.zoom),
-      crop:        safeStr(rawCam.crop,        defaults.camera.crop),
+      distance: safeStr(rawCam.distance, defaults.camera.distance),
+      height: safeStr(rawCam.height, defaults.camera.height),
+      pitch: safeStr(rawCam.pitch, defaults.camera.pitch),
+      framing: safeStr(rawCam.framing, defaults.camera.framing),
+      zoom: safeStr(rawCam.zoom, defaults.camera.zoom),
+      crop: safeStr(rawCam.crop, defaults.camera.crop),
       perspective: safeStr(rawCam.perspective, defaults.camera.perspective),
       heightAngle: safeStr(rawCam.heightAngle ?? rawCam.height, defaults.camera.heightAngle),
-      focalFeel:   safeStr(rawCam.focalFeel ?? rawCam.focalLength, defaults.camera.focalFeel),
+      focalFeel: safeStr(rawCam.focalFeel ?? rawCam.focalLength, defaults.camera.focalFeel),
     },
     lighting: {
-      preset:           safeStr(rawLit.preset,           defaults.lighting.preset),
-      keyLight:         safeStr(rawLit.keyLight,         defaults.lighting.keyLight),
-      fillLight:        safeStr(rawLit.fillLight,        defaults.lighting.fillLight),
-      rimLight:         safeStr(rawLit.rimLight,         defaults.lighting.rimLight),
-      highlights:       safeStr(rawLit.highlights,       defaults.lighting.highlights),
-      shadowSoftness:   safeStr(rawLit.shadowSoftness,   defaults.lighting.shadowSoftness),
+      preset: safeStr(rawLit.preset, defaults.lighting.preset),
+      keyLight: safeStr(rawLit.keyLight, defaults.lighting.keyLight),
+      fillLight: safeStr(rawLit.fillLight, defaults.lighting.fillLight),
+      rimLight: safeStr(rawLit.rimLight, defaults.lighting.rimLight),
+      highlights: safeStr(rawLit.highlights, defaults.lighting.highlights),
+      shadowSoftness: safeStr(rawLit.shadowSoftness, defaults.lighting.shadowSoftness),
       consistencyNotes: safeStr(rawLit.consistencyNotes, defaults.lighting.consistencyNotes),
-      style:            safeStr(rawLit.style ?? rawLit.keyLight, defaults.lighting.style),
-      direction:        safeStr(rawLit.direction,        defaults.lighting.direction),
-      shadowStyle:      safeStr(rawLit.shadowStyle ?? rawLit.shadowSoftness, defaults.lighting.shadowStyle),
+      style: safeStr(rawLit.style ?? rawLit.keyLight, defaults.lighting.style),
+      direction: safeStr(rawLit.direction, defaults.lighting.direction),
+      shadowStyle: safeStr(
+        rawLit.shadowStyle ?? rawLit.shadowSoftness,
+        defaults.lighting.shadowStyle
+      ),
     },
     background: {
-      style:   safeStr(rawBg.style ?? rawEnv.backgroundColor, defaults.background.style),
-      surface: safeStr(rawBg.surface ?? rawEnv.surfaceColor,  defaults.background.surface),
+      style: safeStr(rawBg.style ?? rawEnv.backgroundColor, defaults.background.style),
+      surface: safeStr(rawBg.surface ?? rawEnv.surfaceColor, defaults.background.surface),
     },
     composition: {
-      centerSubject:            !!(rawComp.centerSubject            ?? true),
-      maintainScale:            !!(rawComp.maintainScale            ?? true),
-      maintainCrop:             !!(rawComp.maintainCrop             ?? true),
-      maintainTablePosition:    !!(rawComp.maintainTablePosition    ?? true),
-      maintainPropPlacement:    !!(rawComp.maintainPropPlacement    ?? true),
+      centerSubject: !!(rawComp.centerSubject ?? true),
+      maintainScale: !!(rawComp.maintainScale ?? true),
+      maintainCrop: !!(rawComp.maintainCrop ?? true),
+      maintainTablePosition: !!(rawComp.maintainTablePosition ?? true),
+      maintainPropPlacement: !!(rawComp.maintainPropPlacement ?? true),
       maintainGarnishPlacement: !!(rawComp.maintainGarnishPlacement ?? true),
       maintainUtensilPlacement: !!(rawComp.maintainUtensilPlacement ?? true),
     },
     consistencyRules,
     masterFrameAnalysis: rawAnalysis ?? undefined,
-    consistencyMode: (parsed.consistencyMode === 'standard') ? 'standard' : 'strict',
+    consistencyMode: parsed.consistencyMode === 'standard' ? 'standard' : 'strict',
     productCategory: safeStr(parsed.productCategory, defaults.productCategory),
-    createdAt:       safeStr(parsed.createdAt,       defaults.createdAt),
-    analysisVersion: typeof parsed.analysisVersion === 'number' ? parsed.analysisVersion : defaults.analysisVersion,
+    createdAt: safeStr(parsed.createdAt, defaults.createdAt),
+    analysisVersion:
+      typeof parsed.analysisVersion === 'number'
+        ? parsed.analysisVersion
+        : defaults.analysisVersion,
   }
 }
 
@@ -379,70 +390,93 @@ export function normalizeSceneBlueprint(
  */
 export function buildSceneBlueprint(
   subject: NormalizedProductSubject,
-  config:  P360GenerationConfig,
+  config: P360GenerationConfig
 ): Product360SceneBlueprint {
-  const lightingPreset  = config.lightingPreset ?? ''
-  const bgPreset        = config.backgroundPreset ?? ''
-  const cameraPreset    = config.cameraPreset ?? ''
+  const lightingPreset = config.lightingPreset ?? ''
+  const bgPreset = config.backgroundPreset ?? ''
+  const cameraPreset = config.cameraPreset ?? ''
 
-  const lightingDesc  = LIGHTING_DESC[lightingPreset]  ?? 'professional studio lighting, controlled softboxes'
-  const bgDesc        = BACKGROUND_DESC[bgPreset]      ?? 'clean neutral studio background'
-  const cameraAngle   = CAMERA_ANGLE_DESC[cameraPreset] ?? 'eye level or slight top-down angle'
+  const lightingDesc =
+    LIGHTING_DESC[lightingPreset] ?? 'professional studio lighting, controlled softboxes'
+  const bgDesc = BACKGROUND_DESC[bgPreset] ?? 'clean neutral studio background'
+  const cameraAngle = CAMERA_ANGLE_DESC[cameraPreset] ?? 'eye level or slight top-down angle'
 
-  const isFood     = subject.productCategory === 'food_bowl'
+  const isFood = subject.productCategory === 'food_bowl'
   const isBeverage = subject.productCategory === 'beverage'
   const isPackaged = subject.productCategory === 'packaged_product'
-  const isJewelry  = subject.productCategory === 'jewelry'
+  const isJewelry = subject.productCategory === 'jewelry'
 
   // Derive vessel specifics
-  const vesselMaterial = isFood     ? 'ceramic or glazed stoneware'
-                       : isBeverage ? 'glass or ceramic'
-                       : 'manufacturer original material'
+  const vesselMaterial = isFood
+    ? 'ceramic or glazed stoneware'
+    : isBeverage
+      ? 'glass or ceramic'
+      : 'manufacturer original material'
 
-  const vesselColor    = 'natural product color'
+  const vesselColor = 'natural product color'
 
-  const servingSize    = isFood     ? 'standard serving portion, approximately 70-85% full'
-                       : isBeverage ? 'poured to standard serving level'
-                       : 'as delivered/packaged'
+  const servingSize = isFood
+    ? 'standard serving portion, approximately 70-85% full'
+    : isBeverage
+      ? 'poured to standard serving level'
+      : 'as delivered/packaged'
 
-  const arrangement    = isFood
+  const arrangement = isFood
     ? 'ingredients naturally arranged, garnish prominently placed'
     : isBeverage
-    ? 'liquid filled to serving level, any garnish placed'
-    : 'product in natural display orientation'
+      ? 'liquid filled to serving level, any garnish placed'
+      : 'product in natural display orientation'
 
   const garnishLayout = subject.garnish.length
     ? `${subject.garnish.join(', ')} arranged decoratively`
     : 'no garnish'
 
   // Surface type from background preset
-  const surfaceType  = bgPreset.includes('marble')     ? 'marble'
-                     : bgPreset.includes('restaurant')  ? 'restaurant tabletop'
-                     : bgPreset.includes('garage')      ? 'concrete floor'
-                     : bgPreset.includes('beige')       ? 'linen fabric'
-                     : bgPreset.includes('dark_luxury') ? 'dark glossy surface'
-                     : bgPreset.includes('white')       ? 'white surface'
-                     : 'studio surface'
+  const surfaceType = bgPreset.includes('marble')
+    ? 'marble'
+    : bgPreset.includes('restaurant')
+      ? 'restaurant tabletop'
+      : bgPreset.includes('garage')
+        ? 'concrete floor'
+        : bgPreset.includes('beige')
+          ? 'linen fabric'
+          : bgPreset.includes('dark_luxury')
+            ? 'dark glossy surface'
+            : bgPreset.includes('white')
+              ? 'white surface'
+              : 'studio surface'
 
-  const surfaceColor = bgPreset.includes('marble')     ? 'white marble with grey veining'
-                     : bgPreset.includes('beige')       ? 'warm beige linen'
-                     : bgPreset.includes('dark')        ? 'dark neutral'
-                     : bgPreset.includes('white')       ? 'pure white'
-                     : 'neutral grey'
+  const surfaceColor = bgPreset.includes('marble')
+    ? 'white marble with grey veining'
+    : bgPreset.includes('beige')
+      ? 'warm beige linen'
+      : bgPreset.includes('dark')
+        ? 'dark neutral'
+        : bgPreset.includes('white')
+          ? 'pure white'
+          : 'neutral grey'
 
-  const bgType  = bgPreset.includes('gradient') ? 'gradient'
-                : bgPreset.includes('scene')     ? 'scene'
-                : bgPreset.includes('white')     ? 'solid white'
-                : bgPreset.includes('dark')      ? 'solid dark'
-                : 'solid studio'
+  const bgType = bgPreset.includes('gradient')
+    ? 'gradient'
+    : bgPreset.includes('scene')
+      ? 'scene'
+      : bgPreset.includes('white')
+        ? 'solid white'
+        : bgPreset.includes('dark')
+          ? 'solid dark'
+          : 'solid studio'
 
   const bgColor = bgDesc
 
   // Camera height
-  const height  = cameraPreset === 'hero_low_angle'   ? 'low angle, looking slightly up'
-                : cameraPreset === 'slight_top_down'  ? 'elevated, ~15° downward'
-                : cameraPreset === 'macro_detail'     ? 'eye level, close macro'
-                : 'slightly above product center line, gentle downward tilt'
+  const height =
+    cameraPreset === 'hero_low_angle'
+      ? 'low angle, looking slightly up'
+      : cameraPreset === 'slight_top_down'
+        ? 'elevated, ~15° downward'
+        : cameraPreset === 'macro_detail'
+          ? 'eye level, close macro'
+          : 'slightly above product center line, gentle downward tilt'
 
   // Consistency rules (as string array — converted to object later)
   const consistencyRules: string[] = [
@@ -462,7 +496,9 @@ export function buildSceneBlueprint(
     consistencyRules.push(`do not change ingredient composition: ${subject.ingredients.join(', ')}`)
   }
   if (subject.garnish.length) {
-    consistencyRules.push(`do not change garnish: same ${subject.garnish.join(', ')} in every frame`)
+    consistencyRules.push(
+      `do not change garnish: same ${subject.garnish.join(', ')} in every frame`
+    )
   }
   if (subject.utensils.length) {
     consistencyRules.push(`do not move utensils: ${subject.utensils.join(', ')} stay fixed`)
@@ -474,103 +510,112 @@ export function buildSceneBlueprint(
       'do not change the broth or liquid fill level',
       'do not change the portion size or food density',
       'do not alter ingredient textures, colors, or shapes',
-      'lime/citrus wedges: identical size, cut, and placement in every frame',
+      'lime/citrus wedges: identical size, cut, and placement in every frame'
     )
   }
   if (isBeverage) {
     consistencyRules.push(
       'do not change the liquid level',
-      'do not change condensation or surface appearance',
+      'do not change condensation or surface appearance'
     )
   }
   if (isPackaged) {
     consistencyRules.push(
       'do not change label visibility relative to camera',
       'do not change packaging dimensions or proportions',
-      'do not change reflections on the packaging',
+      'do not change reflections on the packaging'
     )
   }
   if (isJewelry) {
     consistencyRules.push(
       'do not change gem/metal surface appearance',
       'do not change ring/chain/stone proportions',
-      'do not change specular highlights on metal or gems',
+      'do not change specular highlights on metal or gems'
     )
   }
 
   // Lighting breakdown
-  const keyLight      = lightingDesc
-  const fillLight     = 'soft fill reflector, maintaining shadow depth'
-  const rimLight      = 'subtle warm rim light at rear, separating product from background'
-  const highlights    = isJewelry ? 'brilliant specular facet highlights, gem fire' : 'controlled premium product highlights'
-  const shadowSoft    = config.shadowStrength != null
-    ? (config.shadowStrength < 0.3 ? 'minimal, barely-there shadows'
-     : config.shadowStrength > 0.7 ? 'strong dramatic shadows' : 'moderate soft contact shadows')
-    : 'soft natural contact shadows'
+  const keyLight = lightingDesc
+  const fillLight = 'soft fill reflector, maintaining shadow depth'
+  const rimLight = 'subtle warm rim light at rear, separating product from background'
+  const highlights = isJewelry
+    ? 'brilliant specular facet highlights, gem fire'
+    : 'controlled premium product highlights'
+  const shadowSoft =
+    config.shadowStrength != null
+      ? config.shadowStrength < 0.3
+        ? 'minimal, barely-there shadows'
+        : config.shadowStrength > 0.7
+          ? 'strong dramatic shadows'
+          : 'moderate soft contact shadows'
+      : 'soft natural contact shadows'
 
   return {
     subject: {
-      name:           subject.name,
-      description:    subject.rawDescription ?? '',
-      category:       subject.productCategory,
-      vessel:         subject.vessel,
+      name: subject.name,
+      description: subject.rawDescription ?? '',
+      category: subject.productCategory,
+      vessel: subject.vessel,
       vesselMaterial,
       vesselColor,
       servingSize,
       arrangement,
       keyIngredients: subject.ingredients,
-      ingredients:    subject.ingredients,
-      garnish:        subject.garnish,
+      ingredients: subject.ingredients,
+      garnish: subject.garnish,
       garnishLayout,
-      utensils:       subject.utensils,
-      colorNotes:     [],
-      textureNotes:   [],
+      utensils: subject.utensils,
+      colorNotes: [],
+      textureNotes: [],
     },
     environment: {
-      backgroundType:  bgType,
+      backgroundType: bgType,
       backgroundColor: bgColor,
       surfaceType,
       surfaceColor,
-      props:      [],
-      utensils:   subject.utensils,
+      props: [],
+      utensils: subject.utensils,
       reflections: 'subtle controlled surface reflections',
-      shadows:     shadowSoft,
+      shadows: shadowSoft,
     },
     camera: {
-      orbitMode:   'turntable_orbit',
+      orbitMode: 'turntable_orbit',
       focalLength: '70mm-equivalent product lens (moderate telephoto)',
-      distance:    config.cameraDistance != null ? `${config.cameraDistance} units fixed` : 'fixed medium product distance',
+      distance:
+        config.cameraDistance != null
+          ? `${config.cameraDistance} units fixed`
+          : 'fixed medium product distance',
       height,
-      pitch:       cameraPreset === 'slight_top_down' ? '15° downward' : 'slight downward tilt',
-      framing:     `${subject.name} fills approximately 65-75% of frame height, perfectly centered`,
-      zoom:        'fixed — do not zoom in or out',
-      crop:        'medium-close centered square crop',
+      pitch: cameraPreset === 'slight_top_down' ? '15° downward' : 'slight downward tilt',
+      framing: `${subject.name} fills approximately 65-75% of frame height, perfectly centered`,
+      zoom: 'fixed — do not zoom in or out',
+      crop: 'medium-close centered square crop',
       perspective: 'premium ecommerce product photography',
       heightAngle: height,
-      focalFeel:   '70mm-equivalent commercial product shot',
+      focalFeel: '70mm-equivalent commercial product shot',
     },
     lighting: {
-      preset:           lightingPreset || 'studio_soft',
+      preset: lightingPreset || 'studio_soft',
       keyLight,
       fillLight,
       rimLight,
       highlights,
-      shadowSoftness:   shadowSoft,
+      shadowSoftness: shadowSoft,
       consistencyNotes: 'single dominant light direction, does NOT move between frames',
-      style:            keyLight,
-      direction:        'fixed — lighting direction does not move',
-      shadowStyle:      shadowSoft,
+      style: keyLight,
+      direction: 'fixed — lighting direction does not move',
+      shadowStyle: shadowSoft,
     },
     background: {
-      style:   bgDesc,
+      style: bgDesc,
       surface: surfaceType,
     },
     composition: {
-      centerSubject:            true,
-      maintainScale:            true,
-      maintainCrop:             true,
-      maintainTablePosition:    true,
-      maintainPropPlacement:    true,
+      centerSubject: true,
+      maintainScale: true,
+      maintainCrop: true,
+      maintainTablePosition: true,
+      maintainPropPlacement: true,
       maintainGarnishPlacement: true,
       maintainUtensilPlacement: true,
     },
@@ -578,7 +623,7 @@ export function buildSceneBlueprint(
     masterFrameAnalysis: undefined,
     consistencyMode: 'strict',
     productCategory: subject.productCategory,
-    createdAt:       new Date().toISOString(),
+    createdAt: new Date().toISOString(),
     analysisVersion: 1,
   }
 }
@@ -594,12 +639,12 @@ export function buildSceneBlueprint(
  */
 export function enrichBlueprintWithAnalysis(
   blueprint: Product360SceneBlueprint,
-  analysis:  MasterFrameAnalysisEmbed,
+  analysis: MasterFrameAnalysisEmbed
 ): Product360SceneBlueprint {
   return {
     ...blueprint,
     masterFrameAnalysis: analysis,
-    analysisVersion:     2,
+    analysisVersion: 2,
   }
 }
 
@@ -614,9 +659,9 @@ export function enrichBlueprintWithAnalysis(
  * from the actual generated master frame are included for maximum specificity.
  */
 export function buildLockedGenerationPrompt(
-  subject:   NormalizedProductSubject,
-  config:    P360GenerationConfig,
-  blueprint: Product360SceneBlueprint,
+  subject: NormalizedProductSubject,
+  config: P360GenerationConfig,
+  blueprint: Product360SceneBlueprint
 ): string {
   // ── Locked scene contract takes highest priority ────────────────────────────
   // When a Product360LockedScene has been built by sceneContractBuilder,
@@ -626,14 +671,16 @@ export function buildLockedGenerationPrompt(
   }
 
   const analysis = blueprint.masterFrameAnalysis
-  const isFood   = blueprint.productCategory === 'food_bowl' || subject.productCategory === 'food_bowl'
-  const isBev    = blueprint.productCategory === 'beverage'  || subject.productCategory === 'beverage'
+  const isFood =
+    blueprint.productCategory === 'food_bowl' || subject.productCategory === 'food_bowl'
+  const isBev = blueprint.productCategory === 'beverage' || subject.productCategory === 'beverage'
 
   const vesselStr = analysis?.vesselExact
     ? analysis.vesselExact
     : [
         blueprint.subject.vessel,
-        blueprint.subject.vesselMaterial && blueprint.subject.vesselMaterial !== 'manufacturer original material'
+        blueprint.subject.vesselMaterial &&
+        blueprint.subject.vesselMaterial !== 'manufacturer original material'
           ? `(${blueprint.subject.vesselMaterial})`
           : '',
         blueprint.subject.vesselColor && blueprint.subject.vesselColor !== 'natural product color'
@@ -642,7 +689,9 @@ export function buildLockedGenerationPrompt(
         blueprint.subject.servingSize && !blueprint.subject.servingSize.startsWith('as ')
           ? `, ${blueprint.subject.servingSize}`
           : '',
-      ].filter(Boolean).join(' ')
+      ]
+        .filter(Boolean)
+        .join(' ')
 
   const surfaceStr = analysis?.surfaceExact
     ? analysis.surfaceExact
@@ -654,7 +703,11 @@ export function buildLockedGenerationPrompt(
 
   const lightingStr = analysis?.lightingExact
     ? analysis.lightingExact
-    : [blueprint.lighting.keyLight, `fill: ${blueprint.lighting.fillLight}`, `rim: ${blueprint.lighting.rimLight}`].join('; ')
+    : [
+        blueprint.lighting.keyLight,
+        `fill: ${blueprint.lighting.fillLight}`,
+        `rim: ${blueprint.lighting.rimLight}`,
+      ].join('; ')
 
   const cropStr = analysis?.cropExact
     ? analysis.cropExact
@@ -673,7 +726,7 @@ export function buildLockedGenerationPrompt(
     : [...blueprint.subject.utensils, ...blueprint.environment.utensils].filter(Boolean).join(', ')
 
   const consistencyRules: string[] = Array.isArray(blueprint.consistencyRules)
-    ? blueprint.consistencyRules as string[]
+    ? (blueprint.consistencyRules as string[])
     : [
         `do not change the ${blueprint.subject.vessel}`,
         'do not zoom in or out between frames',
@@ -683,9 +736,10 @@ export function buildLockedGenerationPrompt(
         'only the horizontal camera orbit angle changes',
       ]
 
-  const versionNote = blueprint.analysisVersion >= 2
-    ? '  ✅ VISION-GROUNDED: Details below are extracted from the actual generated master frame.\n'
-    : '  📝 TEXT-BASED: Details are derived from product description and presets.\n'
+  const versionNote =
+    blueprint.analysisVersion >= 2
+      ? '  ✅ VISION-GROUNDED: Details below are extracted from the actual generated master frame.\n'
+      : '  📝 TEXT-BASED: Details are derived from product description and presets.\n'
 
   const lines: string[] = [
     '╔════════════════════════════════════════════════════════════════════╗',
@@ -711,7 +765,7 @@ export function buildLockedGenerationPrompt(
     '  THIS VESSEL IS IDENTICAL IN EVERY SINGLE FRAME.',
     '  Same shape. Same exact size. Same color. Same material.',
     isFood ? '  Same fill level. Same broth height. Same rim appearance.' : '',
-    isBev  ? '  Same liquid level. Same condensation. Same glass clarity.' : '',
+    isBev ? '  Same liquid level. Same condensation. Same glass clarity.' : '',
     '',
   ]
 
@@ -790,7 +844,9 @@ export function buildLockedGenerationPrompt(
   }
 
   lines.push('══════════════════════ ABSOLUTE DO-NOT-CHANGE LIST ══════════════════')
-  lines.push(`  ✕ DO NOT change the ${blueprint.subject.vessel} (same shape, size, color, material)`)
+  lines.push(
+    `  ✕ DO NOT change the ${blueprint.subject.vessel} (same shape, size, color, material)`
+  )
   lines.push('  ✕ DO NOT change the amount or arrangement of contents')
   lines.push('  ✕ DO NOT change the garnish or toppings')
   lines.push('  ✕ DO NOT change utensil positions or styles')
@@ -825,7 +881,7 @@ export function buildLockedGenerationPrompt(
     lines.push(`  ${config.generationNotes}`)
   }
 
-  return lines.filter(l => l !== null && l !== undefined).join('\n')
+  return lines.filter((l) => l !== null && l !== undefined).join('\n')
 }
 
 // ─── Stage A: Master frame prompt ─────────────────────────────────────────────
@@ -836,14 +892,15 @@ export function buildLockedGenerationPrompt(
  * It is the most important prompt — all other frames must match it exactly.
  */
 export function buildMasterFramePrompt(
-  subject:   NormalizedProductSubject,
-  config:    P360GenerationConfig,
-  blueprint: Product360SceneBlueprint,
+  subject: NormalizedProductSubject,
+  config: P360GenerationConfig,
+  blueprint: Product360SceneBlueprint
 ): string {
-  const w   = config.outputWidth  ?? 1024
-  const h   = config.outputHeight ?? 1024
-  const isFood = blueprint.productCategory === 'food_bowl' || subject.productCategory === 'food_bowl'
-  const isBev  = blueprint.productCategory === 'beverage'  || subject.productCategory === 'beverage'
+  const w = config.outputWidth ?? 1024
+  const h = config.outputHeight ?? 1024
+  const isFood =
+    blueprint.productCategory === 'food_bowl' || subject.productCategory === 'food_bowl'
+  const isBev = blueprint.productCategory === 'beverage' || subject.productCategory === 'beverage'
 
   // When a locked scene contract is available, prepend it so the master frame
   // is forced to match the planned scene from the start.
@@ -919,7 +976,9 @@ export function buildMasterFramePrompt(
     lines.push('')
   }
 
-  lines.push(`▶ SURFACE: ${blueprint.environment.surfaceType} — ${blueprint.environment.surfaceColor}`)
+  lines.push(
+    `▶ SURFACE: ${blueprint.environment.surfaceType} — ${blueprint.environment.surfaceColor}`
+  )
   lines.push(`▶ BACKGROUND: ${blueprint.environment.backgroundColor}`)
   lines.push(`▶ LIGHTING: ${blueprint.lighting.keyLight}`)
   lines.push(`  Fill: ${blueprint.lighting.fillLight}`)
@@ -970,7 +1029,7 @@ export function buildMasterFramePrompt(
   lines.push('  from all 360° angles. Avoid any compositional choices that are hard to replicate.')
   lines.push('  The simpler and more consistent the scene setup, the better the spin result.')
 
-  return lines.filter(l => l !== null && l !== undefined).join('\n')
+  return lines.filter((l) => l !== null && l !== undefined).join('\n')
 }
 
 // ─── Stage C: Locked frame prompt ─────────────────────────────────────────────
@@ -991,14 +1050,14 @@ export function buildMasterFramePrompt(
  * @param retryAttempt   0 = first attempt; increment for progressively stricter prompts
  */
 export function buildLockedFramePrompt(
-  lockedPrompt:    string,
-  blueprint:       Product360SceneBlueprint,
-  angleDeg:        number,
-  frameIndex:      number,
-  totalFrames:     number,
-  shotDirection:   string,
-  retryAttempt:    number = 0,
-  driftDetails?:   string,
+  lockedPrompt: string,
+  blueprint: Product360SceneBlueprint,
+  angleDeg: number,
+  frameIndex: number,
+  totalFrames: number,
+  shotDirection: string,
+  retryAttempt: number = 0,
+  driftDetails?: string
 ): string {
   // ── When a locked scene contract exists, use it for maximum enforcement ──────
   // This is the primary path for all new packages.
@@ -1011,13 +1070,16 @@ export function buildLockedFramePrompt(
     }
 
     // Standard frame: locked scene header + angle instruction
-    const retryBanner = retryAttempt > 0 ? [
-      '',
-      `⚠ GENERATION ATTEMPT ${retryAttempt + 1} — STRICT ENFORCEMENT MODE ⚠`,
-      'A previous attempt failed quality checks. This attempt requires exact adherence.',
-      `Product must be: "${ls.productVariant}"`,
-      '',
-    ].join('\n') : ''
+    const retryBanner =
+      retryAttempt > 0
+        ? [
+            '',
+            `⚠ GENERATION ATTEMPT ${retryAttempt + 1} — STRICT ENFORCEMENT MODE ⚠`,
+            'A previous attempt failed quality checks. This attempt requires exact adherence.',
+            `Product must be: "${ls.productVariant}"`,
+            '',
+          ].join('\n')
+        : ''
 
     return [
       retryBanner,
@@ -1043,7 +1105,9 @@ export function buildLockedFramePrompt(
       'Render this exact physical scene from the specified camera angle.',
       'Ultra-realistic professional product photography, 6K sharp detail.',
       'No text, no watermarks, no people. Premium commercial quality.',
-    ].filter(l => l !== null && l !== undefined).join('\n')
+    ]
+      .filter((l) => l !== null && l !== undefined)
+      .join('\n')
   }
 
   // ── Legacy path: blueprint without lockedScene ───────────────────────────────
@@ -1057,18 +1121,18 @@ export function buildLockedFramePrompt(
   const garnishLine = analysis?.garnishExact
     ? `  ✓ ${analysis.garnishExact}`
     : blueprint.subject.garnishLayout
-    ? `  ✓ ${blueprint.subject.garnishLayout}`
-    : blueprint.subject.garnish.length
-    ? `  ✓ ${blueprint.subject.garnish.join(', ')} in same positions`
-    : ''
+      ? `  ✓ ${blueprint.subject.garnishLayout}`
+      : blueprint.subject.garnish.length
+        ? `  ✓ ${blueprint.subject.garnish.join(', ')} in same positions`
+        : ''
 
   const utensilLine = analysis?.utensilsExact
     ? `  ✓ ${analysis.utensilsExact}`
     : blueprint.environment.utensils.length
-    ? `  ✓ ${blueprint.environment.utensils.join(', ')} at same positions`
-    : blueprint.subject.utensils.length
-    ? `  ✓ ${blueprint.subject.utensils.join(', ')} at same positions`
-    : ''
+      ? `  ✓ ${blueprint.environment.utensils.join(', ')} at same positions`
+      : blueprint.subject.utensils.length
+        ? `  ✓ ${blueprint.subject.utensils.join(', ')} at same positions`
+        : ''
 
   const surfaceLine = analysis?.surfaceExact
     ? `  ✓ ${analysis.surfaceExact}`
@@ -1087,18 +1151,21 @@ export function buildLockedFramePrompt(
     : `  ✓ ${blueprint.camera.framing}`
 
   // Retry escalation: stronger language on second/third attempts
-  const retryHeader = retryAttempt === 0 ? '' : [
-    '',
-    `⚠ GENERATION ATTEMPT ${retryAttempt + 1} — STRICTER ENFORCEMENT ⚠`,
-    'Previous attempt may have deviated from the master scene.',
-    'This attempt requires EXACT PIXEL-LEVEL FIDELITY to the locked spec below.',
-    'DO NOT deviate from any element. Match the master frame exactly.',
-    '',
-  ].join('\n')
+  const retryHeader =
+    retryAttempt === 0
+      ? ''
+      : [
+          '',
+          `⚠ GENERATION ATTEMPT ${retryAttempt + 1} — STRICTER ENFORCEMENT ⚠`,
+          'Previous attempt may have deviated from the master scene.',
+          'This attempt requires EXACT PIXEL-LEVEL FIDELITY to the locked spec below.',
+          'DO NOT deviate from any element. Match the master frame exactly.',
+          '',
+        ].join('\n')
 
-  const frameNumStr  = String(frameIndex + 1).padStart(2, ' ')
-  const totalStr     = String(totalFrames)
-  const angleStr     = String(angleDeg)
+  const frameNumStr = String(frameIndex + 1).padStart(2, ' ')
+  const totalStr = String(totalFrames)
+  const angleStr = String(angleDeg)
   const directionStr = shotDirection.toUpperCase()
 
   const lines: string[] = [
@@ -1158,14 +1225,14 @@ export function buildLockedFramePrompt(
     `The camera has orbited ${angleDeg}° clockwise. The product remains in exactly`,
     `the same physical position. This is frame ${frameIndex + 1} of ${totalFrames}`,
     'in a smooth 360° rotation sequence.',
-    `Adjacent frames at ${Math.round(angleDeg - 360/totalFrames)}° and ${Math.round(angleDeg + 360/totalFrames)}°`,
+    `Adjacent frames at ${Math.round(angleDeg - 360 / totalFrames)}° and ${Math.round(angleDeg + 360 / totalFrames)}°`,
     'must transition seamlessly with no visual jumps.',
     '',
     'Ultra-realistic professional product photography, 6K sharp detail.',
     'No text, no watermarks, no people. Premium commercial quality.',
   ]
 
-  return lines.filter(l => l !== null && l !== undefined).join('\n')
+  return lines.filter((l) => l !== null && l !== undefined).join('\n')
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -1184,28 +1251,28 @@ export function getFrameAngle(frameIndex: number, totalFrames: number): number {
  */
 export function getShotDirection(angleDeg: number): string {
   const n = ((angleDeg % 360) + 360) % 360
-  if (n === 0)    return 'front'
-  if (n < 22.5)   return 'front — slight right lean'
-  if (n < 45)     return 'front-right'
-  if (n === 45)   return 'front-right 45°'
-  if (n < 67.5)   return 'right-front'
-  if (n < 90)     return 'right-front'
-  if (n === 90)   return 'right'
-  if (n < 112.5)  return 'right-rear'
-  if (n < 135)    return 'right-rear'
-  if (n === 135)  return 'rear-right 45°'
-  if (n < 157.5)  return 'rear-right'
-  if (n < 180)    return 'rear-right'
-  if (n === 180)  return 'rear'
-  if (n < 202.5)  return 'rear-left'
-  if (n < 225)    return 'rear-left'
-  if (n === 225)  return 'rear-left 45°'
-  if (n < 247.5)  return 'left-rear'
-  if (n < 270)    return 'left-rear'
-  if (n === 270)  return 'left'
-  if (n < 292.5)  return 'left-front'
-  if (n < 315)    return 'left-front'
-  if (n === 315)  return 'front-left 45°'
-  if (n < 337.5)  return 'front-left'
+  if (n === 0) return 'front'
+  if (n < 22.5) return 'front — slight right lean'
+  if (n < 45) return 'front-right'
+  if (n === 45) return 'front-right 45°'
+  if (n < 67.5) return 'right-front'
+  if (n < 90) return 'right-front'
+  if (n === 90) return 'right'
+  if (n < 112.5) return 'right-rear'
+  if (n < 135) return 'right-rear'
+  if (n === 135) return 'rear-right 45°'
+  if (n < 157.5) return 'rear-right'
+  if (n < 180) return 'rear-right'
+  if (n === 180) return 'rear'
+  if (n < 202.5) return 'rear-left'
+  if (n < 225) return 'rear-left'
+  if (n === 225) return 'rear-left 45°'
+  if (n < 247.5) return 'left-rear'
+  if (n < 270) return 'left-rear'
+  if (n === 270) return 'left'
+  if (n < 292.5) return 'left-front'
+  if (n < 315) return 'left-front'
+  if (n === 315) return 'front-left 45°'
+  if (n < 337.5) return 'front-left'
   return 'front — slight left lean'
 }

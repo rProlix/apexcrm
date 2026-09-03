@@ -15,10 +15,7 @@ function err(code: string, message: string, status = 400) {
   return NextResponse.json({ ok: false, code, error: message }, { status })
 }
 
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
   const ctx = await getUserContext()
@@ -43,8 +40,10 @@ export async function POST(
 
   if (!invite) return err('INVITE_NOT_FOUND', 'Invite not found.', 404)
 
-  if (invite.status === 'accepted') return err('INVITE_ACCEPTED', 'This invite has already been accepted.', 409)
-  if (invite.status === 'revoked')  return err('INVITE_REVOKED',  'This invite has been revoked.', 409)
+  if (invite.status === 'accepted')
+    return err('INVITE_ACCEPTED', 'This invite has already been accepted.', 409)
+  if (invite.status === 'revoked')
+    return err('INVITE_REVOKED', 'This invite has been revoked.', 409)
 
   // Load tenant for branding + domain
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,10 +58,10 @@ export async function POST(
   // Generate fresh token (expired or still valid — always refresh for security)
   const { token, tokenHash } = generateInviteToken()
   const expires = expiresInDays(7) // standard 7-day window on resend
-  const now     = new Date()
+  const now = new Date()
   const inviteUrl = buildInviteUrl({
     token,
-    subdomain:    tenant.subdomain,
+    subdomain: tenant.subdomain,
     customDomain: tenant.custom_domain,
   })
 
@@ -70,10 +69,10 @@ export async function POST(
   const { error: updateError } = await (supabase as any)
     .from('customer_invites')
     .update({
-      token_hash:   tokenHash,
-      invite_url:   inviteUrl,
-      expires_at:   expires.toISOString(),
-      status:       'pending',
+      token_hash: tokenHash,
+      invite_url: inviteUrl,
+      expires_at: expires.toISOString(),
+      status: 'pending',
       last_sent_at: now.toISOString(),
       resend_count: (invite.resend_count ?? 0) + 1,
     })
@@ -97,44 +96,44 @@ export async function POST(
 
   const branding = tenant.branding as Record<string, string> | null | undefined
   const tpl = buildCustomerInviteEmail({
-    businessName:    tenant.name,
+    businessName: tenant.name,
     businessLogoUrl: branding?.logo_url ?? null,
     businessWebsite: tenant.custom_domain
       ? `https://${tenant.custom_domain}`
       : tenant.subdomain
         ? `https://${tenant.subdomain}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'}`
         : null,
-    primaryColor:    branding?.primary_color ?? null,
-    customerName:    invite.full_name ?? undefined,
+    primaryColor: branding?.primary_color ?? null,
+    customerName: invite.full_name ?? undefined,
     inviteUrl,
-    expiresAt:       expires,
+    expiresAt: expires,
     enabledModules: {
       appointments: modMap.get('appointments') ?? true,
-      orders:       modMap.get('store') ?? false,
-      rewards:      modMap.get('rewards') ?? false,
-      payments:     modMap.get('payments') ?? false,
+      orders: modMap.get('store') ?? false,
+      rewards: modMap.get('rewards') ?? false,
+      payments: modMap.get('payments') ?? false,
     },
   })
 
   const emailResult = await sendEmail({
-    to:       invite.email,
-    subject:  tpl.subject,
-    html:     tpl.html,
-    text:     tpl.text,
+    to: invite.email,
+    subject: tpl.subject,
+    html: tpl.html,
+    text: tpl.text,
     category: 'invite',
     tenantId,
-    fromName: tenant.name,   // white-label: business name as From display name
+    fromName: tenant.name, // white-label: business name as From display name
     metadata: { inviteId: id, customerId: invite.customer_id },
   })
 
   return NextResponse.json({
-    ok:        true,
+    ok: true,
     emailSent: emailResult.success,
     emailError: !emailResult.success ? (emailResult.error ?? 'EMAIL_SEND_FAILED') : undefined,
     invite: {
       id,
-      email:     invite.email,
-      status:    'pending',
+      email: invite.email,
+      status: 'pending',
       expiresAt: expires.toISOString(),
       inviteUrl,
     },

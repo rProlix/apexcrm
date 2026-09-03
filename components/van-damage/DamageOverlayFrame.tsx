@@ -68,11 +68,7 @@ export function DamageOverlayFrame({
   const invalidCount = resolved.length - valid.length
 
   useEffect(() => {
-    if (
-      nearViewport ||
-      !containerRef.current ||
-      typeof IntersectionObserver === 'undefined'
-    ) {
+    if (nearViewport || !containerRef.current || typeof IntersectionObserver === 'undefined') {
       if (!nearViewport) setNearViewport(true)
       return
     }
@@ -83,7 +79,7 @@ export function DamageOverlayFrame({
           observer.disconnect()
         }
       },
-      { rootMargin: '400px 0px' },
+      { rootMargin: '400px 0px' }
     )
     observer.observe(containerRef.current)
     return () => observer.disconnect()

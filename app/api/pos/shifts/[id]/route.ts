@@ -11,7 +11,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const { id: shiftId } = await params
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -25,7 +27,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     .single()
 
   if (!shift) return NextResponse.json({ error: 'Shift not found' }, { status: 404 })
-  if (shift.status !== 'open') return NextResponse.json({ error: 'Shift is not open' }, { status: 400 })
+  if (shift.status !== 'open')
+    return NextResponse.json({ error: 'Shift is not open' }, { status: 400 })
 
   // Calculate expected cash from payments during this shift
   const { data: payments } = await supabase
@@ -35,21 +38,24 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     .eq('payment_method', 'cash')
     .eq('status', 'paid')
 
-  const cashPayments = (payments ?? []).reduce((s: number, p: { amount_cents: number }) => s + p.amount_cents, 0)
+  const cashPayments = (payments ?? []).reduce(
+    (s: number, p: { amount_cents: number }) => s + p.amount_cents,
+    0
+  )
   const expectedCash = shift.starting_cash_cents + cashPayments
-  const countedCash  = typeof body.counted_cash_cents === 'number' ? body.counted_cash_cents : null
-  const difference   = countedCash !== null ? countedCash - expectedCash : null
+  const countedCash = typeof body.counted_cash_cents === 'number' ? body.counted_cash_cents : null
+  const difference = countedCash !== null ? countedCash - expectedCash : null
 
   const { data, error } = await supabase
     .from('pos_shifts')
     .update({
-      status:               'closed',
-      closed_by:            user.id,
-      closed_at:            new Date().toISOString(),
-      expected_cash_cents:  expectedCash,
-      counted_cash_cents:   countedCash,
+      status: 'closed',
+      closed_by: user.id,
+      closed_at: new Date().toISOString(),
+      expected_cash_cents: expectedCash,
+      counted_cash_cents: countedCash,
       cash_difference_cents: difference,
-      notes:                body.notes ?? null,
+      notes: body.notes ?? null,
     })
     .eq('id', shiftId)
     .eq('tenant_id', user.tenant_id)

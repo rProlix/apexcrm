@@ -6,11 +6,11 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getDefaultModuleState } from '@/lib/modules/defaultModules'
 
 export interface CustomerPortalModules {
-  appointments: boolean  // appointments module
-  orders:       boolean  // store / ecommerce module → order history
-  rewards:      boolean  // rewards module
-  payments:     boolean  // payments module
-  profile:      boolean  // always true
+  appointments: boolean // appointments module
+  orders: boolean // store / ecommerce module → order history
+  rewards: boolean // rewards module
+  payments: boolean // payments module
+  profile: boolean // always true
 }
 
 /**
@@ -40,9 +40,9 @@ export async function getCustomerPortalModules(tenantId: string): Promise<Custom
 
   return {
     appointments: isEnabled('appointments'),
-    orders:       isEnabled('store'),
-    rewards:      isEnabled('rewards'),
-    payments:     isEnabled('payments'),
-    profile:      true, // always available
+    orders: isEnabled('store'),
+    rewards: isEnabled('rewards'),
+    payments: isEnabled('payments'),
+    profile: true, // always available
   }
 }

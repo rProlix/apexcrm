@@ -8,11 +8,11 @@
 export {
   type ImagenAspectRatio as WebsiteImageAspectRatio,
   SUPPORTED_IMAGEN_ASPECT_RATIOS as SUPPORTED_ASPECT_RATIOS,
-  DEFAULT_IMAGEN_ASPECT_RATIO    as DEFAULT_ASPECT_RATIO,
+  DEFAULT_IMAGEN_ASPECT_RATIO as DEFAULT_ASPECT_RATIO,
   ASPECT_RATIO_LABELS,
-  normalizeImagenAspectRatio     as normalizeAspectRatio,
+  normalizeImagenAspectRatio as normalizeAspectRatio,
   getDefaultAspectRatioForSection,
-  isValidImagenAspectRatio       as isValidAspectRatio,
+  isValidImagenAspectRatio as isValidAspectRatio,
   getAspectRatioNormalizationNote,
 } from '@/lib/website-ai/imagenAspectRatios'
 

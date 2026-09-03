@@ -45,51 +45,51 @@ Then visit `http://rentalco.localhost:3000`.
 
 ## Scripts
 
-| Command        | Description              |
-|----------------|--------------------------|
-| `npm run dev`  | Start dev server         |
-| `npm run build`| Production build         |
-| `npm run start`| Start production server  |
-| `npm run lint` | Run ESLint               |
-| `npm run format`| Format with Prettier    |
+| Command          | Description             |
+| ---------------- | ----------------------- |
+| `npm run dev`    | Start dev server        |
+| `npm run build`  | Production build        |
+| `npm run start`  | Start production server |
+| `npm run lint`   | Run ESLint              |
+| `npm run format` | Format with Prettier    |
 
 ## 360 Product Studio — Required Environment Variables
 
 ### Standard AI provider compatibility
 
-| Variable | Required | Description |
-|---|---|---|
-| `GEMINI_API_KEY` | Yes | Legacy-compatible server-side AI provider credential used for text planning and image generation. |
-| `GOOGLE_API_KEY` | Alt | Alternative to `GEMINI_API_KEY` (same key). |
-| `P360_IMAGEN_MODEL` | No | Legacy-compatible server-side image model identifier. |
-| `P360_PLANNER_MODEL` | No | Legacy-compatible server-side planning model identifier. |
-| `P360_VISION_MODEL` | No | Legacy-compatible server-side vision model identifier. |
-| `GEMINI_360_MODEL` | No | Legacy-compatible server-side model identifier. |
-| `P360_CONSISTENCY_THRESHOLD` | No | Consistency score threshold 0–100 (default: 70). |
-| `P360_FRAME_MAX_RETRIES` | No | Max retries per frame on drift detection (default: 2). |
+| Variable                     | Required | Description                                                                                       |
+| ---------------------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`             | Yes      | Legacy-compatible server-side AI provider credential used for text planning and image generation. |
+| `GOOGLE_API_KEY`             | Alt      | Alternative to `GEMINI_API_KEY` (same key).                                                       |
+| `P360_IMAGEN_MODEL`          | No       | Legacy-compatible server-side image model identifier.                                             |
+| `P360_PLANNER_MODEL`         | No       | Legacy-compatible server-side planning model identifier.                                          |
+| `P360_VISION_MODEL`          | No       | Legacy-compatible server-side vision model identifier.                                            |
+| `GEMINI_360_MODEL`           | No       | Legacy-compatible server-side model identifier.                                                   |
+| `P360_CONSISTENCY_THRESHOLD` | No       | Consistency score threshold 0–100 (default: 70).                                                  |
+| `P360_FRAME_MAX_RETRIES`     | No       | Max retries per frame on drift detection (default: 2).                                            |
 
 ### Leonardo AI provider (Blueprint Executions)
 
-| Variable | Required | Description |
-|---|---|---|
-| `LEONARDO_API_KEY` | Yes (for Leonardo) | Leonardo AI API key. Server-side only. Never expose to browser. |
-| `LEONARDO_360_BLUEPRINT_VERSION_ID` | Yes (for Leonardo) | Blueprint version UUID from Leonardo web app. |
-| `LEONARDO_360_REFERENCE_IMAGE_NODE_ID` | Yes (for Leonardo) | Node ID for the imageUrl input in your blueprint. |
-| `LEONARDO_360_TEXT_VARIABLES_NODE_ID` | Yes (for Leonardo) | Node ID for the textVariables input in your blueprint. |
+| Variable                               | Required           | Description                                                     |
+| -------------------------------------- | ------------------ | --------------------------------------------------------------- |
+| `LEONARDO_API_KEY`                     | Yes (for Leonardo) | Leonardo AI API key. Server-side only. Never expose to browser. |
+| `LEONARDO_360_BLUEPRINT_VERSION_ID`    | Yes (for Leonardo) | Blueprint version UUID from Leonardo web app.                   |
+| `LEONARDO_360_REFERENCE_IMAGE_NODE_ID` | Yes (for Leonardo) | Node ID for the imageUrl input in your blueprint.               |
+| `LEONARDO_360_TEXT_VARIABLES_NODE_ID`  | Yes (for Leonardo) | Node ID for the textVariables input in your blueprint.          |
 
 ### Client-side defaults
 
-| Variable | Required | Description |
-|---|---|---|
-| `NEXT_PUBLIC_360_DEFAULT_PROVIDER` | No | Internal provider key used to choose the default generation mode. |
+| Variable                           | Required | Description                                                       |
+| ---------------------------------- | -------- | ----------------------------------------------------------------- |
+| `NEXT_PUBLIC_360_DEFAULT_PROVIDER` | No       | Internal provider key used to choose the default generation mode. |
 
 ### Storage & generation limits
 
-| Variable | Required | Description |
-|---|---|---|
-| `MAX_360_FRAMES_PER_PACKAGE` | No | Hard cap on frames per package (default: 24). |
-| `DEFAULT_360_FRAMES_PER_PACKAGE` | No | Default frame count when not specified (default: 36). |
-| `IMAGE_GENERATION_DELAY_MS` | No | Delay between frames in ms to avoid quota spikes (default: 0). |
+| Variable                         | Required | Description                                                    |
+| -------------------------------- | -------- | -------------------------------------------------------------- |
+| `MAX_360_FRAMES_PER_PACKAGE`     | No       | Hard cap on frames per package (default: 24).                  |
+| `DEFAULT_360_FRAMES_PER_PACKAGE` | No       | Default frame count when not specified (default: 36).          |
+| `IMAGE_GENERATION_DELAY_MS`      | No       | Delay between frames in ms to avoid quota spikes (default: 0). |
 
 ### Example `.env.local` for 360 Product Studio
 

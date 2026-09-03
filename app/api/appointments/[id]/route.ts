@@ -43,13 +43,15 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   if (customerUser) {
     const { data, error } = await supabase
       .from('appointments')
-      .select(`
+      .select(
+        `
         id, tenant_id, customer_id, staff_id,
         title, description, status,
         starts_at, ends_at, location, notes, timezone,
         created_at, updated_at,
         professional:professionals ( id, name, avatar_url )
-      `)
+      `
+      )
       .eq('id', id)
       .eq('tenant_id', customerUser.tenant_id)
       .eq('customer_id', customerUser.customer_id)
@@ -79,20 +81,26 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
   if (staffUser && (staffUser.role === 'admin' || staffUser.role === 'owner')) {
     const result = await updateAppointment(id, staffUser.tenant_id, {
-      title:                typeof body.title                === 'string' ? body.title                : undefined,
-      description:          typeof body.description          === 'string' ? body.description          : undefined,
-      status:               typeof body.status               === 'string' ? body.status as Appointment['status'] : undefined,
-      starts_at:            typeof body.starts_at            === 'string' ? body.starts_at            : undefined,
-      ends_at:              typeof body.ends_at              === 'string' ? body.ends_at              : undefined,
-      location:             typeof body.location             === 'string' ? body.location             : undefined,
-      notes:                typeof body.notes                === 'string' ? body.notes                : undefined,
-      timezone:             typeof body.timezone             === 'string' ? body.timezone             : undefined,
-      staff_id:             body.staff_id !== undefined
-                              ? (typeof body.staff_id === 'string' && body.staff_id ? body.staff_id : null)
-                              : undefined,
-      appointment_block_id: body.appointment_block_id !== undefined
-                              ? (typeof body.appointment_block_id === 'string' && body.appointment_block_id ? body.appointment_block_id : null)
-                              : undefined,
+      title: typeof body.title === 'string' ? body.title : undefined,
+      description: typeof body.description === 'string' ? body.description : undefined,
+      status: typeof body.status === 'string' ? (body.status as Appointment['status']) : undefined,
+      starts_at: typeof body.starts_at === 'string' ? body.starts_at : undefined,
+      ends_at: typeof body.ends_at === 'string' ? body.ends_at : undefined,
+      location: typeof body.location === 'string' ? body.location : undefined,
+      notes: typeof body.notes === 'string' ? body.notes : undefined,
+      timezone: typeof body.timezone === 'string' ? body.timezone : undefined,
+      staff_id:
+        body.staff_id !== undefined
+          ? typeof body.staff_id === 'string' && body.staff_id
+            ? body.staff_id
+            : null
+          : undefined,
+      appointment_block_id:
+        body.appointment_block_id !== undefined
+          ? typeof body.appointment_block_id === 'string' && body.appointment_block_id
+            ? body.appointment_block_id
+            : null
+          : undefined,
     })
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 422 })
@@ -123,9 +131,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
     const result = await updateAppointment(id, customerUser.tenant_id, {
       starts_at: typeof body.starts_at === 'string' ? body.starts_at : undefined,
-      ends_at:   typeof body.ends_at   === 'string' ? body.ends_at   : undefined,
-      notes:     typeof body.notes     === 'string' ? body.notes     : undefined,
-      status:    status as Appointment['status'] | undefined,
+      ends_at: typeof body.ends_at === 'string' ? body.ends_at : undefined,
+      notes: typeof body.notes === 'string' ? body.notes : undefined,
+      status: status as Appointment['status'] | undefined,
     })
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 422 })

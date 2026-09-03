@@ -15,29 +15,29 @@ import { normalizeSnapshotForInsert, asArray, asRecord, estimateKb } from './saf
 import type { WebsiteSnapshot, ClientPageSections } from '@/lib/website/versionTypes'
 
 type SnapshotSuccess = {
-  ok:           true
-  snapshot:     WebsiteSnapshot
-  pageCount:    number
+  ok: true
+  snapshot: WebsiteSnapshot
+  pageCount: number
   sectionCount: number
-  estimatedKb:  number
-  fromClient:   boolean
-  warnings:     string[]
+  estimatedKb: number
+  fromClient: boolean
+  warnings: string[]
 }
 
 type SnapshotFailure = {
-  ok:      false
-  error:   string
+  ok: false
+  error: string
   details: string
-  step:    string
+  step: string
 }
 
 export type SnapshotResult = SnapshotSuccess | SnapshotFailure
 
 export async function createWebsiteSnapshotForTenant(params: {
-  tenantId:            string
-  userId?:             string | null
-  source?:             string
-  clientSnapshot?:     unknown
+  tenantId: string
+  userId?: string | null
+  source?: string
+  clientSnapshot?: unknown
   clientPageSections?: ClientPageSections
   preferClientSnapshot?: boolean
   /**
@@ -45,14 +45,14 @@ export async function createWebsiteSnapshotForTenant(params: {
    * from live site_sections / site_pages. Use this on publish to ensure recent
    * PATCH edits to site_sections are captured (not overridden by a stale draft).
    */
-  forPublish?:         boolean
+  forPublish?: boolean
 }): Promise<SnapshotResult> {
   const {
     tenantId,
     clientSnapshot,
     clientPageSections,
     preferClientSnapshot = false,
-    forPublish           = false,
+    forPublish = false,
   } = params
 
   const warnings: string[] = []
@@ -61,16 +61,21 @@ export async function createWebsiteSnapshotForTenant(params: {
   if (preferClientSnapshot && clientSnapshot) {
     const validated = tryValidateClientSnapshot(clientSnapshot, tenantId, warnings)
     if (validated.ok) {
-      const normalized = normalizeSnapshotForInsert(validated.snapshot) as unknown as WebsiteSnapshot
-      const pageCount    = normalized.pages?.length ?? 0
-      const sectionCount = (normalized.pages ?? []).reduce((s, p) => s + (p.sections?.length ?? 0), 0)
+      const normalized = normalizeSnapshotForInsert(
+        validated.snapshot
+      ) as unknown as WebsiteSnapshot
+      const pageCount = normalized.pages?.length ?? 0
+      const sectionCount = (normalized.pages ?? []).reduce(
+        (s, p) => s + (p.sections?.length ?? 0),
+        0
+      )
       return {
-        ok:          true,
-        snapshot:    normalized,
+        ok: true,
+        snapshot: normalized,
         pageCount,
         sectionCount,
         estimatedKb: estimateKb(normalized),
-        fromClient:  true,
+        fromClient: true,
         warnings,
       }
     }
@@ -110,20 +115,22 @@ export async function createWebsiteSnapshotForTenant(params: {
       serverSnapshot = liveResult.data
       if (forPublish && process.env.NODE_ENV === 'development') {
         const sectionCount = liveResult.data.pages.reduce((s, p) => s + p.sections.length, 0)
-        console.info(`[snapshot] forPublish=true — reading ${sectionCount} sections from live tables`)
+        console.info(
+          `[snapshot] forPublish=true — reading ${sectionCount} sections from live tables`
+        )
       }
     } else {
       return {
-        ok:      false,
-        error:   'Could not build website snapshot',
+        ok: false,
+        error: 'Could not build website snapshot',
         details: liveResult.error ?? 'getCurrentWebsiteSnapshot returned no data',
-        step:    'snapshot_create',
+        step: 'snapshot_create',
       }
     }
   }
 
   const normalized = normalizeSnapshotForInsert(serverSnapshot) as unknown as WebsiteSnapshot
-  const pageCount    = normalized.pages?.length ?? 0
+  const pageCount = normalized.pages?.length ?? 0
   const sectionCount = (normalized.pages ?? []).reduce((s, p) => s + (p.sections?.length ?? 0), 0)
 
   if (pageCount === 0) {
@@ -134,12 +141,12 @@ export async function createWebsiteSnapshotForTenant(params: {
   }
 
   return {
-    ok:          true,
-    snapshot:    normalized,
+    ok: true,
+    snapshot: normalized,
     pageCount,
     sectionCount,
     estimatedKb: estimateKb(normalized),
-    fromClient:  false,
+    fromClient: false,
     warnings,
   }
 }
@@ -149,7 +156,7 @@ export async function createWebsiteSnapshotForTenant(params: {
 function tryValidateClientSnapshot(
   raw: unknown,
   tenantId: string,
-  warnings: string[],
+  warnings: string[]
 ): { ok: true; snapshot: WebsiteSnapshot } | { ok: false; reason: string } {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return { ok: false, reason: 'not an object' }
@@ -166,7 +173,10 @@ function tryValidateClientSnapshot(
     warnings.push('Client snapshot missing tenantId — injecting server tenantId')
     obj.tenantId = tenantId
   } else if (obj.tenantId !== tenantId) {
-    return { ok: false, reason: `tenant mismatch: snapshot has ${obj.tenantId}, expected ${tenantId}` }
+    return {
+      ok: false,
+      reason: `tenant mismatch: snapshot has ${obj.tenantId}, expected ${tenantId}`,
+    }
   }
 
   if (!Array.isArray(obj.pages)) {
@@ -182,11 +192,11 @@ function tryValidateClientSnapshot(
         const s = asRecord(sec)
         return {
           ...s,
-          content:          asRecord(s.content),
-          style_config:     s.style_config ? asRecord(s.style_config) : null,
+          content: asRecord(s.content),
+          style_config: s.style_config ? asRecord(s.style_config) : null,
           animation_config: s.animation_config ? asRecord(s.animation_config) : null,
-          is_visible:       s.is_visible !== false,
-          sort_order:       typeof s.sort_order === 'number' ? s.sort_order : 0,
+          is_visible: s.is_visible !== false,
+          sort_order: typeof s.sort_order === 'number' ? s.sort_order : 0,
         }
       }),
     }
@@ -195,11 +205,11 @@ function tryValidateClientSnapshot(
   const snapshot: WebsiteSnapshot = {
     schemaVersion: 1,
     tenantId,
-    capturedAt:    typeof obj.capturedAt === 'string' ? obj.capturedAt : new Date().toISOString(),
-    source:        typeof obj.source === 'string' ? (obj.source as WebsiteSnapshot['source']) : 'manual',
-    settings:      asRecord(obj.settings),
-    navigation:    asArray(obj.navigation),
-    pages:         pages as WebsiteSnapshot['pages'],
+    capturedAt: typeof obj.capturedAt === 'string' ? obj.capturedAt : new Date().toISOString(),
+    source: typeof obj.source === 'string' ? (obj.source as WebsiteSnapshot['source']) : 'manual',
+    settings: asRecord(obj.settings),
+    navigation: asArray(obj.navigation),
+    pages: pages as WebsiteSnapshot['pages'],
   }
 
   return { ok: true, snapshot }

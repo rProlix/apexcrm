@@ -53,10 +53,7 @@ function fileFromStoredMetadata(image: ImageRow): SlackFileInfo | null {
   if (!image.slack_file_url || !image.content_type) return null
   return {
     id: image.slack_file_id,
-    name:
-      typeof image.metadata?.name === 'string'
-        ? image.metadata.name
-        : image.slack_file_id,
+    name: typeof image.metadata?.name === 'string' ? image.metadata.name : image.slack_file_id,
     mimetype: image.content_type,
     size: image.file_size_bytes,
     width: image.width,
@@ -86,22 +83,21 @@ async function main() {
     tenantId = tenantIds[0]
   }
   if (!tenantId) throw new Error('A tenant scope could not be resolved.')
-  const [{ data: images, error: imageError }, { data: jobs, error: jobError }] =
-    await Promise.all([
-      db
-        .from('van_damage_images')
-        .select(
-          'id,inspection_id,slack_file_id,slack_file_url,content_type,file_size_bytes,width,height,metadata,duplicate_of_image_id'
-        )
-        .eq('tenant_id', tenantId)
-        .not('slack_file_id', 'is', null)
-        .order('created_at', { ascending: true }),
-      db
-        .from('van_damage_jobs')
-        .select('image_id,inspection_id,payload,created_at')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false }),
-    ])
+  const [{ data: images, error: imageError }, { data: jobs, error: jobError }] = await Promise.all([
+    db
+      .from('van_damage_images')
+      .select(
+        'id,inspection_id,slack_file_id,slack_file_url,content_type,file_size_bytes,width,height,metadata,duplicate_of_image_id'
+      )
+      .eq('tenant_id', tenantId)
+      .not('slack_file_id', 'is', null)
+      .order('created_at', { ascending: true }),
+    db
+      .from('van_damage_jobs')
+      .select('image_id,inspection_id,payload,created_at')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false }),
+  ])
   if (imageError) throw new Error(imageError.message)
   if (jobError) throw new Error(jobError.message)
 
@@ -133,13 +129,9 @@ async function main() {
     })
     if (reconstructed.success) payloadByImage.set(image.id, reconstructed.data)
   }
-  const imagesWithoutPayload = typedImages.filter(
-    (image) => !payloadByImage.has(image.id)
-  )
+  const imagesWithoutPayload = typedImages.filter((image) => !payloadByImage.has(image.id))
   if (imagesWithoutPayload.length) {
-    const inspectionIds = [
-      ...new Set(imagesWithoutPayload.map((image) => image.inspection_id)),
-    ]
+    const inspectionIds = [...new Set(imagesWithoutPayload.map((image) => image.inspection_id))]
     const [integrationResult, inspectionResult] = await Promise.all([
       db
         .from('van_slack_integrations')
@@ -227,8 +219,7 @@ async function main() {
         throw new Error('The image no longer matches its recovery job.')
       }
       const file =
-        fileFromStoredMetadata(image) ??
-        (await getSlackFileInfo(token, image.slack_file_id))
+        fileFromStoredMetadata(image) ?? (await getSlackFileInfo(token, image.slack_file_id))
       const body = await downloadSlackImage(token, file, config.maxImageBytes)
       const sourceSha256 = sha256Hex(body)
       const { data: inspection, error: inspectionError } = await db

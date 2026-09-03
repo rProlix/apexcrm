@@ -5,10 +5,10 @@ import { getTenantFromHost } from '@/lib/tenant/getTenantFromHost'
 import type { UserContext } from './types'
 
 export interface AuthContext {
-  userId:   string
+  userId: string
   tenantId: string
-  role:     string
-  email:    string
+  role: string
+  email: string
 }
 
 /**
@@ -25,7 +25,10 @@ export interface AuthContext {
  */
 export async function requireAuth(host: string): Promise<AuthContext> {
   const sessionClient = await createSessionServerClient()
-  const { data: { user }, error } = await sessionClient.auth.getUser()
+  const {
+    data: { user },
+    error,
+  } = await sessionClient.auth.getUser()
 
   if (error || !user) {
     redirect('/login')
@@ -36,7 +39,13 @@ export async function requireAuth(host: string): Promise<AuthContext> {
   // Attempt to resolve the tenant from the hostname
   const tenant = await getTenantFromHost(host)
 
-  let userRecord: { id: string; role: string; email: string; tenant_id: string | null; status: string } | null = null
+  let userRecord: {
+    id: string
+    role: string
+    email: string
+    tenant_id: string | null
+    status: string
+  } | null = null
 
   if (tenant) {
     // Standard tenant-scoped lookup
@@ -69,10 +78,10 @@ export async function requireAuth(host: string): Promise<AuthContext> {
   const effectiveTenantId = userRecord.tenant_id ?? tenant?.id ?? ''
 
   return {
-    userId:   userRecord.id,
+    userId: userRecord.id,
     tenantId: effectiveTenantId,
-    role:     userRecord.role,
-    email:    userRecord.email,
+    role: userRecord.role,
+    email: userRecord.email,
   }
 }
 

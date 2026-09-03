@@ -7,17 +7,17 @@ import { cn } from '@/lib/utils'
 import type { WidgetConfig } from '@/lib/dashboard/types'
 
 interface SuggestedWidgetsMeta {
-  key:            string
-  label:          string
-  description:    string
-  type?:          WidgetConfig['type']
+  key: string
+  label: string
+  description: string
+  type?: WidgetConfig['type']
   defaultSection: string
 }
 
 interface SuggestedWidgetsProps {
-  widgetKeys:     string[]
+  widgetKeys: string[]
   widgetRegistry: Record<string, SuggestedWidgetsMeta>
-  onAdd:          (key: string, type: WidgetConfig['type'], defaultSection: string) => void
+  onAdd: (key: string, type: WidgetConfig['type'], defaultSection: string) => void
 }
 
 export function SuggestedWidgets({ widgetKeys, widgetRegistry, onAdd }: SuggestedWidgetsProps) {
@@ -67,7 +67,9 @@ export function SuggestedWidgets({ widgetKeys, widgetRegistry, onAdd }: Suggeste
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-white/70 mb-1 truncate">{w.label}</p>
-                  <p className="text-xs text-white/30 leading-relaxed line-clamp-2">{w.description}</p>
+                  <p className="text-xs text-white/30 leading-relaxed line-clamp-2">
+                    {w.description}
+                  </p>
                 </div>
                 <div
                   className={cn(
@@ -77,7 +79,10 @@ export function SuggestedWidgets({ widgetKeys, widgetRegistry, onAdd }: Suggeste
                     'transition-colors duration-150'
                   )}
                 >
-                  <Plus className="h-3.5 w-3.5 text-white/30 group-hover:text-gold-400 transition-colors duration-150" strokeWidth={2} />
+                  <Plus
+                    className="h-3.5 w-3.5 text-white/30 group-hover:text-gold-400 transition-colors duration-150"
+                    strokeWidth={2}
+                  />
                 </div>
               </div>
               {w.type && w.type !== 'stat' && (

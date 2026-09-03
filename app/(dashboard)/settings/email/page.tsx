@@ -14,7 +14,7 @@ export const metadata = { title: 'Email Settings — Nexora' }
 
 export default async function EmailSettingsPage() {
   const ctx = await requireRole(['owner', 'admin'])
-  const status     = getProviderStatus()
+  const status = getProviderStatus()
   const validation = validateEmailConfig()
 
   // Load recent email logs if table exists
@@ -24,11 +24,15 @@ export default async function EmailSettingsPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data } = await (db as any)
       .from('email_logs')
-      .select('id, category, to_email, subject, status, provider, message_id, error_message, created_at')
+      .select(
+        'id, category, to_email, subject, status, provider, message_id, error_message, created_at'
+      )
       .order('created_at', { ascending: false })
       .limit(20)
     recentLogs = data ?? []
-  } catch { /* table may not exist yet */ }
+  } catch {
+    /* table may not exist yet */
+  }
 
   // Try to get current user email for default test recipient
   const { data: profile } = await db

@@ -16,11 +16,11 @@ export default async function InventoryScannerPage() {
   }
 
   const supabase = getInventoryClient()
-  const { data: settings } = await supabase
+  const { data: settings } = (await supabase
     .from('inventory_settings')
     .select('barcode_mode')
     .eq('tenant_id', ctx.tenant_id ?? '')
-    .maybeSingle() as { data: { barcode_mode?: string } | null }
+    .maybeSingle()) as { data: { barcode_mode?: string } | null }
 
   return (
     <InventoryScannerClient

@@ -3,11 +3,7 @@
 // All operations are tenant-scoped. Never call these from client components.
 
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import type {
-  AppointmentAvailabilityBlock,
-  AppointmentBlockType,
-  AvailableSlot,
-} from './types'
+import type { AppointmentAvailabilityBlock, AppointmentBlockType, AvailableSlot } from './types'
 
 // ── Internal DB type (avoids Supabase codegen drift) ─────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,8 +39,8 @@ export async function listAvailabilityBlocks(
     .select(BLOCK_SELECT)
     .eq('tenant_id', opts.tenant_id)
     .order('day_of_week', { ascending: true, nullsFirst: false })
-    .order('start_time',  { ascending: true, nullsFirst: false })
-    .order('starts_at',   { ascending: true, nullsFirst: false })
+    .order('start_time', { ascending: true, nullsFirst: false })
+    .order('starts_at', { ascending: true, nullsFirst: false })
 
   if (opts.active_only !== false) q = q.eq('is_active', true)
 
@@ -72,34 +68,32 @@ export async function getAvailabilityBlocksForStaff(
 // ── Create ────────────────────────────────────────────────────────────────────
 
 export interface CreateBlockInput {
-  tenant_id:             string
-  staff_id?:             string | null
-  title?:                string | null
-  description?:          string | null
-  block_type?:           AppointmentBlockType
-  is_recurring:          boolean
-  day_of_week?:          number | null
-  start_time?:           string | null
-  end_time?:             string | null
-  starts_at?:            string | null
-  ends_at?:              string | null
-  timezone?:             string
+  tenant_id: string
+  staff_id?: string | null
+  title?: string | null
+  description?: string | null
+  block_type?: AppointmentBlockType
+  is_recurring: boolean
+  day_of_week?: number | null
+  start_time?: string | null
+  end_time?: string | null
+  starts_at?: string | null
+  ends_at?: string | null
+  timezone?: string
   slot_duration_minutes?: number
   buffer_before_minutes?: number
-  buffer_after_minutes?:  number
+  buffer_after_minutes?: number
   max_bookings_per_slot?: number
-  is_active?:            boolean
-  recurrence_rule?:      string | null
-  created_by?:           string | null
+  is_active?: boolean
+  recurrence_rule?: string | null
+  created_by?: string | null
 }
 
 export type BlockResult =
   | { ok: true; block: AppointmentAvailabilityBlock }
   | { ok: false; error: string; code: string }
 
-export async function createAvailabilityBlock(
-  input: CreateBlockInput
-): Promise<BlockResult> {
+export async function createAvailabilityBlock(input: CreateBlockInput): Promise<BlockResult> {
   const err = validateBlockInput(input)
   if (err) return { ok: false, error: err, code: 'VALIDATION_ERROR' }
 
@@ -113,31 +107,32 @@ export async function createAvailabilityBlock(
       .eq('id', input.staff_id)
       .eq('tenant_id', input.tenant_id)
       .maybeSingle()
-    if (!prof) return { ok: false, error: 'Professional not found in this tenant', code: 'NOT_FOUND' }
+    if (!prof)
+      return { ok: false, error: 'Professional not found in this tenant', code: 'NOT_FOUND' }
   }
 
   const { data, error } = await db
     .from('appointment_availability_blocks')
     .insert({
-      tenant_id:             input.tenant_id,
-      staff_id:              input.staff_id              ?? null,
-      title:                 input.title                 ?? null,
-      description:           input.description           ?? null,
-      block_type:            input.block_type            ?? 'available',
-      is_recurring:          input.is_recurring,
-      day_of_week:           input.is_recurring ? (input.day_of_week ?? null) : null,
-      start_time:            input.is_recurring ? (input.start_time  ?? null) : null,
-      end_time:              input.is_recurring ? (input.end_time    ?? null) : null,
-      starts_at:             input.is_recurring ? null : (input.starts_at ?? null),
-      ends_at:               input.is_recurring ? null : (input.ends_at   ?? null),
-      timezone:              input.timezone              ?? 'America/Los_Angeles',
+      tenant_id: input.tenant_id,
+      staff_id: input.staff_id ?? null,
+      title: input.title ?? null,
+      description: input.description ?? null,
+      block_type: input.block_type ?? 'available',
+      is_recurring: input.is_recurring,
+      day_of_week: input.is_recurring ? (input.day_of_week ?? null) : null,
+      start_time: input.is_recurring ? (input.start_time ?? null) : null,
+      end_time: input.is_recurring ? (input.end_time ?? null) : null,
+      starts_at: input.is_recurring ? null : (input.starts_at ?? null),
+      ends_at: input.is_recurring ? null : (input.ends_at ?? null),
+      timezone: input.timezone ?? 'America/Los_Angeles',
       slot_duration_minutes: input.slot_duration_minutes ?? 30,
       buffer_before_minutes: input.buffer_before_minutes ?? 0,
-      buffer_after_minutes:  input.buffer_after_minutes  ?? 0,
+      buffer_after_minutes: input.buffer_after_minutes ?? 0,
       max_bookings_per_slot: input.max_bookings_per_slot ?? 1,
-      is_active:             input.is_active             ?? true,
-      recurrence_rule:       input.recurrence_rule       ?? null,
-      created_by:            input.created_by            ?? null,
+      is_active: input.is_active ?? true,
+      recurrence_rule: input.recurrence_rule ?? null,
+      created_by: input.created_by ?? null,
     })
     .select(BLOCK_SELECT)
     .single()
@@ -179,7 +174,8 @@ export async function updateAvailabilityBlock(
       .eq('id', input.staff_id)
       .eq('tenant_id', input.tenant_id)
       .maybeSingle()
-    if (!prof) return { ok: false, error: 'Professional not found in this tenant', code: 'NOT_FOUND' }
+    if (!prof)
+      return { ok: false, error: 'Professional not found in this tenant', code: 'NOT_FOUND' }
   }
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
@@ -187,23 +183,23 @@ export async function updateAvailabilityBlock(
     if (val !== undefined) patch[key] = val
   }
 
-  setIfDefined('staff_id',              input.staff_id)
-  setIfDefined('title',                 input.title)
-  setIfDefined('description',           input.description)
-  setIfDefined('block_type',            input.block_type)
-  setIfDefined('is_recurring',          input.is_recurring)
-  setIfDefined('day_of_week',           input.day_of_week)
-  setIfDefined('start_time',            input.start_time)
-  setIfDefined('end_time',              input.end_time)
-  setIfDefined('starts_at',             input.starts_at)
-  setIfDefined('ends_at',               input.ends_at)
-  setIfDefined('timezone',              input.timezone)
+  setIfDefined('staff_id', input.staff_id)
+  setIfDefined('title', input.title)
+  setIfDefined('description', input.description)
+  setIfDefined('block_type', input.block_type)
+  setIfDefined('is_recurring', input.is_recurring)
+  setIfDefined('day_of_week', input.day_of_week)
+  setIfDefined('start_time', input.start_time)
+  setIfDefined('end_time', input.end_time)
+  setIfDefined('starts_at', input.starts_at)
+  setIfDefined('ends_at', input.ends_at)
+  setIfDefined('timezone', input.timezone)
   setIfDefined('slot_duration_minutes', input.slot_duration_minutes)
   setIfDefined('buffer_before_minutes', input.buffer_before_minutes)
-  setIfDefined('buffer_after_minutes',  input.buffer_after_minutes)
+  setIfDefined('buffer_after_minutes', input.buffer_after_minutes)
   setIfDefined('max_bookings_per_slot', input.max_bookings_per_slot)
-  setIfDefined('is_active',             input.is_active)
-  setIfDefined('recurrence_rule',       input.recurrence_rule)
+  setIfDefined('is_active', input.is_active)
+  setIfDefined('recurrence_rule', input.recurrence_rule)
 
   const { data, error } = await db
     .from('appointment_availability_blocks')
@@ -244,10 +240,10 @@ export async function deleteAvailabilityBlock(
 // ── Available slots generation ────────────────────────────────────────────────
 
 export interface GetAvailableSlotsOptions {
-  tenant_id:        string
-  date:             string          // YYYY-MM-DD
-  staff_id?:        string | null   // null = any professional
-  duration_minutes?: number         // override slot_duration_minutes
+  tenant_id: string
+  date: string // YYYY-MM-DD
+  staff_id?: string | null // null = any professional
+  duration_minutes?: number // override slot_duration_minutes
 }
 
 /**
@@ -258,15 +254,13 @@ export interface GetAvailableSlotsOptions {
  * - Past times (same-day only)
  * - Buffer times before/after slots
  */
-export async function getAvailableSlots(
-  opts: GetAvailableSlotsOptions
-): Promise<AvailableSlot[]> {
+export async function getAvailableSlots(opts: GetAvailableSlotsOptions): Promise<AvailableSlot[]> {
   const db: DB = getSupabaseServerClient()
   const { tenant_id, date, staff_id } = opts
 
   const dayOfWeek = new Date(`${date}T12:00:00Z`).getUTCDay()
-  const dayStart  = `${date}T00:00:00.000Z`
-  const dayEnd    = `${date}T23:59:59.999Z`
+  const dayStart = `${date}T00:00:00.000Z`
+  const dayEnd = `${date}T23:59:59.999Z`
 
   // Load ALL active blocks for this tenant + staff combo
   let blockQuery = db
@@ -303,13 +297,15 @@ export async function getAvailableSlots(
   }>
 
   // Split into available blocks vs blocking blocks
-  const availableBlocks  = blocks.filter((b) => b.block_type === 'available')
-  const blockingIntervals = blocks.filter((b) => b.block_type === 'unavailable' || b.block_type === 'blackout')
+  const availableBlocks = blocks.filter((b) => b.block_type === 'available')
+  const blockingIntervals = blocks.filter(
+    (b) => b.block_type === 'unavailable' || b.block_type === 'blackout'
+  )
 
   if (availableBlocks.length === 0) return []
 
   // Filter blocks applicable to this date
-  function appliesToDate(b: typeof blocks[0]) {
+  function appliesToDate(b: (typeof blocks)[0]) {
     if (b.is_recurring) {
       return b.day_of_week === dayOfWeek && !!b.start_time && !!b.end_time
     }
@@ -329,12 +325,14 @@ export async function getAvailableSlots(
       const [sh, sm] = parseTime(b.start_time)
       const [eh, em] = parseTime(b.end_time)
       const base = new Date(`${date}T00:00:00.000Z`)
-      const s = new Date(base); s.setUTCHours(sh, sm, 0, 0)
-      const e = new Date(base); e.setUTCHours(eh, em, 0, 0)
+      const s = new Date(base)
+      s.setUTCHours(sh, sm, 0, 0)
+      const e = new Date(base)
+      e.setUTCHours(eh, em, 0, 0)
       blockingRanges.push({ s: s.getTime(), e: e.getTime() })
     } else if (!b.is_recurring && b.starts_at && b.ends_at) {
       const s = Math.max(new Date(b.starts_at).getTime(), new Date(dayStart).getTime())
-      const e = Math.min(new Date(b.ends_at).getTime(),   new Date(dayEnd).getTime())
+      const e = Math.min(new Date(b.ends_at).getTime(), new Date(dayEnd).getTime())
       if (s < e) blockingRanges.push({ s, e })
     }
   }
@@ -377,28 +375,32 @@ export async function getAvailableSlots(
   // Generate raw slots from each available block
   const allSlots: AvailableSlot[] = []
   const seen = new Set<string>()
-  const now   = Date.now()
+  const now = Date.now()
   const isToday = date === new Date().toISOString().slice(0, 10)
 
   for (const block of applicableAvailable) {
     const durationMins = opts.duration_minutes ?? block.slot_duration_minutes ?? 30
     const bufferBefore = block.buffer_before_minutes ?? 0
-    const bufferAfter  = block.buffer_after_minutes  ?? 0
-    const staffId      = block.staff_id
-    const staffName    = block.professional?.name ?? null
+    const bufferAfter = block.buffer_after_minutes ?? 0
+    const staffId = block.staff_id
+    const staffName = block.professional?.name ?? null
 
     let windowStart: Date
-    let windowEnd:   Date
+    let windowEnd: Date
 
     if (block.is_recurring && block.start_time && block.end_time) {
       const [sh, sm] = parseTime(block.start_time)
       const [eh, em] = parseTime(block.end_time)
       const base = new Date(`${date}T00:00:00.000Z`)
-      windowStart = new Date(base); windowStart.setUTCHours(sh, sm, 0, 0)
-      windowEnd   = new Date(base); windowEnd.setUTCHours(eh, em, 0, 0)
+      windowStart = new Date(base)
+      windowStart.setUTCHours(sh, sm, 0, 0)
+      windowEnd = new Date(base)
+      windowEnd.setUTCHours(eh, em, 0, 0)
     } else if (!block.is_recurring && block.starts_at && block.ends_at) {
-      windowStart = new Date(Math.max(new Date(block.starts_at).getTime(), new Date(dayStart).getTime()))
-      windowEnd   = new Date(Math.min(new Date(block.ends_at).getTime(),   new Date(dayEnd).getTime()))
+      windowStart = new Date(
+        Math.max(new Date(block.starts_at).getTime(), new Date(dayStart).getTime())
+      )
+      windowEnd = new Date(Math.min(new Date(block.ends_at).getTime(), new Date(dayEnd).getTime()))
     } else {
       continue
     }
@@ -418,19 +420,18 @@ export async function getAvailableSlots(
         const isPast = isToday && cursor <= now
 
         // Conflict check (including buffers)
-        const effectiveStart = cursor  - bufferBefore * 60_000
-        const effectiveEnd   = slotEnd + bufferAfter  * 60_000
-        const conflict = isPast || busyRanges.some(
-          (b) => b.s < effectiveEnd && b.e > effectiveStart
-        )
+        const effectiveStart = cursor - bufferBefore * 60_000
+        const effectiveEnd = slotEnd + bufferAfter * 60_000
+        const conflict =
+          isPast || busyRanges.some((b) => b.s < effectiveEnd && b.e > effectiveStart)
 
         allSlots.push({
-          starts_at:  slotKey,
-          ends_at:    new Date(slotEnd).toISOString(),
-          staff_id:   staffId ?? null,
+          starts_at: slotKey,
+          ends_at: new Date(slotEnd).toISOString(),
+          staff_id: staffId ?? null,
           staff_name: staffName,
-          block_id:   block.id,
-          available:  !conflict,
+          block_id: block.id,
+          available: !conflict,
         })
       }
       cursor = slotEnd
@@ -438,42 +439,39 @@ export async function getAvailableSlots(
   }
 
   // Sort ascending by start time
-  return allSlots
-    .filter((s) => s.available)
-    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+  return allSlots.filter((s) => s.available).sort((a, b) => a.starts_at.localeCompare(b.starts_at))
 }
 
 // ── Slot availability check ───────────────────────────────────────────────────
 
 export interface CheckSlotOptions {
-  tenant_id:   string
-  starts_at:   string
-  ends_at:     string
-  staff_id?:   string | null
-  exclude_id?: string   // appointment id to exclude (for rescheduling)
+  tenant_id: string
+  starts_at: string
+  ends_at: string
+  staff_id?: string | null
+  exclude_id?: string // appointment id to exclude (for rescheduling)
 }
 
 export interface SlotCheckResult {
   available: boolean
-  reason?:   string
+  reason?: string
 }
 
-export async function checkSlotAvailability(
-  opts: CheckSlotOptions
-): Promise<SlotCheckResult> {
+export async function checkSlotAvailability(opts: CheckSlotOptions): Promise<SlotCheckResult> {
   const db: DB = getSupabaseServerClient()
   const { tenant_id, starts_at, ends_at, staff_id, exclude_id } = opts
 
   const startMs = new Date(starts_at).getTime()
-  const endMs   = new Date(ends_at).getTime()
+  const endMs = new Date(ends_at).getTime()
 
   if (isNaN(startMs) || isNaN(endMs)) return { available: false, reason: 'Invalid timestamp' }
   if (startMs >= endMs) return { available: false, reason: 'Start time must be before end time' }
-  if (startMs < Date.now() - 60_000) return { available: false, reason: 'Cannot book a time in the past' }
+  if (startMs < Date.now() - 60_000)
+    return { available: false, reason: 'Cannot book a time in the past' }
 
   // Check for blocking (unavailable/blackout) blocks covering this slot
-  const date       = starts_at.slice(0, 10)
-  const dayOfWeek  = new Date(`${date}T12:00:00Z`).getUTCDay()
+  const date = starts_at.slice(0, 10)
+  const dayOfWeek = new Date(`${date}T12:00:00Z`).getUTCDay()
 
   let blockQuery = db
     .from('appointment_availability_blocks')
@@ -486,15 +484,18 @@ export async function checkSlotAvailability(
 
   const { data: blockingBlocks } = await blockQuery
 
-  for (const b of (blockingBlocks ?? [])) {
+  for (const b of blockingBlocks ?? []) {
     let bs: number, be: number
     if (b.is_recurring && b.start_time && b.end_time && b.day_of_week === dayOfWeek) {
       const [sh, sm] = parseTime(b.start_time)
       const [eh, em] = parseTime(b.end_time)
       const base = new Date(`${date}T00:00:00.000Z`)
-      const s = new Date(base); s.setUTCHours(sh, sm, 0, 0)
-      const e = new Date(base); e.setUTCHours(eh, em, 0, 0)
-      bs = s.getTime(); be = e.getTime()
+      const s = new Date(base)
+      s.setUTCHours(sh, sm, 0, 0)
+      const e = new Date(base)
+      e.setUTCHours(eh, em, 0, 0)
+      bs = s.getTime()
+      be = e.getTime()
     } else if (!b.is_recurring && b.starts_at && b.ends_at) {
       bs = new Date(b.starts_at).getTime()
       be = new Date(b.ends_at).getTime()
@@ -530,7 +531,8 @@ export async function checkSlotAvailability(
     .lt('start_time', ends_at)
     .gt('end_time', starts_at)
 
-  if ((blockCount ?? 0) > 0) return { available: false, reason: 'This time is blocked by the business' }
+  if ((blockCount ?? 0) > 0)
+    return { available: false, reason: 'This time is blocked by the business' }
 
   return { available: true }
 }
@@ -544,15 +546,20 @@ function parseTime(t: string): [number, number] {
 
 function validateBlockInput(input: CreateBlockInput): string | null {
   if (input.is_recurring) {
-    if (input.day_of_week === null || input.day_of_week === undefined || input.day_of_week < 0 || input.day_of_week > 6) {
+    if (
+      input.day_of_week === null ||
+      input.day_of_week === undefined ||
+      input.day_of_week < 0 ||
+      input.day_of_week > 6
+    ) {
       return 'day_of_week (0–6) is required for recurring blocks'
     }
     if (!input.start_time) return 'start_time is required for recurring blocks'
-    if (!input.end_time)   return 'end_time is required for recurring blocks'
+    if (!input.end_time) return 'end_time is required for recurring blocks'
     if (input.start_time >= input.end_time) return 'start_time must be before end_time'
   } else {
     if (!input.starts_at) return 'starts_at is required for one-time blocks'
-    if (!input.ends_at)   return 'ends_at is required for one-time blocks'
+    if (!input.ends_at) return 'ends_at is required for one-time blocks'
     if (new Date(input.starts_at) >= new Date(input.ends_at)) {
       return 'starts_at must be before ends_at'
     }

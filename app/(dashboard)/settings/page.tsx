@@ -36,32 +36,27 @@ export default async function SettingsPage() {
       .order('module_key'),
     db
       .from('subscriptions')
-      .select('status, current_period_end, stripe_customer_id, plans(name, slug, price_cents, currency)')
+      .select(
+        'status, current_period_end, stripe_customer_id, plans(name, slug, price_cents, currency)'
+      )
       .eq('tenant_id', tenantId)
       .maybeSingle(),
     db
       .from('users')
       .select('id, email, role, status, created_at, metadata')
       .eq('tenant_id', tenantId)
-      .neq('role', 'owner')                         // owner must never appear in tenant team views
-      .in('role', ['admin', 'staff'])                // only recognised staff roles
+      .neq('role', 'owner') // owner must never appear in tenant team views
+      .in('role', ['admin', 'staff']) // only recognised staff roles
       .order('created_at', { ascending: true }),
-    db
-      .from('site_settings')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .maybeSingle(),
-    db
-      .from('tenant_domains')
-      .select('hostname, verified')
-      .eq('tenant_id', tenantId),
+    db.from('site_settings').select('*').eq('tenant_id', tenantId).maybeSingle(),
+    db.from('tenant_domains').select('hostname, verified').eq('tenant_id', tenantId),
   ])
 
   if (tenantResult.error || !tenantResult.data) {
     redirect('/dashboard?error=no_tenant')
   }
 
-  const tenant   = tenantResult.data
+  const tenant = tenantResult.data
   const branding = (tenant.branding ?? {}) as Record<string, unknown>
 
   return (
@@ -72,17 +67,34 @@ export default async function SettingsPage() {
       tenantSubdomain={tenant.subdomain ?? null}
       tenantStatus={tenant.status}
       branding={branding}
-      modules={(modulesResult.data ?? []) as Array<{ module_key: string; enabled: boolean; config: Record<string, unknown> }>}
-      subscription={(subscriptionResult.data ?? null) as {
-        status: string
-        current_period_end: string | null
-        stripe_customer_id: string | null
-        plans: { name: string; slug: string; price_cents: number; currency: string } | null
-      } | null}
-      members={(membersResult.data ?? []) as Array<{
-        id: string; email: string; role: string; status: string; created_at: string; metadata: Record<string, unknown>
-      }>}
-      siteSettings={(siteSettingsResult.data ?? null) as import('@/lib/website/types').SiteSettings | null}
+      modules={
+        (modulesResult.data ?? []) as Array<{
+          module_key: string
+          enabled: boolean
+          config: Record<string, unknown>
+        }>
+      }
+      subscription={
+        (subscriptionResult.data ?? null) as {
+          status: string
+          current_period_end: string | null
+          stripe_customer_id: string | null
+          plans: { name: string; slug: string; price_cents: number; currency: string } | null
+        } | null
+      }
+      members={
+        (membersResult.data ?? []) as Array<{
+          id: string
+          email: string
+          role: string
+          status: string
+          created_at: string
+          metadata: Record<string, unknown>
+        }>
+      }
+      siteSettings={
+        (siteSettingsResult.data ?? null) as import('@/lib/website/types').SiteSettings | null
+      }
       allDomains={(domainsResult.data ?? []).map((d) => ({
         hostname: d.hostname,
         verified: d.verified,

@@ -6,36 +6,36 @@ import { CreditCard, CheckCircle2, Clock, XCircle, RotateCcw } from 'lucide-reac
 import { formatCurrency } from '@/lib/payments/formatCurrency'
 
 interface Transaction {
-  id:                      string
-  invoice_id:              string | null
-  provider_key:            string
+  id: string
+  invoice_id: string | null
+  provider_key: string
   provider_transaction_id: string | null
-  amount:                  number
-  currency:                string
-  status:                  string
-  transaction_type:        string
-  created_at:              string
+  amount: number
+  currency: string
+  status: string
+  transaction_type: string
+  created_at: string
 }
 
 interface Props {
   transactions: Transaction[]
-  currency?:    string
+  currency?: string
 }
 
 const STATUS_ICON: Record<string, LucideIcon> = {
   succeeded: CheckCircle2,
-  pending:   Clock,
-  failed:    XCircle,
-  refunded:  RotateCcw,
-  canceled:  XCircle,
+  pending: Clock,
+  failed: XCircle,
+  refunded: RotateCcw,
+  canceled: XCircle,
 }
 
 const STATUS_COLOR: Record<string, string> = {
   succeeded: 'text-emerald-400',
-  pending:   'text-yellow-400',
-  failed:    'text-red-400',
-  refunded:  'text-orange-400',
-  canceled:  'text-white/30',
+  pending: 'text-yellow-400',
+  failed: 'text-red-400',
+  refunded: 'text-orange-400',
+  canceled: 'text-white/30',
 }
 
 const PROVIDER_LABELS: Record<string, string> = { stripe: 'Stripe', square: 'Square' }
@@ -56,7 +56,7 @@ export function CustomerPaymentHistory({ transactions, currency: _currency = 'US
   return (
     <div className="space-y-2">
       {transactions.map((tx, i) => {
-        const StatusIcon  = STATUS_ICON[tx.status] ?? CreditCard
+        const StatusIcon = STATUS_ICON[tx.status] ?? CreditCard
         const statusColor = STATUS_COLOR[tx.status] ?? 'text-white/30'
 
         return (
@@ -68,7 +68,9 @@ export function CustomerPaymentHistory({ transactions, currency: _currency = 'US
             className="flex items-center justify-between p-4 rounded-xl bg-white/3 border border-white/6 hover:bg-white/5 transition-colors"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className={`h-8 w-8 rounded-lg bg-white/4 border border-white/8 flex items-center justify-center flex-shrink-0`}>
+              <div
+                className={`h-8 w-8 rounded-lg bg-white/4 border border-white/8 flex items-center justify-center flex-shrink-0`}
+              >
                 <StatusIcon className={`h-4 w-4 ${statusColor}`} strokeWidth={1.75} />
               </div>
               <div className="min-w-0">
@@ -79,7 +81,9 @@ export function CustomerPaymentHistory({ transactions, currency: _currency = 'US
                 </p>
                 <p className="text-xs text-white/35 mt-0.5">
                   {new Date(tx.created_at).toLocaleDateString('en-US', {
-                    month: 'short', day: 'numeric', year: 'numeric'
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
                   })}
                 </p>
               </div>

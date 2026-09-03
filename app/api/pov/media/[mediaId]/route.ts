@@ -13,7 +13,9 @@ import { povDb } from '@/lib/pov/db'
 import { deletePovMediaObject } from '@/lib/pov/media'
 import { POV_MEDIA_STATUSES, type PovMediaRow, type PovMediaStatus } from '@/lib/pov/types'
 
-interface RouteCtx { params: Promise<{ mediaId: string }> }
+interface RouteCtx {
+  params: Promise<{ mediaId: string }>
+}
 
 async function loadMedia(id: string): Promise<PovMediaRow | null> {
   const { data } = await povDb().from('pov_media').select('*').eq('id', id).maybeSingle()
@@ -31,7 +33,7 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const patch: Record<string, unknown> = {}
 
   if ('status' in body) {
@@ -48,7 +50,11 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   }
 
   const { data, error } = await povDb()
-    .from('pov_media').update(patch).eq('id', mediaId).select('*').single()
+    .from('pov_media')
+    .update(patch)
+    .eq('id', mediaId)
+    .select('*')
+    .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ media: data })
 }
@@ -66,7 +72,9 @@ export async function DELETE(_req: NextRequest, { params }: RouteCtx) {
   try {
     const ctx = await getUserContext()
     if (ctx && canManageEvent(ctx, event)) authorized = true
-  } catch { /* anonymous */ }
+  } catch {
+    /* anonymous */
+  }
 
   // Guest path — only the owning guest, only before reveal.
   if (!authorized) {

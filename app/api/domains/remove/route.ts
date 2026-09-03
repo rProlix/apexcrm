@@ -3,10 +3,10 @@
 // Useful when the caller only knows the hostname, not the row ID.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getSupabaseServerClient }   from '@/lib/supabase/server'
-import { getUserContext }             from '@/lib/auth/getUserContext'
-import { removeDomainFromVercel }     from '@/lib/vercel/removeDomain'
-import { normalizeHost }              from '@/lib/domain/normalizeHost'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { removeDomainFromVercel } from '@/lib/vercel/removeDomain'
+import { normalizeHost } from '@/lib/domain/normalizeHost'
 
 export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
@@ -15,11 +15,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const body = await req.json().catch(() => null) as { hostname?: string; tenant_id?: string } | null
+  const body = (await req.json().catch(() => null)) as {
+    hostname?: string
+    tenant_id?: string
+  } | null
   if (!body?.hostname) return NextResponse.json({ error: 'hostname is required' }, { status: 400 })
 
   const hostname = normalizeHost(body.hostname)
-  const db       = getSupabaseServerClient()
+  const db = getSupabaseServerClient()
 
   const { data: domainRow } = await db
     .from('tenant_domains')

@@ -12,7 +12,7 @@ function formatTime(iso: string) {
 
 function durationLabel(starts_at: string, ends_at: string) {
   const mins = Math.round((new Date(ends_at).getTime() - new Date(starts_at).getTime()) / 60_000)
-  if (mins < 60)  return `${mins}m`
+  if (mins < 60) return `${mins}m`
   const h = Math.floor(mins / 60)
   const m = mins % 60
   return m ? `${h}h ${m}m` : `${h}h`
@@ -20,8 +20,8 @@ function durationLabel(starts_at: string, ends_at: string) {
 
 interface Props {
   appointment: Appointment
-  compact?:    boolean
-  onClick?:    (appt: Appointment) => void
+  compact?: boolean
+  onClick?: (appt: Appointment) => void
 }
 
 export function AppointmentCard({ appointment: appt, compact = false, onClick }: Props) {
@@ -36,9 +36,10 @@ export function AppointmentCard({ appointment: appt, compact = false, onClick }:
       onClick={() => onClick?.(appt)}
       className={`
         group relative rounded-xl border cursor-pointer select-none transition-colors duration-200
-        ${isActive
-          ? 'bg-graphite-700/60 border-gold-500/20 hover:border-gold-500/40'
-          : 'bg-graphite-800/60 border-surface-border hover:border-white/10'
+        ${
+          isActive
+            ? 'bg-graphite-700/60 border-gold-500/20 hover:border-gold-500/40'
+            : 'bg-graphite-800/60 border-surface-border hover:border-white/10'
         }
         ${compact ? 'p-2' : 'p-4'}
       `}

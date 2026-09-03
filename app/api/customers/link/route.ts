@@ -13,32 +13,39 @@ import { linkCustomerAccount } from '@/lib/customers/linkCustomerAccount'
 // The email is taken from the authenticated auth.users session — never trusted from body.
 export async function POST(req: NextRequest) {
   const session = await createSessionServerClient()
-  const { data: { user }, error: authErr } = await session.auth.getUser()
+  const {
+    data: { user },
+    error: authErr,
+  } = await session.auth.getUser()
 
   if (authErr || !user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const host   = req.headers.get('host') ?? ''
+  const host = req.headers.get('host') ?? ''
   const tenant = await getTenantFromHost(host)
   if (!tenant) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 400 })
   }
 
   let body: { name?: string } = {}
-  try { body = await req.json() } catch { /* name is optional */ }
+  try {
+    body = await req.json()
+  } catch {
+    /* name is optional */
+  }
 
   const { customerId, created: customerCreated } = await findOrCreateTenantCustomer({
     tenantId: tenant.id,
-    email:    user.email,
-    name:     body.name?.trim() ?? null,
+    email: user.email,
+    name: body.name?.trim() ?? null,
   })
 
   const { accountId, created: accountCreated } = await linkCustomerAccount({
-    tenantId:   tenant.id,
+    tenantId: tenant.id,
     customerId,
     authUserId: user.id,
-    email:      user.email,
+    email: user.email,
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,10 +57,13 @@ export async function POST(req: NextRequest) {
     .eq('tenant_id', tenant.id)
     .maybeSingle()
 
-  return NextResponse.json({
-    customer,
-    account_id:       accountId,
-    customer_created: customerCreated,
-    account_created:  accountCreated,
-  }, { status: 200 })
+  return NextResponse.json(
+    {
+      customer,
+      account_id: accountId,
+      customer_created: customerCreated,
+      account_created: accountCreated,
+    },
+    { status: 200 }
+  )
 }

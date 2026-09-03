@@ -6,44 +6,67 @@ import { Receipt, CheckCircle2, Clock, XCircle, RotateCcw } from 'lucide-react'
 import { formatCurrency } from '@/lib/payments/formatCurrency'
 
 interface InvoiceItem {
-  id:          string
-  name:        string
+  id: string
+  name: string
   description?: string
-  quantity:    number
-  unit_price:  number
+  quantity: number
+  unit_price: number
   total_price: number
 }
 
 interface Invoice {
-  id:               string
-  invoice_number:   string
-  title:            string
-  description:      string | null
-  amount:           number
-  currency:         string
-  status:           string
-  due_date:         string | null
-  created_at:       string
-  provider_key:     string | null
+  id: string
+  invoice_number: string
+  title: string
+  description: string | null
+  amount: number
+  currency: string
+  status: string
+  due_date: string | null
+  created_at: string
+  provider_key: string | null
   provider_reference: string | null
-  invoice_items:    InvoiceItem[]
+  invoice_items: InvoiceItem[]
 }
 
 interface Props {
   invoice: Invoice
 }
 
-const STATUS_CONFIG: Record<string, { icon: LucideIcon; color: string; bg: string; border: string }> = {
-  draft:    { icon: Clock,        color: 'text-white/50', bg: 'bg-white/4',         border: 'border-white/8' },
-  pending:  { icon: Clock,        color: 'text-yellow-400', bg: 'bg-yellow-400/10', border: 'border-yellow-400/20' },
-  paid:     { icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-400/10', border: 'border-emerald-400/20' },
-  failed:   { icon: XCircle,      color: 'text-red-400',    bg: 'bg-red-400/10',    border: 'border-red-400/20' },
-  refunded: { icon: RotateCcw,    color: 'text-orange-400', bg: 'bg-orange-400/10', border: 'border-orange-400/20' },
-  canceled: { icon: XCircle,      color: 'text-white/30',   bg: 'bg-white/4',       border: 'border-white/8' },
+const STATUS_CONFIG: Record<
+  string,
+  { icon: LucideIcon; color: string; bg: string; border: string }
+> = {
+  draft: { icon: Clock, color: 'text-white/50', bg: 'bg-white/4', border: 'border-white/8' },
+  pending: {
+    icon: Clock,
+    color: 'text-yellow-400',
+    bg: 'bg-yellow-400/10',
+    border: 'border-yellow-400/20',
+  },
+  paid: {
+    icon: CheckCircle2,
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-400/10',
+    border: 'border-emerald-400/20',
+  },
+  failed: {
+    icon: XCircle,
+    color: 'text-red-400',
+    bg: 'bg-red-400/10',
+    border: 'border-red-400/20',
+  },
+  refunded: {
+    icon: RotateCcw,
+    color: 'text-orange-400',
+    bg: 'bg-orange-400/10',
+    border: 'border-orange-400/20',
+  },
+  canceled: { icon: XCircle, color: 'text-white/30', bg: 'bg-white/4', border: 'border-white/8' },
 }
 
 export function InvoiceDetail({ invoice }: Props) {
-  const config   = STATUS_CONFIG[invoice.status] ?? STATUS_CONFIG.draft
+  const config = STATUS_CONFIG[invoice.status] ?? STATUS_CONFIG.draft
   const StatusIcon = config.icon
 
   return (
@@ -57,7 +80,9 @@ export function InvoiceDetail({ invoice }: Props) {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl font-bold text-white">{invoice.invoice_number}</h1>
-            <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${config.bg} ${config.border} ${config.color}`}>
+            <span
+              className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${config.bg} ${config.border} ${config.color}`}
+            >
               <StatusIcon className="h-3 w-3" strokeWidth={2} />
               {invoice.status}
             </span>

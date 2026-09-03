@@ -12,7 +12,9 @@ export async function redirectIfAuthed(destination = '/dashboard') {
 
   try {
     const supabase = await createSessionServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     isAuthed = Boolean(user)
   } catch {
     // Supabase unavailable — stay on the login/signup page

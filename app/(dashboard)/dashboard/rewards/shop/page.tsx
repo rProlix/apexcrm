@@ -34,7 +34,9 @@ export default async function RewardsShopAdminPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Rewards Shop</h1>
-          <p className="text-sm text-white/40 mt-1">Create and manage items customers can redeem with points.</p>
+          <p className="text-sm text-white/40 mt-1">
+            Create and manage items customers can redeem with points.
+          </p>
         </div>
       </div>
 

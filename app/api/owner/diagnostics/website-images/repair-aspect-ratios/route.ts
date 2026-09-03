@@ -10,13 +10,16 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { normalizeImagenAspectRatio, SUPPORTED_IMAGEN_ASPECT_RATIOS } from '@/lib/website-ai/imagenAspectRatios'
+import {
+  normalizeImagenAspectRatio,
+  SUPPORTED_IMAGEN_ASPECT_RATIOS,
+} from '@/lib/website-ai/imagenAspectRatios'
 
 const VALID_RATIOS = [...SUPPORTED_IMAGEN_ASPECT_RATIOS]
 
 export async function POST() {
   const ctx = await getUserContext()
-  if (!ctx)              return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (ctx.role !== 'owner')
     return NextResponse.json({ error: 'Owner role required.' }, { status: 403 })
 
@@ -31,18 +34,26 @@ export async function POST() {
     .limit(1000)
 
   if (fetchErr) {
-    return NextResponse.json({ error: `Failed to fetch plans: ${fetchErr.message}` }, { status: 500 })
+    return NextResponse.json(
+      { error: `Failed to fetch plans: ${fetchErr.message}` },
+      { status: 500 }
+    )
   }
 
-  type PlanRow = { id: string; aspect_ratio: string; section_type: string | null; requested_aspect_ratio: string | null }
+  type PlanRow = {
+    id: string
+    aspect_ratio: string
+    section_type: string | null
+    requested_aspect_ratio: string | null
+  }
 
   const invalidRows = ((allRows ?? []) as unknown as PlanRow[]).filter(
-    r => !(VALID_RATIOS as string[]).includes(r.aspect_ratio)
+    (r) => !(VALID_RATIOS as string[]).includes(r.aspect_ratio)
   )
 
   if (invalidRows.length === 0) {
     return NextResponse.json({
-      ok:      true,
+      ok: true,
       repaired: 0,
       message: 'No rows with invalid aspect_ratio found. Nothing to repair.',
     })
@@ -56,9 +67,9 @@ export async function POST() {
     const { error: updateErr } = await supabase
       .from('website_image_plans')
       .update({
-        aspect_ratio:           normalized,
+        aspect_ratio: normalized,
         requested_aspect_ratio: row.requested_aspect_ratio ?? row.aspect_ratio,
-        updated_at:             new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       } as never)
       .eq('id', row.id)
 
@@ -69,14 +80,18 @@ export async function POST() {
     }
   }
 
-  return NextResponse.json({
-    ok:        failures.length === 0,
-    repaired:  repaired.length,
-    failures:  failures.length,
-    details:   repaired,
-    errors:    failures,
-    message:   failures.length === 0
-      ? `Repaired ${repaired.length} row(s) with invalid aspect_ratio values.`
-      : `Repaired ${repaired.length} row(s). ${failures.length} failed — see errors.`,
-  }, { status: failures.length > 0 ? 207 : 200 })
+  return NextResponse.json(
+    {
+      ok: failures.length === 0,
+      repaired: repaired.length,
+      failures: failures.length,
+      details: repaired,
+      errors: failures,
+      message:
+        failures.length === 0
+          ? `Repaired ${repaired.length} row(s) with invalid aspect_ratio values.`
+          : `Repaired ${repaired.length} row(s). ${failures.length} failed — see errors.`,
+    },
+    { status: failures.length > 0 ? 207 : 200 }
+  )
 }

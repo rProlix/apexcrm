@@ -6,10 +6,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
 import { hashToken } from '@/lib/invites/inviteHelpers'
-import {
-  validateLegalAgreement,
-  type LegalAgreement,
-} from '@/lib/legal/consent'
+import { validateLegalAgreement, type LegalAgreement } from '@/lib/legal/consent'
 import { recordLegalConsent } from '@/lib/legal/recordConsent'
 
 function err(code: string, message: string, status = 400) {
@@ -18,19 +15,21 @@ function err(code: string, message: string, status = 400) {
 
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return err('INVALID_JSON', 'Request body must be valid JSON.', 400)
   }
 
-  const token    = typeof body.token    === 'string' ? body.token.trim() : ''
+  const token = typeof body.token === 'string' ? body.token.trim() : ''
   const password = typeof body.password === 'string' ? body.password : null
   const fullName = typeof body.fullName === 'string' ? body.fullName.trim() : null
-  const phone    = typeof body.phone    === 'string' ? body.phone.trim() : null
+  const phone = typeof body.phone === 'string' ? body.phone.trim() : null
 
   if (!token) return err('MISSING_TOKEN', 'Token is required.', 400)
 
   const tokenHash = hashToken(token)
-  const supabase  = getSupabaseServerClient()
+  const supabase = getSupabaseServerClient()
 
   // Validate invite via service role
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,17 +39,23 @@ export async function POST(req: NextRequest) {
     .eq('token_hash', tokenHash)
     .maybeSingle()
 
-  if (!invite) return err('INVITE_NOT_FOUND', 'This invite link is invalid or has already been used.', 404)
-  if (invite.status === 'revoked')  return err('INVITE_REVOKED',  'This invite has been revoked.', 410)
-  if (invite.status === 'accepted') return err('INVITE_ACCEPTED', 'This invite has already been accepted.', 409)
-  if (invite.status === 'expired')  return err('INVITE_EXPIRED',  'This invite has expired.', 410)
+  if (!invite)
+    return err('INVITE_NOT_FOUND', 'This invite link is invalid or has already been used.', 404)
+  if (invite.status === 'revoked')
+    return err('INVITE_REVOKED', 'This invite has been revoked.', 410)
+  if (invite.status === 'accepted')
+    return err('INVITE_ACCEPTED', 'This invite has already been accepted.', 409)
+  if (invite.status === 'expired') return err('INVITE_EXPIRED', 'This invite has expired.', 410)
   if (new Date(invite.expires_at) < new Date()) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('customer_invites').update({ status: 'expired' }).eq('id', invite.id)
+    await (supabase as any)
+      .from('customer_invites')
+      .update({ status: 'expired' })
+      .eq('id', invite.id)
     return err('INVITE_EXPIRED', 'This invite has expired.', 410)
   }
 
-  const tenantId   = invite.tenant_id as string
+  const tenantId = invite.tenant_id as string
   const inviteEmail = (invite.email as string).toLowerCase()
 
   let authUserId: string
@@ -58,7 +63,9 @@ export async function POST(req: NextRequest) {
 
   // ── Flow 1: check for an existing session ────────────────────────────────
   const sessionClient = await createSessionServerClient()
-  const { data: { user: sessionUser } } = await sessionClient.auth.getUser()
+  const {
+    data: { user: sessionUser },
+  } = await sessionClient.auth.getUser()
 
   if (sessionUser) {
     // User is already logged in
@@ -100,13 +107,13 @@ export async function POST(req: NextRequest) {
 
     // Try to create a new user (service role — creates without email confirmation)
     const { data: newUser, error: signupError } = await supabase.auth.admin.createUser({
-      email:             inviteEmail,
+      email: inviteEmail,
       password,
-      email_confirm:     true, // skip email confirmation since we're using invite as verification
+      email_confirm: true, // skip email confirmation since we're using invite as verification
       user_metadata: {
-        full_name:  fullName ?? invite.full_name ?? '',
-        role:       'customer',
-        tenant_id:  tenantId,
+        full_name: fullName ?? invite.full_name ?? '',
+        role: 'customer',
+        tenant_id: tenantId,
         legal_acceptance: legalAgreement,
       },
     })
@@ -118,11 +125,18 @@ export async function POST(req: NextRequest) {
         const { data: existing } = await supabase.auth.admin.listUsers()
         const found = existing?.users?.find((u) => u.email?.toLowerCase() === inviteEmail)
         if (!found) {
-          return err('AUTH_ERROR', 'An account with this email already exists. Please sign in first.', 409)
+          return err(
+            'AUTH_ERROR',
+            'An account with this email already exists. Please sign in first.',
+            409
+          )
         }
         authUserId = found.id
       } else {
-        console.error('[POST /api/customer-invites/accept] auth.admin.createUser:', signupError.message)
+        console.error(
+          '[POST /api/customer-invites/accept] auth.admin.createUser:',
+          signupError.message
+        )
         return err('AUTH_ERROR', 'Failed to create account. Please try again.', 500)
       }
     } else if (!newUser?.user) {
@@ -142,7 +156,7 @@ export async function POST(req: NextRequest) {
     if (fullName || phone) {
       const updates: Record<string, string> = {}
       if (fullName) updates.name = fullName
-      if (phone)    updates.phone = phone
+      if (phone) updates.phone = phone
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase as any)
         .from('customers')
@@ -168,9 +182,9 @@ export async function POST(req: NextRequest) {
         .from('customers')
         .insert({
           tenant_id: tenantId,
-          name:      fullName ?? invite.full_name ?? inviteEmail,
-          email:     inviteEmail,
-          phone:     phone ?? invite.phone ?? null,
+          name: fullName ?? invite.full_name ?? inviteEmail,
+          email: inviteEmail,
+          phone: phone ?? invite.phone ?? null,
         })
         .select('id')
         .single()
@@ -208,11 +222,11 @@ export async function POST(req: NextRequest) {
     const { error: updateErr } = await (supabase as any)
       .from('customer_accounts')
       .update({
-        tenant_id:   tenantId,
+        tenant_id: tenantId,
         customer_id: customerId,
-        email:       inviteEmail,
-        status:      'active',
-        invite_id:   invite.id,
+        email: inviteEmail,
+        status: 'active',
+        invite_id: invite.id,
       })
       .eq('id', existingAccount.id)
 
@@ -223,16 +237,17 @@ export async function POST(req: NextRequest) {
   } else {
     // Insert or update account for this tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: upsertErr } = await (supabase as any)
-      .from('customer_accounts')
-      .upsert({
-        tenant_id:    tenantId,
-        customer_id:  customerId,
+    const { error: upsertErr } = await (supabase as any).from('customer_accounts').upsert(
+      {
+        tenant_id: tenantId,
+        customer_id: customerId,
         auth_user_id: authUserId,
-        email:        inviteEmail,
-        status:       'active',
-        invite_id:    invite.id,
-      }, { onConflict: 'auth_user_id' })
+        email: inviteEmail,
+        status: 'active',
+        invite_id: invite.id,
+      },
+      { onConflict: 'auth_user_id' }
+    )
 
     if (upsertErr) {
       console.error('[POST /api/customer-invites/accept] upsert account:', upsertErr.message)
@@ -260,7 +275,7 @@ export async function POST(req: NextRequest) {
   await (supabase as any)
     .from('customer_invites')
     .update({
-      status:      'accepted',
+      status: 'accepted',
       accepted_at: new Date().toISOString(),
       customer_id: customerId,
     })
@@ -268,7 +283,7 @@ export async function POST(req: NextRequest) {
 
   // Build the post-accept redirect URL pointing to the business storefront so
   // the customer lands on their own account page, not the main CRM domain.
-  const rootDomain    = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: tenantRow } = await (supabase as any)
     .from('tenants')

@@ -39,7 +39,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -55,8 +57,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         const profile = await addCustomerNote({
           tenantId,
           customerId: id,
-          text:       body.note_text as string,
-          author:     ctx.email,
+          text: body.note_text as string,
+          author: ctx.email,
         })
         return NextResponse.json({ profile })
       }

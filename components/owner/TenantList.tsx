@@ -15,8 +15,8 @@ interface TenantListProps {
 }
 
 export function TenantList({ tenants }: TenantListProps) {
-  const [search, setSearch]       = useState('')
-  const [status, setStatus]       = useState<StatusFilter>('all')
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState<StatusFilter>('all')
 
   const filtered = useMemo(() => {
     return tenants.filter((t) => {
@@ -29,7 +29,7 @@ export function TenantList({ tenants }: TenantListProps) {
 
       const matchesStatus =
         status === 'all' ||
-        (status === 'active'   && t.status === 'active') ||
+        (status === 'active' && t.status === 'active') ||
         (status === 'inactive' && t.status !== 'active')
 
       return matchesSearch && matchesStatus
@@ -60,7 +60,10 @@ export function TenantList({ tenants }: TenantListProps) {
 
         {/* Status filter */}
         <div className="flex items-center gap-1 p-1 rounded-xl bg-graphite-900 border border-white/8">
-          <SlidersHorizontal className="h-3.5 w-3.5 text-white/20 ml-1.5 mr-0.5 shrink-0" strokeWidth={1.75} />
+          <SlidersHorizontal
+            className="h-3.5 w-3.5 text-white/20 ml-1.5 mr-0.5 shrink-0"
+            strokeWidth={1.75}
+          />
           {(['all', 'active', 'inactive'] as StatusFilter[]).map((s) => (
             <button
               key={s}
@@ -98,7 +101,7 @@ export function TenantList({ tenants }: TenantListProps) {
           initial="hidden"
           animate="visible"
           variants={{
-            hidden:  {},
+            hidden: {},
             visible: { transition: { staggerChildren: 0.05 } },
           }}
         >

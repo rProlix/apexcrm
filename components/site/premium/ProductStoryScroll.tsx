@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
 export interface ProductStoryScene {
-  headline:    string
+  headline: string
   description: string
   accentColor?: string
 }
@@ -17,21 +17,24 @@ export interface ProductStoryScrollProps {
   /** Featured product image URL */
   stickyProductImageUrl?: string | null
   /** Array of text scenes */
-  productStoryScenes?:    ProductStoryScene[]
+  productStoryScenes?: ProductStoryScene[]
   /** Optional product ID for 360 spin embed */
-  featuredProductId?:     string | null
+  featuredProductId?: string | null
   /** Whether to use 360 viewer if available (lazy loads 3d viewer) */
-  use360IfAvailable?:     boolean
+  use360IfAvailable?: boolean
   /** Fallback heading when no scenes are configured */
-  headline?:              string
-  subheadline?:           string
+  headline?: string
+  subheadline?: string
   /** Text color for scenes */
-  textColor?:             string
-  backgroundColor?:       string
+  textColor?: string
+  backgroundColor?: string
 }
 
 const DEFAULT_SCENES: ProductStoryScene[] = [
-  { headline: 'Crafted to Perfection', description: 'Every detail considered. Every choice intentional.' },
+  {
+    headline: 'Crafted to Perfection',
+    description: 'Every detail considered. Every choice intentional.',
+  },
   { headline: 'Experience the Difference', description: 'See why customers love what we create.' },
   { headline: 'Yours to Enjoy', description: 'Ready when you are. Order yours today.' },
 ]
@@ -47,13 +50,13 @@ export function ProductStoryScroll({
   backgroundColor = '#000000',
 }: ProductStoryScrollProps) {
   const scenes = (productStoryScenes?.length ?? 0) > 0 ? productStoryScenes! : DEFAULT_SCENES
-  const [activeScene, setActiveScene]     = useState(0)
-  const [imageScale, setImageScale]       = useState(1)
+  const [activeScene, setActiveScene] = useState(0)
+  const [imageScale, setImageScale] = useState(1)
   const [imageTranslateY, setImageTranslateY] = useState(0)
-  const [imageOpacity, setImageOpacity]   = useState(1)
-  const [hasScrolled, setHasScrolled]     = useState(false)
+  const [imageOpacity, setImageOpacity] = useState(1)
+  const [hasScrolled, setHasScrolled] = useState(false)
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([])
-  const stageRef  = useRef<HTMLDivElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -82,7 +85,7 @@ export function ProductStoryScroll({
             }
           }
         },
-        { threshold: 0.4 },
+        { threshold: 0.4 }
       )
       obs.observe(el)
       observers.push(obs)
@@ -110,7 +113,7 @@ export function ProductStoryScroll({
   }, [handleScroll, prefersReducedMotion, isMobile])
 
   const currentScene = scenes[activeScene] ?? scenes[0]
-  const accentColor  = currentScene?.accentColor ?? '#2997ff'
+  const accentColor = currentScene?.accentColor ?? '#2997ff'
 
   // ── Mobile layout ─────────────────────────────────────────────────────────
   if (isMobile || prefersReducedMotion) {
@@ -122,17 +125,36 @@ export function ProductStoryScroll({
             <img
               src={stickyProductImageUrl}
               alt={headline}
-              style={{ maxWidth: '80%', maxHeight: 320, objectFit: 'contain', borderRadius: '1rem' }}
+              style={{
+                maxWidth: '80%',
+                maxHeight: 320,
+                objectFit: 'contain',
+                borderRadius: '1rem',
+              }}
             />
           </div>
         )}
         {/* Scenes stacked */}
         {scenes.map((scene, i) => (
           <div key={i} style={{ marginBottom: '3rem', textAlign: 'center' }}>
-            <h3 style={{ fontSize: 'clamp(1.5rem, 4vw, 2rem)', fontWeight: 700, color: textColor, margin: '0 0 1rem' }}>
+            <h3
+              style={{
+                fontSize: 'clamp(1.5rem, 4vw, 2rem)',
+                fontWeight: 700,
+                color: textColor,
+                margin: '0 0 1rem',
+              }}
+            >
               {scene.headline}
             </h3>
-            <p style={{ fontSize: '1.0625rem', color: `${textColor}cc`, lineHeight: 1.65, margin: 0 }}>
+            <p
+              style={{
+                fontSize: '1.0625rem',
+                color: `${textColor}cc`,
+                lineHeight: 1.65,
+                margin: 0,
+              }}
+            >
               {scene.description}
             </p>
           </div>
@@ -146,109 +168,118 @@ export function ProductStoryScroll({
     <div
       ref={stageRef}
       style={{
-        background:    backgroundColor,
-        color:         textColor,
-        position:      'relative',
-        minHeight:     `${scenes.length * 100}vh`,
+        background: backgroundColor,
+        color: textColor,
+        position: 'relative',
+        minHeight: `${scenes.length * 100}vh`,
       }}
     >
       {/* Sticky product stage */}
-      <div style={{
-        position:   'sticky',
-        top:        0,
-        height:     '100vh',
-        display:    'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex:     1,
-        pointerEvents: 'none',
-        overflow:   'hidden',
-      }}>
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1,
+          pointerEvents: 'none',
+          overflow: 'hidden',
+        }}
+      >
         {/* Product visual */}
         <div
           style={{
-            position:  'absolute',
-            left:      '50%',
-            top:       '50%',
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
             transform: `translate(-50%, calc(-50% + ${imageTranslateY}px)) scale(${imageScale})`,
-            opacity:   imageOpacity,
+            opacity: imageOpacity,
             transition: hasScrolled ? 'transform 0.12s ease-out, opacity 0.2s ease-out' : 'none',
-            maxWidth:  '50vw',
+            maxWidth: '50vw',
             maxHeight: '70vh',
           }}
         >
-          {stickyProductImageUrl
-            ? (
-              <img
-                src={stickyProductImageUrl}
-                alt={headline}
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '70vh',
-                  objectFit: 'contain',
-                  display: 'block',
-                  filter: 'drop-shadow(0 20px 80px rgba(0,0,0,0.6))',
-                }}
-              />
-            )
-            : (
-              // Placeholder product stage when no image
-              <div style={{
-                width:        280,
-                height:       280,
+          {stickyProductImageUrl ? (
+            <img
+              src={stickyProductImageUrl}
+              alt={headline}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '70vh',
+                objectFit: 'contain',
+                display: 'block',
+                filter: 'drop-shadow(0 20px 80px rgba(0,0,0,0.6))',
+              }}
+            />
+          ) : (
+            // Placeholder product stage when no image
+            <div
+              style={{
+                width: 280,
+                height: 280,
                 borderRadius: '50%',
-                background:   `radial-gradient(circle at 30% 30%, ${accentColor}44 0%, transparent 60%), radial-gradient(circle, #1d1d1f 100%)`,
-                border:       `2px solid ${accentColor}33`,
-                display:      'flex',
-                alignItems:   'center',
+                background: `radial-gradient(circle at 30% 30%, ${accentColor}44 0%, transparent 60%), radial-gradient(circle, #1d1d1f 100%)`,
+                border: `2px solid ${accentColor}33`,
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
-                fontSize:     '5rem',
-              }}>
-                ◉
-              </div>
-            )
-          }
+                fontSize: '5rem',
+              }}
+            >
+              ◉
+            </div>
+          )}
         </div>
 
         {/* Text scene overlay */}
-        <div style={{
-          position:     'absolute',
-          right:        '8%',
-          top:          '50%',
-          transform:    'translateY(-50%)',
-          maxWidth:     380,
-          padding:      '2.5rem',
-          background:   'rgba(0,0,0,0.65)',
-          backdropFilter: 'blur(16px)',
-          borderRadius: '1.5rem',
-          border:       `1px solid ${accentColor}33`,
-          transition:   'opacity 0.3s ease',
-          pointerEvents: 'all',
-        }}>
-          <div style={{
-            width:        40,
-            height:       3,
-            background:   accentColor,
-            borderRadius: 2,
-            marginBottom: '1.25rem',
-            transition:   'background 0.3s ease',
-          }} />
-          <h2 style={{
-            fontSize:    'clamp(1.5rem, 2.5vw, 2rem)',
-            fontWeight:  700,
-            lineHeight:  1.2,
-            color:       textColor,
-            margin:      '0 0 1rem',
-            transition:  'opacity 0.3s ease',
-          }}>
+        <div
+          style={{
+            position: 'absolute',
+            right: '8%',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            maxWidth: 380,
+            padding: '2.5rem',
+            background: 'rgba(0,0,0,0.65)',
+            backdropFilter: 'blur(16px)',
+            borderRadius: '1.5rem',
+            border: `1px solid ${accentColor}33`,
+            transition: 'opacity 0.3s ease',
+            pointerEvents: 'all',
+          }}
+        >
+          <div
+            style={{
+              width: 40,
+              height: 3,
+              background: accentColor,
+              borderRadius: 2,
+              marginBottom: '1.25rem',
+              transition: 'background 0.3s ease',
+            }}
+          />
+          <h2
+            style={{
+              fontSize: 'clamp(1.5rem, 2.5vw, 2rem)',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              color: textColor,
+              margin: '0 0 1rem',
+              transition: 'opacity 0.3s ease',
+            }}
+          >
             {currentScene?.headline}
           </h2>
-          <p style={{
-            fontSize:   '1.0625rem',
-            color:      `${textColor}cc`,
-            lineHeight: 1.65,
-            margin:     0,
-          }}>
+          <p
+            style={{
+              fontSize: '1.0625rem',
+              color: `${textColor}cc`,
+              lineHeight: 1.65,
+              margin: 0,
+            }}
+          >
             {currentScene?.description}
           </p>
           {/* Scene indicators */}
@@ -259,14 +290,14 @@ export function ProductStoryScroll({
                 onClick={() => setActiveScene(i)}
                 aria-label={`Scene ${i + 1}`}
                 style={{
-                  width:        i === activeScene ? 24 : 8,
-                  height:       8,
+                  width: i === activeScene ? 24 : 8,
+                  height: 8,
                   borderRadius: 4,
-                  background:   i === activeScene ? accentColor : `${textColor}44`,
-                  border:       'none',
-                  cursor:       'pointer',
-                  padding:      0,
-                  transition:   'all 0.3s ease',
+                  background: i === activeScene ? accentColor : `${textColor}44`,
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                  transition: 'all 0.3s ease',
                 }}
               />
             ))}
@@ -278,15 +309,17 @@ export function ProductStoryScroll({
       {scenes.map((scene, i) => (
         <div
           key={i}
-          ref={(el) => { sceneRefs.current[i] = el }}
+          ref={(el) => {
+            sceneRefs.current[i] = el
+          }}
           style={{
-            height:        '100vh',
-            display:       'flex',
-            alignItems:    'center',
+            height: '100vh',
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: 'flex-start',
-            padding:       '0 8%',
-            position:      'relative',
-            zIndex:        2,
+            padding: '0 8%',
+            position: 'relative',
+            zIndex: 2,
           }}
           aria-label={scene.headline}
         />

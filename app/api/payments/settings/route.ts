@@ -10,9 +10,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const tenantId = user.role === 'owner'
-    ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
-    : user.tenant_id
+  const tenantId =
+    user.role === 'owner'
+      ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
+      : user.tenant_id
 
   try {
     const settings = await getPaymentSettings(tenantId)
@@ -31,12 +32,15 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const tenantId = user.role === 'owner'
-    ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
-    : user.tenant_id
+  const tenantId =
+    user.role === 'owner'
+      ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
+      : user.tenant_id
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -65,7 +69,10 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const settings = await upsertPaymentSettings(tenantId, updates as Parameters<typeof upsertPaymentSettings>[1])
+    const settings = await upsertPaymentSettings(
+      tenantId,
+      updates as Parameters<typeof upsertPaymentSettings>[1]
+    )
     const { webhook_secret: _secret, ...safe } = settings
     return NextResponse.json({ settings: safe })
   } catch (err) {

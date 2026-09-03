@@ -15,32 +15,32 @@ export type Product360ProviderName = 'gemini' | 'leonardo'
 
 export interface Generate360FrameInput {
   /** Full per-frame prompt (includes locked scene identity + angle instruction) */
-  prompt:          string
+  prompt: string
   /** Current orbit angle in degrees */
-  angleDegrees:    number
+  angleDegrees: number
   /** 0-based frame index */
-  frameIndex:      number
+  frameIndex: number
   /** Total frames in this package */
-  totalFrames:     number
-  width:           number
-  height:          number
+  totalFrames: number
+  width: number
+  height: number
   /**
    * URL of the owner-uploaded product reference image.
    * Used by Leonardo as the imageUrl blueprint input.
    * Passed to Gemini/Imagen as image-conditioned reference when supported.
    */
-  referenceImageUrl?:   string
+  referenceImageUrl?: string
   /**
    * Base64-encoded master frame (frame 0) for Gemini image-conditioned generation.
    * Only used after frame 0 has been generated successfully.
    */
-  referenceImageBase64?:   string
+  referenceImageBase64?: string
   referenceImageMimeType?: string
   /**
    * Pre-built text variables string for Leonardo blueprint input.
    * Contains locked scene description + current angle info.
    */
-  textVariables?:  string
+  textVariables?: string
   cameraInstruction?: string
   lightingInstruction?: string
   backgroundInstruction?: string
@@ -57,10 +57,10 @@ export interface Generate360FrameResult {
   /** Raw image bytes (preferred path) */
   imageBuffer?: Buffer
   /** Remote image URL (provider returned URL, needs downloading) */
-  imageUrl?:    string
-  mimeType:     string
-  provider:     Product360ProviderName
-  model?:       string
+  imageUrl?: string
+  mimeType: string
+  provider: Product360ProviderName
+  model?: string
   /**
    * Async execution ID — set when the provider accepted the request but
    * the image is not yet ready. The pump route must poll on the next call.
@@ -87,11 +87,11 @@ export interface PollExecutionInput {
 }
 
 export interface PollExecutionResult {
-  status:       'pending' | 'completed' | 'failed'
+  status: 'pending' | 'completed' | 'failed'
   imageBuffer?: Buffer
-  imageUrl?:    string
-  mimeType?:    string
-  error?:       ProviderError
+  imageUrl?: string
+  mimeType?: string
+  error?: ProviderError
 }
 
 // ─── Structured provider error ────────────────────────────────────────────────
@@ -109,23 +109,23 @@ export type ProviderErrorCode =
   | 'unknown'
 
 export interface ProviderError {
-  code:           ProviderErrorCode
-  message:        string
-  details?:       string
-  isRetryable:    boolean
-  isQuotaError:   boolean
+  code: ProviderErrorCode
+  message: string
+  details?: string
+  isRetryable: boolean
+  isQuotaError: boolean
   /** If set, do not retry before this timestamp */
-  retryAfterMs?:  number
+  retryAfterMs?: number
 }
 
 // ─── Provider interface ───────────────────────────────────────────────────────
 
 export interface Product360Provider {
-  readonly name:    Product360ProviderName
+  readonly name: Product360ProviderName
   /** Whether this provider is fully configured (env vars present + valid) */
-  isAvailable():    boolean
+  isAvailable(): boolean
   /** Diagnostic: list any missing or invalid config */
-  configErrors():   string[]
+  configErrors(): string[]
   /**
    * Generate a single frame. May be synchronous (Gemini) or async-start (Leonardo).
    * - If result.status === 'completed': imageBuffer or imageUrl is ready
@@ -142,18 +142,18 @@ export interface Product360Provider {
 
 /** @deprecated Use Product360Provider from this file instead. */
 export interface P360Provider {
-  name:        string
+  name: string
   isAvailable: () => boolean
-  generate:    (params: {
+  generate: (params: {
     prompt: string
     negativePrompt?: string
     width?: number
     height?: number
     timeoutMs?: number
   }) => Promise<{
-    imageUrl?:    string
+    imageUrl?: string
     imageBuffer?: Buffer
-    jobId?:       string
-    provider:     string
+    jobId?: string
+    provider: string
   }>
 }

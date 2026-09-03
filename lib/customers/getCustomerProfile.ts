@@ -2,20 +2,20 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface CustomerProfile {
-  id:               string
-  tenant_id:        string
-  customer_id:      string
-  preferences:      Record<string, unknown>
-  notes:            CustomerNote[]
+  id: string
+  tenant_id: string
+  customer_id: string
+  preferences: Record<string, unknown>
+  notes: CustomerNote[]
   marketing_opt_in: boolean
-  created_at:       string
-  updated_at:       string
+  created_at: string
+  updated_at: string
 }
 
 export interface CustomerNote {
-  id:         string
-  text:       string
-  author:     string
+  id: string
+  text: string
+  author: string
   created_at: string
 }
 
@@ -25,7 +25,7 @@ export interface CustomerNote {
  * Strictly scoped to tenant_id + customer_id.
  */
 export async function getCustomerProfile(
-  tenantId:   string,
+  tenantId: string,
   customerId: string
 ): Promise<CustomerProfile | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,7 +33,9 @@ export async function getCustomerProfile(
 
   const { data, error } = await supabase
     .from('customer_profiles')
-    .select('id, tenant_id, customer_id, preferences, notes, marketing_opt_in, created_at, updated_at')
+    .select(
+      'id, tenant_id, customer_id, preferences, notes, marketing_opt_in, created_at, updated_at'
+    )
     .eq('tenant_id', tenantId)
     .eq('customer_id', customerId)
     .maybeSingle()
@@ -46,14 +48,14 @@ export async function getCustomerProfile(
   if (!data) return null
 
   return {
-    id:               data.id,
-    tenant_id:        data.tenant_id,
-    customer_id:      data.customer_id,
-    preferences:      (data.preferences ?? {}) as Record<string, unknown>,
-    notes:            Array.isArray(data.notes) ? (data.notes as CustomerNote[]) : [],
+    id: data.id,
+    tenant_id: data.tenant_id,
+    customer_id: data.customer_id,
+    preferences: (data.preferences ?? {}) as Record<string, unknown>,
+    notes: Array.isArray(data.notes) ? (data.notes as CustomerNote[]) : [],
     marketing_opt_in: data.marketing_opt_in ?? false,
-    created_at:       data.created_at,
-    updated_at:       data.updated_at,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
   }
 }
 
@@ -62,7 +64,7 @@ export async function getCustomerProfile(
  * Returns the existing or newly created profile.
  */
 export async function ensureCustomerProfile(
-  tenantId:   string,
+  tenantId: string,
   customerId: string
 ): Promise<CustomerProfile> {
   const existing = await getCustomerProfile(tenantId, customerId)
@@ -73,13 +75,15 @@ export async function ensureCustomerProfile(
   const { data, error } = await supabase
     .from('customer_profiles')
     .insert({
-      tenant_id:        tenantId,
-      customer_id:      customerId,
-      preferences:      {},
-      notes:            [],
+      tenant_id: tenantId,
+      customer_id: customerId,
+      preferences: {},
+      notes: [],
       marketing_opt_in: false,
     })
-    .select('id, tenant_id, customer_id, preferences, notes, marketing_opt_in, created_at, updated_at')
+    .select(
+      'id, tenant_id, customer_id, preferences, notes, marketing_opt_in, created_at, updated_at'
+    )
     .single()
 
   if (error || !data) {
@@ -89,6 +93,6 @@ export async function ensureCustomerProfile(
   return {
     ...data,
     preferences: data.preferences ?? {},
-    notes:       Array.isArray(data.notes) ? data.notes : [],
+    notes: Array.isArray(data.notes) ? data.notes : [],
   } as CustomerProfile
 }

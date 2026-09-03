@@ -15,8 +15,16 @@ function forbidden(msg = 'Forbidden') {
 }
 
 const VALID_SOURCE_TYPES = new Set<AiJobSourceType>([
-  'mixed','pasted_text','reviews','services','products',
-  'menu','business_profile','contact_hours','faq','policies',
+  'mixed',
+  'pasted_text',
+  'reviews',
+  'services',
+  'products',
+  'menu',
+  'business_profile',
+  'contact_hours',
+  'faq',
+  'policies',
 ])
 
 // ── POST /api/website-ai/imports ─────────────────────────────────────────────
@@ -24,7 +32,8 @@ const VALID_SOURCE_TYPES = new Set<AiJobSourceType>([
 export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!['owner', 'admin'].includes(ctx.role)) return forbidden('You do not have permission to use AI Autofill for this website.')
+  if (!['owner', 'admin'].includes(ctx.role))
+    return forbidden('You do not have permission to use AI Autofill for this website.')
 
   let body: Record<string, unknown>
   try {
@@ -33,10 +42,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const rawInput   = typeof body.rawInput === 'string' ? body.rawInput : ''
-  const sourceType = typeof body.sourceType === 'string' && VALID_SOURCE_TYPES.has(body.sourceType as AiJobSourceType)
-    ? (body.sourceType as AiJobSourceType)
-    : 'mixed'
+  const rawInput = typeof body.rawInput === 'string' ? body.rawInput : ''
+  const sourceType =
+    typeof body.sourceType === 'string' &&
+    VALID_SOURCE_TYPES.has(body.sourceType as AiJobSourceType)
+      ? (body.sourceType as AiJobSourceType)
+      : 'mixed'
 
   if (!rawInput.trim()) {
     return NextResponse.json({ error: 'rawInput is required' }, { status: 422 })
@@ -63,12 +74,12 @@ export async function POST(req: NextRequest) {
   const { data: job, error } = await db
     .from('website_ai_import_jobs')
     .insert({
-      tenant_id:   tenantId,
-      created_by:  ctx.auth_id,
+      tenant_id: tenantId,
+      created_by: ctx.auth_id,
       source_type: sourceType,
-      raw_input:   sanitized,
-      status:      'draft',
-      model:       getWebsiteAiGeminiModel(),
+      raw_input: sanitized,
+      status: 'draft',
+      model: getWebsiteAiGeminiModel(),
     })
     .select('*')
     .single()
@@ -87,15 +98,17 @@ export async function GET(req: NextRequest) {
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const url        = new URL(req.url)
+  const url = new URL(req.url)
   const hintTenant = url.searchParams.get('tenantId') ?? url.searchParams.get('tenant_id')
-  const tenantId   = resolveTenantAccess(ctx, hintTenant)
+  const tenantId = resolveTenantAccess(ctx, hintTenant)
 
   const db = getSupabaseServerClient()
 
   let query = db
     .from('website_ai_import_jobs')
-    .select('id, tenant_id, source_type, status, model, summary, detected_business_type, detected_content_types, confidence, error_message, created_at, updated_at')
+    .select(
+      'id, tenant_id, source_type, status, model, summary, detected_business_type, detected_content_types, confidence, error_message, created_at, updated_at'
+    )
     .order('created_at', { ascending: false })
     .limit(50)
 

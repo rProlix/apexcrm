@@ -12,10 +12,7 @@ function err(code: string, message: string, status = 400) {
   return NextResponse.json({ ok: false, code, error: message }, { status })
 }
 
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
   const ctx = await getUserContext()
@@ -40,14 +37,16 @@ export async function POST(
 
   if (!invite) return err('INVITE_NOT_FOUND', 'Invite not found.', 404)
 
-  if (invite.status === 'accepted') return err('INVITE_ACCEPTED', 'Cannot revoke an accepted invite.', 409)
-  if (invite.status === 'revoked')  return err('INVITE_ALREADY_REVOKED', 'This invite is already revoked.', 409)
+  if (invite.status === 'accepted')
+    return err('INVITE_ACCEPTED', 'Cannot revoke an accepted invite.', 409)
+  if (invite.status === 'revoked')
+    return err('INVITE_ALREADY_REVOKED', 'This invite is already revoked.', 409)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: updateError } = await (supabase as any)
     .from('customer_invites')
     .update({
-      status:     'revoked',
+      status: 'revoked',
       revoked_at: new Date().toISOString(),
     })
     .eq('id', id)

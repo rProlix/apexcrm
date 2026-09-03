@@ -6,10 +6,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  Users, Plus, Mail, Search, AlertCircle,
-  RefreshCw, UserX,
-} from 'lucide-react'
+import { Users, Plus, Mail, Search, AlertCircle, RefreshCw, UserX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
@@ -17,14 +14,14 @@ import { StaffActions } from './StaffActions'
 import type { StaffMember } from '@/lib/staff/getTenantStaff'
 
 interface Props {
-  initialStaff:    StaffMember[]
-  currentUserId:   string
+  initialStaff: StaffMember[]
+  currentUserId: string
   currentUserRole: string
 }
 
 const ROLE_BADGE: Record<string, string> = {
-  admin:   'bg-blue-500/15 text-blue-400 border-blue-500/25',
-  staff:   'bg-white/8 text-white/50 border-white/10',
+  admin: 'bg-blue-500/15 text-blue-400 border-blue-500/25',
+  staff: 'bg-white/8 text-white/50 border-white/10',
   invited: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
 }
 
@@ -33,29 +30,32 @@ export function StaffList({ initialStaff, currentUserId, currentUserRole }: Prop
   // (StaffMember type never includes 'owner', but defensive cast handles future changes)
   const sanitised = initialStaff.filter((m) => (m.role as string) !== 'owner')
 
-  const [staff,       setStaff]       = useState<StaffMember[]>(sanitised)
-  const [search,      setSearch]      = useState('')
+  const [staff, setStaff] = useState<StaffMember[]>(sanitised)
+  const [search, setSearch] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole,  setInviteRole]  = useState<'admin' | 'staff'>('staff')
-  const [inviting,    setInviting]    = useState(false)
+  const [inviteRole, setInviteRole] = useState<'admin' | 'staff'>('staff')
+  const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
-  const [inviteOk,    setInviteOk]    = useState(false)
+  const [inviteOk, setInviteOk] = useState(false)
 
   const canManage = ['owner', 'admin'].includes(currentUserRole)
 
-  const filtered = staff.filter((m) =>
-    m.email.toLowerCase().includes(search.toLowerCase()) ||
-    m.role.toLowerCase().includes(search.toLowerCase())
+  const filtered = staff.filter(
+    (m) =>
+      m.email.toLowerCase().includes(search.toLowerCase()) ||
+      m.role.toLowerCase().includes(search.toLowerCase())
   )
 
   async function handleInvite() {
     if (!inviteEmail.trim()) return
-    setInviting(true); setInviteError(null); setInviteOk(false)
+    setInviting(true)
+    setInviteError(null)
+    setInviteOk(false)
     try {
-      const res  = await fetch('/api/staff', {
-        method:  'POST',
+      const res = await fetch('/api/staff', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Invite failed')
@@ -81,7 +81,9 @@ export function StaffList({ initialStaff, currentUserId, currentUserRole }: Prop
   function handleRoleChanged(id: string, role: string) {
     // Reject any attempt to change a member to 'owner' client-side
     if (role === 'owner') return
-    setStaff((prev) => prev.map((m) => m.id === id ? { ...m, role: role as StaffMember['role'] } : m))
+    setStaff((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, role: role as StaffMember['role'] } : m))
+    )
   }
 
   return (
@@ -170,9 +172,9 @@ export function StaffList({ initialStaff, currentUserId, currentUserRole }: Prop
                         if (e.target.value === 'owner') return
                         handleRoleChanged(member.id, e.target.value)
                         fetch(`/api/staff/${member.id}`, {
-                          method:  'PATCH',
+                          method: 'PATCH',
                           headers: { 'Content-Type': 'application/json' },
-                          body:    JSON.stringify({ role: e.target.value }),
+                          body: JSON.stringify({ role: e.target.value }),
                         })
                       }}
                       className="text-xs bg-graphite-700 border border-surface-border rounded-lg px-2 py-1 text-white/70 focus:outline-none focus:border-gold-500/50 shrink-0"
@@ -182,10 +184,12 @@ export function StaffList({ initialStaff, currentUserId, currentUserRole }: Prop
                       {/* owner option intentionally omitted */}
                     </select>
                   ) : (
-                    <span className={cn(
-                      'text-xs border rounded-full px-2 py-0.5 capitalize shrink-0',
-                      ROLE_BADGE[member.role] ?? ROLE_BADGE.staff,
-                    )}>
+                    <span
+                      className={cn(
+                        'text-xs border rounded-full px-2 py-0.5 capitalize shrink-0',
+                        ROLE_BADGE[member.role] ?? ROLE_BADGE.staff
+                      )}
+                    >
                       {member.id === currentUserId ? `${member.role} (you)` : member.role}
                     </span>
                   )}

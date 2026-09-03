@@ -3,11 +3,11 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { RewardShopItem } from '@/types/rewards'
 
 export interface RedeemResult {
-  success:       boolean
-  error?:        string
+  success: boolean
+  error?: string
   redemption_id?: string
-  points_used:   number
-  new_balance:   number
+  points_used: number
+  new_balance: number
 }
 
 /**
@@ -23,9 +23,9 @@ export interface RedeemResult {
  * Uses upsert_rewards_balance RPC for atomic point deduction.
  */
 export async function redeemRewardItem(params: {
-  tenantId:   string
+  tenantId: string
   customerId: string
-  itemId:     string
+  itemId: string
 }): Promise<RedeemResult> {
   const { tenantId, customerId, itemId } = params
   const supabase = getSupabaseServerClient()
@@ -40,7 +40,12 @@ export async function redeemRewardItem(params: {
     .maybeSingle()
 
   if (itemError || !item) {
-    return { success: false, error: 'Reward item not found or unavailable', points_used: 0, new_balance: 0 }
+    return {
+      success: false,
+      error: 'Reward item not found or unavailable',
+      points_used: 0,
+      new_balance: 0,
+    }
   }
 
   const shopItem = item as RewardShopItem
@@ -63,9 +68,9 @@ export async function redeemRewardItem(params: {
     if ((count ?? 0) >= shopItem.max_redemptions_per_customer) {
       return {
         success: false,
-        error:   `You have already redeemed this reward the maximum number of times (${shopItem.max_redemptions_per_customer})`,
+        error: `You have already redeemed this reward the maximum number of times (${shopItem.max_redemptions_per_customer})`,
         points_used: 0,
-        new_balance:  0,
+        new_balance: 0,
       }
     }
   }
@@ -83,48 +88,52 @@ export async function redeemRewardItem(params: {
   if (currentBalance < shopItem.points_cost) {
     return {
       success: false,
-      error:   `Insufficient points. You have ${currentBalance} points but need ${shopItem.points_cost}`,
+      error: `Insufficient points. You have ${currentBalance} points but need ${shopItem.points_cost}`,
       points_used: 0,
-      new_balance:  currentBalance,
+      new_balance: currentBalance,
     }
   }
 
   // ── Deduct points atomically ──────────────────────────────────────────────
-  const { data: newBalanceData, error: balError } = await supabase
-    .rpc('upsert_rewards_balance', {
-      p_tenant_id:    tenantId,
-      p_customer_id:  customerId,
-      p_points_delta: -shopItem.points_cost,
-    })
+  const { data: newBalanceData, error: balError } = await supabase.rpc('upsert_rewards_balance', {
+    p_tenant_id: tenantId,
+    p_customer_id: customerId,
+    p_points_delta: -shopItem.points_cost,
+  })
 
   if (balError) {
     console.error('[redeemRewardItem] balance deduction', balError.message)
-    return { success: false, error: 'Failed to deduct points', points_used: 0, new_balance: currentBalance }
+    return {
+      success: false,
+      error: 'Failed to deduct points',
+      points_used: 0,
+      new_balance: currentBalance,
+    }
   }
 
   const newBalance = (newBalanceData as unknown as number) ?? 0
 
   // ── Create rewards transaction ────────────────────────────────────────────
   await supabase.from('rewards_transactions').insert({
-    tenant_id:        tenantId,
-    customer_id:      customerId,
+    tenant_id: tenantId,
+    customer_id: customerId,
     transaction_type: 'redeemed',
-    points_delta:     -shopItem.points_cost,
-    source_type:      'reward_item',
-    source_id:        itemId,
-    metadata:         { item_name: shopItem.name, redemption_type: shopItem.redemption_type },
+    points_delta: -shopItem.points_cost,
+    source_type: 'reward_item',
+    source_id: itemId,
+    metadata: { item_name: shopItem.name, redemption_type: shopItem.redemption_type },
   })
 
   // ── Create redemption record ──────────────────────────────────────────────
   const { data: redemption, error: redeemError } = await supabase
     .from('reward_redemptions')
     .insert({
-      tenant_id:      tenantId,
-      customer_id:    customerId,
+      tenant_id: tenantId,
+      customer_id: customerId,
       reward_item_id: itemId,
-      points_used:    shopItem.points_cost,
-      status:         'pending',
-      metadata:       { item_name: shopItem.name, redemption_type: shopItem.redemption_type },
+      points_used: shopItem.points_cost,
+      status: 'pending',
+      metadata: { item_name: shopItem.name, redemption_type: shopItem.redemption_type },
     })
     .select('id')
     .single()
@@ -144,9 +153,9 @@ export async function redeemRewardItem(params: {
   }
 
   return {
-    success:        true,
-    redemption_id:  redemption?.id,
-    points_used:    shopItem.points_cost,
-    new_balance:    newBalance,
+    success: true,
+    redemption_id: redemption?.id,
+    points_used: shopItem.points_cost,
+    new_balance: newBalance,
   }
 }

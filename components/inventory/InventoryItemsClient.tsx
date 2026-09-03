@@ -3,78 +3,120 @@
 // components/inventory/InventoryItemsClient.tsx
 import { useState, useMemo, useCallback } from 'react'
 import {
-  Package, Plus, Search, SlidersHorizontal, Edit2, Trash2,
-  AlertTriangle, CheckCircle, Archive, Minus,
+  Package,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Edit2,
+  Trash2,
+  AlertTriangle,
+  CheckCircle,
+  Archive,
+  Minus,
 } from 'lucide-react'
 import type { InventoryItem, InventoryItemType } from '@/lib/inventory/types'
 import { ITEM_TYPE_LABELS } from '@/lib/inventory/types'
 
 interface Props {
   initialItems: InventoryItem[]
-  tenantId:     string
-  canEdit:      boolean
+  tenantId: string
+  canEdit: boolean
 }
 
 const ITEM_TYPES: InventoryItemType[] = [
-  'supply', 'ingredient', 'material', 'retail_stock',
-  'tool', 'equipment', 'packaging', 'utensil', 'cleaning', 'other',
+  'supply',
+  'ingredient',
+  'material',
+  'retail_stock',
+  'tool',
+  'equipment',
+  'packaging',
+  'utensil',
+  'cleaning',
+  'other',
 ]
 
 function QuantityBadge({ item }: { item: InventoryItem }) {
   if (item.current_quantity <= 0) {
-    return <span className="text-xs px-2 py-0.5 rounded-full bg-red-400/10 text-red-400 font-medium">Out of Stock</span>
+    return (
+      <span className="text-xs px-2 py-0.5 rounded-full bg-red-400/10 text-red-400 font-medium">
+        Out of Stock
+      </span>
+    )
   }
   if (item.current_quantity <= item.reorder_point) {
-    return <span className="text-xs px-2 py-0.5 rounded-full bg-orange-400/10 text-orange-400 font-medium">Low Stock</span>
+    return (
+      <span className="text-xs px-2 py-0.5 rounded-full bg-orange-400/10 text-orange-400 font-medium">
+        Low Stock
+      </span>
+    )
   }
-  return <span className="text-xs px-2 py-0.5 rounded-full bg-green-400/10 text-green-400 font-medium">In Stock</span>
+  return (
+    <span className="text-xs px-2 py-0.5 rounded-full bg-green-400/10 text-green-400 font-medium">
+      In Stock
+    </span>
+  )
 }
 
 interface ItemFormData {
-  name:              string
-  description:       string
-  sku:               string
-  barcode:           string
-  category:          string
-  item_type:         InventoryItemType
-  unit:              string
-  current_quantity:  number
-  reorder_point:     number
-  target_quantity:   number | null
-  cost_per_unit:     number | null
-  supplier_name:     string
-  supplier_phone:    string
-  supplier_email:    string
-  storage_location:  string
-  is_sellable:       boolean
+  name: string
+  description: string
+  sku: string
+  barcode: string
+  category: string
+  item_type: InventoryItemType
+  unit: string
+  current_quantity: number
+  reorder_point: number
+  target_quantity: number | null
+  cost_per_unit: number | null
+  supplier_name: string
+  supplier_phone: string
+  supplier_email: string
+  storage_location: string
+  is_sellable: boolean
 }
 
 const defaultForm: ItemFormData = {
-  name: '', description: '', sku: '', barcode: '', category: '',
-  item_type: 'supply', unit: 'unit', current_quantity: 0, reorder_point: 0,
-  target_quantity: null, cost_per_unit: null, supplier_name: '',
-  supplier_phone: '', supplier_email: '', storage_location: '', is_sellable: false,
+  name: '',
+  description: '',
+  sku: '',
+  barcode: '',
+  category: '',
+  item_type: 'supply',
+  unit: 'unit',
+  current_quantity: 0,
+  reorder_point: 0,
+  target_quantity: null,
+  cost_per_unit: null,
+  supplier_name: '',
+  supplier_phone: '',
+  supplier_email: '',
+  storage_location: '',
+  is_sellable: false,
 }
 
 export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props) {
-  const [items, setItems]           = useState<InventoryItem[]>(initialItems)
-  const [search, setSearch]         = useState('')
+  const [items, setItems] = useState<InventoryItem[]>(initialItems)
+  const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterCategory, setFilterCat] = useState('')
-  const [filterLow, setFilterLow]   = useState(false)
-  const [showModal, setShowModal]   = useState(false)
-  const [editItem, setEditItem]     = useState<InventoryItem | null>(null)
-  const [form, setForm]             = useState<ItemFormData>(defaultForm)
-  const [saving, setSaving]         = useState(false)
-  const [error, setError]           = useState<string | null>(null)
+  const [filterLow, setFilterLow] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [editItem, setEditItem] = useState<InventoryItem | null>(null)
+  const [form, setForm] = useState<ItemFormData>(defaultForm)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null)
   const [adjustDelta, setAdjustDelta] = useState<number>(0)
   const [adjustReason, setAdjustReason] = useState('')
-  const [adjusting, setAdjusting]   = useState(false)
+  const [adjusting, setAdjusting] = useState(false)
 
   const categories = useMemo(() => {
     const cats = new Set<string>()
-    items.forEach((i) => { if (i.category) cats.add(i.category) })
+    items.forEach((i) => {
+      if (i.category) cats.add(i.category)
+    })
     return Array.from(cats).sort()
   }, [items])
 
@@ -90,7 +132,8 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
           !item.sku?.toLowerCase().includes(q) &&
           !item.barcode?.toLowerCase().includes(q) &&
           !item.category?.toLowerCase().includes(q)
-        ) return false
+        )
+          return false
       }
       return true
     })
@@ -106,57 +149,61 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
   function openEdit(item: InventoryItem) {
     setEditItem(item)
     setForm({
-      name:             item.name,
-      description:      item.description ?? '',
-      sku:              item.sku ?? '',
-      barcode:          item.barcode ?? '',
-      category:         item.category ?? '',
-      item_type:        item.item_type,
-      unit:             item.unit,
+      name: item.name,
+      description: item.description ?? '',
+      sku: item.sku ?? '',
+      barcode: item.barcode ?? '',
+      category: item.category ?? '',
+      item_type: item.item_type,
+      unit: item.unit,
       current_quantity: item.current_quantity,
-      reorder_point:    item.reorder_point,
-      target_quantity:  item.target_quantity,
-      cost_per_unit:    item.cost_per_unit,
-      supplier_name:    item.supplier_name ?? '',
-      supplier_phone:   item.supplier_phone ?? '',
-      supplier_email:   item.supplier_email ?? '',
+      reorder_point: item.reorder_point,
+      target_quantity: item.target_quantity,
+      cost_per_unit: item.cost_per_unit,
+      supplier_name: item.supplier_name ?? '',
+      supplier_phone: item.supplier_phone ?? '',
+      supplier_email: item.supplier_email ?? '',
       storage_location: item.storage_location ?? '',
-      is_sellable:      item.is_sellable,
+      is_sellable: item.is_sellable,
     })
     setError(null)
     setShowModal(true)
   }
 
   const handleSave = useCallback(async () => {
-    if (!form.name.trim()) { setError('Name is required'); return }
+    if (!form.name.trim()) {
+      setError('Name is required')
+      return
+    }
     setSaving(true)
     setError(null)
     try {
       const method = editItem ? 'PATCH' : 'POST'
-      const url    = editItem
-        ? `/api/inventory/items/${editItem.id}`
-        : '/api/inventory/items'
+      const url = editItem ? `/api/inventory/items/${editItem.id}` : '/api/inventory/items'
 
-      const res  = await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          description:      form.description || null,
-          sku:              form.sku || null,
-          barcode:          form.barcode || null,
-          category:         form.category || null,
-          supplier_name:    form.supplier_name || null,
-          supplier_phone:   form.supplier_phone || null,
-          supplier_email:   form.supplier_email || null,
+          description: form.description || null,
+          sku: form.sku || null,
+          barcode: form.barcode || null,
+          category: form.category || null,
+          supplier_name: form.supplier_name || null,
+          supplier_phone: form.supplier_phone || null,
+          supplier_email: form.supplier_email || null,
           storage_location: form.storage_location || null,
         }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error ?? 'Save failed'); return }
+      if (!res.ok) {
+        setError(data.error ?? 'Save failed')
+        return
+      }
 
       if (editItem) {
-        setItems((prev) => prev.map((i) => i.id === editItem.id ? data.item : i))
+        setItems((prev) => prev.map((i) => (i.id === editItem.id ? data.item : i)))
       } else {
         setItems((prev) => [data.item, ...prev])
       }
@@ -187,16 +234,18 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           inventory_item_id: adjustItem.id,
-          movement_type:     'manual_adjustment',
-          quantity_delta:    adjustDelta,
-          reason:            adjustReason || 'Manual adjustment',
+          movement_type: 'manual_adjustment',
+          quantity_delta: adjustDelta,
+          reason: adjustReason || 'Manual adjustment',
         }),
       })
       const data = await res.json()
       if (res.ok) {
-        setItems((prev) => prev.map((i) =>
-          i.id === adjustItem.id ? { ...i, current_quantity: data.new_quantity } : i
-        ))
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === adjustItem.id ? { ...i, current_quantity: data.new_quantity } : i
+          )
+        )
         setAdjustItem(null)
         setAdjustDelta(0)
         setAdjustReason('')
@@ -215,7 +264,9 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
             <Package className="w-6 h-6 text-teal-400" />
             Inventory Items
           </h1>
-          <p className="text-sm text-zinc-400 mt-1">{filtered.length} of {items.length} items</p>
+          <p className="text-sm text-zinc-400 mt-1">
+            {filtered.length} of {items.length} items
+          </p>
         </div>
         {canEdit && (
           <button
@@ -245,7 +296,9 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
         >
           <option value="">All Types</option>
           {ITEM_TYPES.map((t) => (
-            <option key={t} value={t}>{ITEM_TYPE_LABELS[t]}</option>
+            <option key={t} value={t}>
+              {ITEM_TYPE_LABELS[t]}
+            </option>
           ))}
         </select>
         {categories.length > 0 && (
@@ -256,7 +309,9 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
           >
             <option value="">All Categories</option>
             {categories.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
         )}
@@ -290,11 +345,16 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="text-center text-zinc-400 py-10">No items found</td>
+                <td colSpan={8} className="text-center text-zinc-400 py-10">
+                  No items found
+                </td>
               </tr>
             )}
             {filtered.map((item) => (
-              <tr key={item.id} className="border-b border-surface-border/30 last:border-0 hover:bg-graphite-700/30">
+              <tr
+                key={item.id}
+                className="border-b border-surface-border/30 last:border-0 hover:bg-graphite-700/30"
+              >
                 <td className="px-4 py-3">
                   <div>
                     <p className="font-medium text-white">{item.name}</p>
@@ -302,7 +362,9 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
                     {item.barcode && <p className="text-xs text-zinc-400">Bar: {item.barcode}</p>}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-zinc-300 capitalize">{ITEM_TYPE_LABELS[item.item_type] ?? item.item_type}</td>
+                <td className="px-4 py-3 text-zinc-300 capitalize">
+                  {ITEM_TYPE_LABELS[item.item_type] ?? item.item_type}
+                </td>
                 <td className="px-4 py-3 text-zinc-300">{item.category ?? '—'}</td>
                 <td className="px-4 py-3 text-right font-mono font-medium text-white">
                   {item.current_quantity} <span className="text-zinc-400 text-xs">{item.unit}</span>
@@ -310,7 +372,9 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
                 <td className="px-4 py-3 text-right font-mono text-zinc-400">
                   {item.reorder_point} <span className="text-xs">{item.unit}</span>
                 </td>
-                <td className="px-4 py-3"><QuantityBadge item={item} /></td>
+                <td className="px-4 py-3">
+                  <QuantityBadge item={item} />
+                </td>
                 <td className="px-4 py-3 text-right text-zinc-300">
                   {item.cost_per_unit
                     ? `$${(item.current_quantity * item.cost_per_unit).toFixed(2)}`
@@ -320,7 +384,11 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => { setAdjustItem(item); setAdjustDelta(0); setAdjustReason('') }}
+                        onClick={() => {
+                          setAdjustItem(item)
+                          setAdjustDelta(0)
+                          setAdjustReason('')
+                        }}
                         className="p-1.5 rounded-lg hover:bg-teal-400/10 text-teal-400 transition-colors"
                         title="Adjust quantity"
                       >
@@ -349,11 +417,12 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
 
       {/* Mobile cards */}
       <div className="md:hidden space-y-3">
-        {filtered.length === 0 && (
-          <p className="text-center text-zinc-400 py-10">No items found</p>
-        )}
+        {filtered.length === 0 && <p className="text-center text-zinc-400 py-10">No items found</p>}
         {filtered.map((item) => (
-          <div key={item.id} className="rounded-2xl border border-surface-border bg-graphite-800/50 p-4">
+          <div
+            key={item.id}
+            className="rounded-2xl border border-surface-border bg-graphite-800/50 p-4"
+          >
             <div className="flex items-start justify-between gap-2 mb-3">
               <div>
                 <p className="font-semibold text-white">{item.name}</p>
@@ -364,17 +433,25 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
             <div className="grid grid-cols-2 gap-2 text-sm mb-3">
               <div>
                 <p className="text-xs text-zinc-400">Quantity</p>
-                <p className="font-mono font-medium text-white">{item.current_quantity} {item.unit}</p>
+                <p className="font-mono font-medium text-white">
+                  {item.current_quantity} {item.unit}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-zinc-400">Reorder At</p>
-                <p className="font-mono text-zinc-300">{item.reorder_point} {item.unit}</p>
+                <p className="font-mono text-zinc-300">
+                  {item.reorder_point} {item.unit}
+                </p>
               </div>
             </div>
             {canEdit && (
               <div className="flex gap-2 pt-2 border-t border-surface-border/50">
                 <button
-                  onClick={() => { setAdjustItem(item); setAdjustDelta(0); setAdjustReason('') }}
+                  onClick={() => {
+                    setAdjustItem(item)
+                    setAdjustDelta(0)
+                    setAdjustReason('')
+                  }}
                   className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-teal-500/10 text-teal-400 text-xs font-medium"
                 >
                   <SlidersHorizontal className="w-3 h-3" /> Adjust
@@ -396,12 +473,21 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-2xl border border-surface-border bg-graphite-900 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-surface-border">
-              <h2 className="text-lg font-semibold text-white">{editItem ? 'Edit Item' : 'Add Inventory Item'}</h2>
-              <button onClick={() => setShowModal(false)} className="text-zinc-400 hover:text-white text-xl leading-none">×</button>
+              <h2 className="text-lg font-semibold text-white">
+                {editItem ? 'Edit Item' : 'Add Inventory Item'}
+              </h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-zinc-400 hover:text-white text-xl leading-none"
+              >
+                ×
+              </button>
             </div>
             <div className="p-5 space-y-4">
               {error && (
-                <div className="rounded-lg bg-red-400/10 border border-red-400/30 px-3 py-2 text-sm text-red-400">{error}</div>
+                <div className="rounded-lg bg-red-400/10 border border-red-400/30 px-3 py-2 text-sm text-red-400">
+                  {error}
+                </div>
               )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
@@ -416,10 +502,16 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
                   <label className="text-xs text-zinc-400 mb-1 block">Type</label>
                   <select
                     value={form.item_type}
-                    onChange={(e) => setForm((f) => ({ ...f, item_type: e.target.value as InventoryItemType }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, item_type: e.target.value as InventoryItemType }))
+                    }
                     className="w-full rounded-xl border border-surface-border bg-graphite-800 text-white px-3 py-2 text-sm outline-none"
                   >
-                    {ITEM_TYPES.map((t) => <option key={t} value={t}>{ITEM_TYPE_LABELS[t]}</option>)}
+                    {ITEM_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {ITEM_TYPE_LABELS[t]}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -461,7 +553,9 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
                   <input
                     type="number"
                     value={form.current_quantity}
-                    onChange={(e) => setForm((f) => ({ ...f, current_quantity: parseFloat(e.target.value) || 0 }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, current_quantity: parseFloat(e.target.value) || 0 }))
+                    }
                     className="w-full rounded-xl border border-surface-border bg-graphite-800 text-white px-3 py-2 text-sm outline-none focus:border-teal-400/50"
                   />
                 </div>
@@ -470,7 +564,9 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
                   <input
                     type="number"
                     value={form.reorder_point}
-                    onChange={(e) => setForm((f) => ({ ...f, reorder_point: parseFloat(e.target.value) || 0 }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, reorder_point: parseFloat(e.target.value) || 0 }))
+                    }
                     className="w-full rounded-xl border border-surface-border bg-graphite-800 text-white px-3 py-2 text-sm outline-none focus:border-teal-400/50"
                   />
                 </div>
@@ -479,7 +575,12 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
                   <input
                     type="number"
                     value={form.target_quantity ?? ''}
-                    onChange={(e) => setForm((f) => ({ ...f, target_quantity: e.target.value ? parseFloat(e.target.value) : null }))}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        target_quantity: e.target.value ? parseFloat(e.target.value) : null,
+                      }))
+                    }
                     className="w-full rounded-xl border border-surface-border bg-graphite-800 text-white px-3 py-2 text-sm outline-none focus:border-teal-400/50"
                   />
                 </div>
@@ -489,7 +590,12 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
                     type="number"
                     step="0.01"
                     value={form.cost_per_unit ?? ''}
-                    onChange={(e) => setForm((f) => ({ ...f, cost_per_unit: e.target.value ? parseFloat(e.target.value) : null }))}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        cost_per_unit: e.target.value ? parseFloat(e.target.value) : null,
+                      }))
+                    }
                     className="w-full rounded-xl border border-surface-border bg-graphite-800 text-white px-3 py-2 text-sm outline-none focus:border-teal-400/50"
                   />
                 </div>
@@ -565,7 +671,9 @@ export function InventoryItemsClient({ initialItems, tenantId, canEdit }: Props)
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl border border-surface-border bg-graphite-900 shadow-2xl p-5">
             <h2 className="text-lg font-semibold text-white mb-1">Adjust Quantity</h2>
-            <p className="text-sm text-zinc-400 mb-5">{adjustItem.name} — Current: {adjustItem.current_quantity} {adjustItem.unit}</p>
+            <p className="text-sm text-zinc-400 mb-5">
+              {adjustItem.name} — Current: {adjustItem.current_quantity} {adjustItem.unit}
+            </p>
             <div className="space-y-4">
               <div>
                 <label className="text-xs text-zinc-400 mb-1 block">Adjustment (+ or −)</label>

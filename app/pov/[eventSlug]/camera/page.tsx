@@ -1,4 +1,4 @@
-export const dynamic  = 'force-dynamic'
+export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 // app/pov/[eventSlug]/camera/page.tsx — guest capture/upload entry.
@@ -7,7 +7,9 @@ import { notFound } from 'next/navigation'
 import { resolveEvent } from '@/lib/pov/events'
 import { PovGuestClient } from '@/components/pov/PovGuestClient'
 
-interface Props { params: Promise<{ eventSlug: string }> }
+interface Props {
+  params: Promise<{ eventSlug: string }>
+}
 
 export async function generateMetadata({ params }: Props) {
   const { eventSlug } = await params

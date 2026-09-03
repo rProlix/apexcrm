@@ -20,11 +20,13 @@ export default async function WebsiteImportPage() {
   // Load recent import jobs for this tenant
   const { data: jobs } = await db
     .from('website_import_jobs')
-    .select(`
+    .select(
+      `
       id, status, progress, source_urls, notes,
       error_message, started_at, completed_at, created_at, updated_at,
       website_import_sources(id, source_url, source_type, fetched_status, confidence_score, page_title)
-    `)
+    `
+    )
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .limit(20)
@@ -32,7 +34,9 @@ export default async function WebsiteImportPage() {
   return (
     <WebsiteImportClient
       tenantId={tenantId}
-      initialJobs={(jobs ?? []) as unknown as Parameters<typeof WebsiteImportClient>[0]['initialJobs']}
+      initialJobs={
+        (jobs ?? []) as unknown as Parameters<typeof WebsiteImportClient>[0]['initialJobs']
+      }
     />
   )
 }

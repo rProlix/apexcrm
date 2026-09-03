@@ -8,7 +8,7 @@ import { Zap, Plus, Save, Trash2, Check, AlertCircle, Package, Loader2 } from 'l
 import type { RewardsProgram, PunchCardRule, PunchCardRewardType } from '@/types/rewards'
 
 interface StoreProduct {
-  id:   string
+  id: string
   name: string
   price: number
   currency: string
@@ -16,7 +16,7 @@ interface StoreProduct {
 
 interface Props {
   tenantId: string
-  program:  RewardsProgram | null
+  program: RewardsProgram | null
   // products prop kept for compatibility but products are fetched live from /api/store/products
   products?: unknown[]
 }
@@ -26,22 +26,22 @@ function generateId() {
 }
 
 const REWARD_TYPE_LABELS: Record<PunchCardRewardType, string> = {
-  free_item:    'Free Item',
-  percent_off:  'Percentage Off',
-  fixed_off:    'Fixed Amount Off',
+  free_item: 'Free Item',
+  percent_off: 'Percentage Off',
+  fixed_off: 'Fixed Amount Off',
   bonus_points: 'Bonus Points',
 }
 
 export function PunchCardForm({ program }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [saved, setSaved]   = useState(false)
-  const [error, setError]   = useState('')
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
 
   // ── Fetch store products from the existing /api/store/products endpoint ──
-  const [products, setProducts]         = useState<StoreProduct[]>([])
+  const [products, setProducts] = useState<StoreProduct[]>([])
   const [productsLoading, setProductsLoading] = useState(true)
-  const [productsError, setProductsError]     = useState('')
+  const [productsError, setProductsError] = useState('')
 
   useEffect(() => {
     async function loadProducts() {
@@ -71,13 +71,13 @@ export function PunchCardForm({ program }: Props) {
     setRules((prev) => [
       ...prev,
       {
-        id:           generateId(),
-        name:         '',
-        product_id:   null,
-        punch_goal:   10,
-        reward_type:  'free_item',
+        id: generateId(),
+        name: '',
+        product_id: null,
+        punch_goal: 10,
+        reward_type: 'free_item',
         reward_value: null,
-        enabled:      true,
+        enabled: true,
       },
     ])
   }
@@ -89,22 +89,32 @@ export function PunchCardForm({ program }: Props) {
 
   function updateRule(id: string, key: keyof PunchCardRule, value: unknown) {
     setSaved(false)
-    setRules((prev) => prev.map((r) => r.id === id ? { ...r, [key]: value } : r))
+    setRules((prev) => prev.map((r) => (r.id === id ? { ...r, [key]: value } : r)))
   }
 
   async function handleSave() {
     for (const rule of rules) {
-      if (!rule.name.trim()) { setError('Each punch card must have a name'); return }
-      if (rule.punch_goal < 1) { setError('Punch goal must be at least 1'); return }
-      if (rule.reward_type !== 'free_item' && (rule.reward_value == null || rule.reward_value <= 0)) {
-        setError(`"${rule.name || 'Punch card'}" needs a reward value greater than 0`); return
+      if (!rule.name.trim()) {
+        setError('Each punch card must have a name')
+        return
+      }
+      if (rule.punch_goal < 1) {
+        setError('Punch goal must be at least 1')
+        return
+      }
+      if (
+        rule.reward_type !== 'free_item' &&
+        (rule.reward_value == null || rule.reward_value <= 0)
+      ) {
+        setError(`"${rule.name || 'Punch card'}" needs a reward value greater than 0`)
+        return
       }
     }
     setError('')
 
     const updatedRules = rules.map((r) => ({
       ...r,
-      name:         r.name.trim(),
+      name: r.name.trim(),
       product_name: products.find((p) => p.id === r.product_id)?.name ?? null,
     }))
 
@@ -114,22 +124,22 @@ export function PunchCardForm({ program }: Props) {
 
         if (program) {
           res = await fetch(`/api/rewards/programs/${program.id}`, {
-            method:  'PATCH',
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ punch_card_rules: updatedRules }),
+            body: JSON.stringify({ punch_card_rules: updatedRules }),
           })
         } else {
           res = await fetch('/api/rewards/programs', {
-            method:  'POST',
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({
-              name:             'Default Rewards Program',
-              description:      'Auto-created when punch cards were configured.',
+            body: JSON.stringify({
+              name: 'Default Rewards Program',
+              description: 'Auto-created when punch cards were configured.',
               punch_card_rules: updatedRules,
               settings: {
-                points_enabled:        true,
-                punch_cards_enabled:   true,
-                shop_enabled:          true,
+                points_enabled: true,
+                punch_cards_enabled: true,
+                shop_enabled: true,
                 min_redemption_points: 100,
               },
             }),
@@ -148,7 +158,13 @@ export function PunchCardForm({ program }: Props) {
   }
 
   // ── Product selector sub-component ───────────────────────────────────────
-  function ProductSelect({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  function ProductSelect({
+    value,
+    onChange,
+  }: {
+    value: string | null
+    onChange: (v: string | null) => void
+  }) {
     if (productsLoading) {
       return (
         <div className="store-input w-full rounded-lg px-3 py-1.5 text-xs flex items-center gap-2 text-white/30">
@@ -174,7 +190,9 @@ export function PunchCardForm({ program }: Props) {
       >
         <option value="">Any product / order</option>
         {products.length === 0 ? (
-          <option disabled value="">— No store products found —</option>
+          <option disabled value="">
+            — No store products found —
+          </option>
         ) : (
           products.map((p) => (
             <option key={p.id} value={p.id}>
@@ -235,7 +253,10 @@ export function PunchCardForm({ program }: Props) {
             <span>
               No products found in your store. You can still create punch cards for{' '}
               <em>any product / order</em>, or{' '}
-              <Link href="/store/products" className="underline hover:text-amber-300 transition-colors">
+              <Link
+                href="/store/products"
+                className="underline hover:text-amber-300 transition-colors"
+              >
                 add products to your store
               </Link>{' '}
               first to enable product-specific punch cards.
@@ -249,7 +270,8 @@ export function PunchCardForm({ program }: Props) {
             <Zap className="h-8 w-8 text-white/20 mx-auto mb-2" strokeWidth={1.5} />
             <p className="text-sm text-white/40 mb-1">No punch cards configured</p>
             <p className="text-xs text-white/25">
-              Click <span className="text-gold-400">Add card</span> above to create your first punch card.
+              Click <span className="text-gold-400">Add card</span> above to create your first punch
+              card.
             </p>
           </div>
         )}
@@ -278,9 +300,13 @@ export function PunchCardForm({ program }: Props) {
                       onClick={() => updateRule(rule.id, 'enabled', !rule.enabled)}
                       className={`relative h-4 w-7 rounded-full transition-colors cursor-pointer ${rule.enabled ? 'bg-gold-400' : 'bg-white/10'}`}
                     >
-                      <div className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${rule.enabled ? 'translate-x-3' : 'translate-x-0.5'}`} />
+                      <div
+                        className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${rule.enabled ? 'translate-x-3' : 'translate-x-0.5'}`}
+                      />
                     </div>
-                    <span className="text-xs text-white/40">{rule.enabled ? 'Active' : 'Disabled'}</span>
+                    <span className="text-xs text-white/40">
+                      {rule.enabled ? 'Active' : 'Disabled'}
+                    </span>
                   </label>
                   <button
                     type="button"
@@ -325,7 +351,9 @@ export function PunchCardForm({ program }: Props) {
                     type="number"
                     min={1}
                     value={rule.punch_goal}
-                    onChange={(e) => updateRule(rule.id, 'punch_goal', Math.max(1, Number(e.target.value)))}
+                    onChange={(e) =>
+                      updateRule(rule.id, 'punch_goal', Math.max(1, Number(e.target.value)))
+                    }
                     className="store-input w-full rounded-lg px-3 py-1.5 text-xs"
                   />
                 </div>
@@ -336,24 +364,38 @@ export function PunchCardForm({ program }: Props) {
                     onChange={(e) => updateRule(rule.id, 'reward_type', e.target.value)}
                     className="store-input w-full rounded-lg px-3 py-1.5 text-xs"
                   >
-                    {(Object.entries(REWARD_TYPE_LABELS) as [PunchCardRewardType, string][]).map(([val, lbl]) => (
-                      <option key={val} value={val}>{lbl}</option>
-                    ))}
+                    {(Object.entries(REWARD_TYPE_LABELS) as [PunchCardRewardType, string][]).map(
+                      ([val, lbl]) => (
+                        <option key={val} value={val}>
+                          {lbl}
+                        </option>
+                      )
+                    )}
                   </select>
                 </div>
                 {rule.reward_type !== 'free_item' && (
                   <div>
                     <label className="text-xs text-white/40 block mb-1">
-                      {rule.reward_type === 'percent_off'  ? 'Percentage (%)'  :
-                       rule.reward_type === 'fixed_off'    ? 'Amount Off ($)'  :
-                       rule.reward_type === 'bonus_points' ? 'Bonus Points'    : 'Value'}
+                      {rule.reward_type === 'percent_off'
+                        ? 'Percentage (%)'
+                        : rule.reward_type === 'fixed_off'
+                          ? 'Amount Off ($)'
+                          : rule.reward_type === 'bonus_points'
+                            ? 'Bonus Points'
+                            : 'Value'}
                     </label>
                     <input
                       type="number"
                       min={0.01}
                       step={rule.reward_type === 'bonus_points' ? 1 : 0.01}
                       value={rule.reward_value ?? ''}
-                      onChange={(e) => updateRule(rule.id, 'reward_value', e.target.value === '' ? null : Number(e.target.value))}
+                      onChange={(e) =>
+                        updateRule(
+                          rule.id,
+                          'reward_value',
+                          e.target.value === '' ? null : Number(e.target.value)
+                        )
+                      }
                       placeholder="e.g. 50"
                       className="store-input w-full rounded-lg px-3 py-1.5 text-xs"
                     />
@@ -364,17 +406,36 @@ export function PunchCardForm({ program }: Props) {
               {/* Human-readable summary */}
               <div className="text-xs text-white/30 px-3 py-2 bg-white/3 rounded-lg leading-relaxed">
                 <span className="text-white/50 font-medium">Preview: </span>
-                Buy{' '}
-                <strong className="text-white/70">{rule.punch_goal}</strong>{' '}
-                {rule.product_id
-                  ? <strong className="text-amber-400/80">{products.find((p) => p.id === rule.product_id)?.name ?? 'selected product'}</strong>
-                  : 'of any item'
-                },{' '}
-                get{' '}
-                {rule.reward_type === 'free_item'    ? 'the next one free' :
-                 rule.reward_type === 'percent_off'  ? <><strong className="text-emerald-400/80">{rule.reward_value ?? '?'}%</strong> off the next</> :
-                 rule.reward_type === 'fixed_off'    ? <><strong className="text-emerald-400/80">${rule.reward_value ?? '?'}</strong> off the next</> :
-                 <>a <strong className="text-emerald-400/80">{rule.reward_value ?? '?'} bonus points</strong> reward</>}
+                Buy <strong className="text-white/70">{rule.punch_goal}</strong>{' '}
+                {rule.product_id ? (
+                  <strong className="text-amber-400/80">
+                    {products.find((p) => p.id === rule.product_id)?.name ?? 'selected product'}
+                  </strong>
+                ) : (
+                  'of any item'
+                )}
+                , get{' '}
+                {rule.reward_type === 'free_item' ? (
+                  'the next one free'
+                ) : rule.reward_type === 'percent_off' ? (
+                  <>
+                    <strong className="text-emerald-400/80">{rule.reward_value ?? '?'}%</strong> off
+                    the next
+                  </>
+                ) : rule.reward_type === 'fixed_off' ? (
+                  <>
+                    <strong className="text-emerald-400/80">${rule.reward_value ?? '?'}</strong> off
+                    the next
+                  </>
+                ) : (
+                  <>
+                    a{' '}
+                    <strong className="text-emerald-400/80">
+                      {rule.reward_value ?? '?'} bonus points
+                    </strong>{' '}
+                    reward
+                  </>
+                )}
               </div>
             </motion.div>
           ))}
@@ -396,12 +457,24 @@ export function PunchCardForm({ program }: Props) {
             disabled={isPending}
             className="flex items-center gap-2 bg-gold-gradient text-graphite-900 font-semibold text-sm px-5 py-2 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {saved
-              ? <><Check className="h-4 w-4" />Saved</>
-              : isPending
-              ? <><Save className="h-4 w-4 animate-pulse" />Saving…</>
-              : <><Save className="h-4 w-4" />{rules.length === 0 ? 'Save (clears all)' : `Save ${rules.length} card${rules.length !== 1 ? 's' : ''}`}</>
-            }
+            {saved ? (
+              <>
+                <Check className="h-4 w-4" />
+                Saved
+              </>
+            ) : isPending ? (
+              <>
+                <Save className="h-4 w-4 animate-pulse" />
+                Saving…
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4" />
+                {rules.length === 0
+                  ? 'Save (clears all)'
+                  : `Save ${rules.length} card${rules.length !== 1 ? 's' : ''}`}
+              </>
+            )}
           </button>
           {saved && !isPending && (
             <span className="text-xs text-emerald-400">

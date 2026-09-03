@@ -16,21 +16,21 @@ import { AiAutofillEmptyState } from './AiAutofillEmptyState'
 import type { AiImportJob } from '@/lib/website-ai/types'
 
 interface Props {
-  tenantId:    string
-  isOwner:     boolean
+  tenantId: string
+  isOwner: boolean
   initialJobs: Partial<AiImportJob>[]
 }
 
 export function AiAutofillClient({ tenantId, isOwner, initialJobs }: Props) {
-  const [jobs,        setJobs]        = useState<Partial<AiImportJob>[]>(initialJobs)
+  const [jobs, setJobs] = useState<Partial<AiImportJob>[]>(initialJobs)
   const [selectedJob, setSelectedJob] = useState<string | null>(null)
-  const [view,        setView]        = useState<'paste' | 'detail'>('paste')
-  const [refreshing,  setRefreshing]  = useState(false)
+  const [view, setView] = useState<'paste' | 'detail'>('paste')
+  const [refreshing, setRefreshing] = useState(false)
 
   const refreshJobs = useCallback(async () => {
     setRefreshing(true)
     try {
-      const res  = await fetch(`/api/website-ai/imports?tenantId=${tenantId}`)
+      const res = await fetch(`/api/website-ai/imports?tenantId=${tenantId}`)
       const json = await res.json()
       if (res.ok) setJobs(json.jobs ?? [])
     } finally {
@@ -56,12 +56,7 @@ export function AiAutofillClient({ tenantId, isOwner, initialJobs }: Props) {
   }
 
   return (
-    <motion.div
-      variants={fadeIn}
-      initial="hidden"
-      animate="visible"
-      className="space-y-6"
-    >
+    <motion.div variants={fadeIn} initial="hidden" animate="visible" className="space-y-6">
       {/* Page header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3.5">
@@ -90,7 +85,6 @@ export function AiAutofillClient({ tenantId, isOwner, initialJobs }: Props) {
 
       {/* Main layout: content (2/3) + history sidebar (1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-
         {/* Left — paste panel or job detail */}
         <div className="lg:col-span-2 space-y-6">
           {view === 'paste' ? (
@@ -100,9 +94,7 @@ export function AiAutofillClient({ tenantId, isOwner, initialJobs }: Props) {
                 isOwner={isOwner}
                 onAnalyzed={handleAnalyzed}
               />
-              {jobs.length === 0 && !refreshing && (
-                <AiAutofillEmptyState />
-              )}
+              {jobs.length === 0 && !refreshing && <AiAutofillEmptyState />}
             </>
           ) : selectedJob ? (
             <ImportJobDetail jobId={selectedJob} onDone={handleBack} />
@@ -128,11 +120,7 @@ export function AiAutofillClient({ tenantId, isOwner, initialJobs }: Props) {
             </button>
           </div>
 
-          <ImportJobList
-            jobs={jobs}
-            selected={selectedJob}
-            onSelect={handleSelectJob}
-          />
+          <ImportJobList jobs={jobs} selected={selectedJob} onSelect={handleSelectJob} />
 
           {jobs.length === 0 && !refreshing && (
             <p className="text-2xs text-white/25 text-center py-4">

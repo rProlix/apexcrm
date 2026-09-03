@@ -6,7 +6,10 @@ import { callGeminiMultimodal } from '@/lib/ai/geminiRequest'
 import { getWebsiteAiGeminiModel } from '@/lib/ai/geminiConfig'
 import { safeParseGeminiJson } from '@/lib/ai/parseGeminiJson'
 import { buildReconstructionPrompt } from '@/lib/website/import-engine/prompts/reconstruction'
-import type { DesignImportExtraction, DesignImportReconstruction } from '@/lib/website/import-engine/types'
+import type {
+  DesignImportExtraction,
+  DesignImportReconstruction,
+} from '@/lib/website/import-engine/types'
 
 export interface VisionAnalyzeResult {
   ok: boolean
@@ -27,7 +30,11 @@ interface AiReconstructionSchema {
       section_key?: string
       content?: Record<string, unknown>
       animation?: Record<string, unknown>
-      responsive?: { desktop?: Record<string, unknown>; tablet?: Record<string, unknown>; mobile?: Record<string, unknown> }
+      responsive?: {
+        desktop?: Record<string, unknown>
+        tablet?: Record<string, unknown>
+        mobile?: Record<string, unknown>
+      }
     }>
   }>
   linkMapping?: Array<{ label?: string; href?: string; actionType?: string; dead?: boolean }>
@@ -43,14 +50,21 @@ async function fetchImagePart(url: string): Promise<{ mimeType: string; data: st
     if (!res.ok) return null
     const buf = Buffer.from(await res.arrayBuffer())
     const ct = res.headers.get('content-type') ?? ''
-    const mimeType = ct.includes('png') ? 'image/png' : ct.includes('jpeg') || ct.includes('jpg') ? 'image/jpeg' : 'image/webp'
+    const mimeType = ct.includes('png')
+      ? 'image/png'
+      : ct.includes('jpeg') || ct.includes('jpg')
+        ? 'image/jpeg'
+        : 'image/webp'
     return { mimeType, data: buf.toString('base64') }
   } catch {
     return null
   }
 }
 
-function normalizeReconstruction(schema: AiReconstructionSchema, eventSlug: string): DesignImportReconstruction {
+function normalizeReconstruction(
+  schema: AiReconstructionSchema,
+  eventSlug: string
+): DesignImportReconstruction {
   const pages = (schema.pages ?? []).map((p, pi) => ({
     title: p.title ?? (pi === 0 ? 'Home' : `Page ${pi + 1}`),
     slug: p.slug ?? (pi === 0 ? 'home' : `page-${pi + 1}`),
@@ -88,7 +102,9 @@ function normalizeReconstruction(schema: AiReconstructionSchema, eventSlug: stri
         }
       : undefined,
     detectedComponentCount: schema.detectedComponentCount ?? 0,
-    warnings: Array.isArray(schema.warnings) ? schema.warnings.filter((w) => typeof w === 'string') : [],
+    warnings: Array.isArray(schema.warnings)
+      ? schema.warnings.filter((w) => typeof w === 'string')
+      : [],
   }
 }
 
@@ -111,7 +127,9 @@ export async function analyzeWithVision(opts: {
     attempt: opts.attempt,
   })
 
-  const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [{ text: prompt }]
+  const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
+    { text: prompt },
+  ]
 
   const imagePages = opts.extraction.renderedPages.slice(0, 6)
   for (const page of imagePages) {
@@ -130,13 +148,23 @@ export async function analyzeWithVision(opts: {
 
   if (ai.error || !ai.text) {
     warnings.push(ai.error ?? 'AI vision analysis unavailable.')
-    return { ok: false, error: ai.error ?? 'AI vision analysis failed.', warnings, tokenUsage: ai.tokenUsage }
+    return {
+      ok: false,
+      error: ai.error ?? 'AI vision analysis failed.',
+      warnings,
+      tokenUsage: ai.tokenUsage,
+    }
   }
 
   const parsed = safeParseGeminiJson<AiReconstructionSchema>(ai.text)
   if (!parsed.data) {
     warnings.push(parsed.error ?? 'AI response parse failed.')
-    return { ok: false, error: 'Could not parse AI reconstruction.', warnings, tokenUsage: ai.tokenUsage }
+    return {
+      ok: false,
+      error: 'Could not parse AI reconstruction.',
+      warnings,
+      tokenUsage: ai.tokenUsage,
+    }
   }
 
   const reconstruction = normalizeReconstruction(parsed.data, opts.eventSlug)

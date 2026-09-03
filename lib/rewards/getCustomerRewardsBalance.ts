@@ -7,8 +7,8 @@ import type { RewardsBalance } from '@/types/rewards'
  * Returns null if no balance record exists yet (customer has no points).
  */
 export async function getCustomerRewardsBalance(
-  tenantId:   string,
-  customerId: string,
+  tenantId: string,
+  customerId: string
 ): Promise<RewardsBalance | null> {
   const supabase = getSupabaseServerClient()
 
@@ -32,21 +32,23 @@ export async function getCustomerRewardsBalance(
  * Safe to use directly in UI without null checks.
  */
 export async function getCustomerRewardsBalanceSafe(
-  tenantId:   string,
-  customerId: string,
+  tenantId: string,
+  customerId: string
 ): Promise<RewardsBalance> {
   const balance = await getCustomerRewardsBalance(tenantId, customerId)
 
-  return balance ?? {
-    id:                       '',
-    tenant_id:                tenantId,
-    customer_id:              customerId,
-    points_balance:           0,
-    lifetime_points_earned:   0,
-    lifetime_points_redeemed: 0,
-    updated_at:               new Date().toISOString(),
-    created_at:               new Date().toISOString(),
-  }
+  return (
+    balance ?? {
+      id: '',
+      tenant_id: tenantId,
+      customer_id: customerId,
+      points_balance: 0,
+      lifetime_points_earned: 0,
+      lifetime_points_redeemed: 0,
+      updated_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    }
+  )
 }
 
 /**

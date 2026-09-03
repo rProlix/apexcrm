@@ -9,10 +9,7 @@ const COMPLETION_STATUSES = new Set(['delivered', 'completed'])
 // ─── GET /api/store/orders/[id] ───────────────────────────────────────────────
 // admin/owner → full access (must match tenant)
 // customer   → only if order.customer_id === their customer_id
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const supabase = getSupabaseServerClient()
 
   const { data: order, error: fetchErr } = await supabase
@@ -53,10 +50,7 @@ export async function GET(
 
 // ─── PATCH /api/store/orders/[id] ────────────────────────────────────────────
 // admin/owner only — update order status
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await resolveStoreUser(req)
 
   if (!user) {
@@ -89,7 +83,15 @@ export async function PATCH(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const validStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded']
+  const validStatuses = [
+    'pending',
+    'confirmed',
+    'processing',
+    'shipped',
+    'delivered',
+    'cancelled',
+    'refunded',
+  ]
   if (body.status && !validStatuses.includes(body.status as string)) {
     return NextResponse.json(
       { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },

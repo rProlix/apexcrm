@@ -37,13 +37,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() }
-  catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   const { status } = body
   const validStatuses = ['pending', 'approved', 'fulfilled', 'canceled']
   if (typeof status !== 'string' || !validStatuses.includes(status)) {
-    return NextResponse.json({ error: `status must be one of: ${validStatuses.join(', ')}` }, { status: 400 })
+    return NextResponse.json(
+      { error: `status must be one of: ${validStatuses.join(', ')}` },
+      { status: 400 }
+    )
   }
 
   const supabase = getSupabaseServerClient()

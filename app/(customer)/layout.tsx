@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { CalendarDays, CreditCard, Star, ShoppingBag, User } from 'lucide-react'
 
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
-  const host   = (await headers()).get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const tenant = await getTenantFromHost(host)
 
   if (!tenant) redirect('/')
@@ -24,12 +24,36 @@ export default async function CustomerLayout({ children }: { children: React.Rea
     : { appointments: false, orders: false, rewards: false, payments: false, profile: true }
 
   const navItems = [
-    { key: 'appointments', enabled: mods.appointments, label: 'Appointments', href: '/portal/appointments', Icon: CalendarDays },
-    { key: 'orders',       enabled: mods.orders,       label: 'Orders',        href: '/portal/customers/orders', Icon: ShoppingBag },
-    { key: 'rewards',      enabled: mods.rewards,      label: 'Rewards',       href: '/rewards',                 Icon: Star        },
-    { key: 'payments',     enabled: mods.payments,     label: 'Payments',      href: '/portal/payments',         Icon: CreditCard  },
-    { key: 'profile',      enabled: true,              label: 'Profile',       href: '/portal/customers/profile', Icon: User       },
-  ].filter(n => n.enabled)
+    {
+      key: 'appointments',
+      enabled: mods.appointments,
+      label: 'Appointments',
+      href: '/portal/appointments',
+      Icon: CalendarDays,
+    },
+    {
+      key: 'orders',
+      enabled: mods.orders,
+      label: 'Orders',
+      href: '/portal/customers/orders',
+      Icon: ShoppingBag,
+    },
+    { key: 'rewards', enabled: mods.rewards, label: 'Rewards', href: '/rewards', Icon: Star },
+    {
+      key: 'payments',
+      enabled: mods.payments,
+      label: 'Payments',
+      href: '/portal/payments',
+      Icon: CreditCard,
+    },
+    {
+      key: 'profile',
+      enabled: true,
+      label: 'Profile',
+      href: '/portal/customers/profile',
+      Icon: User,
+    },
+  ].filter((n) => n.enabled)
 
   return (
     <div className="min-h-dvh bg-graphite-950">
@@ -43,13 +67,15 @@ export default async function CustomerLayout({ children }: { children: React.Rea
                 {tenant.name.slice(0, 2).toUpperCase()}
               </span>
             </div>
-            <span className="text-sm font-semibold text-white truncate hidden sm:block">{tenant.name}</span>
+            <span className="text-sm font-semibold text-white truncate hidden sm:block">
+              {tenant.name}
+            </span>
           </Link>
 
           {/* Nav — visible on desktop */}
           {customerCtx && navItems.length > 0 && (
             <nav className="hidden md:flex items-center gap-1">
-              {navItems.map(item => (
+              {navItems.map((item) => (
                 <Link
                   key={item.key}
                   href={item.href}
@@ -93,7 +119,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
         {/* Mobile nav */}
         {customerCtx && navItems.length > 0 && (
           <div className="md:hidden border-t border-white/6 px-4 py-2 flex items-center gap-1 overflow-x-auto scrollbar-none">
-            {navItems.map(item => (
+            {navItems.map((item) => (
               <Link
                 key={item.key}
                 href={item.href}
@@ -107,9 +133,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
         )}
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-        {children}
-      </main>
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">{children}</main>
     </div>
   )
 }

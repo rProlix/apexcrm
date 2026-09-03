@@ -5,7 +5,7 @@ import { CustomerCard } from './CustomerCard'
 import type { TenantCustomer } from '@/lib/customers/getTenantCustomers'
 
 interface Props {
-  customers:  TenantCustomer[]
+  customers: TenantCustomer[]
   canManage?: boolean
   emptyMessage?: string
 }
@@ -32,12 +32,7 @@ export function CustomerList({ customers, canManage, emptyMessage }: Props) {
   return (
     <div className="space-y-2">
       {customers.map((customer, i) => (
-        <CustomerCard
-          key={customer.id}
-          customer={customer}
-          index={i}
-          canManage={canManage}
-        />
+        <CustomerCard key={customer.id} customer={customer} index={i} canManage={canManage} />
       ))}
     </div>
   )

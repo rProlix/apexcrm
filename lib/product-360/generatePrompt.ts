@@ -2,13 +2,13 @@
 // Builds consistent 360° product photography prompts for AI generation.
 
 export interface PromptParams {
-  productName:        string
+  productName: string
   productDescription: string
-  angleDegrees:       number
-  frameCount?:        number
+  angleDegrees: number
+  frameCount?: number
   /** Use avoidRules/qualityRules instead — negativePrompt is not sent to Imagen */
-  avoidRules?:        string
-  styleNotes?:        string
+  avoidRules?: string
+  styleNotes?: string
 }
 
 /**
@@ -17,12 +17,7 @@ export interface PromptParams {
  * so the AI generates consistent results.
  */
 export function buildFramePrompt(params: PromptParams): string {
-  const {
-    productName,
-    productDescription,
-    angleDegrees,
-    styleNotes,
-  } = params
+  const { productName, productDescription, angleDegrees, styleNotes } = params
 
   const base = `Ultra-realistic professional product photography of: "${productName}". ${productDescription}.`
 
@@ -54,10 +49,10 @@ export function buildFramePrompt(params: PromptParams): string {
  * Used for display in the UI and for single-shot providers.
  */
 export function buildMasterPrompt(params: {
-  productName:        string
+  productName: string
   productDescription: string
-  frameCount?:        number
-  styleNotes?:        string
+  frameCount?: number
+  styleNotes?: string
 }): string {
   const { productName, productDescription, frameCount = 36, styleNotes } = params
   const degreesPerFrame = Math.round(360 / frameCount)
@@ -71,7 +66,9 @@ export function buildMasterPrompt(params: {
     `Luxury e-commerce presentation. Controlled softbox lighting. Premium shadows.`,
     `No text, no watermark, no extra objects.`,
     styleNotes ? `Style: ${styleNotes}` : '',
-  ].filter(Boolean).join(' ')
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 /**
@@ -79,7 +76,5 @@ export function buildMasterPrompt(params: {
  * e.g. 36 frames → [0, 10, 20, ..., 350]
  */
 export function buildAngleSequence(frameCount: number): number[] {
-  return Array.from({ length: frameCount }, (_, i) =>
-    Math.round((360 / frameCount) * i)
-  )
+  return Array.from({ length: frameCount }, (_, i) => Math.round((360 / frameCount) * i))
 }

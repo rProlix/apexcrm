@@ -8,22 +8,22 @@
 //   - "Sent via Nexora on behalf of..." is NEVER shown in tenant emails
 
 export interface BaseEmailOptions {
-  title:        string
-  previewText:  string
-  bodyHtml:     string
-  ctaLabel?:    string
-  ctaUrl?:      string
+  title: string
+  previewText: string
+  bodyHtml: string
+  ctaLabel?: string
+  ctaUrl?: string
 
   // Branding (tenant mode when tenantName is set)
-  tenantName?:        string | null   // Business display name
-  tenantLogoUrl?:     string | null   // Business logo image URL
-  tenantWebsiteUrl?:  string | null   // Business public website
-  tenantPrimaryColor?: string | null  // Hex color for CTA button (e.g. "#16a34a")
-  tenantReplyTo?:     string | null   // Business support email
+  tenantName?: string | null // Business display name
+  tenantLogoUrl?: string | null // Business logo image URL
+  tenantWebsiteUrl?: string | null // Business public website
+  tenantPrimaryColor?: string | null // Hex color for CTA button (e.g. "#16a34a")
+  tenantReplyTo?: string | null // Business support email
 
-  // Platform override  
-  showPoweredBy?: boolean             // Show "Powered by Nexora" in tenant footer
-  footerText?:    string              // Extra footer line (unsubscribe link, etc.)
+  // Platform override
+  showPoweredBy?: boolean // Show "Powered by Nexora" in tenant footer
+  footerText?: string // Extra footer line (unsubscribe link, etc.)
 }
 
 // ── Helper: sanitize hex color ────────────────────────────────────────────────
@@ -69,8 +69,9 @@ function buildCtaBlock(ctaLabel: string, ctaUrl: string, ctaColor: string): stri
   // Use white text for dark colors, dark text for light colors
   const isDark = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.test(ctaColor)
     ? parseInt(ctaColor.slice(1, 3), 16) * 0.299 +
-      parseInt(ctaColor.slice(3, 5), 16) * 0.587 +
-      parseInt(ctaColor.slice(5, 7), 16) * 0.114 < 128
+        parseInt(ctaColor.slice(3, 5), 16) * 0.587 +
+        parseInt(ctaColor.slice(5, 7), 16) * 0.114 <
+      128
     : false
 
   const fgColor = isDark ? '#ffffff' : '#111827'
@@ -132,8 +133,8 @@ export function renderBaseEmail(opts: BaseEmailOptions): string {
     footerText,
   } = opts
 
-  const isTenantMode  = Boolean(tenantName)
-  const primaryColor  = safeColor(tenantPrimaryColor, '#f59e0b')
+  const isTenantMode = Boolean(tenantName)
+  const primaryColor = safeColor(tenantPrimaryColor, '#f59e0b')
 
   // ── Header ──
   const headerBg = isTenantMode
@@ -147,16 +148,16 @@ export function renderBaseEmail(opts: BaseEmailOptions): string {
        <p style="color:#ffffff;font-size:17px;font-weight:700;margin:0;letter-spacing:-0.01em;">Nexora</p>`
 
   // ── CTA ──
-  const ctaBlock = ctaLabel && ctaUrl
-    ? buildCtaBlock(ctaLabel, ctaUrl, primaryColor)
-    : ''
+  const ctaBlock = ctaLabel && ctaUrl ? buildCtaBlock(ctaLabel, ctaUrl, primaryColor) : ''
 
   // ── Footer ──
   let footerHtml: string
   if (isTenantMode) {
     const parts: string[] = []
     if (tenantWebsiteUrl) {
-      parts.push(`<a href="${tenantWebsiteUrl}" style="color:#9ca3af;text-decoration:none;">${tenantName}</a>`)
+      parts.push(
+        `<a href="${tenantWebsiteUrl}" style="color:#9ca3af;text-decoration:none;">${tenantName}</a>`
+      )
     } else {
       parts.push(`<span>${tenantName}</span>`)
     }
@@ -235,13 +236,13 @@ export function renderBaseEmail(opts: BaseEmailOptions): string {
 // ── Plain-text version ────────────────────────────────────────────────────────
 
 export function renderBasePlainText(opts: {
-  bodyText:           string
-  ctaLabel?:          string
-  ctaUrl?:            string
-  tenantName?:        string | null
-  tenantWebsiteUrl?:  string | null
-  footerText?:        string
-  showPoweredBy?:     boolean
+  bodyText: string
+  ctaLabel?: string
+  ctaUrl?: string
+  tenantName?: string | null
+  tenantWebsiteUrl?: string | null
+  footerText?: string
+  showPoweredBy?: boolean
 }): string {
   const lines: string[] = [opts.bodyText.trim()]
 
@@ -255,8 +256,8 @@ export function renderBasePlainText(opts: {
     // Tenant mode — no "Sent via Nexora"
     const footer: string[] = [opts.tenantName]
     if (opts.tenantWebsiteUrl) footer.push(opts.tenantWebsiteUrl)
-    if (opts.footerText)       footer.push(opts.footerText)
-    if (opts.showPoweredBy)    footer.push('Powered by Nexora')
+    if (opts.footerText) footer.push(opts.footerText)
+    if (opts.showPoweredBy) footer.push('Powered by Nexora')
     lines.push(footer.join(' · '))
   } else {
     // Platform mode

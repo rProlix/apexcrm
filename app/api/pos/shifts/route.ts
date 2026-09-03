@@ -24,7 +24,9 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -41,7 +43,10 @@ export async function POST(req: NextRequest) {
       .limit(1)
 
     if (existing && existing.length > 0) {
-      return NextResponse.json({ error: 'A shift is already open for this register' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'A shift is already open for this register' },
+        { status: 400 }
+      )
     }
   }
 
@@ -49,9 +54,9 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('pos_shifts')
     .insert({
-      tenant_id:          user.tenant_id,
-      register_id:        body.register_id ?? null,
-      opened_by:          user.id,
+      tenant_id: user.tenant_id,
+      register_id: body.register_id ?? null,
+      opened_by: user.id,
       starting_cash_cents: startingCash,
       expected_cash_cents: startingCash,
     })
@@ -62,7 +67,8 @@ export async function POST(req: NextRequest) {
 
   // Update register current_cash
   if (body.register_id) {
-    await supabase.from('pos_registers')
+    await supabase
+      .from('pos_registers')
       .update({ current_cash_cents: startingCash })
       .eq('id', body.register_id)
       .eq('tenant_id', user.tenant_id)

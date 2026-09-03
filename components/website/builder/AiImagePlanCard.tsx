@@ -5,51 +5,77 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import {
-  ImageIcon, Wand2, CheckCircle2, XCircle, RotateCcw,
-  ChevronDown, ChevronUp, Zap, Star, Clock, AlertCircle,
-  ExternalLink, Database, HardDrive,
+  ImageIcon,
+  Wand2,
+  CheckCircle2,
+  XCircle,
+  RotateCcw,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  Star,
+  Clock,
+  AlertCircle,
+  ExternalLink,
+  Database,
+  HardDrive,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 
 interface Props {
-  plan:                WebsiteImagePlan
-  onGenerate:          (id: string) => void
-  onRegenerate:        (id: string, newPrompt?: string) => void
-  onApply:             (id: string) => void
-  onGenerateAndApply:  (id: string) => void
-  onReject:            (id: string) => void
-  onApprove:           (id: string) => void
-  isLoading?:          boolean
+  plan: WebsiteImagePlan
+  onGenerate: (id: string) => void
+  onRegenerate: (id: string, newPrompt?: string) => void
+  onApply: (id: string) => void
+  onGenerateAndApply: (id: string) => void
+  onReject: (id: string) => void
+  onApprove: (id: string) => void
+  isLoading?: boolean
 }
 
 const STATUS_CONFIG = {
-  planned:    { label: 'Planned',    color: 'text-blue-400',    bg: 'bg-blue-500/10',    icon: Clock },
-  approved:   { label: 'Approved',   color: 'text-emerald-400', bg: 'bg-emerald-500/10', icon: CheckCircle2 },
-  generating: { label: 'Generating', color: 'text-amber-400',   bg: 'bg-amber-500/10',   icon: Wand2 },
-  generated:  { label: 'Generated',  color: 'text-violet-400',  bg: 'bg-violet-500/10',  icon: ImageIcon },
-  applied:    { label: 'Applied',    color: 'text-emerald-400', bg: 'bg-emerald-500/10', icon: CheckCircle2 },
-  rejected:   { label: 'Rejected',   color: 'text-red-400',     bg: 'bg-red-500/10',     icon: XCircle },
-  disabled:   { label: 'Disabled',   color: 'text-white/30',    bg: 'bg-white/5',         icon: XCircle },
+  planned: { label: 'Planned', color: 'text-blue-400', bg: 'bg-blue-500/10', icon: Clock },
+  approved: {
+    label: 'Approved',
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10',
+    icon: CheckCircle2,
+  },
+  generating: { label: 'Generating', color: 'text-amber-400', bg: 'bg-amber-500/10', icon: Wand2 },
+  generated: {
+    label: 'Generated',
+    color: 'text-violet-400',
+    bg: 'bg-violet-500/10',
+    icon: ImageIcon,
+  },
+  applied: {
+    label: 'Applied',
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10',
+    icon: CheckCircle2,
+  },
+  rejected: { label: 'Rejected', color: 'text-red-400', bg: 'bg-red-500/10', icon: XCircle },
+  disabled: { label: 'Disabled', color: 'text-white/30', bg: 'bg-white/5', icon: XCircle },
 } as const
 
 const ROLE_LABELS: Record<string, string> = {
-  hero_main:              'Hero Image',
-  hero_background:        'Hero Background',
-  about_feature:          'About Section',
-  service_card:           'Service Image',
-  gallery_cover:          'Gallery Cover',
-  gallery_item:           'Gallery Item',
-  product_banner:         'Product Banner',
-  category_banner:        'Category Banner',
-  contact_banner:         'Contact Banner',
+  hero_main: 'Hero Image',
+  hero_background: 'Hero Background',
+  about_feature: 'About Section',
+  service_card: 'Service Image',
+  gallery_cover: 'Gallery Cover',
+  gallery_item: 'Gallery Item',
+  product_banner: 'Product Banner',
+  category_banner: 'Category Banner',
+  contact_banner: 'Contact Banner',
   testimonial_background: 'Testimonial Background',
-  rewards_promo_banner:   'Rewards Banner',
-  cta_banner:             'CTA Banner',
-  promo_banner:           'Promo Banner',
-  feature_image:          'Feature Image',
-  section_background:     'Section Background',
-  other:                  'Image',
+  rewards_promo_banner: 'Rewards Banner',
+  cta_banner: 'CTA Banner',
+  promo_banner: 'Promo Banner',
+  feature_image: 'Feature Image',
+  section_background: 'Section Background',
+  other: 'Image',
 }
 
 export function AiImagePlanCard({
@@ -62,27 +88,33 @@ export function AiImagePlanCard({
   onApprove,
   isLoading,
 }: Props) {
-  const [expanded, setExpanded]       = useState(false)
-  const [editingPrompt, setEditing]   = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [editingPrompt, setEditing] = useState(false)
   const [promptDraft, setPromptDraft] = useState(plan.prompt)
 
-  const status     = STATUS_CONFIG[plan.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.planned
+  const status = STATUS_CONFIG[plan.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.planned
   const StatusIcon = status.icon
-  const roleLabel  = ROLE_LABELS[plan.image_role] ?? plan.image_role
+  const roleLabel = ROLE_LABELS[plan.image_role] ?? plan.image_role
 
-  const isActionable        = !isLoading && plan.status !== 'applied' && plan.status !== 'rejected' && plan.status !== 'disabled'
-  const canGenerate         = isActionable && (plan.status === 'planned' || plan.status === 'approved')
-  const canGenerateAndApply = isActionable && (plan.status === 'planned' || plan.status === 'approved') && !!plan.section_id
-  const canRegenerate       = isActionable && plan.status === 'generated'
-  const canApply            = isActionable && plan.status === 'generated' && !!plan.generated_asset_url && !!plan.section_id
-  const canApprove          = isActionable && plan.status === 'planned'
-  const canReject           = isActionable && plan.status !== 'rejected'
+  const isActionable =
+    !isLoading &&
+    plan.status !== 'applied' &&
+    plan.status !== 'rejected' &&
+    plan.status !== 'disabled'
+  const canGenerate = isActionable && (plan.status === 'planned' || plan.status === 'approved')
+  const canGenerateAndApply =
+    isActionable && (plan.status === 'planned' || plan.status === 'approved') && !!plan.section_id
+  const canRegenerate = isActionable && plan.status === 'generated'
+  const canApply =
+    isActionable && plan.status === 'generated' && !!plan.generated_asset_url && !!plan.section_id
+  const canApprove = isActionable && plan.status === 'planned'
+  const canReject = isActionable && plan.status !== 'rejected'
 
   // Compute storage/apply state for display
-  const hasImage         = !!plan.generated_asset_url
-  const hasStoragePath   = !!plan.generated_storage_path
-  const isApplied        = plan.status === 'applied'
-  const missingSection   = !plan.section_id
+  const hasImage = !!plan.generated_asset_url
+  const hasStoragePath = !!plan.generated_storage_path
+  const isApplied = plan.status === 'applied'
+  const missingSection = !plan.section_id
 
   function handleRegenerate() {
     if (editingPrompt && promptDraft !== plan.prompt) {
@@ -94,14 +126,20 @@ export function AiImagePlanCard({
   }
 
   return (
-    <div className={cn(
-      'rounded-2xl border overflow-hidden transition-all duration-200',
-      isApplied                  ? 'border-emerald-500/30 bg-emerald-500/5' :
-      plan.status === 'generated'? 'border-violet-500/30 bg-violet-500/5' :
-      plan.status === 'rejected' ? 'border-white/5 bg-white/2 opacity-50' :
-      plan.status === 'generating'? 'border-amber-500/30 bg-amber-500/5 animate-pulse' :
-      'border-surface-border bg-surface-card',
-    )}>
+    <div
+      className={cn(
+        'rounded-2xl border overflow-hidden transition-all duration-200',
+        isApplied
+          ? 'border-emerald-500/30 bg-emerald-500/5'
+          : plan.status === 'generated'
+            ? 'border-violet-500/30 bg-violet-500/5'
+            : plan.status === 'rejected'
+              ? 'border-white/5 bg-white/2 opacity-50'
+              : plan.status === 'generating'
+                ? 'border-amber-500/30 bg-amber-500/5 animate-pulse'
+                : 'border-surface-border bg-surface-card'
+      )}
+    >
       {/* Header */}
       <div className="flex items-start gap-3 p-4">
         {plan.priority <= 10 && (
@@ -116,10 +154,13 @@ export function AiImagePlanCard({
               {plan.title ?? roleLabel}
             </span>
             {/* Status badge */}
-            <span className={cn(
-              'flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide',
-              status.color, status.bg,
-            )}>
+            <span
+              className={cn(
+                'flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide',
+                status.color,
+                status.bg
+              )}
+            >
               <StatusIcon className="h-3 w-3" />
               {status.label}
             </span>
@@ -156,7 +197,7 @@ export function AiImagePlanCard({
         </div>
 
         <button
-          onClick={() => setExpanded(e => !e)}
+          onClick={() => setExpanded((e) => !e)}
           className="p-1 rounded-lg hover:bg-white/5 text-white/30 hover:text-white/60 transition-colors shrink-0"
           aria-label={expanded ? 'Collapse' : 'Expand'}
         >
@@ -203,9 +244,11 @@ export function AiImagePlanCard({
           {/* Prompt */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">Generation Prompt</p>
+              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">
+                Generation Prompt
+              </p>
               <button
-                onClick={() => setEditing(e => !e)}
+                onClick={() => setEditing((e) => !e)}
                 className="text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
               >
                 {editingPrompt ? 'Cancel edit' : 'Edit prompt'}
@@ -214,7 +257,7 @@ export function AiImagePlanCard({
             {editingPrompt ? (
               <textarea
                 value={promptDraft}
-                onChange={e => setPromptDraft(e.target.value)}
+                onChange={(e) => setPromptDraft(e.target.value)}
                 className="w-full text-xs bg-black/20 border border-violet-500/30 rounded-lg px-3 py-2 text-white/80 resize-none focus:outline-none focus:border-violet-400 min-h-[80px]"
               />
             ) : (
@@ -227,13 +270,17 @@ export function AiImagePlanCard({
           {/* Business goal + visual style */}
           {plan.business_goal && (
             <div>
-              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-1">Business Goal</p>
+              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-1">
+                Business Goal
+              </p>
               <p className="text-xs text-white/60">{plan.business_goal}</p>
             </div>
           )}
           {plan.visual_style && (
             <div>
-              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-1">Visual Style</p>
+              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-1">
+                Visual Style
+              </p>
               <p className="text-xs text-white/60">{plan.visual_style}</p>
             </div>
           )}
@@ -251,7 +298,12 @@ export function AiImagePlanCard({
               </div>
               <div className="flex items-start gap-2">
                 <span className="text-white/30 w-20 shrink-0">Path</span>
-                <span className={cn('font-mono break-all', plan.generated_storage_path ? 'text-white/60' : 'text-white/20 italic')}>
+                <span
+                  className={cn(
+                    'font-mono break-all',
+                    plan.generated_storage_path ? 'text-white/60' : 'text-white/20 italic'
+                  )}
+                >
                   {plan.generated_storage_path ?? 'Not yet uploaded'}
                 </span>
               </div>
@@ -287,7 +339,12 @@ export function AiImagePlanCard({
               </div>
               <div className="flex items-start gap-2">
                 <span className="text-white/30 w-20 shrink-0">Section ID</span>
-                <span className={cn('font-mono', plan.section_id ? 'text-white/60' : 'text-amber-400/70 italic')}>
+                <span
+                  className={cn(
+                    'font-mono',
+                    plan.section_id ? 'text-white/60' : 'text-amber-400/70 italic'
+                  )}
+                >
                   {plan.section_id ?? 'No section linked'}
                 </span>
               </div>
@@ -314,7 +371,8 @@ export function AiImagePlanCard({
           {!plan.section_id && (
             <div className="flex items-center gap-2 text-[11px] text-amber-400 bg-amber-500/5 border border-amber-500/20 rounded-xl px-3 py-2">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              No section is linked to this plan. Re-plan to match sections, or apply manually via test-apply.
+              No section is linked to this plan. Re-plan to match sections, or apply manually via
+              test-apply.
             </div>
           )}
 
@@ -328,7 +386,8 @@ export function AiImagePlanCard({
           {plan.status === 'generated' && plan.generated_asset_url && plan.section_id && (
             <div className="flex items-center gap-2 text-[11px] text-white/40 bg-white/3 border border-white/10 rounded-xl px-3 py-2">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              Generated but not yet applied to the website section. Click "Apply to Site" or "Generate + Apply".
+              Generated but not yet applied to the website section. Click "Apply to Site" or
+              "Generate + Apply".
             </div>
           )}
         </div>

@@ -14,7 +14,7 @@ import { syncProviderEvent, markEventProcessed } from '@/lib/payments/syncProvid
  * we map back to the tenant via payment_transactions.
  */
 export async function POST(req: NextRequest) {
-  const rawBody  = await req.text()
+  const rawBody = await req.text()
   const signature = req.headers.get('x-square-hmacsha256-signature') ?? ''
 
   let payload: Record<string, unknown>
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   const merchantId = payload.merchant_id as string | undefined
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase   = getSupabaseServerClient() as any
+  const supabase = getSupabaseServerClient() as any
 
   // Resolve tenant via payment_accounts.provider_account_id = merchantId
   let tenantId: string | null = null
@@ -61,14 +61,14 @@ export async function POST(req: NextRequest) {
 
   // Parse webhook event
   const webhookEvent = await squareAdapter.handleWebhook(rawBody, signature, {
-    secretKey: '',  // Square HMAC verification done separately
+    secretKey: '', // Square HMAC verification done separately
   })
 
   const eventId = await syncProviderEvent({
     tenantId,
-    providerKey:    'square',
-    eventType:       webhookEvent.eventType,
-    payload:         payload,
+    providerKey: 'square',
+    eventType: webhookEvent.eventType,
+    payload: payload,
     idempotencyKey: webhookEvent.externalId,
   })
 
@@ -117,9 +117,9 @@ export async function POST(req: NextRequest) {
       }
 
       case 'refund.completed': {
-        const data    = payload.data as Record<string, unknown> | undefined
-        const obj     = data?.object as Record<string, unknown> | undefined
-        const refund  = obj?.refund as Record<string, unknown> | undefined
+        const data = payload.data as Record<string, unknown> | undefined
+        const obj = data?.object as Record<string, unknown> | undefined
+        const refund = obj?.refund as Record<string, unknown> | undefined
         const refundId = refund?.id as string | undefined
 
         if (refundId) {

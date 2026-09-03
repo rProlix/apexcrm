@@ -6,16 +6,16 @@ import { renderBaseEmail, renderBasePlainText } from './base'
 import type { TemplateResult } from '../types'
 
 export interface BusinessInviteData {
-  invitedName?:       string
-  ownerName?:         string
-  tenantName?:        string
-  tenantLogoUrl?:     string | null
-  tenantWebsiteUrl?:  string | null
-  primaryColor?:      string | null
-  role:               string
-  inviteUrl:          string
+  invitedName?: string
+  ownerName?: string
+  tenantName?: string
+  tenantLogoUrl?: string | null
+  tenantWebsiteUrl?: string | null
+  primaryColor?: string | null
+  role: string
+  inviteUrl: string
   temporaryPassword?: string
-  expiresAt?:         Date | string
+  expiresAt?: Date | string
 }
 
 export function buildBusinessInviteEmail(data: BusinessInviteData): TemplateResult {
@@ -32,13 +32,17 @@ export function buildBusinessInviteEmail(data: BusinessInviteData): TemplateResu
     expiresAt,
   } = data
 
-  const greeting    = invitedName ? `Hi ${invitedName},` : 'Hi there,'
-  const byLine      = ownerName ? ` by ${ownerName}` : ''
-  const workspace   = tenantName ?? 'your business'
-  const roleLabel   = role.charAt(0).toUpperCase() + role.slice(1)
+  const greeting = invitedName ? `Hi ${invitedName},` : 'Hi there,'
+  const byLine = ownerName ? ` by ${ownerName}` : ''
+  const workspace = tenantName ?? 'your business'
+  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1)
 
   const expFormatted = expiresAt
-    ? new Date(expiresAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    ? new Date(expiresAt).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
     : null
 
   const credBlock = temporaryPassword
@@ -47,7 +51,8 @@ export function buildBusinessInviteEmail(data: BusinessInviteData): TemplateResu
       <p style="color:#374151;font-size:13px;font-weight:600;margin:0 0 8px;">Your temporary credentials</p>
       <p style="color:#4b5563;font-size:13px;margin:0 0 4px;">Password: <code style="font-family:monospace;background:#e5e7eb;padding:2px 6px;border-radius:4px;">${temporaryPassword}</code></p>
       <p style="color:#9ca3af;font-size:12px;margin:4px 0 0;">Please change your password on first login.</p>
-    </div>` : ''
+    </div>`
+    : ''
 
   const bodyHtml = `
     <h1 style="color:#111827;font-size:22px;font-weight:700;margin:0 0 8px;">You've been invited to manage ${workspace}</h1>
@@ -59,10 +64,14 @@ export function buildBusinessInviteEmail(data: BusinessInviteData): TemplateResu
       Click below to set up your account and access the management dashboard.
     </p>
     ${credBlock}
-    ${expFormatted ? `
+    ${
+      expFormatted
+        ? `
     <div style="background:#fef9ec;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:24px;">
       <p style="color:#92400e;font-size:13px;margin:0;">⏰ Invite expires <strong>${expFormatted}</strong></p>
-    </div>` : ''}
+    </div>`
+        : ''
+    }
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
     <p style="color:#9ca3af;font-size:12px;line-height:1.6;margin:0;">
       If you didn't expect this invitation, please contact your administrator.
@@ -84,24 +93,24 @@ If you didn't expect this, contact your administrator.
   return {
     subject: `You've been invited to manage ${workspace}`,
     html: renderBaseEmail({
-      title:              `Management access for ${workspace}`,
-      previewText:        `You've been invited to join ${workspace} as ${roleLabel}`,
+      title: `Management access for ${workspace}`,
+      previewText: `You've been invited to join ${workspace} as ${roleLabel}`,
       bodyHtml,
-      ctaLabel:           'Accept invite',
-      ctaUrl:             inviteUrl,
-      tenantName:         tenantName ?? 'Nexora',
-      tenantLogoUrl:      tenantLogoUrl,
-      tenantWebsiteUrl:   tenantWebsiteUrl,
+      ctaLabel: 'Accept invite',
+      ctaUrl: inviteUrl,
+      tenantName: tenantName ?? 'Nexora',
+      tenantLogoUrl: tenantLogoUrl,
+      tenantWebsiteUrl: tenantWebsiteUrl,
       tenantPrimaryColor: primaryColor,
-      showPoweredBy:      true,   // Business invites mention Nexora as the management platform
+      showPoweredBy: true, // Business invites mention Nexora as the management platform
     }),
     text: renderBasePlainText({
       bodyText,
-      ctaLabel:          'Accept invite',
-      ctaUrl:            inviteUrl,
-      tenantName:        tenantName ?? 'Nexora',
-      tenantWebsiteUrl:  tenantWebsiteUrl,
-      showPoweredBy:     true,
+      ctaLabel: 'Accept invite',
+      ctaUrl: inviteUrl,
+      tenantName: tenantName ?? 'Nexora',
+      tenantWebsiteUrl: tenantWebsiteUrl,
+      showPoweredBy: true,
     }),
   }
 }

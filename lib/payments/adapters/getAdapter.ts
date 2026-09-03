@@ -1,7 +1,7 @@
 // lib/payments/adapters/getAdapter.ts
 import type { PaymentAdapter, ProviderKey } from './paymentAdapter'
-import { stripeAdapter  } from './stripeAdapter'
-import { squareAdapter  } from './squareAdapter'
+import { stripeAdapter } from './stripeAdapter'
+import { squareAdapter } from './squareAdapter'
 
 const adapters: Record<ProviderKey, PaymentAdapter> = {
   stripe: stripeAdapter,

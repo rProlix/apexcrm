@@ -12,14 +12,17 @@ function sqsClient(region: string) {
 export async function sendVanDamageJob(payload: VanDamageJobV1): Promise<string> {
   const validPayload = vanDamageJobSchema.parse(payload)
   const { region, queueUrl } = getVanDamageAwsEnv()
-  const response = await sqsClient(region).send(new SendMessageCommand({
-    QueueUrl: queueUrl,
-    MessageBody: JSON.stringify(validPayload),
-    MessageAttributes: {
-      version: { DataType: 'String', StringValue: validPayload.version },
-      jobType: { DataType: 'String', StringValue: validPayload.jobType },
-    },
-  }), { abortSignal: AbortSignal.timeout(2_000) })
+  const response = await sqsClient(region).send(
+    new SendMessageCommand({
+      QueueUrl: queueUrl,
+      MessageBody: JSON.stringify(validPayload),
+      MessageAttributes: {
+        version: { DataType: 'String', StringValue: validPayload.version },
+        jobType: { DataType: 'String', StringValue: validPayload.jobType },
+      },
+    }),
+    { abortSignal: AbortSignal.timeout(2_000) }
+  )
   if (!response.MessageId) throw new Error('SQS did not return a message ID')
   return response.MessageId
 }

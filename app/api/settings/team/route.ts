@@ -17,9 +17,10 @@ function forbidden(msg = 'Forbidden') {
 async function resolveCaller() {
   const ctx = await getUserContext()
 
-  if (!ctx)                                         return { ok: false as const, res: forbidden() }
-  if (!['owner', 'admin'].includes(ctx.role))       return { ok: false as const, res: forbidden() }
-  if (ctx.role !== 'owner' && !ctx.tenant_id)       return { ok: false as const, res: NextResponse.json({ error: 'No tenant' }, { status: 400 }) }
+  if (!ctx) return { ok: false as const, res: forbidden() }
+  if (!['owner', 'admin'].includes(ctx.role)) return { ok: false as const, res: forbidden() }
+  if (ctx.role !== 'owner' && !ctx.tenant_id)
+    return { ok: false as const, res: NextResponse.json({ error: 'No tenant' }, { status: 400 }) }
 
   return { ok: true as const, ctx }
 }
@@ -31,9 +32,10 @@ export async function GET() {
   if (!auth.ok) return auth.res
 
   const { ctx } = auth
-  const tenantId = ctx.role === 'owner'
-    ? ctx.tenant_id          // owner scoped to their own tenant if set
-    : ctx.tenant_id!
+  const tenantId =
+    ctx.role === 'owner'
+      ? ctx.tenant_id // owner scoped to their own tenant if set
+      : ctx.tenant_id!
 
   if (!tenantId) {
     return NextResponse.json({ members: [] })
@@ -44,8 +46,8 @@ export async function GET() {
     .from('users')
     .select('id, email, role, status, created_at, metadata')
     .eq('tenant_id', tenantId)
-    .neq('role', 'owner')                           // ← CRITICAL: never return owner
-    .in('role', ALLOWED_ROLES)                      // only admin/staff
+    .neq('role', 'owner') // ← CRITICAL: never return owner
+    .in('role', ALLOWED_ROLES) // only admin/staff
     .order('created_at', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -96,11 +98,11 @@ export async function POST(req: NextRequest) {
   const { data, error } = await (db.from('users') as any)
     .insert({
       tenant_id: tenantId,
-      email:     email.toLowerCase().trim(),
+      email: email.toLowerCase().trim(),
       role,
-      status:    'invited',
-      metadata:  {
-        invited_by: ctx.id,            // track who invited this member
+      status: 'invited',
+      metadata: {
+        invited_by: ctx.id, // track who invited this member
         invited_at: new Date().toISOString(),
       },
     })
@@ -148,7 +150,7 @@ export async function PATCH(req: NextRequest) {
     .select('id, role')
     .eq('id', user_id)
     .eq('tenant_id', tenantId)
-    .neq('role', 'owner')                           // ← block targeting owner rows
+    .neq('role', 'owner') // ← block targeting owner rows
     .maybeSingle()
 
   if (!target) {
@@ -160,7 +162,7 @@ export async function PATCH(req: NextRequest) {
     .update({ role, updated_at: new Date().toISOString() })
     .eq('id', user_id)
     .eq('tenant_id', tenantId)
-    .neq('role', 'owner')                           // double-lock on the UPDATE
+    .neq('role', 'owner') // double-lock on the UPDATE
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
@@ -193,7 +195,7 @@ export async function DELETE(req: NextRequest) {
     .select('id, role, metadata')
     .eq('id', user_id)
     .eq('tenant_id', tenantId)
-    .neq('role', 'owner')                           // ← CRITICAL: block deleting owner
+    .neq('role', 'owner') // ← CRITICAL: block deleting owner
     .maybeSingle()
 
   if (!target) {
@@ -217,7 +219,7 @@ export async function DELETE(req: NextRequest) {
     .delete()
     .eq('id', user_id)
     .eq('tenant_id', tenantId)
-    .neq('role', 'owner')                           // final safety net on DELETE
+    .neq('role', 'owner') // final safety net on DELETE
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

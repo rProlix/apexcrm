@@ -4,9 +4,14 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
 
-function forbidden() { return NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+function forbidden() {
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+}
 
-function resolveTenantId(ctx: Awaited<ReturnType<typeof getUserContext>>, override?: string | null): string | null {
+function resolveTenantId(
+  ctx: Awaited<ReturnType<typeof getUserContext>>,
+  override?: string | null
+): string | null {
   if (!ctx) return null
   const hint = sanitizeTenantId(override)
   const self = sanitizeTenantId(ctx.tenant_id)

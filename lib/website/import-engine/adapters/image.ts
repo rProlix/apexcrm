@@ -40,7 +40,8 @@ export async function extractFromImages(params: ImageAdapterParams): Promise<Ima
     const img = params.images[i]
     const pageNumber = i + 1
     const ext = extForMime(img.mimeType)
-    const safeName = img.fileName.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 80) || `image-${pageNumber}.${ext}`
+    const safeName =
+      img.fileName.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 80) || `image-${pageNumber}.${ext}`
 
     try {
       const uploaded = await uploadFile({
@@ -70,7 +71,9 @@ export async function extractFromImages(params: ImageAdapterParams): Promise<Ima
         pageNumber,
       })
     } catch (e) {
-      warnings.push(`Failed to upload image ${pageNumber}: ${e instanceof Error ? e.message : 'error'}`)
+      warnings.push(
+        `Failed to upload image ${pageNumber}: ${e instanceof Error ? e.message : 'error'}`
+      )
     }
   }
 

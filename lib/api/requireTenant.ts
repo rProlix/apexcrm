@@ -28,18 +28,18 @@ import type { TenantRecord } from '@/lib/tenant/getTenantFromHost'
 import type { User } from '@supabase/supabase-js'
 
 export interface ApiTenantContext {
-  tenant:        TenantRecord
-  user:          User
-  tenantId:      string
-  supabase:      ReturnType<typeof getSupabaseServerClient>
+  tenant: TenantRecord
+  user: User
+  tenantId: string
+  supabase: ReturnType<typeof getSupabaseServerClient>
   errorResponse: null
 }
 
 export interface ApiTenantError {
-  tenant:        null
-  user:          null
-  tenantId:      null
-  supabase:      null
+  tenant: null
+  user: null
+  tenantId: null
+  supabase: null
   errorResponse: NextResponse
 }
 
@@ -52,9 +52,12 @@ export type ApiTenantResult = ApiTenantContext | ApiTenantError
  * (all other fields null). Callers must check `errorResponse` before using other fields.
  */
 export async function requireApiTenant(req: NextRequest): Promise<ApiTenantResult> {
-  const admin  = getSupabaseServerClient()
-  const err    = (status: number, message: string): ApiTenantError => ({
-    tenant: null, user: null, tenantId: null, supabase: null,
+  const admin = getSupabaseServerClient()
+  const err = (status: number, message: string): ApiTenantError => ({
+    tenant: null,
+    user: null,
+    tenantId: null,
+    supabase: null,
     errorResponse: NextResponse.json({ error: message }, { status }),
   })
 
@@ -107,10 +110,10 @@ export async function requireApiTenant(req: NextRequest): Promise<ApiTenantResul
   if (!tenant) return err(404, 'Tenant not found or inactive')
 
   return {
-    tenant:        tenant as TenantRecord,
+    tenant: tenant as TenantRecord,
     user,
     tenantId,
-    supabase:      admin,
+    supabase: admin,
     errorResponse: null,
   }
 }
@@ -121,9 +124,9 @@ export async function requireApiTenant(req: NextRequest): Promise<ApiTenantResul
  * still need tenant scoping (e.g. public storefront APIs).
  */
 export async function resolveTenantFromRequest(
-  req: NextRequest,
+  req: NextRequest
 ): Promise<{ tenantId: string; supabase: ReturnType<typeof getSupabaseServerClient> } | null> {
-  const admin     = getSupabaseServerClient()
+  const admin = getSupabaseServerClient()
   const slugHeader = req.headers.get('x-tenant-slug') ?? ''
 
   if (!slugHeader) return null

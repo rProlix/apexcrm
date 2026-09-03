@@ -40,7 +40,12 @@ export async function getSignedDamageImageUrl({
 }
 
 export function invalidateSignedDamageImageUrl(imageId: string, businessId: string) {
-  for (const profile of ['thumbnail', 'medium', 'large', 'original'] as SignedDamageImageProfile[]) {
+  for (const profile of [
+    'thumbnail',
+    'medium',
+    'large',
+    'original',
+  ] as SignedDamageImageProfile[]) {
     invalidateSignedPrivateMediaUrl(cacheKey(imageId, businessId, profile))
   }
 }

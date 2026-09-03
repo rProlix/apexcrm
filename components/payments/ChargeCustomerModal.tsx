@@ -6,30 +6,30 @@ import { X, CreditCard, Check } from 'lucide-react'
 import { formatCurrency } from '@/lib/payments/formatCurrency'
 
 interface Customer {
-  id:         string
+  id: string
   first_name: string
-  last_name:  string
-  email:      string
+  last_name: string
+  email: string
 }
 
 interface Props {
-  onClose:   () => void
+  onClose: () => void
   customers: Customer[]
-  currency:  string
+  currency: string
   onCharged?: (result: Record<string, unknown>) => void
 }
 
 export function ChargeCustomerModal({ onClose, customers, currency, onCharged }: Props) {
   const [form, setForm] = useState({
-    customer_id:  '',
-    amount:       '',
-    description:  '',
+    customer_id: '',
+    amount: '',
+    description: '',
     currency,
     provider_key: '',
   })
   const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState<string | null>(null)
-  const [result,  setResult]  = useState<{ status: string; amount: number } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<{ status: string; amount: number } | null>(null)
 
   async function handleCharge(e: React.FormEvent) {
     e.preventDefault()
@@ -45,13 +45,13 @@ export function ChargeCustomerModal({ onClose, customers, currency, onCharged }:
 
     try {
       const res = await fetch('/api/payments/charge', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer_id:  form.customer_id  || undefined,
-          amount:       parsedAmount,
-          currency:     form.currency,
-          description:  form.description  || undefined,
+          customer_id: form.customer_id || undefined,
+          amount: parsedAmount,
+          currency: form.currency,
+          description: form.description || undefined,
           provider_key: form.provider_key || undefined,
         }),
       })
@@ -75,7 +75,9 @@ export function ChargeCustomerModal({ onClose, customers, currency, onCharged }:
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 16 }}
@@ -100,15 +102,19 @@ export function ChargeCustomerModal({ onClose, customers, currency, onCharged }:
 
           {result ? (
             <div className="p-6 space-y-4">
-              <div className={`flex items-center gap-3 p-3 rounded-xl border ${
-                result.status === 'succeeded'
-                  ? 'bg-emerald-400/8 border-emerald-400/20 text-emerald-400'
-                  : 'bg-yellow-400/8 border-yellow-400/20 text-yellow-400'
-              }`}>
+              <div
+                className={`flex items-center gap-3 p-3 rounded-xl border ${
+                  result.status === 'succeeded'
+                    ? 'bg-emerald-400/8 border-emerald-400/20 text-emerald-400'
+                    : 'bg-yellow-400/8 border-yellow-400/20 text-yellow-400'
+                }`}
+              >
                 <Check className="h-4 w-4" />
                 <div>
                   <p className="text-sm font-medium">
-                    {result.status === 'succeeded' ? 'Payment successful' : `Payment ${result.status}`}
+                    {result.status === 'succeeded'
+                      ? 'Payment successful'
+                      : `Payment ${result.status}`}
                   </p>
                   <p className="text-xs opacity-70 mt-0.5">
                     {formatCurrency(result.amount, form.currency)} — {result.status}
@@ -125,11 +131,15 @@ export function ChargeCustomerModal({ onClose, customers, currency, onCharged }:
           ) : (
             <form onSubmit={handleCharge} className="p-6 space-y-4">
               {error && (
-                <div className="p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">{error}</div>
+                <div className="p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">
+                  {error}
+                </div>
               )}
 
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-2">Customer (optional)</label>
+                <label className="block text-xs font-medium text-white/50 mb-2">
+                  Customer (optional)
+                </label>
                 <select
                   value={form.customer_id}
                   onChange={(e) => setForm({ ...form, customer_id: e.target.value })}
@@ -168,14 +178,18 @@ export function ChargeCustomerModal({ onClose, customers, currency, onCharged }:
                     className="store-input w-full text-sm"
                   >
                     {['USD', 'EUR', 'GBP', 'CAD', 'AUD'].map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-2">Description (optional)</label>
+                <label className="block text-xs font-medium text-white/50 mb-2">
+                  Description (optional)
+                </label>
                 <input
                   type="text"
                   value={form.description}

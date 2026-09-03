@@ -15,8 +15,11 @@ export async function POST(req: NextRequest) {
   if (!customer) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   let body: Record<string, unknown>
-  try { body = await req.json() }
-  catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   const items = body.items as OrderItemForRewards[] | undefined
   if (!Array.isArray(items) || items.length === 0) {
@@ -24,11 +27,11 @@ export async function POST(req: NextRequest) {
   }
 
   const program = await getRewardsProgram(customer.tenant_id)
-  const result  = await calculatePoints(customer.tenant_id, program?.id ?? null, items)
+  const result = await calculatePoints(customer.tenant_id, program?.id ?? null, items)
 
   return NextResponse.json({
     total_points: result.total_points,
-    breakdown:    result.breakdown,
+    breakdown: result.breakdown,
     program_name: program?.name ?? null,
   })
 }

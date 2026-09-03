@@ -6,13 +6,13 @@ import type { RewardPunchCard } from '@/types/rewards'
 import { punchCardProgressPercent, punchCardRewardLabel } from '@/lib/rewards/punchCardUtils'
 
 interface Props {
-  card:    RewardPunchCard
+  card: RewardPunchCard
   isAdmin?: boolean
 }
 
 export function PunchCardProgress({ card, isAdmin }: Props) {
-  const percent   = punchCardProgressPercent(card)
-  const reward    = punchCardRewardLabel(card)
+  const percent = punchCardProgressPercent(card)
+  const reward = punchCardRewardLabel(card)
   const completed = card.status === 'completed'
   const productName = (card.products as { name: string } | null)?.name
   const customerName = (card as { customers?: { name: string; email: string } }).customers?.name
@@ -25,22 +25,25 @@ export function PunchCardProgress({ card, isAdmin }: Props) {
     >
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
-          <div className={`h-9 w-9 rounded-xl border flex items-center justify-center flex-shrink-0 ${completed ? 'bg-emerald-400/10 border-emerald-400/20' : 'bg-gold-400/10 border-gold-400/20'}`}>
-            {completed
-              ? <CheckCircle2 className="h-4.5 w-4.5 text-emerald-400" strokeWidth={1.75} />
-              : <Zap className="h-4.5 w-4.5 text-gold-400" strokeWidth={1.75} />
-            }
+          <div
+            className={`h-9 w-9 rounded-xl border flex items-center justify-center flex-shrink-0 ${completed ? 'bg-emerald-400/10 border-emerald-400/20' : 'bg-gold-400/10 border-gold-400/20'}`}
+          >
+            {completed ? (
+              <CheckCircle2 className="h-4.5 w-4.5 text-emerald-400" strokeWidth={1.75} />
+            ) : (
+              <Zap className="h-4.5 w-4.5 text-gold-400" strokeWidth={1.75} />
+            )}
           </div>
           <div>
             <p className="text-sm font-semibold text-white">{card.title}</p>
             {productName && <p className="text-xs text-white/40 mt-0.5">{productName}</p>}
-            {isAdmin && customerName && (
-              <p className="text-xs text-white/30">{customerName}</p>
-            )}
+            {isAdmin && customerName && <p className="text-xs text-white/30">{customerName}</p>}
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          <p className={`text-lg font-bold tabular-nums ${completed ? 'text-emerald-400' : 'text-gold-400'}`}>
+          <p
+            className={`text-lg font-bold tabular-nums ${completed ? 'text-emerald-400' : 'text-gold-400'}`}
+          >
             {card.current_punches}/{card.punch_goal}
           </p>
           <p className="text-xs text-white/40">punches</p>
@@ -88,9 +91,15 @@ export function PunchCardProgress({ card, isAdmin }: Props) {
       </div>
 
       {/* Reward label */}
-      <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ${completed ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400' : 'bg-white/4 border-white/8 text-white/50'}`}>
+      <div
+        className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ${completed ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400' : 'bg-white/4 border-white/8 text-white/50'}`}
+      >
         <Zap className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={1.75} />
-        <span>{completed ? `Reward earned: ${reward}` : `Earn ${reward} after ${card.punch_goal} purchases`}</span>
+        <span>
+          {completed
+            ? `Reward earned: ${reward}`
+            : `Earn ${reward} after ${card.punch_goal} purchases`}
+        </span>
       </div>
     </motion.div>
   )

@@ -2,25 +2,25 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface TenantCustomer {
-  id:           string
-  tenant_id:    string
-  name:         string
+  id: string
+  tenant_id: string
+  name: string
   display_name: string | null
-  email:        string | null
-  phone:        string | null
-  status:       string
-  metadata:     Record<string, unknown>
-  created_at:   string
-  updated_at:   string
+  email: string | null
+  phone: string | null
+  status: string
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
   /** Denormalised from customer_accounts join */
-  has_account:  boolean
+  has_account: boolean
 }
 
 export interface GetTenantCustomersOptions {
-  limit?:   number
-  offset?:  number
-  status?:  string
-  search?:  string
+  limit?: number
+  offset?: number
+  status?: string
+  search?: string
 }
 
 /**
@@ -29,7 +29,7 @@ export interface GetTenantCustomersOptions {
  */
 export async function getTenantCustomers(
   tenantId: string,
-  options:  GetTenantCustomersOptions = {}
+  options: GetTenantCustomersOptions = {}
 ): Promise<TenantCustomer[]> {
   const supabase = getSupabaseServerClient()
   const { limit = 50, offset = 0, status, search } = options
@@ -37,7 +37,8 @@ export async function getTenantCustomers(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase as any)
     .from('customers')
-    .select(`
+    .select(
+      `
       id,
       tenant_id,
       name,
@@ -49,7 +50,9 @@ export async function getTenantCustomers(
       created_at,
       updated_at,
       customer_accounts!inner ( id )
-    `, { count: 'exact' })
+    `,
+      { count: 'exact' }
+    )
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
@@ -58,9 +61,7 @@ export async function getTenantCustomers(
 
   if (search?.trim()) {
     const s = search.trim()
-    query = query.or(
-      `name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`
-    )
+    query = query.or(`name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`)
   }
 
   const { data, error } = await query
@@ -78,10 +79,7 @@ export async function getTenantCustomers(
   })) as TenantCustomer[]
 }
 
-export async function countTenantCustomers(
-  tenantId: string,
-  status?:  string
-): Promise<number> {
+export async function countTenantCustomers(tenantId: string, status?: string): Promise<number> {
   const supabase = getSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase as any)

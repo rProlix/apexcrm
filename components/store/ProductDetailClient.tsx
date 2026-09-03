@@ -6,35 +6,39 @@ import { Button } from '@/components/ui/Button'
 import { Checkout } from '@/components/store/Checkout'
 
 interface Product {
-  id:              string
-  name:            string
-  description:     string | null
-  price:           number
-  currency:        string
+  id: string
+  name: string
+  description: string | null
+  price: number
+  currency: string
   inventory_count: number
-  is_active:       boolean
+  is_active: boolean
 }
 
 interface Props {
-  product:  Product
+  product: Product
   tenantId: string
 }
 
 export function ProductDetailClient({ product, tenantId }: Props) {
-  const [quantity,     setQuantity]     = useState(1)
+  const [quantity, setQuantity] = useState(1)
   const [showCheckout, setShowCheckout] = useState(false)
 
-  const maxQty    = product.inventory_count
-  const inStock   = maxQty > 0
+  const maxQty = product.inventory_count
+  const inStock = maxQty > 0
   const lineTotal = Number(product.price) * quantity
 
-  function decrement() { setQuantity((q) => Math.max(1, q - 1)) }
-  function increment() { setQuantity((q) => Math.min(maxQty, q + 1)) }
+  function decrement() {
+    setQuantity((q) => Math.max(1, q - 1))
+  }
+  function increment() {
+    setQuantity((q) => Math.min(maxQty, q + 1))
+  }
 
   const cartItem = {
     product_id: product.id,
-    name:       product.name,
-    price:      Number(product.price),
+    name: product.name,
+    price: Number(product.price),
     quantity,
   }
 
@@ -48,11 +52,13 @@ export function ProductDetailClient({ product, tenantId }: Props) {
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold text-white leading-snug mb-2">{product.name}</h1>
-            <span className={`inline-flex text-xs px-2.5 py-1 rounded-lg border ${
-              inStock
-                ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
-                : 'text-white/30 bg-white/4 border-white/8'
-            }`}>
+            <span
+              className={`inline-flex text-xs px-2.5 py-1 rounded-lg border ${
+                inStock
+                  ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
+                  : 'text-white/30 bg-white/4 border-white/8'
+              }`}
+            >
               {inStock ? `${maxQty} in stock` : 'Out of stock'}
             </span>
           </div>
@@ -60,9 +66,7 @@ export function ProductDetailClient({ product, tenantId }: Props) {
 
         {/* Description */}
         {product.description && (
-          <p className="text-sm text-white/60 leading-relaxed mb-6">
-            {product.description}
-          </p>
+          <p className="text-sm text-white/60 leading-relaxed mb-6">{product.description}</p>
         )}
 
         {/* Price */}
@@ -103,8 +107,7 @@ export function ProductDetailClient({ product, tenantId }: Props) {
             <div className="text-right">
               <p className="text-xs text-white/40 mb-1">Total</p>
               <p className="text-xl font-bold text-white">
-                {product.currency}{' '}
-                {lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                {product.currency} {lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
               </p>
             </div>
           </div>

@@ -3,21 +3,21 @@ import type { ModuleDefinition } from '@/modules/shared/moduleTypes'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const messagesModule: ModuleDefinition = {
-  key:         'messages',
-  label:       'Messages',
+  key: 'messages',
+  label: 'Messages',
   description: 'Inbox for all customer communications',
-  icon:        MessageSquare,
-  href:        '/dashboard/messages',
-  color:       'text-sky-400',
-  bgColor:     'bg-sky-400/10',
-  order:       7,
+  icon: MessageSquare,
+  href: '/dashboard/messages',
+  color: 'text-sky-400',
+  bgColor: 'bg-sky-400/10',
+  order: 7,
 
   stats: [
     {
-      key:      'messages_unread',
-      label:    'Unread',
+      key: 'messages_unread',
+      label: 'Unread',
       category: 'operations',
-      color:    'text-sky-400',
+      color: 'text-sky-400',
       emptyMessage: 'No unread messages',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -31,10 +31,10 @@ export const messagesModule: ModuleDefinition = {
       },
     },
     {
-      key:      'messages_inbound',
-      label:    'Inbound (Total)',
+      key: 'messages_inbound',
+      label: 'Inbound (Total)',
       category: 'usage',
-      color:    'text-blue-400',
+      color: 'text-blue-400',
       emptyMessage: 'No messages received',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -47,10 +47,10 @@ export const messagesModule: ModuleDefinition = {
       },
     },
     {
-      key:      'messages_outbound',
-      label:    'Sent',
+      key: 'messages_outbound',
+      label: 'Sent',
       category: 'usage',
-      color:    'text-indigo-400',
+      color: 'text-indigo-400',
       emptyMessage: 'No messages sent',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -76,9 +76,9 @@ export const messagesModule: ModuleDefinition = {
     if (!data.length) return []
 
     return [
-      { label: 'Total',   value: data.length },
+      { label: 'Total', value: data.length },
       { label: 'Inbound', value: data.filter((m) => m.direction === 'inbound').length },
-      { label: 'Unread',  value: data.filter((m) => m.status === 'delivered').length },
+      { label: 'Unread', value: data.filter((m) => m.status === 'delivered').length },
     ]
   },
 }

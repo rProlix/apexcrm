@@ -14,7 +14,10 @@ import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supaba
 export async function POST(req: NextRequest) {
   // ── 1. Authenticate ─────────────────────────────────────────────────
   const sessionClient = await createSessionServerClient()
-  const { data: { user }, error: authError } = await sessionClient.auth.getUser()
+  const {
+    data: { user },
+    error: authError,
+  } = await sessionClient.auth.getUser()
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -44,9 +47,11 @@ export async function POST(req: NextRequest) {
   const { tenant_id, module_key, enabled } = body
 
   if (
-    typeof tenant_id  !== 'string' || !tenant_id  ||
-    typeof module_key !== 'string' || !module_key ||
-    typeof enabled    !== 'boolean'
+    typeof tenant_id !== 'string' ||
+    !tenant_id ||
+    typeof module_key !== 'string' ||
+    !module_key ||
+    typeof enabled !== 'boolean'
   ) {
     return NextResponse.json(
       { error: 'tenant_id (string), module_key (string) and enabled (boolean) are required' },
@@ -68,10 +73,7 @@ export async function POST(req: NextRequest) {
   // ── 5. Upsert the module record ───────────────────────────────────────
   const { error: upsertError } = await admin
     .from('tenant_modules')
-    .upsert(
-      { tenant_id, module_key, enabled, config: {} },
-      { onConflict: 'tenant_id,module_key' }
-    )
+    .upsert({ tenant_id, module_key, enabled, config: {} }, { onConflict: 'tenant_id,module_key' })
 
   if (upsertError) {
     console.error('[toggle-module] upsert error:', upsertError.message)

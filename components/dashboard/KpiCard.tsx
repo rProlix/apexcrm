@@ -5,11 +5,11 @@ import { cn } from '@/lib/utils'
 import { cardHover, fadeUp } from '@/lib/motion'
 
 interface KpiCardProps {
-  label:     string
-  value:     string | number
-  sub?:      string
-  icon?:     React.ReactNode
-  trend?:    { value: number; label: string }
+  label: string
+  value: string | number
+  sub?: string
+  icon?: React.ReactNode
+  trend?: { value: number; label: string }
   className?: string
 }
 
@@ -40,9 +40,7 @@ export function KpiCard({ label, value, sub, icon, trend, className }: KpiCardPr
         <div className="flex-1 min-w-0">
           <p className="text-xs text-white/40 uppercase tracking-widest mb-1 truncate">{label}</p>
           <p className="text-2xl font-bold text-white tabular-nums">{value}</p>
-          {sub && (
-            <p className="text-xs text-white/35 mt-0.5 truncate">{sub}</p>
-          )}
+          {sub && <p className="text-xs text-white/35 mt-0.5 truncate">{sub}</p>}
         </div>
 
         {/* Trend badge */}
@@ -55,7 +53,8 @@ export function KpiCard({ label, value, sub, icon, trend, className }: KpiCardPr
                 : 'bg-red-500/10 text-red-400 border border-red-500/20'
             )}
           >
-            {trendPositive ? '+' : ''}{trend.value}% {trend.label}
+            {trendPositive ? '+' : ''}
+            {trend.value}% {trend.label}
           </div>
         )}
       </motion.div>

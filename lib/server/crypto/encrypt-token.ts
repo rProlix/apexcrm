@@ -39,11 +39,12 @@ export function encryptSecret(plainText: string): EncryptedSecret {
 }
 
 export function decryptSecret(secret: EncryptedSecret): string {
-  if (secret.version !== 'v1') throw new Error(`Unsupported encrypted secret version: ${String(secret.version)}`)
+  if (secret.version !== 'v1')
+    throw new Error(`Unsupported encrypted secret version: ${String(secret.version)}`)
   const decipher = createDecipheriv(
     'aes-256-gcm',
     getTokenEncryptionKey(),
-    Buffer.from(secret.iv, 'base64'),
+    Buffer.from(secret.iv, 'base64')
   )
   decipher.setAuthTag(Buffer.from(secret.authTag, 'base64'))
   return Buffer.concat([

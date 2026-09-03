@@ -3,22 +3,31 @@
 // components/inventory/InventoryTrendsClient.tsx
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { BarChart2, TrendingDown, Package, AlertTriangle, RefreshCw, ShoppingBag } from 'lucide-react'
+import {
+  BarChart2,
+  TrendingDown,
+  Package,
+  AlertTriangle,
+  RefreshCw,
+  ShoppingBag,
+} from 'lucide-react'
 import type { InventoryTrendSummary } from '@/lib/inventory/types'
 
-interface Props { tenantId: string }
+interface Props {
+  tenantId: string
+}
 
 export function InventoryTrendsClient({ tenantId }: Props) {
-  const [trends, setTrends]   = useState<InventoryTrendSummary | null>(null)
+  const [trends, setTrends] = useState<InventoryTrendSummary | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState<string | null>(null)
-  const [period, setPeriod]   = useState<'7d' | '30d'>('7d')
+  const [error, setError] = useState<string | null>(null)
+  const [period, setPeriod] = useState<'7d' | '30d'>('7d')
 
   async function load() {
     setLoading(true)
     setError(null)
     try {
-      const res  = await fetch('/api/inventory/trends')
+      const res = await fetch('/api/inventory/trends')
       if (!res.ok) throw new Error('Failed to load trends')
       const data = await res.json()
       setTrends(data.trends)
@@ -29,7 +38,9 @@ export function InventoryTrendsClient({ tenantId }: Props) {
     }
   }
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => {
+    void load()
+  }, [])
 
   if (loading) {
     return (
@@ -45,13 +56,17 @@ export function InventoryTrendsClient({ tenantId }: Props) {
       <div className="max-w-5xl mx-auto px-4 py-8 text-center">
         <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
         <p className="text-red-400">{error}</p>
-        <button onClick={() => void load()} className="mt-3 text-teal-400 text-sm underline">Retry</button>
+        <button onClick={() => void load()} className="mt-3 text-teal-400 text-sm underline">
+          Retry
+        </button>
       </div>
     )
   }
 
-  const topProducts = period === '7d' ? trends?.top_store_products_7d ?? [] : trends?.top_store_products_30d ?? []
-  const topConsumed = period === '7d' ? trends?.top_consumed_items_7d ?? [] : trends?.top_consumed_items_30d ?? []
+  const topProducts =
+    period === '7d' ? (trends?.top_store_products_7d ?? []) : (trends?.top_store_products_30d ?? [])
+  const topConsumed =
+    period === '7d' ? (trends?.top_consumed_items_7d ?? []) : (trends?.top_consumed_items_30d ?? [])
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
@@ -62,7 +77,9 @@ export function InventoryTrendsClient({ tenantId }: Props) {
             <BarChart2 className="w-6 h-6 text-purple-400" />
             Trends & Predictions
           </h1>
-          <p className="text-sm text-zinc-400 mt-1">Sales velocity, top sellers, and restock suggestions</p>
+          <p className="text-sm text-zinc-400 mt-1">
+            Sales velocity, top sellers, and restock suggestions
+          </p>
         </div>
         <div className="flex gap-2">
           <div className="flex rounded-xl border border-surface-border bg-graphite-800/50 p-1 gap-1">
@@ -92,7 +109,9 @@ export function InventoryTrendsClient({ tenantId }: Props) {
         <div className="rounded-2xl border border-zinc-700/50 bg-graphite-800/50 p-6 text-center">
           <BarChart2 className="w-8 h-8 text-zinc-500 mx-auto mb-3" />
           <p className="text-white font-medium">Not enough sales history yet</p>
-          <p className="text-sm text-zinc-400 mt-1">Trends will appear after inventory movements are recorded</p>
+          <p className="text-sm text-zinc-400 mt-1">
+            Trends will appear after inventory movements are recorded
+          </p>
         </div>
       )}
 
@@ -115,11 +134,15 @@ export function InventoryTrendsClient({ tenantId }: Props) {
                     <div className="mt-1 h-1.5 rounded-full bg-zinc-700 overflow-hidden">
                       <div
                         className="h-full rounded-full bg-amber-400"
-                        style={{ width: `${Math.min(100, (p.total_sold / (topProducts[0]?.total_sold || 1)) * 100)}%` }}
+                        style={{
+                          width: `${Math.min(100, (p.total_sold / (topProducts[0]?.total_sold || 1)) * 100)}%`,
+                        }}
                       />
                     </div>
                   </div>
-                  <span className="text-xs font-medium text-amber-400 shrink-0">{p.total_sold} sold</span>
+                  <span className="text-xs font-medium text-amber-400 shrink-0">
+                    {p.total_sold} sold
+                  </span>
                 </div>
               ))}
             </div>
@@ -144,7 +167,9 @@ export function InventoryTrendsClient({ tenantId }: Props) {
                     <div className="mt-1 h-1.5 rounded-full bg-zinc-700 overflow-hidden">
                       <div
                         className="h-full rounded-full bg-orange-400"
-                        style={{ width: `${Math.min(100, (item.total_consumed / (topConsumed[0]?.total_consumed || 1)) * 100)}%` }}
+                        style={{
+                          width: `${Math.min(100, (item.total_consumed / (topConsumed[0]?.total_consumed || 1)) * 100)}%`,
+                        }}
                       />
                     </div>
                   </div>
@@ -167,21 +192,29 @@ export function InventoryTrendsClient({ tenantId }: Props) {
           </h2>
           <div className="space-y-3">
             {(trends?.predictions ?? []).map((pred) => (
-              <div key={pred.item_id} className="flex items-center gap-4 py-2 border-b border-surface-border/30 last:border-0">
+              <div
+                key={pred.item_id}
+                className="flex items-center gap-4 py-2 border-b border-surface-border/30 last:border-0"
+              >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white">{pred.item_name}</p>
                   <p className="text-xs text-zinc-400">
                     {pred.current_quantity} {pred.unit} remaining
-                    {pred.blended_velocity_daily !== null && ` · ${pred.blended_velocity_daily.toFixed(2)} ${pred.unit}/day`}
+                    {pred.blended_velocity_daily !== null &&
+                      ` · ${pred.blended_velocity_daily.toFixed(2)} ${pred.unit}/day`}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
                   {pred.estimated_days_remaining !== null ? (
-                    <p className={`text-sm font-medium ${
-                      pred.estimated_days_remaining <= 3  ? 'text-red-400'
-                      : pred.estimated_days_remaining <= 7 ? 'text-orange-400'
-                      : 'text-yellow-400'
-                    }`}>
+                    <p
+                      className={`text-sm font-medium ${
+                        pred.estimated_days_remaining <= 3
+                          ? 'text-red-400'
+                          : pred.estimated_days_remaining <= 7
+                            ? 'text-orange-400'
+                            : 'text-yellow-400'
+                      }`}
+                    >
                       ~{pred.estimated_days_remaining}d left
                     </p>
                   ) : (
@@ -208,7 +241,10 @@ export function InventoryTrendsClient({ tenantId }: Props) {
           </h2>
           <div className="space-y-2">
             {(trends?.suggested_reorders ?? []).map((item) => (
-              <div key={item.item_id} className="flex items-center gap-3 py-2.5 border-b border-surface-border/30 last:border-0">
+              <div
+                key={item.item_id}
+                className="flex items-center gap-3 py-2.5 border-b border-surface-border/30 last:border-0"
+              >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white">{item.item_name}</p>
                   <p className="text-xs text-zinc-400">{item.reason}</p>
@@ -217,7 +253,9 @@ export function InventoryTrendsClient({ tenantId }: Props) {
                   <p className="text-sm font-medium text-teal-400">
                     Order {item.suggested_quantity} {item.unit}
                   </p>
-                  <p className="text-xs text-zinc-400">Currently: {item.current_quantity} {item.unit}</p>
+                  <p className="text-xs text-zinc-400">
+                    Currently: {item.current_quantity} {item.unit}
+                  </p>
                 </div>
               </div>
             ))}

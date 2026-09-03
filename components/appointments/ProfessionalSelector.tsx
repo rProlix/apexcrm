@@ -6,8 +6,8 @@ import { User, ChevronDown, Check, Loader2 } from 'lucide-react'
 import type { Professional } from '@/lib/appointments/types'
 
 interface Props {
-  value:     string | null
-  onChange:  (id: string | null) => void
+  value: string | null
+  onChange: (id: string | null) => void
   required?: boolean
   placeholder?: string
   className?: string
@@ -18,11 +18,11 @@ export function ProfessionalSelector({
   onChange,
   required,
   placeholder = 'Any professional',
-  className   = '',
+  className = '',
 }: Props) {
   const [professionals, setProfessionals] = useState<Professional[]>([])
-  const [loading,       setLoading]       = useState(true)
-  const [open,          setOpen]          = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -35,15 +35,21 @@ export function ProfessionalSelector({
       .catch(() => {
         if (!cancelled) setProfessionals([])
       })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const selected = professionals.find((p) => p.id === value) ?? null
 
   if (loading) {
     return (
-      <div className={`flex items-center gap-2 h-10 px-3 bg-graphite-700 border border-surface-border rounded-xl ${className}`}>
+      <div
+        className={`flex items-center gap-2 h-10 px-3 bg-graphite-700 border border-surface-border rounded-xl ${className}`}
+      >
         <Loader2 className="w-3.5 h-3.5 text-white/30 animate-spin" />
         <span className="text-sm text-white/30">Loading professionals…</span>
       </div>
@@ -52,7 +58,9 @@ export function ProfessionalSelector({
 
   if (professionals.length === 0) {
     return (
-      <div className={`flex items-center gap-2 h-10 px-3 bg-graphite-700/50 border border-surface-border/50 rounded-xl ${className}`}>
+      <div
+        className={`flex items-center gap-2 h-10 px-3 bg-graphite-700/50 border border-surface-border/50 rounded-xl ${className}`}
+      >
         <User className="w-3.5 h-3.5 text-white/20" />
         <span className="text-sm text-white/25 italic">No professionals added yet</span>
       </div>
@@ -70,7 +78,9 @@ export function ProfessionalSelector({
         <span className={`flex-1 text-left truncate ${!selected ? 'text-white/40' : ''}`}>
           {selected ? selected.name : placeholder}
         </span>
-        <ChevronDown className={`w-3.5 h-3.5 text-white/30 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-white/30 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {open && (
@@ -78,7 +88,10 @@ export function ProfessionalSelector({
           {!required && (
             <button
               type="button"
-              onClick={() => { onChange(null); setOpen(false) }}
+              onClick={() => {
+                onChange(null)
+                setOpen(false)
+              }}
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-white/50 hover:bg-graphite-700 hover:text-white transition-colors"
             >
               <span className="flex-1 text-left">{placeholder}</span>
@@ -91,7 +104,10 @@ export function ProfessionalSelector({
               <button
                 key={p.id}
                 type="button"
-                onClick={() => { onChange(p.id); setOpen(false) }}
+                onClick={() => {
+                  onChange(p.id)
+                  setOpen(false)
+                }}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-graphite-700 transition-colors group"
               >
                 {p.avatar_url ? (
@@ -110,9 +126,7 @@ export function ProfessionalSelector({
                 )}
                 <div className="flex-1 min-w-0 text-left">
                   <p className="text-white font-medium truncate">{p.name}</p>
-                  {p.role && (
-                    <p className="text-2xs text-white/35 truncate capitalize">{p.role}</p>
-                  )}
+                  {p.role && <p className="text-2xs text-white/35 truncate capitalize">{p.role}</p>}
                 </div>
                 {value === p.id && <Check className="w-3.5 h-3.5 text-gold-400 shrink-0" />}
               </button>
@@ -122,12 +136,7 @@ export function ProfessionalSelector({
       )}
 
       {/* Click-outside overlay */}
-      {open && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setOpen(false)}
-        />
-      )}
+      {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
     </div>
   )
 }

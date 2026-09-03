@@ -14,10 +14,11 @@ export default async function DashboardSubPageNotFound({
 }) {
   const { slug } = await params
   const path = `/dashboard/${slug.join('/')}`
-  const label = slug
-    .at(-1)
-    ?.replace(/-/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase()) ?? 'Page'
+  const label =
+    slug
+      .at(-1)
+      ?.replace(/-/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase()) ?? 'Page'
 
   return (
     <div className="flex items-center justify-center min-h-[60vh] p-6">

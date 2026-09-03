@@ -18,10 +18,7 @@ export default async function InventoryPage() {
   const supabase = getInventoryClient()
   const tenantId = ctx.tenant_id ?? ''
 
-  const [
-    { data: stats },
-    { data: recentAlerts },
-  ] = await Promise.all([
+  const [{ data: stats }, { data: recentAlerts }] = await Promise.all([
     supabase.rpc('get_inventory_dashboard_stats', { p_tenant_id: tenantId }),
     supabase
       .from('inventory_alerts')

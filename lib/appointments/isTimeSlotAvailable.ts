@@ -3,10 +3,10 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { AvailabilityRule, SlotAvailabilityResult } from './types'
 
 interface CheckOptions {
-  tenant_id:   string
-  starts_at:   string   // ISO 8601
-  ends_at:     string   // ISO 8601
-  exclude_id?: string   // skip this appointment id (for rescheduling)
+  tenant_id: string
+  starts_at: string // ISO 8601
+  ends_at: string // ISO 8601
+  exclude_id?: string // skip this appointment id (for rescheduling)
   /** When true, skip the availability-rule window check (admin override). */
   skip_rule_check?: boolean
 }
@@ -31,7 +31,7 @@ export async function isTimeSlotAvailable({
   skip_rule_check = false,
 }: CheckOptions): Promise<SlotAvailabilityResult> {
   const startMs = new Date(starts_at).getTime()
-  const endMs   = new Date(ends_at).getTime()
+  const endMs = new Date(ends_at).getTime()
 
   // ── 1. Sanity checks ───────────────────────────────────────────────────────
   if (isNaN(startMs) || isNaN(endMs)) {
@@ -45,8 +45,8 @@ export async function isTimeSlotAvailable({
     return { available: false, reason: 'Cannot book a time slot in the past' }
   }
 
-  const supabase  = getSupabaseServerClient()
-  const date      = starts_at.slice(0, 10)
+  const supabase = getSupabaseServerClient()
+  const date = starts_at.slice(0, 10)
   const dayOfWeek = new Date(`${date}T12:00:00Z`).getUTCDay()
 
   // ── 2. Availability rule check ─────────────────────────────────────────────
@@ -66,7 +66,7 @@ export async function isTimeSlotAvailable({
       // Find rules that apply to this date
       const applicable = rules.filter((r) => {
         const type = r.repeat_type ?? 'weekly'
-        if (type === 'daily')  return true
+        if (type === 'daily') return true
         if (type === 'weekly') return r.day_of_week === dayOfWeek
         if (type === 'custom') {
           const days = Array.isArray(r.repeat_days) ? r.repeat_days : []

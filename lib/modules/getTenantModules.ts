@@ -5,15 +5,15 @@ import { getDefaultModuleState } from '@/lib/modules/defaultModules'
 import type { ModuleKey } from '@/modules/shared/moduleTypes'
 
 export interface TenantModuleState {
-  key:        ModuleKey
-  label:      string
+  key: ModuleKey
+  label: string
   description: string
-  href:        string
-  color:       string
-  bgColor:     string
-  order:       number
-  is_enabled:  boolean
-  config:      Record<string, unknown>
+  href: string
+  color: string
+  bgColor: string
+  order: number
+  is_enabled: boolean
+  config: Record<string, unknown>
 }
 
 /**
@@ -45,17 +45,17 @@ export async function getTenantModules(tenantId: string): Promise<TenantModuleSt
   return (Object.keys(MODULE_REGISTRY) as ModuleKey[])
     .map((key) => {
       const mod = MODULE_REGISTRY[key]
-      const db  = dbMap.get(key)
+      const db = dbMap.get(key)
       return {
         key,
-        label:       mod.label,
+        label: mod.label,
         description: mod.description,
-        href:        mod.href,
-        color:       mod.color,
-        bgColor:     mod.bgColor,
-        order:       mod.order,
-        is_enabled:  db !== undefined ? db.enabled : getDefaultModuleState(key),
-        config:      db?.config ?? {},
+        href: mod.href,
+        color: mod.color,
+        bgColor: mod.bgColor,
+        order: mod.order,
+        is_enabled: db !== undefined ? db.enabled : getDefaultModuleState(key),
+        config: db?.config ?? {},
       }
     })
     .sort((a, b) => a.order - b.order)

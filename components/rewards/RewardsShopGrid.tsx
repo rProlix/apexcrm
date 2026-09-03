@@ -7,27 +7,30 @@ import type { RewardShopItem } from '@/types/rewards'
 import { RewardsShopItemForm } from './RewardsShopItemForm'
 
 interface Props {
-  items:       RewardShopItem[]
-  isAdmin?:    boolean
+  items: RewardShopItem[]
+  isAdmin?: boolean
   userPoints?: number
-  tenantId?:   string
-  onRedeem?:   (itemId: string) => Promise<void>
+  tenantId?: string
+  onRedeem?: (itemId: string) => Promise<void>
 }
 
 function redemptionBadge(item: RewardShopItem): string {
   switch (item.redemption_type) {
-    case 'free_item': return 'Free Item'
+    case 'free_item':
+      return 'Free Item'
     case 'discount':
       if (item.discount_type === 'percent') return `${item.discount_value ?? 0}% Off`
       return `$${item.discount_value ?? 0} Off`
-    case 'custom': return 'Custom Reward'
-    default: return 'Points Reward'
+    case 'custom':
+      return 'Custom Reward'
+    default:
+      return 'Points Reward'
   }
 }
 
 export function RewardsShopGrid({ items, isAdmin, userPoints = 0, tenantId, onRedeem }: Props) {
   const [, startTransition] = useTransition()
-  const [editItem, setEditItem]     = useState<RewardShopItem | null>(null)
+  const [editItem, setEditItem] = useState<RewardShopItem | null>(null)
   const [redeemingId, setRedeemingId] = useState<string | null>(null)
   const [redeemError, setRedeemError] = useState<Record<string, string>>({})
   const [redeemSuccess, setRedeemSuccess] = useState<Set<string>>(new Set())
@@ -40,7 +43,10 @@ export function RewardsShopGrid({ items, isAdmin, userPoints = 0, tenantId, onRe
       await onRedeem(item.id)
       setRedeemSuccess((prev) => new Set([...prev, item.id]))
     } catch (err) {
-      setRedeemError((prev) => ({ ...prev, [item.id]: err instanceof Error ? err.message : 'Redemption failed' }))
+      setRedeemError((prev) => ({
+        ...prev,
+        [item.id]: err instanceof Error ? err.message : 'Redemption failed',
+      }))
     } finally {
       setRedeemingId(null)
     }
@@ -62,7 +68,9 @@ export function RewardsShopGrid({ items, isAdmin, userPoints = 0, tenantId, onRe
         </div>
         <h3 className="text-sm font-semibold text-white mb-1">No items available</h3>
         <p className="text-xs text-white/40">
-          {isAdmin ? 'Create your first rewards shop item above.' : 'Check back soon for rewards to redeem.'}
+          {isAdmin
+            ? 'Create your first rewards shop item above.'
+            : 'Check back soon for rewards to redeem.'}
         </p>
       </div>
     )
@@ -83,11 +91,11 @@ export function RewardsShopGrid({ items, isAdmin, userPoints = 0, tenantId, onRe
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {items.map((item, i) => {
-          const canAfford    = userPoints >= item.points_cost
-          const isRedeeming  = redeemingId === item.id
-          const didRedeem    = redeemSuccess.has(item.id)
-          const itemError    = redeemError[item.id]
-          const outOfStock   = item.inventory_count <= 0 && item.inventory_count !== 0
+          const canAfford = userPoints >= item.points_cost
+          const isRedeeming = redeemingId === item.id
+          const didRedeem = redeemSuccess.has(item.id)
+          const itemError = redeemError[item.id]
+          const outOfStock = item.inventory_count <= 0 && item.inventory_count !== 0
 
           return (
             <motion.div
@@ -101,23 +109,32 @@ export function RewardsShopGrid({ items, isAdmin, userPoints = 0, tenantId, onRe
               <div className="p-5">
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="h-11 w-11 rounded-xl bg-gold-400/10 border border-gold-400/20 flex items-center justify-center flex-shrink-0">
-                    {item.product_id
-                      ? <Package className="h-5.5 w-5.5 text-gold-400" strokeWidth={1.75} />
-                      : <Gift className="h-5.5 w-5.5 text-gold-400" strokeWidth={1.75} />
-                    }
+                    {item.product_id ? (
+                      <Package className="h-5.5 w-5.5 text-gold-400" strokeWidth={1.75} />
+                    ) : (
+                      <Gift className="h-5.5 w-5.5 text-gold-400" strokeWidth={1.75} />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-white leading-snug line-clamp-2">{item.name}</h3>
+                    <h3 className="text-sm font-semibold text-white leading-snug line-clamp-2">
+                      {item.name}
+                    </h3>
                     {item.description && (
                       <p className="text-xs text-white/40 mt-1 line-clamp-2">{item.description}</p>
                     )}
                   </div>
                   {isAdmin && (
                     <div className="flex gap-1 flex-shrink-0">
-                      <button onClick={() => setEditItem(item)} className="h-7 w-7 rounded-lg bg-white/6 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
+                      <button
+                        onClick={() => setEditItem(item)}
+                        className="h-7 w-7 rounded-lg bg-white/6 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+                      >
                         <Edit2 className="h-3.5 w-3.5 text-white/60" />
                       </button>
-                      <button onClick={() => handleDelete(item.id)} className="h-7 w-7 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center hover:bg-red-500/20 transition-colors">
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="h-7 w-7 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center hover:bg-red-500/20 transition-colors"
+                      >
                         <Trash2 className="h-3.5 w-3.5 text-red-400" />
                       </button>
                     </div>
@@ -149,7 +166,9 @@ export function RewardsShopGrid({ items, isAdmin, userPoints = 0, tenantId, onRe
                 {/* Points cost + action */}
                 <div className="flex items-center justify-between pt-3 border-t border-white/6">
                   <div>
-                    <p className="text-lg font-bold text-amber-400 tabular-nums">{item.points_cost.toLocaleString()}</p>
+                    <p className="text-lg font-bold text-amber-400 tabular-nums">
+                      {item.points_cost.toLocaleString()}
+                    </p>
                     <p className="text-xs text-white/30">points</p>
                   </div>
                   {!isAdmin && onRedeem && (
@@ -165,7 +184,13 @@ export function RewardsShopGrid({ items, isAdmin, userPoints = 0, tenantId, onRe
                       }`}
                     >
                       <ShoppingBag className="h-3.5 w-3.5" />
-                      {didRedeem ? 'Redeemed!' : isRedeeming ? 'Redeeming…' : !canAfford ? `Need ${(item.points_cost - userPoints).toLocaleString()} more` : 'Redeem'}
+                      {didRedeem
+                        ? 'Redeemed!'
+                        : isRedeeming
+                          ? 'Redeeming…'
+                          : !canAfford
+                            ? `Need ${(item.points_cost - userPoints).toLocaleString()} more`
+                            : 'Redeem'}
                     </button>
                   )}
                   {isAdmin && (
@@ -174,7 +199,9 @@ export function RewardsShopGrid({ items, isAdmin, userPoints = 0, tenantId, onRe
                         {item.inventory_count === 0 ? 'Unlimited' : `${item.inventory_count} left`}
                       </p>
                       {item.max_redemptions_per_customer && (
-                        <p className="text-xs text-white/30">Max {item.max_redemptions_per_customer}/customer</p>
+                        <p className="text-xs text-white/30">
+                          Max {item.max_redemptions_per_customer}/customer
+                        </p>
                       )}
                     </div>
                   )}

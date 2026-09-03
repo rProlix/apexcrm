@@ -11,14 +11,14 @@
 //       (metadata.invited_by === admin.id), OR any staff if no invited_by is set.
 
 interface Caller {
-  id:        string
-  role:      string
+  id: string
+  role: string
   tenant_id: string | null
 }
 
 interface Target {
-  id:        string
-  role:      string
+  id: string
+  role: string
   tenant_id: string | null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: Record<string, unknown> | null | any
@@ -26,7 +26,7 @@ interface Target {
 
 export interface ManageStaffResult {
   allowed: boolean
-  reason?:  string
+  reason?: string
 }
 
 /**

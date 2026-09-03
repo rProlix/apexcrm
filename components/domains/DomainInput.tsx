@@ -1,24 +1,26 @@
 // components/domains/DomainInput.tsx
 'use client'
 
-import { useState, useCallback }  from 'react'
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Globe, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 
 interface DomainInputProps {
-  value:       string
-  onChange:    (val: string) => void
-  onAdd:       () => void
-  loading?:    boolean
-  error?:      string | null
+  value: string
+  onChange: (val: string) => void
+  onAdd: () => void
+  loading?: boolean
+  error?: string | null
   placeholder?: string
-  disabled?:   boolean
+  disabled?: boolean
 }
 
 const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/i
 
 function normalizeDomainInput(raw: string): string {
-  return raw.trim().toLowerCase()
+  return raw
+    .trim()
+    .toLowerCase()
     .replace(/^https?:\/\//, '')
     .replace(/\/$/, '')
     .split('/')[0]
@@ -29,26 +31,32 @@ export function DomainInput({
   value,
   onChange,
   onAdd,
-  loading   = false,
-  error     = null,
+  loading = false,
+  error = null,
   placeholder = 'www.yourbusiness.com',
-  disabled  = false,
+  disabled = false,
 }: DomainInputProps) {
   const [touched, setTouched] = useState(false)
 
   const normalized = normalizeDomainInput(value)
-  const isValid    = normalized.length > 0 && DOMAIN_RE.test(normalized)
-  const showError  = touched && normalized.length > 0 && !isValid
+  const isValid = normalized.length > 0 && DOMAIN_RE.test(normalized)
+  const showError = touched && normalized.length > 0 && !isValid
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange(e.target.value)
-  }, [onChange])
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      onChange(e.target.value)
+    },
+    [onChange]
+  )
 
   const handleBlur = useCallback(() => setTouched(true), [])
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && isValid && !loading) onAdd()
-  }, [isValid, loading, onAdd])
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && isValid && !loading) onAdd()
+    },
+    [isValid, loading, onAdd]
+  )
 
   return (
     <div className="space-y-2">
@@ -81,10 +89,11 @@ export function DomainInput({
                 exit={{ opacity: 0, scale: 0.8 }}
                 className="absolute inset-y-0 right-3 flex items-center"
               >
-                {isValid
-                  ? <CheckCircle className="h-4 w-4 text-emerald-400" />
-                  : <AlertCircle className="h-4 w-4 text-red-400"     />
-                }
+                {isValid ? (
+                  <CheckCircle className="h-4 w-4 text-emerald-400" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 text-red-400" />
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -107,8 +116,8 @@ export function DomainInput({
         {(showError || error) && (
           <motion.p
             initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0  }}
-            exit={{ opacity: 0, y: -4    }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
             className="flex items-center gap-1.5 text-xs text-red-400"
           >
             <AlertCircle className="h-3 w-3 flex-shrink-0" />

@@ -9,17 +9,17 @@
 import type { GeminiResult } from './types'
 import { parseGeminiResult } from './parseGeminiResult'
 import { getWebsiteAiGeminiModel } from '@/lib/ai/geminiConfig'
-import { callGeminiText }          from '@/lib/ai/geminiRequest'
+import { callGeminiText } from '@/lib/ai/geminiRequest'
 
 export interface GeminiCallOptions {
   prompt: string
 }
 
 export interface GeminiCallResult {
-  result:     GeminiResult | null
-  rawText:    string
+  result: GeminiResult | null
+  rawText: string
   tokenUsage: Record<string, unknown>
-  error?:     string
+  error?: string
 }
 
 export async function callGemini(options: GeminiCallOptions): Promise<GeminiCallResult> {
@@ -27,11 +27,11 @@ export async function callGemini(options: GeminiCallOptions): Promise<GeminiCall
 
   const { text, tokenUsage, error } = await callGeminiText({
     model,
-    prompt:          options.prompt,
-    feature:         'website-autofill',
-    temperature:     0.2,
-    topK:            40,
-    topP:            0.95,
+    prompt: options.prompt,
+    feature: 'website-autofill',
+    temperature: 0.2,
+    topK: 40,
+    topP: 0.95,
     maxOutputTokens: 8192,
     // expectJson is intentionally false here — parseGeminiResult (below) handles
     // code fence stripping and JSON parsing with website-AI-specific validation.
@@ -43,10 +43,11 @@ export async function callGemini(options: GeminiCallOptions): Promise<GeminiCall
 
   if (!text) {
     return {
-      result:     null,
-      rawText:    '',
+      result: null,
+      rawText: '',
       tokenUsage: tokenUsage ?? {},
-      error:      'No useful content was detected. Try pasting reviews, services, products, hours, or contact info.',
+      error:
+        'No useful content was detected. Try pasting reviews, services, products, hours, or contact info.',
     }
   }
 

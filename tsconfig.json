@@ -19,9 +19,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": [
-    "node_modules",
-    "workers",
-    "components/website/3d/ThreeScrollScene.tsx"
-  ]
+  "exclude": ["node_modules", "workers", "components/website/3d/ThreeScrollScene.tsx"]
 }

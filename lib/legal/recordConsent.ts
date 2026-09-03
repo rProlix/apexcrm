@@ -36,38 +36,38 @@ export async function recordLegalConsent(input: RecordLegalConsentInput): Promis
   const ipAddress = firstForwardedIp(requestHeaders)
   const documents = getRequiredLegalDocuments(input.accountType)
 
-  const rows: Database['public']['Tables']['legal_consents']['Insert'][] = documents.map((documentKey) => ({
-    auth_user_id: input.authUserId,
-    tenant_id: input.tenantId ?? null,
-    subject_email: input.subjectEmail.trim().toLowerCase(),
-    account_type: input.accountType,
-    document_key: documentKey,
-    document_version: getAgreementVersion(validation.agreement, documentKey),
-    accepted_at: validation.agreement.acceptedAt,
-    source: input.source,
-    ip_address: ipAddress,
-    user_agent: userAgent,
-    evidence: {
-      affirmative_action: 'required_checkbox',
-      all_document_versions: {
-        terms: validation.agreement.termsVersion,
-        privacy: validation.agreement.privacyVersion,
-        acceptable_use: validation.agreement.acceptableUseVersion,
-        ai_notice: validation.agreement.aiNoticeVersion,
-        data_processing_addendum: validation.agreement.dataProcessingAddendumVersion,
-        cookie_policy: validation.agreement.cookiePolicyVersion,
-      },
-      ...input.metadata,
-    } as Json,
-  }))
+  const rows: Database['public']['Tables']['legal_consents']['Insert'][] = documents.map(
+    (documentKey) => ({
+      auth_user_id: input.authUserId,
+      tenant_id: input.tenantId ?? null,
+      subject_email: input.subjectEmail.trim().toLowerCase(),
+      account_type: input.accountType,
+      document_key: documentKey,
+      document_version: getAgreementVersion(validation.agreement, documentKey),
+      accepted_at: validation.agreement.acceptedAt,
+      source: input.source,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+      evidence: {
+        affirmative_action: 'required_checkbox',
+        all_document_versions: {
+          terms: validation.agreement.termsVersion,
+          privacy: validation.agreement.privacyVersion,
+          acceptable_use: validation.agreement.acceptableUseVersion,
+          ai_notice: validation.agreement.aiNoticeVersion,
+          data_processing_addendum: validation.agreement.dataProcessingAddendumVersion,
+          cookie_policy: validation.agreement.cookiePolicyVersion,
+        },
+        ...input.metadata,
+      } as Json,
+    })
+  )
 
   const supabase = getSupabaseServerClient()
-  const { error } = await supabase
-    .from('legal_consents')
-    .upsert(rows, {
-      onConflict: 'auth_user_id,account_type,document_key,document_version,source',
-      ignoreDuplicates: true,
-    })
+  const { error } = await supabase.from('legal_consents').upsert(rows, {
+    onConflict: 'auth_user_id,account_type,document_key,document_version,source',
+    ignoreDuplicates: true,
+  })
 
   if (error) {
     console.error('[recordLegalConsent] insert failed:', error.message)

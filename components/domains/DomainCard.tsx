@@ -1,41 +1,41 @@
 // components/domains/DomainCard.tsx
 'use client'
 
-import { useState }               from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Globe, Trash2, ChevronDown, ExternalLink, RefreshCw } from 'lucide-react'
-import { DomainStatusBadge }        from './DomainStatusBadge'
-import { DomainVerificationPanel }  from './DomainVerificationPanel'
-import { PrimaryDomainToggle }      from './PrimaryDomainToggle'
+import { DomainStatusBadge } from './DomainStatusBadge'
+import { DomainVerificationPanel } from './DomainVerificationPanel'
+import { PrimaryDomainToggle } from './PrimaryDomainToggle'
 
 export interface DomainEntry {
-  id:                  string
-  tenant_id:           string
-  hostname:            string
-  domain_type:         'subdomain' | 'custom'
-  is_primary:          boolean
-  is_verified:         boolean
-  verification_token:  string | null
+  id: string
+  tenant_id: string
+  hostname: string
+  domain_type: 'subdomain' | 'custom'
+  is_primary: boolean
+  is_verified: boolean
+  verification_token: string | null
   verification_method: string | null
-  ssl_status:          'pending' | 'active' | 'failed'
-  last_verified_at:    string | null
-  metadata:            Record<string, unknown>
-  created_at:          string
+  ssl_status: 'pending' | 'active' | 'failed'
+  last_verified_at: string | null
+  metadata: Record<string, unknown>
+  created_at: string
 }
 
 interface DomainCardProps {
-  domain:    DomainEntry
+  domain: DomainEntry
   onRemove?: (id: string) => void
   onChange?: () => void
   readonly?: boolean
 }
 
 export function DomainCard({ domain, onRemove, onChange, readonly = false }: DomainCardProps) {
-  const [expanded,     setExpanded]     = useState(!domain.is_verified && domain.domain_type === 'custom')
-  const [deleting,     setDeleting]     = useState(false)
-  const [checkingSSL,  setCheckingSSL]  = useState(false)
-  const [sslStatus,    setSslStatus]    = useState(domain.ssl_status)
-  const [isVerified,   setIsVerified]   = useState(domain.is_verified)
+  const [expanded, setExpanded] = useState(!domain.is_verified && domain.domain_type === 'custom')
+  const [deleting, setDeleting] = useState(false)
+  const [checkingSSL, setCheckingSSL] = useState(false)
+  const [sslStatus, setSslStatus] = useState(domain.ssl_status)
+  const [isVerified, setIsVerified] = useState(domain.is_verified)
 
   const isSubdomain = domain.domain_type === 'subdomain'
 
@@ -53,7 +53,7 @@ export function DomainCard({ domain, onRemove, onChange, readonly = false }: Dom
   const handleRefreshSSL = async () => {
     setCheckingSSL(true)
     try {
-      const res  = await fetch(`/api/domains/status?domain_id=${domain.id}`)
+      const res = await fetch(`/api/domains/status?domain_id=${domain.id}`)
       const data = await res.json()
       if (data.ssl_status) setSslStatus(data.ssl_status)
     } finally {
@@ -77,9 +77,11 @@ export function DomainCard({ domain, onRemove, onChange, readonly = false }: Dom
     >
       {/* Header row */}
       <div className="flex items-center gap-3 p-4">
-        <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${
-          isSubdomain ? 'bg-sky-500/15' : 'bg-zinc-800/50'
-        }`}>
+        <div
+          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${
+            isSubdomain ? 'bg-sky-500/15' : 'bg-zinc-800/50'
+          }`}
+        >
           <Globe className={`h-4 w-4 ${isSubdomain ? 'text-sky-400' : 'text-zinc-400'}`} />
         </div>
 
@@ -90,10 +92,7 @@ export function DomainCard({ domain, onRemove, onChange, readonly = false }: Dom
             </span>
             <DomainStatusBadge type="domain_type" status={domain.domain_type} />
             {domain.is_primary && <DomainStatusBadge type="primary" status="true" />}
-            <DomainStatusBadge
-              type="verification"
-              status={isVerified ? 'verified' : 'pending'}
-            />
+            <DomainStatusBadge type="verification" status={isVerified ? 'verified' : 'pending'} />
             <DomainStatusBadge type="ssl" status={sslStatus} />
           </div>
           {domain.last_verified_at && (

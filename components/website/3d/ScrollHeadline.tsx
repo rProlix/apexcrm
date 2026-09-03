@@ -18,13 +18,13 @@ import type { TextAnimation } from '@/lib/website/premium3d/types'
 type Tag = 'h1' | 'h2' | 'p' | 'span' | 'div'
 
 interface Props {
-  text:       string
+  text: string
   animation?: TextAnimation
-  as?:        Tag
+  as?: Tag
   className?: string
-  style?:     React.CSSProperties
+  style?: React.CSSProperties
   /** Reduced motion / disabled — render static text */
-  disabled?:  boolean
+  disabled?: boolean
 }
 
 function hiddenStyle(animation: TextAnimation): React.CSSProperties {
@@ -72,7 +72,11 @@ export function ScrollHeadline({
 
   // Static / no-animation / reduced-motion path → plain text (matches SSR)
   if (disabled || animation === 'none' || phase === 'static' || !text) {
-    return <Tag className={className} style={style}>{text}</Tag>
+    return (
+      <Tag className={className} style={style}>
+        {text}
+      </Tag>
+    )
   }
 
   const words = text.split(/(\s+)/) // keep whitespace tokens

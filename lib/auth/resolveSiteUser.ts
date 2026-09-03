@@ -11,14 +11,14 @@
 import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
 
 export type SiteUserContext = {
-  authUserId:     string
-  email:          string | null
-  role:           'owner' | 'admin' | 'staff' | 'customer'
-  tenantId:       string | null
-  accessLevel:    'platform' | 'business' | 'customer'
+  authUserId: string
+  email: string | null
+  role: 'owner' | 'admin' | 'staff' | 'customer'
+  tenantId: string | null
+  accessLevel: 'platform' | 'business' | 'customer'
   canEditWebsite: boolean
   canManageStore: boolean
-  customerId:     string | null
+  customerId: string | null
 }
 
 /**
@@ -38,7 +38,10 @@ export type SiteUserContext = {
  */
 export async function resolveSiteUser(tenantId: string): Promise<SiteUserContext | null> {
   const sessionClient = await createSessionServerClient()
-  const { data: { user }, error } = await sessionClient.auth.getUser()
+  const {
+    data: { user },
+    error,
+  } = await sessionClient.auth.getUser()
   if (error || !user) return null
 
   const admin = getSupabaseServerClient()
@@ -56,28 +59,28 @@ export async function resolveSiteUser(tenantId: string): Promise<SiteUserContext
 
     if (role === 'owner') {
       return {
-        authUserId:     user.id,
-        email:          userRecord.email ?? user.email ?? null,
-        role:           'owner',
-        tenantId:       userRecord.tenant_id ?? null,
-        accessLevel:    'platform',
+        authUserId: user.id,
+        email: userRecord.email ?? user.email ?? null,
+        role: 'owner',
+        tenantId: userRecord.tenant_id ?? null,
+        accessLevel: 'platform',
         canEditWebsite: true,
         canManageStore: true,
-        customerId:     null,
+        customerId: null,
       }
     }
 
     if (role === 'admin' || role === 'staff') {
       const belongsToTenant = userRecord.tenant_id === tenantId
       return {
-        authUserId:     user.id,
-        email:          userRecord.email ?? user.email ?? null,
+        authUserId: user.id,
+        email: userRecord.email ?? user.email ?? null,
         role,
-        tenantId:       userRecord.tenant_id ?? null,
-        accessLevel:    'business',
+        tenantId: userRecord.tenant_id ?? null,
+        accessLevel: 'business',
         canEditWebsite: belongsToTenant,
         canManageStore: belongsToTenant,
-        customerId:     null,
+        customerId: null,
       }
     }
   }
@@ -92,14 +95,14 @@ export async function resolveSiteUser(tenantId: string): Promise<SiteUserContext
 
   if (account && account.status === 'active') {
     return {
-      authUserId:     user.id,
-      email:          user.email ?? null,
-      role:           'customer',
-      tenantId:       account.tenant_id,
-      accessLevel:    'customer',
+      authUserId: user.id,
+      email: user.email ?? null,
+      role: 'customer',
+      tenantId: account.tenant_id,
+      accessLevel: 'customer',
       canEditWebsite: false,
       canManageStore: false,
-      customerId:     account.customer_id,
+      customerId: account.customer_id,
     }
   }
 

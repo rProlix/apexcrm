@@ -18,17 +18,17 @@ export async function GET() {
   const db = getSupabaseServerClient()
 
   const diagnostics: Record<string, unknown> = {
-    ok:                                    true,
-    hasGeminiKey:                          !!process.env.GEMINI_API_KEY,
-    websiteAiModel:                        process.env.WEBSITE_AI_GEMINI_MODEL ?? 'default (gemini config)',
-    hasWebsiteSettingsDesignSystemColumn:  false,
-    hasWebsiteSectionsStyleConfigColumn:   false,
-    hasRestyleRunsTable:                   false,
-    latestRestyleRun:                      null,
-    sectionsCount:                         0,
-    sectionsMissingDesign:                 0,
-    rendererUsesDesign:                    true,
-    versionHistorySupportsAiRestyle:       true,
+    ok: true,
+    hasGeminiKey: !!process.env.GEMINI_API_KEY,
+    websiteAiModel: process.env.WEBSITE_AI_GEMINI_MODEL ?? 'default (gemini config)',
+    hasWebsiteSettingsDesignSystemColumn: false,
+    hasWebsiteSectionsStyleConfigColumn: false,
+    hasRestyleRunsTable: false,
+    latestRestyleRun: null,
+    sectionsCount: 0,
+    sectionsMissingDesign: 0,
+    rendererUsesDesign: true,
+    versionHistorySupportsAiRestyle: true,
   }
 
   try {
@@ -54,13 +54,13 @@ export async function GET() {
     // Check website_ai_restyle_runs table and latest run
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: latestRun } = await (db as any)
+      const { data: latestRun } = (await (db as any)
         .from('website_ai_restyle_runs')
         .select('id, status, style_preset, intensity, created_at, applied_at')
         .eq('tenant_id', ctx.tenant_id ?? '')
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle() as { data: Record<string, unknown> | null; error: unknown }
+        .maybeSingle()) as { data: Record<string, unknown> | null; error: unknown }
 
       diagnostics.hasRestyleRunsTable = true
       diagnostics.latestRestyleRun = latestRun ?? null

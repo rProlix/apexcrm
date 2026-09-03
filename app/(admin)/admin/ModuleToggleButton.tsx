@@ -5,12 +5,16 @@ import { useState, useTransition } from 'react'
 import { cn } from '@/lib/utils'
 
 interface ModuleToggleButtonProps {
-  tenantId:  string
+  tenantId: string
   moduleKey: string
-  enabled:   boolean
+  enabled: boolean
 }
 
-export function ModuleToggleButton({ tenantId, moduleKey, enabled: initialEnabled }: ModuleToggleButtonProps) {
+export function ModuleToggleButton({
+  tenantId,
+  moduleKey,
+  enabled: initialEnabled,
+}: ModuleToggleButtonProps) {
   const [enabled, setEnabled] = useState(initialEnabled)
   const [isPending, startTransition] = useTransition()
 

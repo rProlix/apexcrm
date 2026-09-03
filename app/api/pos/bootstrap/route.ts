@@ -33,19 +33,45 @@ export async function GET(req: NextRequest) {
     { data: paymentProviders },
   ] = await Promise.all([
     supabase.from('pos_settings').select('*').eq('tenant_id', tenantId).maybeSingle(),
-    supabase.from('products').select('id,name,description,price,currency,inventory_count,is_active').eq('tenant_id', tenantId).eq('is_active', true).order('name'),
-    supabase.from('pos_modifier_groups').select(`*, pos_modifiers(*)`).eq('tenant_id', tenantId).eq('status', 'active').order('sort_order'),
-    supabase.from('pos_shifts').select('*').eq('tenant_id', tenantId).eq('status', 'open').order('opened_at', { ascending: false }).limit(1).maybeSingle(),
+    supabase
+      .from('products')
+      .select('id,name,description,price,currency,inventory_count,is_active')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .order('name'),
+    supabase
+      .from('pos_modifier_groups')
+      .select(`*, pos_modifiers(*)`)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active')
+      .order('sort_order'),
+    supabase
+      .from('pos_shifts')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'open')
+      .order('opened_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
     supabase.from('pos_registers').select('*').eq('tenant_id', tenantId).eq('status', 'active'),
     supabase.from('pos_discounts').select('*').eq('tenant_id', tenantId).eq('status', 'active'),
-    supabase.from('payment_providers').select('provider_key,is_enabled,is_default').eq('tenant_id', tenantId).eq('is_enabled', true),
+    supabase
+      .from('payment_providers')
+      .select('provider_key,is_enabled,is_default')
+      .eq('tenant_id', tenantId)
+      .eq('is_enabled', true),
   ])
 
   // Get product modifier group links
   const productIds = (products ?? []).map((p: { id: string }) => p.id)
-  const { data: productModLinks } = productIds.length > 0
-    ? await supabase.from('pos_product_modifier_groups').select('product_id, modifier_group_id, sort_order').in('product_id', productIds).eq('tenant_id', tenantId)
-    : { data: [] }
+  const { data: productModLinks } =
+    productIds.length > 0
+      ? await supabase
+          .from('pos_product_modifier_groups')
+          .select('product_id, modifier_group_id, sort_order')
+          .in('product_id', productIds)
+          .eq('tenant_id', tenantId)
+      : { data: [] }
 
   const groupsById = new Map((modifierGroups ?? []).map((g: Record<string, unknown>) => [g.id, g]))
 
@@ -53,22 +79,32 @@ export async function GET(req: NextRequest) {
     const links = (productModLinks ?? [])
       .filter((l: { product_id: string }) => l.product_id === p.id)
       .sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order)
-    const modGroups = links.map((l: { modifier_group_id: string }) => groupsById.get(l.modifier_group_id)).filter(Boolean)
+    const modGroups = links
+      .map((l: { modifier_group_id: string }) => groupsById.get(l.modifier_group_id))
+      .filter(Boolean)
 
     // Also include groups that apply_to_all_products
-    const globalGroups = (modifierGroups ?? []).filter((g: { applies_to_all_products: boolean }) => g.applies_to_all_products)
-    const allGroups = [...modGroups, ...globalGroups.filter((g: { id: string }) => !modGroups.some((mg: { id: string } | undefined) => mg && mg.id === g.id))]
+    const globalGroups = (modifierGroups ?? []).filter(
+      (g: { applies_to_all_products: boolean }) => g.applies_to_all_products
+    )
+    const allGroups = [
+      ...modGroups,
+      ...globalGroups.filter(
+        (g: { id: string }) =>
+          !modGroups.some((mg: { id: string } | undefined) => mg && mg.id === g.id)
+      ),
+    ]
 
     return { ...p, modifier_groups: allGroups, price_cents: Math.round(Number(p.price) * 100) }
   })
 
   return NextResponse.json({
-    settings:          settings ?? null,
-    products:          productsWithModifiers,
-    modifier_groups:   modifierGroups ?? [],
-    active_shift:      activeShift ?? null,
-    registers:         registers ?? [],
-    discounts:         discounts ?? [],
+    settings: settings ?? null,
+    products: productsWithModifiers,
+    modifier_groups: modifierGroups ?? [],
+    active_shift: activeShift ?? null,
+    registers: registers ?? [],
+    discounts: discounts ?? [],
     payment_providers: paymentProviders ?? [],
     enabled_modules: {
       inventory: true, // will be checked separately, for now assume enabled

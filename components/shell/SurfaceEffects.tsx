@@ -4,12 +4,9 @@ import { useReducedMotion } from 'framer-motion'
 import { useEffect } from 'react'
 
 const FINE_POINTER_QUERY = '(hover: hover) and (pointer: fine)'
-const SURFACE_SELECTOR = [
-  '.ui-card',
-  '.ui-surface',
-  '.premium-panel',
-  '[data-ui-spotlight]',
-].join(',')
+const SURFACE_SELECTOR = ['.ui-card', '.ui-surface', '.premium-panel', '[data-ui-spotlight]'].join(
+  ','
+)
 
 /**
  * Adds one pointer-local reflection system to shared CRM surfaces.
@@ -59,8 +56,7 @@ export function SurfaceEffects() {
     const handlePointerOver = (event: PointerEvent) => {
       const origin = event.target instanceof Element ? event.target : null
       const candidate = origin?.closest<HTMLElement>(SURFACE_SELECTOR) ?? null
-      const nextSurface =
-        candidate?.getAttribute('data-ui-spotlight') === 'off' ? null : candidate
+      const nextSurface = candidate?.getAttribute('data-ui-spotlight') === 'off' ? null : candidate
       if (nextSurface === activeSurface || nextSurface === pendingSurface) return
       pendingSurface = nextSurface
       pointerX = event.clientX

@@ -430,7 +430,13 @@ function FleetDamageGrid({
   const statusFilter = query.status || 'all'
   const sortOrder = query.sort || 'highest_damage'
   const displayed = useMemo(() => {
-    const filters = { q: searchQuery, level: levelFilter, age: ageFilter, status: statusFilter, sort: sortOrder }
+    const filters = {
+      q: searchQuery,
+      level: levelFilter,
+      age: ageFilter,
+      status: statusFilter,
+      sort: sortOrder,
+    }
     return cards
       .filter((card) => fleetCardMatches(card, filters))
       .sort((a, b) => compareFleetDamageCards(a, b, filters.sort) || a.id.localeCompare(b.id))
@@ -447,65 +453,101 @@ function FleetDamageGrid({
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-white">Fleet damage grid</h2>
           <p className="mt-1 text-xs text-white/40">
-            {activeFilterCount ? `${displayed.length} of ${cards.length} vans` : `${cards.length} vans`} · showing up to 18 vans in a 3-row damage board.
+            {activeFilterCount
+              ? `${displayed.length} of ${cards.length} vans`
+              : `${cards.length} vans`}{' '}
+            · showing up to 18 vans in a 3-row damage board.
           </p>
         </div>
-        <form className="grid w-full min-w-0 max-w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:max-w-[72rem] 2xl:grid-cols-[minmax(12rem,1fr)_minmax(9rem,10rem)_minmax(9rem,11rem)_minmax(9rem,11rem)_minmax(11rem,13rem)_auto]" aria-label="Filter Fleet damage grid">
+        <form
+          className="grid w-full min-w-0 max-w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:max-w-[72rem] 2xl:grid-cols-[minmax(12rem,1fr)_minmax(9rem,10rem)_minmax(9rem,11rem)_minmax(9rem,11rem)_minmax(11rem,13rem)_auto]"
+          aria-label="Filter Fleet damage grid"
+        >
           <label className="relative min-w-0">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-white/25" />
-            <input name="q" defaultValue={searchQuery} placeholder="Search vans" className="ui-input min-h-10 w-full min-w-0 py-2 pl-9 text-xs" />
+            <input
+              name="q"
+              defaultValue={searchQuery}
+              placeholder="Search vans"
+              className="ui-input min-h-10 w-full min-w-0 py-2 pl-9 text-xs"
+            />
           </label>
-          <FleetSelect name="level" value={levelFilter} label="Damage level" options={[
-            ['all', 'All levels'],
-            ['level_0', 'Level 0'],
-            ['level_1', 'Level 1'],
-            ['level_0_1', 'Level 0 and 1'],
-            ['level_2', 'Level 2'],
-            ['level_3', 'Level 3'],
-            ['needs_review', 'Needs review'],
-            ['no_damage', 'No active damage'],
-            ['no_analysis', 'No completed analysis'],
-          ]} />
-          <FleetSelect name="age" value={ageFilter} label="Analysis age" options={[
-            ['all', 'Any age'],
-            ['today', 'Today'],
-            ['24h', 'Last 24 hours'],
-            ['3d', 'Last 3 days'],
-            ['7d', 'Last 7 days'],
-            ['14d', 'Last 14 days'],
-            ['30d', 'Last 30 days'],
-            ['older_30d', 'Older than 30 days'],
-            ['never', 'Never analyzed'],
-          ]} />
-          <FleetSelect name="fleetStatus" value={statusFilter} label="Status" options={[
-            ['all', 'Any status'],
-            ['active_damage', 'Active damage'],
-            ['no_active_damage', 'No active damage'],
-            ['needs_attention', 'Needs Attention'],
-            ['out_of_service', 'Out of service'],
-            ['active_maintenance', 'Active maintenance'],
-            ['missing_profile_image', 'Missing image'],
-            ['analysis_processing', 'Analysis processing'],
-            ['analysis_failed', 'Analysis failed'],
-          ]} />
-          <FleetSelect name="fleetSort" value={sortOrder} label="Sort" options={[
-            ['highest_damage', 'Highest damage first'],
-            ['lowest_damage', 'Lowest damage first'],
-            ['recent_analysis', 'Most recent analysis'],
-            ['oldest_analysis', 'Oldest analysis'],
-            ['recent_observation', 'Recent damage observed'],
-            ['oldest_unresolved', 'Oldest unresolved damage'],
-            ['van_asc', 'Van number ascending'],
-            ['van_desc', 'Van number descending'],
-            ['needs_review', 'Needs Review first'],
-            ['out_of_service', 'Out of service first'],
-            ['most_damage', 'Most active damage'],
-            ['most_maintenance', 'Most active maintenance'],
-          ]} />
+          <FleetSelect
+            name="level"
+            value={levelFilter}
+            label="Damage level"
+            options={[
+              ['all', 'All levels'],
+              ['level_0', 'Level 0'],
+              ['level_1', 'Level 1'],
+              ['level_0_1', 'Level 0 and 1'],
+              ['level_2', 'Level 2'],
+              ['level_3', 'Level 3'],
+              ['needs_review', 'Needs review'],
+              ['no_damage', 'No active damage'],
+              ['no_analysis', 'No completed analysis'],
+            ]}
+          />
+          <FleetSelect
+            name="age"
+            value={ageFilter}
+            label="Analysis age"
+            options={[
+              ['all', 'Any age'],
+              ['today', 'Today'],
+              ['24h', 'Last 24 hours'],
+              ['3d', 'Last 3 days'],
+              ['7d', 'Last 7 days'],
+              ['14d', 'Last 14 days'],
+              ['30d', 'Last 30 days'],
+              ['older_30d', 'Older than 30 days'],
+              ['never', 'Never analyzed'],
+            ]}
+          />
+          <FleetSelect
+            name="fleetStatus"
+            value={statusFilter}
+            label="Status"
+            options={[
+              ['all', 'Any status'],
+              ['active_damage', 'Active damage'],
+              ['no_active_damage', 'No active damage'],
+              ['needs_attention', 'Needs Attention'],
+              ['out_of_service', 'Out of service'],
+              ['active_maintenance', 'Active maintenance'],
+              ['missing_profile_image', 'Missing image'],
+              ['analysis_processing', 'Analysis processing'],
+              ['analysis_failed', 'Analysis failed'],
+            ]}
+          />
+          <FleetSelect
+            name="fleetSort"
+            value={sortOrder}
+            label="Sort"
+            options={[
+              ['highest_damage', 'Highest damage first'],
+              ['lowest_damage', 'Lowest damage first'],
+              ['recent_analysis', 'Most recent analysis'],
+              ['oldest_analysis', 'Oldest analysis'],
+              ['recent_observation', 'Recent damage observed'],
+              ['oldest_unresolved', 'Oldest unresolved damage'],
+              ['van_asc', 'Van number ascending'],
+              ['van_desc', 'Van number descending'],
+              ['needs_review', 'Needs Review first'],
+              ['out_of_service', 'Out of service first'],
+              ['most_damage', 'Most active damage'],
+              ['most_maintenance', 'Most active maintenance'],
+            ]}
+          />
           <div className="flex min-w-0 gap-2 sm:col-span-2 lg:col-span-1 2xl:col-span-1">
-            <button className="ui-button-secondary min-h-10 flex-1 px-3 text-xs 2xl:flex-none">Apply</button>
+            <button className="ui-button-secondary min-h-10 flex-1 px-3 text-xs 2xl:flex-none">
+              Apply
+            </button>
             {activeFilterCount > 0 && (
-              <Link href="/dashboard/vehicles" className="ui-button-ghost min-h-10 flex-1 px-3 text-xs 2xl:flex-none">
+              <Link
+                href="/dashboard/vehicles"
+                className="ui-button-ghost min-h-10 flex-1 px-3 text-xs 2xl:flex-none"
+              >
                 Clear
               </Link>
             )}
@@ -525,7 +567,8 @@ function FleetDamageGrid({
       </div>
       {hiddenCount > 0 && (
         <p className="mt-4 rounded-xl border border-white/[0.075] bg-white/[0.025] px-4 py-3 text-center text-xs text-white/45">
-          {hiddenCount} more {hiddenCount === 1 ? 'van is' : 'vans are'} available in the current filters. Refine search or sorting to bring a van into this 3-row board.
+          {hiddenCount} more {hiddenCount === 1 ? 'van is' : 'vans are'} available in the current
+          filters. Refine search or sorting to bring a van into this 3-row board.
         </p>
       )}
       {!displayed.length && (
@@ -549,7 +592,9 @@ function FleetDamageCardView({
   const tone = damageLevelTone(card.damageLevel, card.analysisState)
   const imageId = card.profileImageId || card.latestEvidenceImageId
   const label =
-    card.analysisState === 'completed' ? `Level ${card.damageLevel}` : analysisStateLabel(card.analysisState)
+    card.analysisState === 'completed'
+      ? `Level ${card.damageLevel}`
+      : analysisStateLabel(card.analysisState)
   return (
     <Link
       href={`/dashboard/vehicles/${card.id}?businessId=${encodeURIComponent(businessId)}`}
@@ -581,10 +626,14 @@ function FleetDamageCardView({
             </p>
             <h3 className="mt-1 truncate text-sm font-semibold text-white/85">{card.name}</h3>
             <p className="mt-0.5 truncate text-[11px] text-white/35">
-              {[card.year, card.make, card.model].filter(Boolean).join(' ') || card.plate_number || 'Details unavailable'}
+              {[card.year, card.make, card.model].filter(Boolean).join(' ') ||
+                card.plate_number ||
+                'Details unavailable'}
             </p>
           </div>
-          <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-medium ${tone.badge}`}>
+          <span
+            className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-medium ${tone.badge}`}
+          >
             {label}
           </span>
         </div>
@@ -594,7 +643,10 @@ function FleetDamageCardView({
           <span>{card.activeMaintenanceCount} maintenance</span>
           <span>{humanize(card.status)}</span>
         </div>
-        <p className="mt-3 truncate text-[11px] text-white/35" title={card.latestAnalysisAt ? formatDate(card.latestAnalysisAt, timeZone) : undefined}>
+        <p
+          className="mt-3 truncate text-[11px] text-white/35"
+          title={card.latestAnalysisAt ? formatDate(card.latestAnalysisAt, timeZone) : undefined}
+        >
           {analysisAge(card.latestAnalysisAt)}
         </p>
         {card.needsReview && (
@@ -640,13 +692,7 @@ function fleetCardMatches(
 ) {
   const query = filters.q.toLocaleLowerCase()
   if (query) {
-    const haystack = [
-      card.van_number,
-      card.name,
-      card.plate_number,
-      card.make,
-      card.model,
-    ]
+    const haystack = [card.van_number, card.name, card.plate_number, card.make, card.model]
       .filter(Boolean)
       .join(' ')
       .toLocaleLowerCase()
@@ -663,8 +709,13 @@ function fleetCardMatches(
   if (!ageMatches(card.latestAnalysisAt, filters.age)) return false
   if (filters.status === 'active_damage' && card.activeDamageCount === 0) return false
   if (filters.status === 'no_active_damage' && card.activeDamageCount > 0) return false
-  if (filters.status === 'needs_attention' && card.damageLevel < 3 && !card.needsReview) return false
-  if (filters.status === 'out_of_service' && !['out_of_service', 'inactive', 'maintenance'].includes(card.status)) return false
+  if (filters.status === 'needs_attention' && card.damageLevel < 3 && !card.needsReview)
+    return false
+  if (
+    filters.status === 'out_of_service' &&
+    !['out_of_service', 'inactive', 'maintenance'].includes(card.status)
+  )
+    return false
   if (filters.status === 'active_maintenance' && card.activeMaintenanceCount === 0) return false
   if (filters.status === 'missing_profile_image' && !card.missingProfileImage) return false
   if (filters.status === 'analysis_processing' && card.analysisState !== 'processing') return false
@@ -726,7 +777,8 @@ function analysisAge(value: string | null) {
   if (!value) return 'Never analyzed'
   const hours = Math.max(0, (Date.now() - Date.parse(value)) / 3_600_000)
   if (hours < 1) return 'Analyzed less than 1 hour ago'
-  if (hours < 24) return `Analyzed ${Math.floor(hours)} hour${Math.floor(hours) === 1 ? '' : 's'} ago`
+  if (hours < 24)
+    return `Analyzed ${Math.floor(hours)} hour${Math.floor(hours) === 1 ? '' : 's'} ago`
   const days = Math.floor(hours / 24)
   if (days === 1) return 'Analyzed yesterday'
   return `Analyzed ${days} days ago`
@@ -1110,7 +1162,12 @@ function FleetMetric({
           <p className="text-2xl font-bold text-white">{value}</p>
           <p className="mt-0.5 text-xs text-white/40">{label}</p>
         </div>
-        <span className={cn('text-[10px] font-medium uppercase tracking-[0.18em] text-white/30', active && 'text-gold-200/80')}>
+        <span
+          className={cn(
+            'text-[10px] font-medium uppercase tracking-[0.18em] text-white/30',
+            active && 'text-gold-200/80'
+          )}
+        >
           {active ? 'Showing' : 'View'}
         </span>
       </div>

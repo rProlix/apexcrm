@@ -70,9 +70,9 @@ function stringValue(value: unknown) {
 export function extractLegacyVanNumber(metadata: Record<string, unknown>) {
   return normalizeInspectionVanNumber(
     stringValue(metadata.vanNumber) ??
-    stringValue(metadata.van_number) ??
-    stringValue(metadata.vehicleNumber) ??
-    stringValue(metadata.vehicle_number)
+      stringValue(metadata.van_number) ??
+      stringValue(metadata.vehicleNumber) ??
+      stringValue(metadata.vehicle_number)
   )
 }
 

@@ -44,11 +44,11 @@ export async function getUserContext(): Promise<UserContext | null> {
   if (!record) return null
 
   return {
-    id:        record.id,
-    auth_id:   user.id,
+    id: record.id,
+    auth_id: user.id,
     tenant_id: record.tenant_id ?? null,
-    role:      record.role as UserContext['role'],
-    email:     record.email,
+    role: record.role as UserContext['role'],
+    email: record.email,
   }
 }
 

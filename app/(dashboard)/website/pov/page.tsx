@@ -40,7 +40,9 @@ export default async function PovListPage() {
           </p>
         </div>
         <Link href="/website/create">
-          <Button variant="primary"><Plus className="h-4 w-4" /> New Event App</Button>
+          <Button variant="primary">
+            <Plus className="h-4 w-4" /> New Event App
+          </Button>
         </Link>
       </div>
 
@@ -54,7 +56,9 @@ export default async function PovListPage() {
             Create a POV Event App for a wedding, party, or celebration.
           </p>
           <Link href="/website/create">
-            <Button variant="primary"><Plus className="h-4 w-4" /> Create POV Event App</Button>
+            <Button variant="primary">
+              <Plus className="h-4 w-4" /> Create POV Event App
+            </Button>
           </Link>
         </div>
       ) : (
@@ -62,22 +66,37 @@ export default async function PovListPage() {
           {events.map((e) => {
             const unlocked = new Date(e.gallery_reveal_at).getTime() <= now
             return (
-              <Link key={e.id} href={`/website/pov/${e.id}`}
-                className="group rounded-2xl bg-graphite-800/60 border border-surface-border hover:border-white/20 p-5 transition-all">
+              <Link
+                key={e.id}
+                href={`/website/pov/${e.id}`}
+                className="group rounded-2xl bg-graphite-800/60 border border-surface-border hover:border-white/20 p-5 transition-all"
+              >
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-2xs uppercase tracking-widest text-gold-400/70 font-semibold">
-                    {e.event_type ? POV_EVENT_TYPE_LABELS[e.event_type as keyof typeof POV_EVENT_TYPE_LABELS] ?? e.event_type : 'Event'}
+                    {e.event_type
+                      ? (POV_EVENT_TYPE_LABELS[
+                          e.event_type as keyof typeof POV_EVENT_TYPE_LABELS
+                        ] ?? e.event_type)
+                      : 'Event'}
                   </span>
                   <span className={unlocked ? 'text-emerald-400' : 'text-gold-400'}>
-                    {unlocked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                    {unlocked ? (
+                      <Unlock className="h-3.5 w-3.5" />
+                    ) : (
+                      <Lock className="h-3.5 w-3.5" />
+                    )}
                   </span>
                 </div>
-                <p className="text-base font-semibold text-white group-hover:text-gold-400 transition-colors truncate">{e.name}</p>
+                <p className="text-base font-semibold text-white group-hover:text-gold-400 transition-colors truncate">
+                  {e.name}
+                </p>
                 <p className="text-xs text-white/40 mt-1">
-                  {e.event_date ?? 'No date'} · reveals {new Date(e.gallery_reveal_at).toLocaleDateString()}
+                  {e.event_date ?? 'No date'} · reveals{' '}
+                  {new Date(e.gallery_reveal_at).toLocaleDateString()}
                 </p>
                 <div className="mt-4 flex items-center gap-1 text-xs text-white/30 group-hover:text-white/60 transition-colors">
-                  Open dashboard <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
+                  Open dashboard{' '}
+                  <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>
             )

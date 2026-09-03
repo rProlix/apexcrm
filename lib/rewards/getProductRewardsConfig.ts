@@ -9,7 +9,7 @@ import type { ProductWithRewards } from '@/types/rewards'
  */
 export async function getProductRewardsConfig(
   productId: string,
-  tenantId:  string,
+  tenantId: string
 ): Promise<ProductWithRewards | null> {
   const supabase = getSupabaseServerClient()
 
@@ -17,7 +17,9 @@ export async function getProductRewardsConfig(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from('products')
-    .select('id, tenant_id, name, description, price, currency, inventory_count, is_active, rewards_points_earned, rewards_enabled, rewards_multiplier, created_at')
+    .select(
+      'id, tenant_id, name, description, price, currency, inventory_count, is_active, rewards_points_earned, rewards_enabled, rewards_multiplier, created_at'
+    )
     .eq('id', productId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -27,7 +29,9 @@ export async function getProductRewardsConfig(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: fallback } = await (supabase as any)
       .from('products')
-      .select('id, tenant_id, name, description, price, currency, inventory_count, is_active, created_at')
+      .select(
+        'id, tenant_id, name, description, price, currency, inventory_count, is_active, created_at'
+      )
       .eq('id', productId)
       .eq('tenant_id', tenantId)
       .maybeSingle()
@@ -36,8 +40,8 @@ export async function getProductRewardsConfig(
     return {
       ...fallback,
       rewards_points_earned: null,
-      rewards_enabled:       true,
-      rewards_multiplier:    1,
+      rewards_enabled: true,
+      rewards_multiplier: 1,
     } as ProductWithRewards
   }
 
@@ -46,8 +50,8 @@ export async function getProductRewardsConfig(
   return {
     ...data,
     rewards_points_earned: data.rewards_points_earned ?? null,
-    rewards_enabled:       data.rewards_enabled       ?? true,
-    rewards_multiplier:    data.rewards_multiplier     ?? 1,
+    rewards_enabled: data.rewards_enabled ?? true,
+    rewards_multiplier: data.rewards_multiplier ?? 1,
   } as ProductWithRewards
 }
 
@@ -63,7 +67,9 @@ export async function getAllProductRewardsConfigs(tenantId: string): Promise<Pro
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from('products')
-    .select('id, tenant_id, name, description, price, currency, inventory_count, is_active, rewards_points_earned, rewards_enabled, rewards_multiplier, created_at')
+    .select(
+      'id, tenant_id, name, description, price, currency, inventory_count, is_active, rewards_points_earned, rewards_enabled, rewards_multiplier, created_at'
+    )
     .eq('tenant_id', tenantId)
     .eq('is_active', true)
     .order('name', { ascending: true })
@@ -72,8 +78,8 @@ export async function getAllProductRewardsConfigs(tenantId: string): Promise<Pro
     return (data as ProductWithRewards[]).map((p) => ({
       ...p,
       rewards_points_earned: p.rewards_points_earned ?? null,
-      rewards_enabled:       p.rewards_enabled       ?? true,
-      rewards_multiplier:    p.rewards_multiplier     ?? 1,
+      rewards_enabled: p.rewards_enabled ?? true,
+      rewards_multiplier: p.rewards_multiplier ?? 1,
     }))
   }
 
@@ -81,7 +87,9 @@ export async function getAllProductRewardsConfigs(tenantId: string): Promise<Pro
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: fallback } = await (supabase as any)
     .from('products')
-    .select('id, tenant_id, name, description, price, currency, inventory_count, is_active, created_at')
+    .select(
+      'id, tenant_id, name, description, price, currency, inventory_count, is_active, created_at'
+    )
     .eq('tenant_id', tenantId)
     .eq('is_active', true)
     .order('name', { ascending: true })
@@ -89,7 +97,7 @@ export async function getAllProductRewardsConfigs(tenantId: string): Promise<Pro
   return ((fallback ?? []) as ProductWithRewards[]).map((p) => ({
     ...p,
     rewards_points_earned: null,
-    rewards_enabled:       true,
-    rewards_multiplier:    1,
+    rewards_enabled: true,
+    rewards_multiplier: 1,
   }))
 }

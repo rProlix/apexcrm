@@ -17,15 +17,15 @@ import type { SiteByHostResult } from '@/lib/website/types'
 
 export interface TenantResolution {
   /** Internal UUID of the tenant */
-  tenantId:       string
+  tenantId: string
   /** URL slug (e.g. "rentalco") */
-  slug:           string
+  slug: string
   /** Canonical public domain (custom if connected, otherwise subdomain) */
-  domain:         string
+  domain: string
   /** True when the request came in on a verified custom domain */
   isCustomDomain: boolean
   /** Raw site data from the DB */
-  siteData:       SiteByHostResult
+  siteData: SiteByHostResult
 }
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
@@ -36,33 +36,25 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
  * @param tenantParam  The raw [tenant] path segment — either a slug or a full hostname.
  * @returns Resolved tenant info, or null if no tenant can be found.
  */
-export async function resolveTenant(
-  tenantParam: string,
-): Promise<TenantResolution | null> {
-  const key           = decodeURIComponent(tenantParam)
-  const isHostParam   = key.includes('.')          // custom domain passed through middleware
+export async function resolveTenant(tenantParam: string): Promise<TenantResolution | null> {
+  const key = decodeURIComponent(tenantParam)
+  const isHostParam = key.includes('.') // custom domain passed through middleware
 
-  const siteData = isHostParam
-    ? await getSiteByHost(key)
-    : await getSiteBySlug(key)
+  const siteData = isHostParam ? await getSiteByHost(key) : await getSiteBySlug(key)
 
   if (!siteData) return null
 
   const { tenant } = siteData
 
   const isCustomDomain =
-    isHostParam &&
-    !!tenant.custom_domain &&
-    key !== `${tenant.slug}.${ROOT_DOMAIN}`
+    isHostParam && !!tenant.custom_domain && key !== `${tenant.slug}.${ROOT_DOMAIN}`
 
   const domain =
-    (isCustomDomain && tenant.custom_domain)
-      ? tenant.custom_domain
-      : `${tenant.slug}.${ROOT_DOMAIN}`
+    isCustomDomain && tenant.custom_domain ? tenant.custom_domain : `${tenant.slug}.${ROOT_DOMAIN}`
 
   return {
-    tenantId:       tenant.id,
-    slug:           tenant.slug,
+    tenantId: tenant.id,
+    slug: tenant.slug,
     domain,
     isCustomDomain,
     siteData,
@@ -79,9 +71,6 @@ export async function resolveTenant(
  * @param isPlatform  Value of the x-is-platform request header (string or null).
  * @param tenantParam The raw [tenant] route segment.
  */
-export function buildTenantBasePath(
-  isPlatform: string | null,
-  tenantParam: string,
-): string {
+export function buildTenantBasePath(isPlatform: string | null, tenantParam: string): string {
   return isPlatform === 'true' ? `/sites/${tenantParam}` : ''
 }

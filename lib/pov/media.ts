@@ -17,11 +17,11 @@ const FOLDER_BY_TYPE: Record<PovMediaType, string> = {
 }
 
 export interface PovUploadResult {
-  bucket:    string
-  path:      string
+  bucket: string
+  path: string
   publicUrl: string
   sizeBytes: number
-  mimeType:  string
+  mimeType: string
 }
 
 /**
@@ -31,13 +31,13 @@ export interface PovUploadResult {
  * Path: tenants/{tenantId}/pov-events/{eventId}/{photos|videos|audio}/{guestId}/{ts}-{file}
  */
 export async function uploadPovMedia(params: {
-  tenantId:  string
-  eventId:   string
-  guestId:   string
+  tenantId: string
+  eventId: string
+  guestId: string
   mediaType: PovMediaType
-  fileName:  string
-  buffer:    ArrayBuffer | Uint8Array
-  mimeType:  string
+  fileName: string
+  buffer: ArrayBuffer | Uint8Array
+  mimeType: string
 }): Promise<PovUploadResult> {
   const { tenantId, eventId, guestId, mediaType, fileName, buffer, mimeType } = params
 
@@ -54,14 +54,19 @@ export async function uploadPovMedia(params: {
   }
   if (sizeBytes > POV_MAX_BYTES[mediaType]) {
     throw new Error(
-      `File is too large. Max ${(POV_MAX_BYTES[mediaType] / 1024 / 1024).toFixed(0)} MB for ${mediaType}.`,
+      `File is too large. Max ${(POV_MAX_BYTES[mediaType] / 1024 / 1024).toFixed(0)} MB for ${mediaType}.`
     )
   }
 
   const safeName = sanitizeFileName(fileName) || `${mediaType}.bin`
   const path = [
-    'tenants', tenantId, 'pov-events', eventId,
-    FOLDER_BY_TYPE[mediaType], guestId, `${Date.now()}-${safeName}`,
+    'tenants',
+    tenantId,
+    'pov-events',
+    eventId,
+    FOLDER_BY_TYPE[mediaType],
+    guestId,
+    `${Date.now()}-${safeName}`,
   ].join('/')
 
   const supabase = getSupabaseServerClient()
@@ -79,7 +84,7 @@ export async function uploadPovMedia(params: {
   const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path)
 
   return {
-    bucket:    BUCKET,
+    bucket: BUCKET,
     path,
     publicUrl: urlData.publicUrl,
     sizeBytes,

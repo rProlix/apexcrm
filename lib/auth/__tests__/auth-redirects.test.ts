@@ -15,7 +15,7 @@ function assertRedirectOutsideSupabaseCatch(source: string, redirectCall: string
   assert.notEqual(redirectIndex, -1)
   assert.ok(
     redirectIndex > catchIndex,
-    `${redirectCall} must run after the Supabase try/catch so Next.js redirect signals are not swallowed.`,
+    `${redirectCall} must run after the Supabase try/catch so Next.js redirect signals are not swallowed.`
   )
 }
 
@@ -33,7 +33,10 @@ test('dashboard auth guard preserves the protected destination through login', (
   const source = readProjectFile('middleware.ts')
 
   assert.match(source, /loginUrl\.pathname = '\/login'/)
-  assert.match(source, /loginUrl\.searchParams\.set\('next', `\$\{pathname\}\$\{req\.nextUrl\.search\}`\)/)
+  assert.match(
+    source,
+    /loginUrl\.searchParams\.set\('next', `\$\{pathname\}\$\{req\.nextUrl\.search\}`\)/
+  )
 })
 
 test('CRM password login uses the same-origin server endpoint so session cookies are written by the app response', () => {

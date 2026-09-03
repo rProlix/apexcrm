@@ -47,10 +47,7 @@ export function ApplicationLoadingScreen({ label = 'Loading workspace' }: { labe
   return (
     <div className="min-h-dvh bg-graphite-950">
       <div className="flex min-h-16 items-center gap-3 border-b border-white/[0.065] bg-graphite-900/88 px-4 md:px-6">
-        <div
-          className="ui-skeleton h-9 w-9 rounded-xl"
-          aria-hidden="true"
-        />
+        <div className="ui-skeleton h-9 w-9 rounded-xl" aria-hidden="true" />
         <div>
           <div className="ui-skeleton mb-1.5 h-3 w-28 rounded" aria-hidden="true" />
           <p className="text-xs text-white/35">{label}</p>

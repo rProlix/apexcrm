@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const supabase = getSupabaseServerClient() as any
+  const supabase = getSupabaseServerClient() as any
   const { data, error } = await supabase
     .from('rewards_balances')
     .select('*, customers(id, name, email)')
@@ -38,8 +38,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() }
-  catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   const { points_delta, reason } = body
   if (typeof points_delta !== 'number') {
@@ -47,14 +50,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const supabase = getSupabaseServerClient() as any
+  const supabase = getSupabaseServerClient() as any
 
-  const { data: newBalance, error: balError } = await supabase
-    .rpc('upsert_rewards_balance', {
-      p_tenant_id:    user.tenant_id,
-      p_customer_id:  (await params).customerId,
-      p_points_delta: points_delta,
-    })
+  const { data: newBalance, error: balError } = await supabase.rpc('upsert_rewards_balance', {
+    p_tenant_id: user.tenant_id,
+    p_customer_id: (await params).customerId,
+    p_points_delta: points_delta,
+  })
 
   if (balError) {
     console.error('[PATCH /api/rewards/balances/[customerId]]', balError.message)
@@ -63,12 +65,12 @@ const supabase = getSupabaseServerClient() as any
 
   // Create transaction record for the manual adjustment
   await supabase.from('rewards_transactions').insert({
-    tenant_id:        user.tenant_id,
-    customer_id:      (await params).customerId,
+    tenant_id: user.tenant_id,
+    customer_id: (await params).customerId,
     transaction_type: 'adjusted',
-    points_delta:     points_delta,
-    source_type:      'admin_adjustment',
-    metadata:         { reason: reason ?? 'Manual admin adjustment', adjusted_by: user.id },
+    points_delta: points_delta,
+    source_type: 'admin_adjustment',
+    metadata: { reason: reason ?? 'Manual admin adjustment', adjusted_by: user.id },
   })
 
   return NextResponse.json({ new_balance: newBalance })

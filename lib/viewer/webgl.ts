@@ -41,11 +41,9 @@ export function getWebGLSupport(): WebGLSupportResult {
     const canvas = document.createElement('canvas')
 
     // Prefer WebGL2, fall back to WebGL1
-    const gl = (
-      canvas.getContext('webgl2') ||
+    const gl = (canvas.getContext('webgl2') ||
       canvas.getContext('webgl') ||
-      canvas.getContext('experimental-webgl')
-    ) as WebGLRenderingContext | null
+      canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null
 
     if (!gl) {
       return { supported: false, reason: 'no-webgl-context' }
@@ -63,7 +61,10 @@ export function getWebGLSupport(): WebGLSupportResult {
     }
 
     // Minimal sanity: context must not already be in a lost state
-    if (typeof (gl as WebGLRenderingContext & { isContextLost?: () => boolean }).isContextLost === 'function') {
+    if (
+      typeof (gl as WebGLRenderingContext & { isContextLost?: () => boolean }).isContextLost ===
+      'function'
+    ) {
       if ((gl as WebGLRenderingContext & { isContextLost: () => boolean }).isContextLost()) {
         return { supported: false, reason: 'context-lost' }
       }
@@ -73,7 +74,7 @@ export function getWebGLSupport(): WebGLSupportResult {
   } catch (err) {
     return {
       supported: false,
-      reason:    err instanceof Error ? err.message : 'unknown-webgl-error',
+      reason: err instanceof Error ? err.message : 'unknown-webgl-error',
     }
   }
 }

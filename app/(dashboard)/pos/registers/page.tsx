@@ -19,8 +19,18 @@ export default async function POSRegistersPage() {
   const tenantId = ctx.tenant_id ?? ''
 
   const [{ data: registers }, { data: shifts }] = await Promise.all([
-    supabase.from('pos_registers').select('*').eq('tenant_id', tenantId).neq('status', 'archived').order('name'),
-    supabase.from('pos_shifts').select('*, pos_registers(name)').eq('tenant_id', tenantId).order('opened_at', { ascending: false }).limit(20),
+    supabase
+      .from('pos_registers')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .neq('status', 'archived')
+      .order('name'),
+    supabase
+      .from('pos_shifts')
+      .select('*, pos_registers(name)')
+      .eq('tenant_id', tenantId)
+      .order('opened_at', { ascending: false })
+      .limit(20),
   ])
 
   return (

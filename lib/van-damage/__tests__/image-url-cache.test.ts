@@ -23,8 +23,18 @@ test('cached signed image URLs are reused without duplicate downloads', async ()
     requests += 1
     return response('https://private-s3.example/image?signature=one')
   }
-  const first = await getSignedDamageImageUrl({ imageId: 'image-1', businessId: 'tenant-1', fetcher, now: 1_000 })
-  const second = await getSignedDamageImageUrl({ imageId: 'image-1', businessId: 'tenant-1', fetcher, now: 2_000 })
+  const first = await getSignedDamageImageUrl({
+    imageId: 'image-1',
+    businessId: 'tenant-1',
+    fetcher,
+    now: 1_000,
+  })
+  const second = await getSignedDamageImageUrl({
+    imageId: 'image-1',
+    businessId: 'tenant-1',
+    fetcher,
+    now: 2_000,
+  })
   assert.equal(first.url, second.url)
   assert.equal(requests, 1)
   assert.equal(getSignedDamageImageCacheSize(), 1)
@@ -54,15 +64,26 @@ test('a stalled signed URL request times out instead of leaving images loading f
       fetcher: stalledFetcher,
       requestTimeoutMs: 5,
     }),
-    /timed out/,
+    /timed out/
   )
 })
 
 test('expired signed URLs refresh shortly before expiry', async () => {
   let requests = 0
-  const fetcher = async () => response(`https://private-s3.example/image?signature=${++requests}`, 30)
-  const first = await getSignedDamageImageUrl({ imageId: 'image-1', businessId: 'tenant-1', fetcher, now: 1_000 })
-  const refreshed = await getSignedDamageImageUrl({ imageId: 'image-1', businessId: 'tenant-1', fetcher, now: 17_000 })
+  const fetcher = async () =>
+    response(`https://private-s3.example/image?signature=${++requests}`, 30)
+  const first = await getSignedDamageImageUrl({
+    imageId: 'image-1',
+    businessId: 'tenant-1',
+    fetcher,
+    now: 1_000,
+  })
+  const refreshed = await getSignedDamageImageUrl({
+    imageId: 'image-1',
+    businessId: 'tenant-1',
+    fetcher,
+    now: 17_000,
+  })
   assert.notEqual(first.url, refreshed.url)
   assert.equal(requests, 2)
 })
@@ -70,8 +91,18 @@ test('expired signed URLs refresh shortly before expiry', async () => {
 test('signed URL cache keys preserve tenant isolation', async () => {
   let requests = 0
   const fetcher = async () => response(`https://private-s3.example/image?signature=${++requests}`)
-  const tenantOne = await getSignedDamageImageUrl({ imageId: 'same-image', businessId: 'tenant-1', fetcher, now: 1_000 })
-  const tenantTwo = await getSignedDamageImageUrl({ imageId: 'same-image', businessId: 'tenant-2', fetcher, now: 1_000 })
+  const tenantOne = await getSignedDamageImageUrl({
+    imageId: 'same-image',
+    businessId: 'tenant-1',
+    fetcher,
+    now: 1_000,
+  })
+  const tenantTwo = await getSignedDamageImageUrl({
+    imageId: 'same-image',
+    businessId: 'tenant-2',
+    fetcher,
+    now: 1_000,
+  })
   assert.notEqual(tenantOne.url, tenantTwo.url)
   assert.equal(requests, 2)
 })
@@ -103,7 +134,10 @@ test('signed URL cache keys preserve derivative profile isolation', async () => 
 })
 
 test('signed URL endpoint preserves authorization scope and private caching', async () => {
-  const source = await readFile(new URL('../../../app/api/van-damage/images/[imageId]/signed-url/route.ts', import.meta.url), 'utf8')
+  const source = await readFile(
+    new URL('../../../app/api/van-damage/images/[imageId]/signed-url/route.ts', import.meta.url),
+    'utf8'
+  )
   assert.match(source, /resolveVanDamageAccess/)
   assert.match(source, /\.eq\('tenant_id', access\.tenantId\)/)
   assert.match(source, /\.eq\('business_id', access\.businessId\)/)
@@ -119,58 +153,39 @@ test('signed URL endpoint preserves authorization scope and private caching', as
 })
 
 test('fleet and inspection cards request small derivatives and bypass duplicate optimization', async () => {
-  const [signedImage, gallery, fleet, profile, overlay, backfill, worker] =
-    await Promise.all([
-      readFile(
-        new URL(
-          '../../../components/van-damage/SignedDamageImage.tsx',
-          import.meta.url,
-        ),
-        'utf8',
+  const [signedImage, gallery, fleet, profile, overlay, backfill, worker] = await Promise.all([
+    readFile(
+      new URL('../../../components/van-damage/SignedDamageImage.tsx', import.meta.url),
+      'utf8'
+    ),
+    readFile(
+      new URL('../../../components/van-damage/DamageImageGallery.tsx', import.meta.url),
+      'utf8'
+    ),
+    readFile(
+      new URL('../../../components/van-damage/FleetNeedsAttentionBoard.tsx', import.meta.url),
+      'utf8'
+    ),
+    readFile(
+      new URL('../../../components/van-damage/VanProfileWorkspace.tsx', import.meta.url),
+      'utf8'
+    ),
+    readFile(
+      new URL('../../../components/van-damage/DamageOverlayFrame.tsx', import.meta.url),
+      'utf8'
+    ),
+    readFile(
+      new URL(
+        '../../../workers/van-damage-worker/scripts/backfill-image-derivatives.ts',
+        import.meta.url
       ),
-      readFile(
-        new URL(
-          '../../../components/van-damage/DamageImageGallery.tsx',
-          import.meta.url,
-        ),
-        'utf8',
-      ),
-      readFile(
-        new URL(
-          '../../../components/van-damage/FleetNeedsAttentionBoard.tsx',
-          import.meta.url,
-        ),
-        'utf8',
-      ),
-      readFile(
-        new URL(
-          '../../../components/van-damage/VanProfileWorkspace.tsx',
-          import.meta.url,
-        ),
-        'utf8',
-      ),
-      readFile(
-        new URL(
-          '../../../components/van-damage/DamageOverlayFrame.tsx',
-          import.meta.url,
-        ),
-        'utf8',
-      ),
-      readFile(
-        new URL(
-          '../../../workers/van-damage-worker/scripts/backfill-image-derivatives.ts',
-          import.meta.url,
-        ),
-        'utf8',
-      ),
-      readFile(
-        new URL(
-          '../../../workers/van-damage-worker/src/process-job.ts',
-          import.meta.url,
-        ),
-        'utf8',
-      ),
-    ])
+      'utf8'
+    ),
+    readFile(
+      new URL('../../../workers/van-damage-worker/src/process-job.ts', import.meta.url),
+      'utf8'
+    ),
+  ])
   assert.match(signedImage, /unoptimized/)
   assert.match(signedImage, /decoding="async"/)
   assert.match(gallery, /profile="thumbnail"/)
@@ -182,6 +197,6 @@ test('fleet and inspection cards request small derivatives and bypass duplicate 
   assert.match(backfill, /--execute/)
   assert.match(
     worker,
-    /if \(duplicate\)[\s\S]*?} else {[\s\S]*?Every logical image gets its own display derivatives[\s\S]*?uploadDerivatives/,
+    /if \(duplicate\)[\s\S]*?} else {[\s\S]*?Every logical image gets its own display derivatives[\s\S]*?uploadDerivatives/
   )
 })

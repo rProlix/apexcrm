@@ -2,16 +2,16 @@
 // Builds the preferred public URL for a tenant based on its domain config.
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
-const APP_URL     = process.env.NEXT_PUBLIC_APP_URL     ?? 'http://localhost:3000'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
 export type UrlTarget = 'site' | 'dashboard' | 'portal' | 'preview'
 
 interface TenantUrlOptions {
-  slug:          string
+  slug: string
   customDomain?: string | null
-  isVerified?:   boolean
-  target?:       UrlTarget
-  preview?:      boolean
+  isVerified?: boolean
+  target?: UrlTarget
+  preview?: boolean
 }
 
 /**
@@ -26,8 +26,8 @@ export function buildTenantUrl({
   slug,
   customDomain,
   isVerified = false,
-  target     = 'site',
-  preview    = false,
+  target = 'site',
+  preview = false,
 }: TenantUrlOptions): string {
   const isLocal = APP_URL.includes('localhost')
 
@@ -42,10 +42,10 @@ export function buildTenantUrl({
   }
 
   const pathMap: Record<UrlTarget, string> = {
-    site:      '/',
+    site: '/',
     dashboard: '/dashboard',
-    portal:    '/portal',
-    preview:   '/preview',
+    portal: '/portal',
+    preview: '/preview',
   }
 
   return `${baseUrl}${pathMap[target]}`
@@ -56,9 +56,7 @@ export function buildTenantUrl({
  */
 export function buildSubdomainUrl(slug: string): string {
   const isLocal = process.env.NODE_ENV === 'development'
-  return isLocal
-    ? `http://${slug}.localhost:3000`
-    : `https://${slug}.${ROOT_DOMAIN}`
+  return isLocal ? `http://${slug}.localhost:3000` : `https://${slug}.${ROOT_DOMAIN}`
 }
 
 /**

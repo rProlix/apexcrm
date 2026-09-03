@@ -14,7 +14,7 @@ import { Premium3DScrollHeroClient } from './Premium3DScrollHeroClient'
 
 interface Props {
   content: unknown
-  mode?:   'public' | 'preview' | 'editor'
+  mode?: 'public' | 'preview' | 'editor'
 }
 
 export function Premium3DScrollHero({ content, mode = 'public' }: Props) {

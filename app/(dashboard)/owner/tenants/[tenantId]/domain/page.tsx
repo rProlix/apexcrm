@@ -3,14 +3,14 @@ export const dynamic = 'force-dynamic'
 // app/(dashboard)/owner/tenants/[tenantId]/domain/page.tsx
 // Platform owner page to manage domains for any specific tenant.
 
-import { notFound }     from 'next/navigation'
-import { requireOwner }           from '@/lib/auth/requireRole'
+import { notFound } from 'next/navigation'
+import { requireOwner } from '@/lib/auth/requireRole'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { DomainManager }          from '@/components/domains/DomainManager'
-import { SubdomainDisplay }       from '@/components/domains/SubdomainDisplay'
+import { DomainManager } from '@/components/domains/DomainManager'
+import { SubdomainDisplay } from '@/components/domains/SubdomainDisplay'
 import { Globe, ArrowLeft, Building2, Shield } from 'lucide-react'
-import Link                       from 'next/link'
-import { isVercelConfigured }     from '@/lib/vercel/client'
+import Link from 'next/link'
+import { isVercelConfigured } from '@/lib/vercel/client'
 
 interface Props {
   params: Promise<{ tenantId: string }>
@@ -66,9 +66,13 @@ export default async function OwnerTenantDomainPage({ params }: Props) {
             <p className="text-sm text-zinc-500">
               <span className="font-mono">{tenant.slug}</span>
               <span className="mx-2 text-zinc-700">·</span>
-              <span className={`text-xs font-medium ${
-                tenant.status === 'active' ? 'text-emerald-400' : 'text-zinc-500'
-              }`}>{tenant.status}</span>
+              <span
+                className={`text-xs font-medium ${
+                  tenant.status === 'active' ? 'text-emerald-400' : 'text-zinc-500'
+                }`}
+              >
+                {tenant.status}
+              </span>
             </p>
           </div>
           <div className="ml-auto">

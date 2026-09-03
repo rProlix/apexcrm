@@ -10,19 +10,19 @@ import type { TemplateApplyOptions, MappedSection } from './templateTypes'
 import { createWebsiteVersion } from '@/lib/website/versioning'
 
 export interface TemplateApplyResult {
-  ok:                    boolean
+  ok: boolean
   templateApplicationId: string
-  beforeVersionId:       string
-  afterVersionId:        string
-  sectionsUpdated:       number
-  sectionsCreated:       number
-  previewUrl:            string
-  message:               string
-  error?:                string
+  beforeVersionId: string
+  afterVersionId: string
+  sectionsUpdated: number
+  sectionsCreated: number
+  previewUrl: string
+  message: string
+  error?: string
 }
 
 export async function applyTemplateToWebsite(
-  opts: TemplateApplyOptions,
+  opts: TemplateApplyOptions
 ): Promise<TemplateApplyResult> {
   const {
     tenantId,
@@ -54,19 +54,22 @@ export async function applyTemplateToWebsite(
 
   // ── 2. Load tenant + page ─────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: tenantRow } = await (db as any)
+  const { data: tenantRow } = (await (db as any)
     .from('tenants')
     .select('slug, name')
     .eq('id', tenantId)
-    .maybeSingle() as { data: { slug: string; name: string } | null; error: unknown }
+    .maybeSingle()) as { data: { slug: string; name: string } | null; error: unknown }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: pages } = await (db as any)
+  const { data: pages } = (await (db as any)
     .from('site_pages')
     .select('id, slug')
     .eq('tenant_id', tenantId)
     .neq('status', 'archived')
-    .order('sort_order', { ascending: true }) as { data: { id: string; slug: string }[] | null; error: unknown }
+    .order('sort_order', { ascending: true })) as {
+    data: { id: string; slug: string }[] | null
+    error: unknown
+  }
 
   const activePage = requestedPageId
     ? (pages ?? []).find((p) => p.id === requestedPageId)
@@ -74,8 +77,13 @@ export async function applyTemplateToWebsite(
 
   if (!activePage) {
     return {
-      ok: false, templateApplicationId: '', beforeVersionId: '', afterVersionId: '',
-      sectionsUpdated: 0, sectionsCreated: 0, previewUrl: '',
+      ok: false,
+      templateApplicationId: '',
+      beforeVersionId: '',
+      afterVersionId: '',
+      sectionsUpdated: 0,
+      sectionsCreated: 0,
+      previewUrl: '',
       message: 'No active page found for this tenant.',
       error: 'NO_PAGE',
     }
@@ -83,20 +91,20 @@ export async function applyTemplateToWebsite(
 
   // ── 3. Load current sections ───────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawSections } = await (db as any)
+  const { data: rawSections } = (await (db as any)
     .from('site_sections')
     .select('*')
     .eq('tenant_id', tenantId)
     .eq('page_id', activePage.id)
-    .order('sort_order', { ascending: true }) as { data: ExistingSection[] | null; error: unknown }
+    .order('sort_order', { ascending: true })) as { data: ExistingSection[] | null; error: unknown }
 
   const existingSections: ExistingSection[] = rawSections ?? []
 
   // ── 4. Create before checkpoint ───────────────────────────────────────────
   const beforeVersionResult = await createWebsiteVersion({
     tenantId,
-    source:      'before_template_apply' as never,
-    label:       `Before template: ${template.name}`,
+    source: 'before_template_apply' as never,
+    label: `Before template: ${template.name}`,
     description: `Checkpoint before applying template "${templateKey}"`,
   })
   const beforeVersionId = beforeVersionResult.data?.id ?? ''
@@ -106,24 +114,33 @@ export async function applyTemplateToWebsite(
 
   // ── 6. Load current site_settings for brand preservation ──────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: settingsRow } = await (db as any)
+  const { data: settingsRow } = (await (db as any)
     .from('site_settings')
     .select('theme, design_system')
     .eq('tenant_id', tenantId)
-    .maybeSingle() as { data: { theme?: Record<string, unknown>; design_system?: Record<string, unknown> } | null; error: unknown }
+    .maybeSingle()) as {
+    data: { theme?: Record<string, unknown>; design_system?: Record<string, unknown> } | null
+    error: unknown
+  }
 
   // Build new design system — optionally preserve brand colors
   const templateDs = template.designSystem as Record<string, unknown>
   let newDesignSystem: Record<string, unknown> = { ...templateDs }
   if (preserveBrand && settingsRow?.theme) {
     const existingTheme = settingsRow.theme as Record<string, unknown>
-    const existingPalette = (settingsRow.design_system as Record<string, unknown> | null)?.palette as Record<string, unknown> | null ?? null
+    const existingPalette =
+      ((settingsRow.design_system as Record<string, unknown> | null)?.palette as Record<
+        string,
+        unknown
+      > | null) ?? null
     newDesignSystem = {
       ...newDesignSystem,
       palette: {
-        ...(templateDs.palette as Record<string, unknown> ?? {}),
+        ...((templateDs.palette as Record<string, unknown>) ?? {}),
         // Preserve primary + accent from existing brand
-        ...(existingPalette ? { primary: existingPalette.primary, accent: existingPalette.accent } : {}),
+        ...(existingPalette
+          ? { primary: existingPalette.primary, accent: existingPalette.accent }
+          : {}),
         ...(existingTheme.primaryColor ? { primary: existingTheme.primaryColor } : {}),
       },
     }
@@ -134,11 +151,11 @@ export async function applyTemplateToWebsite(
     if (!applyAnimations || level === 'none') return null
     const baseDuration = level === 'cinematic' ? 0.9 : level === 'balanced' ? 0.6 : 0.4
     return {
-      enabled:  true,
-      style:    level === 'cinematic' ? 'fade_up' : 'fade',
+      enabled: true,
+      style: level === 'cinematic' ? 'fade_up' : 'fade',
       duration: baseDuration,
-      delay:    0,
-      easing:   'ease_out',
+      delay: 0,
+      easing: 'ease_out',
     }
   }
   const templateAnimConfig = buildAnimConfig(template.animationLevel)
@@ -153,20 +170,24 @@ export async function applyTemplateToWebsite(
     const design = blueprint.design
 
     // Build the new style_config — merge with existing to preserve animation sub-key
-    const existingStyleConfig = existing?.style_config && typeof existing.style_config === 'object'
-      ? existing.style_config as Record<string, unknown>
-      : {}
+    const existingStyleConfig =
+      existing?.style_config && typeof existing.style_config === 'object'
+        ? (existing.style_config as Record<string, unknown>)
+        : {}
     const newStyleConfig: Record<string, unknown> = {
       ...existingStyleConfig,
       design: design,
       // Preserve existing images if requested
-      ...(preserveImages && existingStyleConfig.backgroundImage ? { backgroundImage: existingStyleConfig.backgroundImage } : {}),
+      ...(preserveImages && existingStyleConfig.backgroundImage
+        ? { backgroundImage: existingStyleConfig.backgroundImage }
+        : {}),
     }
 
     // Animation config
-    const animConfig = applyAnimations && templateAnimConfig
-      ? { ...templateAnimConfig }
-      : (existing?.animation_config ?? null)
+    const animConfig =
+      applyAnimations && templateAnimConfig
+        ? { ...templateAnimConfig }
+        : (existing?.animation_config ?? null)
 
     if (existing) {
       // Update existing section
@@ -174,58 +195,58 @@ export async function applyTemplateToWebsite(
       await (db as any)
         .from('site_sections')
         .update({
-          sort_order:      blueprint.order,
-          template_slot:   blueprint.slot,
-          style_config:    newStyleConfig,
+          sort_order: blueprint.order,
+          template_slot: blueprint.slot,
+          style_config: newStyleConfig,
           animation_config: animConfig,
-          updated_at:      new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         } as never)
         .eq('id', existing.id)
 
       finalMappedSections.push({
-        id:             existing.id,
-        section_type:   existing.section_type,
-        template_slot:  blueprint.slot,
-        sort_order:     blueprint.order,
-        content:        existing.content,
-        style_config:   newStyleConfig,
+        id: existing.id,
+        section_type: existing.section_type,
+        template_slot: blueprint.slot,
+        sort_order: blueprint.order,
+        content: existing.content,
+        style_config: newStyleConfig,
         animation_config: animConfig,
-        is_visible:     existing.is_visible,
-        isNew:          false,
+        is_visible: existing.is_visible,
+        isNew: false,
       })
       sectionsUpdated++
     } else if (shouldCreate) {
       // Create placeholder section
       const newContent = buildPlaceholderContent(blueprint.sectionType, blueprint)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: created } = await (db as any)
+      const { data: created } = (await (db as any)
         .from('site_sections')
         .insert({
-          tenant_id:       tenantId,
-          page_id:         activePage.id,
-          section_type:    blueprint.sectionType,
-          section_key:     `${blueprint.slot}_placeholder`,
-          content:         newContent,
-          sort_order:      blueprint.order,
-          template_slot:   blueprint.slot,
-          style_config:    { design },
+          tenant_id: tenantId,
+          page_id: activePage.id,
+          section_type: blueprint.sectionType,
+          section_key: `${blueprint.slot}_placeholder`,
+          content: newContent,
+          sort_order: blueprint.order,
+          template_slot: blueprint.slot,
+          style_config: { design },
           animation_config: animConfig,
-          is_visible:      true,
+          is_visible: true,
         } as never)
         .select('id')
-        .single() as { data: { id: string } | null; error: unknown }
+        .single()) as { data: { id: string } | null; error: unknown }
 
       if (created) {
         finalMappedSections.push({
-          id:             created.id,
-          section_type:   blueprint.sectionType,
-          template_slot:  blueprint.slot,
-          sort_order:     blueprint.order,
-          content:        newContent,
-          style_config:   { design },
+          id: created.id,
+          section_type: blueprint.sectionType,
+          template_slot: blueprint.slot,
+          sort_order: blueprint.order,
+          content: newContent,
+          style_config: { design },
           animation_config: animConfig,
-          is_visible:     true,
-          isNew:          true,
+          is_visible: true,
+          isNew: true,
         })
         sectionsCreated++
       }
@@ -233,9 +254,7 @@ export async function applyTemplateToWebsite(
   }
 
   // ── 9. Hide sections that didn't map to any slot ──────────────────────────
-  const mappedExistingIds = new Set(
-    mappings.filter((m) => m.existing).map((m) => m.existing!.id),
-  )
+  const mappedExistingIds = new Set(mappings.filter((m) => m.existing).map((m) => m.existing!.id))
   const unmappedSections = existingSections.filter((s) => !mappedExistingIds.has(s.id))
 
   if (unmappedSections.length > 0) {
@@ -243,7 +262,10 @@ export async function applyTemplateToWebsite(
     await (db as any)
       .from('site_sections')
       .update({ is_visible: false, sort_order: 999 } as never)
-      .in('id', unmappedSections.map((s) => s.id))
+      .in(
+        'id',
+        unmappedSections.map((s) => s.id)
+      )
   }
 
   // ── 10. Update site_settings with new template and design system ───────────
@@ -252,10 +274,10 @@ export async function applyTemplateToWebsite(
     .from('site_settings')
     .update({
       active_template_key: templateKey,
-      design_system:       newDesignSystem,
-      template_config:     {
+      design_system: newDesignSystem,
+      template_config: {
         templateKey,
-        appliedAt:      new Date().toISOString(),
+        appliedAt: new Date().toISOString(),
         preserveBrand,
         preserveImages,
         applyAnimations,
@@ -267,56 +289,56 @@ export async function applyTemplateToWebsite(
   // ── 11. Create after checkpoint ────────────────────────────────────────────
   const afterVersionResult = await createWebsiteVersion({
     tenantId,
-    source:      'template_apply' as never,
-    label:       `Template applied: ${template.name}`,
+    source: 'template_apply' as never,
+    label: `Template applied: ${template.name}`,
     description: `Applied template "${templateKey}" — ${sectionsUpdated} updated, ${sectionsCreated} created`,
   })
   const afterVersionId = afterVersionResult.data?.id ?? ''
 
   // ── 12. Log the template application ──────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: appLog } = await (db as any)
+  const { data: appLog } = (await (db as any)
     .from('website_template_applications')
     .insert({
-      tenant_id:              tenantId,
-      template_key:           templateKey,
-      previous_version_id:    beforeVersionId || null,
-      new_version_id:         afterVersionId  || null,
-      preserve_brand:         preserveBrand,
-      preserve_images:        preserveImages,
+      tenant_id: tenantId,
+      template_key: templateKey,
+      previous_version_id: beforeVersionId || null,
+      new_version_id: afterVersionId || null,
+      preserve_brand: preserveBrand,
+      preserve_images: preserveImages,
       generate_missing_images: _generateImages,
-      apply_animations:       applyAnimations,
-      status:                 'applied',
+      apply_animations: applyAnimations,
+      status: 'applied',
     } as never)
     .select('id')
-    .single() as { data: { id: string } | null; error: unknown }
+    .single()) as { data: { id: string } | null; error: unknown }
 
   const slug = tenantRow?.slug ?? tenantId
   const previewUrl = `/sites/${slug}`
 
   return {
-    ok:                    true,
+    ok: true,
     templateApplicationId: appLog?.id ?? '',
     beforeVersionId,
     afterVersionId,
     sectionsUpdated,
     sectionsCreated,
     previewUrl,
-    message:               `Template "${template.name}" applied — ${sectionsUpdated} sections updated, ${sectionsCreated} created.`,
+    message: `Template "${template.name}" applied — ${sectionsUpdated} sections updated, ${sectionsCreated} created.`,
   }
 }
 
 // ── Preview (dry-run, no DB writes) ──────────────────────────────────────────
 
 export async function previewTemplate(
-  tenantId:    string,
+  tenantId: string,
   templateKey: string,
-  pageId?:     string | null,
+  pageId?: string | null
 ): Promise<{
-  ok:        boolean
-  template:  ReturnType<typeof getTemplate>
-  mappings:  Array<{ slot: string; sectionType: string; hasContent: boolean; order: number }>
-  error?:    string
+  ok: boolean
+  template: ReturnType<typeof getTemplate>
+  mappings: Array<{ slot: string; sectionType: string; hasContent: boolean; order: number }>
+  error?: string
 }> {
   const template = getTemplate(templateKey)
   if (!template) return { ok: false, template: null, mappings: [], error: 'TEMPLATE_NOT_FOUND' }
@@ -324,37 +346,35 @@ export async function previewTemplate(
   const db = getSupabaseServerClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: pages } = await (db as any)
+  const { data: pages } = (await (db as any)
     .from('site_pages')
     .select('id')
     .eq('tenant_id', tenantId)
     .neq('status', 'archived')
     .order('sort_order', { ascending: true })
-    .limit(1) as { data: { id: string }[] | null; error: unknown }
+    .limit(1)) as { data: { id: string }[] | null; error: unknown }
 
-  const page = pageId
-    ? { id: pageId }
-    : (pages ?? [])[0]
+  const page = pageId ? { id: pageId } : (pages ?? [])[0]
 
   if (!page) return { ok: false, template, mappings: [], error: 'NO_PAGE' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sections } = await (db as any)
+  const { data: sections } = (await (db as any)
     .from('site_sections')
     .select('id, section_type, content, sort_order, is_visible, style_config, animation_config')
     .eq('tenant_id', tenantId)
-    .eq('page_id', page.id) as { data: ExistingSection[] | null; error: unknown }
+    .eq('page_id', page.id)) as { data: ExistingSection[] | null; error: unknown }
 
   const mappings = mapContentToTemplate(sections ?? [], template.sectionBlueprints)
 
   return {
-    ok:       true,
+    ok: true,
     template,
     mappings: mappings.map((m) => ({
-      slot:        m.blueprint.slot,
+      slot: m.blueprint.slot,
       sectionType: m.blueprint.sectionType,
-      hasContent:  !!m.existing,
-      order:       m.blueprint.order,
+      hasContent: !!m.existing,
+      order: m.blueprint.order,
     })),
   }
 }

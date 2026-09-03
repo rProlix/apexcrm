@@ -14,7 +14,7 @@ interface TenantCardProps {
 export function TenantCard({ tenant }: TenantCardProps) {
   const isActive = tenant.status === 'active'
   const initials = tenant.name.slice(0, 2).toUpperCase()
-  const domain   = tenant.custom_domain ?? tenant.subdomain ?? `${tenant.slug}.yourcrm.com`
+  const domain = tenant.custom_domain ?? tenant.subdomain ?? `${tenant.slug}.yourcrm.com`
 
   return (
     <motion.div
@@ -56,10 +56,11 @@ export function TenantCard({ tenant }: TenantCardProps) {
 
           {/* Status + arrow */}
           <div className="flex items-center gap-2 shrink-0">
-            {isActive
-              ? <CheckCircle2 className="h-4 w-4 text-emerald-400" strokeWidth={2} />
-              : <XCircle      className="h-4 w-4 text-white/20"     strokeWidth={1.75} />
-            }
+            {isActive ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" strokeWidth={2} />
+            ) : (
+              <XCircle className="h-4 w-4 text-white/20" strokeWidth={1.75} />
+            )}
             <ArrowRight
               className="h-4 w-4 text-white/15 group-hover:text-gold-400 group-hover:translate-x-0.5 transition-all duration-150"
               strokeWidth={1.75}

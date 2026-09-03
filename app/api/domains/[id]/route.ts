@@ -3,9 +3,9 @@
 // DELETE /api/domains/[id] — remove a domain
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getSupabaseServerClient }   from '@/lib/supabase/server'
-import { getUserContext }             from '@/lib/auth/getUserContext'
-import { removeDomainFromVercel }     from '@/lib/vercel/removeDomain'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { removeDomainFromVercel } from '@/lib/vercel/removeDomain'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -21,7 +21,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = getSupabaseServerClient() as any
+  const db = getSupabaseServerClient() as any
 
   const { data: existing } = await db
     .from('tenant_domains')
@@ -36,11 +36,11 @@ const db = getSupabaseServerClient() as any
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const body = await req.json().catch(() => ({})) as {
-    is_primary?:  boolean
+  const body = (await req.json().catch(() => ({}))) as {
+    is_primary?: boolean
     is_verified?: boolean
-    ssl_status?:  string
-    metadata?:    Record<string, unknown>
+    ssl_status?: string
+    metadata?: Record<string, unknown>
   }
 
   const updates: Record<string, unknown> = {}
@@ -63,7 +63,7 @@ const db = getSupabaseServerClient() as any
   if (ctx.role === 'owner') {
     if (typeof body.is_verified === 'boolean') {
       updates.is_verified = body.is_verified
-      updates.verified    = body.is_verified
+      updates.verified = body.is_verified
       if (body.is_verified) updates.last_verified_at = new Date().toISOString()
     }
     if (body.ssl_status) updates.ssl_status = body.ssl_status
@@ -97,7 +97,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = getSupabaseServerClient() as any
+  const db = getSupabaseServerClient() as any
 
   const { data: existing } = await db
     .from('tenant_domains')
@@ -117,10 +117,7 @@ const db = getSupabaseServerClient() as any
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { error: deleteError } = await db
-    .from('tenant_domains')
-    .delete()
-    .eq('id', existing.id)
+  const { error: deleteError } = await db.from('tenant_domains').delete().eq('id', existing.id)
 
   if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
 

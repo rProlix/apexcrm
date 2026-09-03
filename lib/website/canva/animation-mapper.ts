@@ -8,38 +8,51 @@
 //   stagger | floating | scalePulse
 
 export type NexoraAnimationPreset =
-  | 'none' | 'fadeIn' | 'fadeUp' | 'slideIn' | 'slideLeft' | 'slideRight'
-  | 'zoom' | 'rotateIn' | 'subtleRotate' | 'parallax' | 'reveal' | 'maskReveal'
-  | 'textReveal' | 'stagger' | 'floating' | 'scalePulse'
+  | 'none'
+  | 'fadeIn'
+  | 'fadeUp'
+  | 'slideIn'
+  | 'slideLeft'
+  | 'slideRight'
+  | 'zoom'
+  | 'rotateIn'
+  | 'subtleRotate'
+  | 'parallax'
+  | 'reveal'
+  | 'maskReveal'
+  | 'textReveal'
+  | 'stagger'
+  | 'floating'
+  | 'scalePulse'
 
 // Canva animation name (lowercased) → NexoraNow preset.
 const CANVA_MAP: Record<string, NexoraAnimationPreset> = {
-  fade:        'fadeIn',
-  rise:        'fadeUp',
-  'fade up':   'fadeUp',
-  fadeup:      'fadeUp',
-  tumble:      'rotateIn',
-  spin:        'subtleRotate',
-  pan:         'slideIn',
-  slide:       'slideIn',
+  fade: 'fadeIn',
+  rise: 'fadeUp',
+  'fade up': 'fadeUp',
+  fadeup: 'fadeUp',
+  tumble: 'rotateIn',
+  spin: 'subtleRotate',
+  pan: 'slideIn',
+  slide: 'slideIn',
   'slide left': 'slideLeft',
   'slide right': 'slideRight',
-  breathe:     'scalePulse',
-  pulse:       'scalePulse',
-  drift:       'floating',
-  float:       'floating',
-  block:       'maskReveal',
-  reveal:      'maskReveal',
-  typewriter:  'textReveal',
-  type:        'textReveal',
-  baseline:    'fadeUp',
-  zoom:        'zoom',
-  pop:         'zoom',
-  stomp:       'scalePulse',
-  neon:        'fadeIn',
-  flicker:     'fadeIn',
-  none:        'none',
-  unknown:     'none',
+  breathe: 'scalePulse',
+  pulse: 'scalePulse',
+  drift: 'floating',
+  float: 'floating',
+  block: 'maskReveal',
+  reveal: 'maskReveal',
+  typewriter: 'textReveal',
+  type: 'textReveal',
+  baseline: 'fadeUp',
+  zoom: 'zoom',
+  pop: 'zoom',
+  stomp: 'scalePulse',
+  neon: 'fadeIn',
+  flicker: 'fadeIn',
+  none: 'none',
+  unknown: 'none',
 }
 
 /** Maps a single Canva animation name/class to a NexoraNow preset. */
@@ -76,7 +89,9 @@ export function detectAnimationsFromHtml(html: string): DetectedAnimation[] {
     if (m[1]) found.add(m[1])
   }
   // class tokens that look animation-ish
-  for (const m of html.matchAll(/class=["']([^"']*?(?:anim|fade|slide|zoom|rise|reveal|float)[^"']*)["']/gi)) {
+  for (const m of html.matchAll(
+    /class=["']([^"']*?(?:anim|fade|slide|zoom|rise|reveal|float)[^"']*)["']/gi
+  )) {
     for (const tok of (m[1] ?? '').split(/\s+/)) {
       if (/anim|fade|slide|zoom|rise|reveal|float/i.test(tok)) found.add(tok)
     }

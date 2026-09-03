@@ -4,42 +4,71 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
-  Globe, FileText, Navigation, Palette, Settings,
-  CheckCircle2, Clock, ExternalLink, Zap, Eye, Sparkles, ArrowRight, Wand,
-  Camera, Film,
+  Globe,
+  FileText,
+  Navigation,
+  Palette,
+  Settings,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Zap,
+  Eye,
+  Sparkles,
+  ArrowRight,
+  Wand,
+  Camera,
+  Film,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { fadeUp, staggerContainer } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
 interface SitePage {
-  id: string; slug: string; title: string | null
-  page_type: string; status: string; sort_order: number; created_at: string
+  id: string
+  slug: string
+  title: string | null
+  page_type: string
+  status: string
+  sort_order: number
+  created_at: string
 }
 interface SiteSettings {
-  id: string; tenant_id: string; site_name: string | null; logo_url: string | null
-  is_published: boolean; custom_domain: string | null; subdomain: string | null
-  updated_at: string; published_at?: string | null; has_unpublished_changes?: boolean
+  id: string
+  tenant_id: string
+  site_name: string | null
+  logo_url: string | null
+  is_published: boolean
+  custom_domain: string | null
+  subdomain: string | null
+  updated_at: string
+  published_at?: string | null
+  has_unpublished_changes?: boolean
   active_template_key?: string | null
 }
 
 interface Props {
-  tenantId:        string
+  tenantId: string
   initialSettings: SiteSettings | null
-  initialPages:    SitePage[]
-  navCount:        number
+  initialPages: SitePage[]
+  navCount: number
 }
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
-export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages, navCount }: Props) {
-  const [settings,   setSettings]   = useState<SiteSettings | null>(initialSettings)
+export function WebsiteOverviewClient({
+  tenantId,
+  initialSettings,
+  initialPages,
+  navCount,
+}: Props) {
+  const [settings, setSettings] = useState<SiteSettings | null>(initialSettings)
   const [publishing, setPublishing] = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const isPublished       = settings?.is_published ?? false
-  const publishedAt       = settings?.published_at ?? null
-  const hasUnpublished    = settings?.has_unpublished_changes ?? false
+  const isPublished = settings?.is_published ?? false
+  const publishedAt = settings?.published_at ?? null
+  const hasUnpublished = settings?.has_unpublished_changes ?? false
   const activeTemplateKey = settings?.active_template_key ?? null
   const publishedUrl = settings?.custom_domain
     ? `https://${settings.custom_domain}`
@@ -52,9 +81,9 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
     setError(null)
     try {
       const res = await fetch('/api/website/publish', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ publish: !isPublished, tenant_id: tenantId }),
+        body: JSON.stringify({ publish: !isPublished, tenant_id: tenantId }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Failed')
@@ -67,7 +96,7 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
   }
 
   const publishedCount = initialPages.filter((p) => p.status === 'published').length
-  const draftCount     = initialPages.filter((p) => p.status === 'draft').length
+  const draftCount = initialPages.filter((p) => p.status === 'draft').length
 
   return (
     <div className="space-y-8">
@@ -97,9 +126,13 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
             loading={publishing}
           >
             {isPublished ? (
-              <><Clock className="h-4 w-4" /> Unpublish</>
+              <>
+                <Clock className="h-4 w-4" /> Unpublish
+              </>
             ) : (
-              <><Zap className="h-4 w-4" /> Publish Site</>
+              <>
+                <Zap className="h-4 w-4" /> Publish Site
+              </>
             )}
           </Button>
         </div>
@@ -110,7 +143,8 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
         <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-amber-300 flex items-center gap-2">
           <Clock className="h-4 w-4 shrink-0" />
           <span>
-            <strong>Draft has unpublished changes.</strong> Click &ldquo;Publish Site&rdquo; to push changes to your live website.
+            <strong>Draft has unpublished changes.</strong> Click &ldquo;Publish Site&rdquo; to push
+            changes to your live website.
             {activeTemplateKey && (
               <span className="ml-1 text-amber-400/80">Template: {activeTemplateKey}</span>
             )}
@@ -144,10 +178,17 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
-                <p className="text-sm font-semibold text-white group-hover:text-emerald-300 transition-colors">What are you building?</p>
-                <span className="text-2xs font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 uppercase tracking-wide">New</span>
+                <p className="text-sm font-semibold text-white group-hover:text-emerald-300 transition-colors">
+                  What are you building?
+                </p>
+                <span className="text-2xs font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 uppercase tracking-wide">
+                  New
+                </span>
               </div>
-              <p className="text-xs text-white/40 leading-relaxed">Business, Creative, Invitation, or a POV Event App — a private event camera with a next-day gallery reveal.</p>
+              <p className="text-xs text-white/40 leading-relaxed">
+                Business, Creative, Invitation, or a POV Event App — a private event camera with a
+                next-day gallery reveal.
+              </p>
             </div>
             <ArrowRight className="h-4 w-4 text-emerald-400/50 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all duration-150 shrink-0" />
           </div>
@@ -170,7 +211,8 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
                 </span>
               </div>
               <p className="text-xs leading-relaxed text-white/40">
-                Upload an MP4 and add a Scroll World-style cinematic section to a business website page.
+                Upload an MP4 and add a Scroll World-style cinematic section to a business website
+                page.
               </p>
             </div>
             <ArrowRight className="h-4 w-4 shrink-0 text-gold-400/50 transition-all duration-150 group-hover:translate-x-1 group-hover:text-gold-400" />
@@ -188,10 +230,16 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-sm font-semibold text-white group-hover:text-violet-300 transition-colors">AI Website Autofill</p>
-                  <span className="text-2xs font-bold px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400 uppercase tracking-wide">AI</span>
+                  <p className="text-sm font-semibold text-white group-hover:text-violet-300 transition-colors">
+                    AI Website Autofill
+                  </p>
+                  <span className="text-2xs font-bold px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400 uppercase tracking-wide">
+                    AI
+                  </span>
                 </div>
-                <p className="text-xs text-white/40 leading-relaxed">Paste reviews, services, and prices for AI-assisted organization into sections.</p>
+                <p className="text-xs text-white/40 leading-relaxed">
+                  Paste reviews, services, and prices for AI-assisted organization into sections.
+                </p>
               </div>
               <ArrowRight className="h-4 w-4 text-violet-400/50 group-hover:text-violet-400 group-hover:translate-x-1 transition-all duration-150 shrink-0" />
             </div>
@@ -206,10 +254,16 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-sm font-semibold text-white group-hover:text-amber-300 transition-colors">AI Premium Design</p>
-                  <span className="text-2xs font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 uppercase tracking-wide">New</span>
+                  <p className="text-sm font-semibold text-white group-hover:text-amber-300 transition-colors">
+                    AI Premium Design
+                  </p>
+                  <span className="text-2xs font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 uppercase tracking-wide">
+                    New
+                  </span>
                 </div>
-                <p className="text-xs text-white/40 leading-relaxed">Generate luxury animations, premium UI styles, and motion design in one click.</p>
+                <p className="text-xs text-white/40 leading-relaxed">
+                  Generate luxury animations, premium UI styles, and motion design in one click.
+                </p>
               </div>
               <ArrowRight className="h-4 w-4 text-amber-400/50 group-hover:text-amber-400 group-hover:translate-x-1 transition-all duration-150 shrink-0" />
             </div>
@@ -226,10 +280,17 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
-                <p className="text-sm font-semibold text-white group-hover:text-[#c9a84c] transition-colors">Premium Templates</p>
-                <span className="text-2xs font-bold px-1.5 py-0.5 rounded bg-[#c9a84c]/15 text-[#c9a84c] uppercase tracking-wide">10 templates</span>
+                <p className="text-sm font-semibold text-white group-hover:text-[#c9a84c] transition-colors">
+                  Premium Templates
+                </p>
+                <span className="text-2xs font-bold px-1.5 py-0.5 rounded bg-[#c9a84c]/15 text-[#c9a84c] uppercase tracking-wide">
+                  10 templates
+                </span>
               </div>
-              <p className="text-xs text-white/40 leading-relaxed">Apply a luxury, restaurant, parallax, or product story layout — your content stays intact.</p>
+              <p className="text-xs text-white/40 leading-relaxed">
+                Apply a luxury, restaurant, parallax, or product story layout — your content stays
+                intact.
+              </p>
             </div>
             <ArrowRight className="h-4 w-4 text-[#c9a84c]/50 group-hover:text-[#c9a84c] group-hover:translate-x-1 transition-all duration-150 shrink-0" />
           </div>
@@ -237,18 +298,26 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
       </Link>
 
       {/* Publish status banner */}
-      <div className={cn(
-        'rounded-2xl border px-5 py-4 flex items-center gap-4',
-        isPublished
-          ? 'bg-emerald-500/8 border-emerald-500/20'
-          : 'bg-gold-500/8 border-gold-500/20',
-      )}>
-        {isPublished
-          ? <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
-          : <Clock className="h-5 w-5 text-gold-400 shrink-0" />
-        }
+      <div
+        className={cn(
+          'rounded-2xl border px-5 py-4 flex items-center gap-4',
+          isPublished
+            ? 'bg-emerald-500/8 border-emerald-500/20'
+            : 'bg-gold-500/8 border-gold-500/20'
+        )}
+      >
+        {isPublished ? (
+          <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+        ) : (
+          <Clock className="h-5 w-5 text-gold-400 shrink-0" />
+        )}
         <div className="flex-1 min-w-0">
-          <p className={cn('text-sm font-semibold', isPublished ? 'text-emerald-400' : 'text-gold-400')}>
+          <p
+            className={cn(
+              'text-sm font-semibold',
+              isPublished ? 'text-emerald-400' : 'text-gold-400'
+            )}
+          >
             {isPublished ? 'Your site is live' : 'Site is in draft mode'}
           </p>
           <p className="text-xs text-white/40 mt-0.5">
@@ -280,10 +349,10 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
         className="grid grid-cols-2 sm:grid-cols-4 gap-4"
       >
         {[
-          { label: 'Total Pages',  value: initialPages.length, color: 'text-violet-400' },
-          { label: 'Published',    value: publishedCount,      color: 'text-emerald-400' },
-          { label: 'Drafts',       value: draftCount,          color: 'text-gold-400' },
-          { label: 'Nav Items',    value: navCount,            color: 'text-blue-400' },
+          { label: 'Total Pages', value: initialPages.length, color: 'text-violet-400' },
+          { label: 'Published', value: publishedCount, color: 'text-emerald-400' },
+          { label: 'Drafts', value: draftCount, color: 'text-gold-400' },
+          { label: 'Nav Items', value: navCount, color: 'text-blue-400' },
         ].map((stat) => (
           <motion.div
             key={stat.label}
@@ -298,7 +367,9 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
 
       {/* Section shortcuts */}
       <div>
-        <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest mb-4">Builder Sections</h2>
+        <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest mb-4">
+          Builder Sections
+        </h2>
         <motion.div
           variants={staggerContainer(0.05)}
           initial="hidden"
@@ -307,40 +378,40 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
         >
           {[
             {
-              href:        '/website/pages',
-              icon:        FileText,
-              label:       'Pages',
+              href: '/website/pages',
+              icon: FileText,
+              label: 'Pages',
               description: 'Create, edit, and manage your site pages and content sections',
-              color:       'text-violet-400',
-              bg:          'bg-violet-400/10 border-violet-400/20',
-              badge:       initialPages.length ? `${initialPages.length} pages` : null,
+              color: 'text-violet-400',
+              bg: 'bg-violet-400/10 border-violet-400/20',
+              badge: initialPages.length ? `${initialPages.length} pages` : null,
             },
             {
-              href:        '/website/navigation',
-              icon:        Navigation,
-              label:       'Navigation',
+              href: '/website/navigation',
+              icon: Navigation,
+              label: 'Navigation',
               description: 'Configure header and footer links for your public site',
-              color:       'text-blue-400',
-              bg:          'bg-blue-400/10 border-blue-400/20',
-              badge:       navCount ? `${navCount} links` : null,
+              color: 'text-blue-400',
+              bg: 'bg-blue-400/10 border-blue-400/20',
+              badge: navCount ? `${navCount} links` : null,
             },
             {
-              href:        '/website/theme',
-              icon:        Palette,
-              label:       'Theme',
+              href: '/website/theme',
+              icon: Palette,
+              label: 'Theme',
               description: 'Customize colors, fonts, logo, and brand identity',
-              color:       'text-pink-400',
-              bg:          'bg-pink-400/10 border-pink-400/20',
-              badge:       null as string | null,
+              color: 'text-pink-400',
+              bg: 'bg-pink-400/10 border-pink-400/20',
+              badge: null as string | null,
             },
             {
-              href:        '/website/settings',
-              icon:        Settings,
-              label:       'Settings',
+              href: '/website/settings',
+              icon: Settings,
+              label: 'Settings',
               description: 'Domain configuration, SEO defaults, and site metadata',
-              color:       'text-gold-400',
-              bg:          'bg-gold-400/10 border-gold-400/20',
-              badge:       null as string | null,
+              color: 'text-gold-400',
+              bg: 'bg-gold-400/10 border-gold-400/20',
+              badge: null as string | null,
             },
           ].map((item) => (
             <motion.div key={item.href} variants={fadeUp}>
@@ -349,7 +420,12 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
                 className="group block rounded-2xl bg-graphite-800/60 border border-surface-border hover:border-white/20 p-5 transition-all duration-200 hover:shadow-panel-lg h-full"
               >
                 <div className="flex items-start gap-4">
-                  <div className={cn('h-10 w-10 rounded-xl border flex items-center justify-center shrink-0', item.bg)}>
+                  <div
+                    className={cn(
+                      'h-10 w-10 rounded-xl border flex items-center justify-center shrink-0',
+                      item.bg
+                    )}
+                  >
                     <item.icon className={cn('h-5 w-5', item.color)} strokeWidth={1.75} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -376,8 +452,13 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
       {initialPages.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest">Recent Pages</h2>
-            <Link href="/website/pages" className="text-xs text-gold-400 hover:text-gold-300 transition-colors">
+            <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest">
+              Recent Pages
+            </h2>
+            <Link
+              href="/website/pages"
+              className="text-xs text-gold-400 hover:text-gold-300 transition-colors"
+            >
               Manage all →
             </Link>
           </div>
@@ -393,15 +474,19 @@ export function WebsiteOverviewClient({ tenantId, initialSettings, initialPages,
               >
                 <Globe className="h-4 w-4 text-white/20 shrink-0" strokeWidth={1.5} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white font-medium truncate">{page.title ?? page.slug}</p>
+                  <p className="text-sm text-white font-medium truncate">
+                    {page.title ?? page.slug}
+                  </p>
                   <p className="text-xs text-white/30">/{page.slug}</p>
                 </div>
-                <span className={cn(
-                  'text-2xs px-2 py-0.5 rounded-md font-medium border',
-                  page.status === 'published'
-                    ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
-                    : 'text-gold-400 bg-gold-400/10 border-gold-400/20',
-                )}>
+                <span
+                  className={cn(
+                    'text-2xs px-2 py-0.5 rounded-md font-medium border',
+                    page.status === 'published'
+                      ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
+                      : 'text-gold-400 bg-gold-400/10 border-gold-400/20'
+                  )}
+                >
                   {page.status}
                 </span>
                 <Link

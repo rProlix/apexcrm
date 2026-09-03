@@ -1,7 +1,4 @@
-import {
-  LEGAL_DOCUMENTS,
-  type LegalDocumentKey,
-} from '@/lib/legal/policies'
+import { LEGAL_DOCUMENTS, type LegalDocumentKey } from '@/lib/legal/policies'
 
 export type LegalAccountType = 'business_admin' | 'business_user' | 'customer'
 
@@ -39,7 +36,7 @@ export function createLegalAgreement(now = new Date()): LegalAgreement {
 export function validateLegalAgreement(
   input: unknown,
   _accountType: LegalAccountType,
-  now = new Date(),
+  now = new Date()
 ): LegalAgreementValidation {
   if (!input || typeof input !== 'object') {
     return { ok: false, error: LEGAL_AGREEMENT_REQUIRED_MESSAGE }
@@ -64,7 +61,8 @@ export function validateLegalAgreement(
     if (value[field] !== expected[field]) {
       return {
         ok: false,
-        error: 'The legal documents changed while you were signing up. Review the current documents and try again.',
+        error:
+          'The legal documents changed while you were signing up. Review the current documents and try again.',
       }
     }
   }
@@ -110,14 +108,12 @@ export function getRequiredLegalDocuments(accountType: LegalAccountType): LegalD
     'cookie-policy',
   ]
 
-  return accountType === 'customer'
-    ? common
-    : [...common, 'data-processing-addendum']
+  return accountType === 'customer' ? common : [...common, 'data-processing-addendum']
 }
 
 export function getAgreementVersion(
   agreement: LegalAgreement,
-  documentKey: LegalDocumentKey,
+  documentKey: LegalDocumentKey
 ): string {
   switch (documentKey) {
     case 'terms':

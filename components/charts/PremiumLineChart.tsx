@@ -12,16 +12,16 @@ import {
 import { cn } from '@/lib/utils'
 
 interface DataPoint {
-  date:  string
+  date: string
   value: number
 }
 
 interface PremiumLineChartProps {
-  data:       DataPoint[]
-  color?:     string   // hex stroke color, default gold
-  height?:    number
-  formatY?:   (v: number) => string
-  formatX?:   (d: string) => string
+  data: DataPoint[]
+  color?: string // hex stroke color, default gold
+  height?: number
+  formatY?: (v: number) => string
+  formatX?: (d: string) => string
   className?: string
   gradientId?: string
 }
@@ -46,18 +46,16 @@ function PremiumTooltip({ active, payload, label, formatY }: any) {
 
 export function PremiumLineChart({
   data,
-  color      = '#c9a84c',
-  height     = 160,
+  color = '#c9a84c',
+  height = 160,
   formatY,
-  formatX    = defaultFormatX,
+  formatX = defaultFormatX,
   className,
   gradientId = 'premiumLine',
 }: PremiumLineChartProps) {
   // Show every ~7th label to avoid crowding
   const tickIndices = new Set(
-    data
-      .map((_, i) => i)
-      .filter((i) => i % 7 === 0 || i === data.length - 1)
+    data.map((_, i) => i).filter((i) => i % 7 === 0 || i === data.length - 1)
   )
 
   const formattedData = data.map((d, i) => ({
@@ -71,8 +69,8 @@ export function PremiumLineChart({
         <LineChart data={formattedData} margin={{ top: 8, right: 4, bottom: 0, left: -20 }}>
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%"   stopColor={color} stopOpacity={0.6} />
-              <stop offset="50%"  stopColor={color} stopOpacity={1}   />
+              <stop offset="0%" stopColor={color} stopOpacity={0.6} />
+              <stop offset="50%" stopColor={color} stopOpacity={1} />
               <stop offset="100%" stopColor={color} stopOpacity={0.6} />
             </linearGradient>
             {/* Glow filter */}
@@ -85,11 +83,7 @@ export function PremiumLineChart({
             </filter>
           </defs>
 
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="rgba(255,255,255,0.04)"
-            vertical={false}
-          />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
 
           <XAxis
             dataKey="displayDate"

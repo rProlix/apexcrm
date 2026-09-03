@@ -23,10 +23,6 @@ export function getWebsiteImageGenerationEnabled(): boolean {
 }
 
 /** Builds the Supabase Storage path for a generated website image. */
-export function buildImageStoragePath(
-  tenantId:    string,
-  planId:      string,
-  filename:    string,
-): string {
+export function buildImageStoragePath(tenantId: string, planId: string, filename: string): string {
   return `tenants/${tenantId}/website/generated/${planId}/${filename}`
 }

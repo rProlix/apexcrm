@@ -9,7 +9,9 @@ import type { Appointment, Professional } from '@/lib/appointments/types'
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString([], {
-    month: 'short', day: 'numeric', year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   })
 }
 function fmtTime(iso: string) {
@@ -18,24 +20,24 @@ function fmtTime(iso: string) {
 
 interface Props {
   appointments: Appointment[]
-  onSelect?:    (appt: Appointment) => void
-  onDelete?:    (appt: Appointment) => void
-  isAdmin?:     boolean
+  onSelect?: (appt: Appointment) => void
+  onDelete?: (appt: Appointment) => void
+  isAdmin?: boolean
 }
 
 const STATUS_FILTERS: Array<{ value: string; label: string }> = [
-  { value: '',          label: 'All'       },
-  { value: 'pending',   label: 'Pending'   },
+  { value: '', label: 'All' },
+  { value: 'pending', label: 'Pending' },
   { value: 'confirmed', label: 'Confirmed' },
   { value: 'completed', label: 'Completed' },
-  { value: 'canceled',  label: 'Canceled'  },
+  { value: 'canceled', label: 'Canceled' },
 ]
 
 export function AppointmentList({ appointments, onSelect, isAdmin }: Props) {
-  const [search,         setSearch]         = useState('')
-  const [statusFilter,   setStatusFilter]   = useState('')
-  const [staffFilter,    setStaffFilter]    = useState('')
-  const [professionals,  setProfessionals]  = useState<Professional[]>([])
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [staffFilter, setStaffFilter] = useState('')
+  const [professionals, setProfessionals] = useState<Professional[]>([])
 
   useEffect(() => {
     if (!isAdmin) return
@@ -47,15 +49,15 @@ export function AppointmentList({ appointments, onSelect, isAdmin }: Props) {
 
   const filtered = useMemo(() => {
     return appointments.filter((a) => {
-      const matchesStatus    = !statusFilter || a.status === statusFilter
-      const matchesStaff     = !staffFilter  || a.staff_id === staffFilter
-      const q                = search.toLowerCase()
-      const matchesSearch    = !q || (
+      const matchesStatus = !statusFilter || a.status === statusFilter
+      const matchesStaff = !staffFilter || a.staff_id === staffFilter
+      const q = search.toLowerCase()
+      const matchesSearch =
+        !q ||
         a.title.toLowerCase().includes(q) ||
         a.customer?.name?.toLowerCase().includes(q) ||
         a.professional?.name?.toLowerCase().includes(q) ||
         a.location?.toLowerCase().includes(q)
-      )
       return matchesStatus && matchesStaff && matchesSearch
     })
   }, [appointments, search, statusFilter, staffFilter])
@@ -87,7 +89,9 @@ export function AppointmentList({ appointments, onSelect, isAdmin }: Props) {
               >
                 <option value="">All professionals</option>
                 {professionals.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -121,15 +125,25 @@ export function AppointmentList({ appointments, onSelect, isAdmin }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-surface-border bg-graphite-800/60">
-                <th className="text-left px-5 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">Appointment</th>
+                <th className="text-left px-5 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">
+                  Appointment
+                </th>
                 {isAdmin && (
-                  <th className="text-left px-5 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">Customer</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">
+                    Customer
+                  </th>
                 )}
                 {isAdmin && (
-                  <th className="text-left px-5 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">Professional</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">
+                    Professional
+                  </th>
                 )}
-                <th className="text-left px-5 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">Date &amp; Time</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">Status</th>
+                <th className="text-left px-5 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">
+                  Date &amp; Time
+                </th>
+                <th className="text-left px-5 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">
+                  Status
+                </th>
                 <th className="w-10" />
               </tr>
             </thead>
@@ -156,7 +170,9 @@ export function AppointmentList({ appointments, onSelect, isAdmin }: Props) {
                       <td className="px-5 py-4">
                         <p className="font-medium text-white leading-tight">{appt.title}</p>
                         {appt.location && (
-                          <p className="text-xs text-white/35 mt-0.5 truncate max-w-[200px]">{appt.location}</p>
+                          <p className="text-xs text-white/35 mt-0.5 truncate max-w-[200px]">
+                            {appt.location}
+                          </p>
                         )}
                       </td>
 
@@ -184,7 +200,9 @@ export function AppointmentList({ appointments, onSelect, isAdmin }: Props) {
                                   {appt.professional.name.charAt(0).toUpperCase()}
                                 </span>
                               </div>
-                              <span className="text-white/80 text-sm">{appt.professional.name}</span>
+                              <span className="text-white/80 text-sm">
+                                {appt.professional.name}
+                              </span>
                             </div>
                           ) : (
                             <span className="text-white/25 text-xs italic">Unassigned</span>
@@ -194,7 +212,9 @@ export function AppointmentList({ appointments, onSelect, isAdmin }: Props) {
 
                       <td className="px-5 py-4">
                         <p className="text-white/80">{fmtDate(appt.starts_at)}</p>
-                        <p className="text-xs text-white/40">{fmtTime(appt.starts_at)} – {fmtTime(appt.ends_at)}</p>
+                        <p className="text-xs text-white/40">
+                          {fmtTime(appt.starts_at)} – {fmtTime(appt.ends_at)}
+                        </p>
                       </td>
 
                       <td className="px-5 py-4">
@@ -238,7 +258,9 @@ export function AppointmentList({ appointments, onSelect, isAdmin }: Props) {
                 </div>
 
                 <div className="text-xs text-white/50 space-y-1">
-                  <p>{fmtDate(appt.starts_at)} · {fmtTime(appt.starts_at)} – {fmtTime(appt.ends_at)}</p>
+                  <p>
+                    {fmtDate(appt.starts_at)} · {fmtTime(appt.starts_at)} – {fmtTime(appt.ends_at)}
+                  </p>
                   {isAdmin && appt.customer && (
                     <p className="flex items-center gap-1">
                       <span className="text-white/30">Customer:</span> {appt.customer.name}

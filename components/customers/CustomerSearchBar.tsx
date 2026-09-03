@@ -5,34 +5,40 @@ import { Search, X, Loader2 } from 'lucide-react'
 import type { TenantCustomer } from '@/lib/customers/getTenantCustomers'
 
 interface Props {
-  tenantId:  string
+  tenantId: string
   onResults: (customers: TenantCustomer[]) => void
-  onClear:   () => void
+  onClear: () => void
   placeholder?: string
 }
 
 export function CustomerSearchBar({ tenantId, onResults, onClear, placeholder }: Props) {
-  const [query, setQuery]       = useState('')
-  const [loading, setLoading]   = useState(false)
+  const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const search = useCallback(async (q: string) => {
-    if (!q.trim()) { onClear(); return }
-    setLoading(true)
-    try {
-      const res = await fetch(
-        `/api/customers/search?q=${encodeURIComponent(q)}&tenant_id=${tenantId}`
-      )
-      if (res.ok) {
-        const { customers } = await res.json()
-        onResults(customers ?? [])
+  const search = useCallback(
+    async (q: string) => {
+      if (!q.trim()) {
+        onClear()
+        return
       }
-    } catch (err) {
-      console.error('[CustomerSearchBar] search error', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [tenantId, onResults, onClear])
+      setLoading(true)
+      try {
+        const res = await fetch(
+          `/api/customers/search?q=${encodeURIComponent(q)}&tenant_id=${tenantId}`
+        )
+        if (res.ok) {
+          const { customers } = await res.json()
+          onResults(customers ?? [])
+        }
+      } catch (err) {
+        console.error('[CustomerSearchBar] search error', err)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [tenantId, onResults, onClear]
+  )
 
   const handleChange = (value: string) => {
     setQuery(value)
@@ -49,10 +55,11 @@ export function CustomerSearchBar({ tenantId, onResults, onClear, placeholder }:
   return (
     <div className="relative">
       <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-        {loading
-          ? <Loader2 className="w-4 h-4 text-white/30 animate-spin" />
-          : <Search className="w-4 h-4 text-white/30" />
-        }
+        {loading ? (
+          <Loader2 className="w-4 h-4 text-white/30 animate-spin" />
+        ) : (
+          <Search className="w-4 h-4 text-white/30" />
+        )}
       </div>
       <input
         type="text"

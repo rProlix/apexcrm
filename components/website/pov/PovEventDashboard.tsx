@@ -5,44 +5,68 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Copy, Check, ExternalLink, Lock, Unlock, Eye, EyeOff, Flag, Trash2,
-  Image as ImageIcon, Video, Mic, Users, RefreshCw, QrCode,
+  Copy,
+  Check,
+  ExternalLink,
+  Lock,
+  Unlock,
+  Eye,
+  EyeOff,
+  Flag,
+  Trash2,
+  Image as ImageIcon,
+  Video,
+  Mic,
+  Users,
+  RefreshCw,
+  QrCode,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import {
-  POV_EVENT_TYPE_LABELS, type PovEventRow, type PovMediaRow, type PovMediaType,
+  POV_EVENT_TYPE_LABELS,
+  type PovEventRow,
+  type PovMediaRow,
+  type PovMediaType,
 } from '@/lib/pov/types'
 
 interface Stats {
-  guests: number; media: number; photos: number; videos: number; audio: number
-  pending: number; reported: number; hidden: number; unlocked: boolean; reveal_at: string
+  guests: number
+  media: number
+  photos: number
+  videos: number
+  audio: number
+  pending: number
+  reported: number
+  hidden: number
+  unlocked: boolean
+  reveal_at: string
 }
 type MediaItem = PovMediaRow & { guest_name?: string | null }
 
 interface Props {
-  event:     PovEventRow
-  publicBase: string   // e.g. https://nexoranow.com
+  event: PovEventRow
+  publicBase: string // e.g. https://nexoranow.com
 }
 
 const TOGGLE_FIELDS = [
   { key: 'allow_photos', label: 'Photos' },
   { key: 'allow_videos', label: '15s Videos' },
-  { key: 'allow_audio',  label: '30s Audio' },
-  { key: 'require_pin',  label: 'Require PIN' },
+  { key: 'allow_audio', label: '30s Audio' },
+  { key: 'require_pin', label: 'Require PIN' },
   { key: 'allow_guest_registration', label: 'Registration' },
-  { key: 'allow_guest_login',        label: 'Guest Login' },
-  { key: 'is_active',    label: 'Active' },
+  { key: 'allow_guest_login', label: 'Guest Login' },
+  { key: 'is_active', label: 'Active' },
 ] as const
 
 export function PovEventDashboard({ event: initialEvent, publicBase }: Props) {
-  const [event, setEvent]   = useState<PovEventRow>(initialEvent)
-  const [stats, setStats]   = useState<Stats | null>(null)
-  const [media, setMedia]   = useState<MediaItem[]>([])
+  const [event, setEvent] = useState<PovEventRow>(initialEvent)
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [media, setMedia] = useState<MediaItem[]>([])
   const [filter, setFilter] = useState<'all' | PovMediaType>('all')
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
-  const [error, setError]   = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const publicUrl = `${publicBase}/pov/${event.slug}`
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(publicUrl)}`
@@ -64,7 +88,9 @@ export function PovEventDashboard({ event: initialEvent, publicBase }: Props) {
     }
   }, [event.id])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   async function patchEvent(patch: Record<string, unknown>) {
     const res = await fetch(`/api/pov/events/${event.id}`, {
@@ -84,8 +110,9 @@ export function PovEventDashboard({ event: initialEvent, publicBase }: Props) {
       body: JSON.stringify({ status }),
     })
     if (res.ok) {
-      setMedia((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x))
-        .filter((x) => x.status !== 'deleted'))
+      setMedia((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, status } : x)).filter((x) => x.status !== 'deleted')
+      )
       void load()
     }
   }
@@ -118,17 +145,26 @@ export function PovEventDashboard({ event: initialEvent, publicBase }: Props) {
           </p>
           <h1 className="text-2xl font-bold text-white tracking-tight">{event.name}</h1>
           <p className="text-sm text-white/40 mt-0.5">
-            {event.event_type ? POV_EVENT_TYPE_LABELS[event.event_type as keyof typeof POV_EVENT_TYPE_LABELS] ?? event.event_type : 'Event'}
+            {event.event_type
+              ? (POV_EVENT_TYPE_LABELS[event.event_type as keyof typeof POV_EVENT_TYPE_LABELS] ??
+                event.event_type)
+              : 'Event'}
             {event.event_date ? ` · ${event.event_date}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <a href={publicUrl} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 h-10 px-4 rounded-xl text-sm text-white/60 hover:text-white border border-white/10 hover:border-white/20 transition-colors">
+          <a
+            href={publicUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-xl text-sm text-white/60 hover:text-white border border-white/10 hover:border-white/20 transition-colors"
+          >
             <ExternalLink className="h-3.5 w-3.5" /> Open Guest App
           </a>
-          <a href={`/website/pov/${event.id}/diagnostics`}
-            className="inline-flex items-center gap-2 h-10 px-4 rounded-xl text-sm text-white/60 hover:text-white border border-white/10 hover:border-white/20 transition-colors">
+          <a
+            href={`/website/pov/${event.id}/diagnostics`}
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-xl text-sm text-white/60 hover:text-white border border-white/10 hover:border-white/20 transition-colors"
+          >
             Diagnostics
           </a>
           <Button variant="secondary" onClick={() => void load()}>
@@ -138,18 +174,27 @@ export function PovEventDashboard({ event: initialEvent, publicBase }: Props) {
       </div>
 
       {error && (
-        <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">{error}</div>
+        <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+          {error}
+        </div>
       )}
 
       {/* Reveal status */}
-      <div className={cn(
-        'rounded-2xl border px-5 py-4 flex items-center gap-4',
-        unlocked ? 'bg-emerald-500/8 border-emerald-500/20' : 'bg-gold-500/8 border-gold-500/20',
-      )}>
-        {unlocked ? <Unlock className="h-5 w-5 text-emerald-400 shrink-0" />
-                  : <Lock className="h-5 w-5 text-gold-400 shrink-0" />}
+      <div
+        className={cn(
+          'rounded-2xl border px-5 py-4 flex items-center gap-4',
+          unlocked ? 'bg-emerald-500/8 border-emerald-500/20' : 'bg-gold-500/8 border-gold-500/20'
+        )}
+      >
+        {unlocked ? (
+          <Unlock className="h-5 w-5 text-emerald-400 shrink-0" />
+        ) : (
+          <Lock className="h-5 w-5 text-gold-400 shrink-0" />
+        )}
         <div className="flex-1 min-w-0">
-          <p className={cn('text-sm font-semibold', unlocked ? 'text-emerald-400' : 'text-gold-400')}>
+          <p
+            className={cn('text-sm font-semibold', unlocked ? 'text-emerald-400' : 'text-gold-400')}
+          >
             {unlocked ? 'Gallery is unlocked' : 'Gallery is locked'}
           </p>
           <p className="text-xs text-white/40 mt-0.5">
@@ -178,16 +223,30 @@ export function PovEventDashboard({ event: initialEvent, publicBase }: Props) {
               {publicUrl}
             </code>
             <Button variant="secondary" size="sm" onClick={copyLink}>
-              {copied ? <><Check className="h-3.5 w-3.5" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
+              {copied ? (
+                <>
+                  <Check className="h-3.5 w-3.5" /> Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" /> Copy
+                </>
+              )}
             </Button>
           </div>
           <p className="text-xs text-white/30">
-            Share the QR or link with guests. They register with a phone number and PIN — no app install.
+            Share the QR or link with guests. They register with a phone number and PIN — no app
+            install.
           </p>
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={qrUrl} alt="Event QR code" width={132} height={132}
-          className="rounded-xl border border-surface-border bg-white p-1.5 shrink-0" />
+        <img
+          src={qrUrl}
+          alt="Event QR code"
+          width={132}
+          height={132}
+          className="rounded-xl border border-surface-border bg-white p-1.5 shrink-0"
+        />
       </div>
 
       {/* Allow toggles + reveal editing */}
@@ -197,14 +256,20 @@ export function PovEventDashboard({ event: initialEvent, publicBase }: Props) {
           {TOGGLE_FIELDS.map((t) => {
             const on = Boolean((event as unknown as Record<string, boolean>)[t.key])
             return (
-              <button key={t.key} type="button"
+              <button
+                key={t.key}
+                type="button"
                 onClick={() => void patchEvent({ [t.key]: !on })}
                 className={cn(
                   'inline-flex items-center gap-2 h-9 px-3 rounded-xl text-xs font-medium border transition-colors',
-                  on ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                     : 'bg-white/5 border-white/10 text-white/40',
-                )}>
-                <span className={cn('h-2 w-2 rounded-full', on ? 'bg-emerald-400' : 'bg-white/20')} />
+                  on
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : 'bg-white/5 border-white/10 text-white/40'
+                )}
+              >
+                <span
+                  className={cn('h-2 w-2 rounded-full', on ? 'bg-emerald-400' : 'bg-white/20')}
+                />
                 {t.label}
               </button>
             )
@@ -212,10 +277,15 @@ export function PovEventDashboard({ event: initialEvent, publicBase }: Props) {
         </div>
         <label className="block max-w-sm">
           <span className="text-xs font-medium text-white/60">Gallery reveal time</span>
-          <input type="datetime-local"
+          <input
+            type="datetime-local"
             defaultValue={toLocalInput(event.gallery_reveal_at)}
-            onBlur={(e) => e.target.value && void patchEvent({ gallery_reveal_at: new Date(e.target.value).toISOString() })}
-            className="mt-1.5 w-full h-10 px-3 rounded-xl bg-graphite-900 border border-surface-border text-sm text-white focus:border-gold-500/50 focus:outline-none" />
+            onBlur={(e) =>
+              e.target.value &&
+              void patchEvent({ gallery_reveal_at: new Date(e.target.value).toISOString() })
+            }
+            className="mt-1.5 w-full h-10 px-3 rounded-xl bg-graphite-900 border border-surface-border text-sm text-white focus:border-gold-500/50 focus:outline-none"
+          />
         </label>
       </div>
 
@@ -223,14 +293,25 @@ export function PovEventDashboard({ event: initialEvent, publicBase }: Props) {
       <div className="space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest">
-            Media Moderation {!unlocked && <span className="ml-2 text-gold-400/70 normal-case tracking-normal">(preview — pre-reveal)</span>}
+            Media Moderation{' '}
+            {!unlocked && (
+              <span className="ml-2 text-gold-400/70 normal-case tracking-normal">
+                (preview — pre-reveal)
+              </span>
+            )}
           </h2>
           <div className="flex items-center gap-1">
             {(['all', 'photo', 'video', 'audio'] as const).map((f) => (
-              <button key={f} onClick={() => setFilter(f)}
-                className={cn('h-8 px-3 rounded-lg text-xs font-medium capitalize transition-colors',
-                  filter === f ? 'bg-gold-500/15 text-gold-400 border border-gold-500/20'
-                               : 'text-white/40 hover:text-white/70 border border-transparent')}>
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={cn(
+                  'h-8 px-3 rounded-lg text-xs font-medium capitalize transition-colors',
+                  filter === f
+                    ? 'bg-gold-500/15 text-gold-400 border border-gold-500/20'
+                    : 'text-white/40 hover:text-white/70 border border-transparent'
+                )}
+              >
                 {f}
               </button>
             ))}
@@ -244,10 +325,13 @@ export function PovEventDashboard({ event: initialEvent, publicBase }: Props) {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {filtered.map((m) => (
-              <MediaCard key={m.id} media={m}
+              <MediaCard
+                key={m.id}
+                media={m}
                 onHide={() => moderate(m.id, m.status === 'hidden' ? 'approved' : 'hidden')}
                 onReport={() => moderate(m.id, 'reported')}
-                onDelete={() => removeMedia(m.id)} />
+                onDelete={() => removeMedia(m.id)}
+              />
             ))}
           </div>
         )}
@@ -256,8 +340,16 @@ export function PovEventDashboard({ event: initialEvent, publicBase }: Props) {
   )
 }
 
-function StatCard({ icon: Icon, label, value, color }: {
-  icon: React.ElementType; label: string; value?: number; color: string
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+}: {
+  icon: React.ElementType
+  label: string
+  value?: number
+  color: string
 }) {
   return (
     <div className="rounded-2xl bg-graphite-800/60 border border-surface-border px-4 py-3">
@@ -268,14 +360,29 @@ function StatCard({ icon: Icon, label, value, color }: {
   )
 }
 
-function MediaCard({ media, onHide, onReport, onDelete }: {
-  media: MediaItem; onHide: () => void; onReport: () => void; onDelete: () => void
+function MediaCard({
+  media,
+  onHide,
+  onReport,
+  onDelete,
+}: {
+  media: MediaItem
+  onHide: () => void
+  onReport: () => void
+  onDelete: () => void
 }) {
   const url = media.public_url ?? ''
   return (
-    <div className={cn('relative rounded-xl overflow-hidden border bg-graphite-900 group',
-      media.status === 'hidden' ? 'border-amber-500/30 opacity-60'
-        : media.status === 'reported' ? 'border-red-500/40' : 'border-surface-border')}>
+    <div
+      className={cn(
+        'relative rounded-xl overflow-hidden border bg-graphite-900 group',
+        media.status === 'hidden'
+          ? 'border-amber-500/30 opacity-60'
+          : media.status === 'reported'
+            ? 'border-red-500/40'
+            : 'border-surface-border'
+      )}
+    >
       <div className="aspect-square bg-black/40 flex items-center justify-center">
         {media.media_type === 'photo' && url && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -297,10 +404,18 @@ function MediaCard({ media, onHide, onReport, onDelete }: {
       </div>
       <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <IconBtn title={media.status === 'hidden' ? 'Unhide' : 'Hide'} onClick={onHide}>
-          {media.status === 'hidden' ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          {media.status === 'hidden' ? (
+            <Eye className="h-3.5 w-3.5" />
+          ) : (
+            <EyeOff className="h-3.5 w-3.5" />
+          )}
         </IconBtn>
-        <IconBtn title="Report" onClick={onReport}><Flag className="h-3.5 w-3.5" /></IconBtn>
-        <IconBtn title="Delete" onClick={onDelete} danger><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn title="Report" onClick={onReport}>
+          <Flag className="h-3.5 w-3.5" />
+        </IconBtn>
+        <IconBtn title="Delete" onClick={onDelete} danger>
+          <Trash2 className="h-3.5 w-3.5" />
+        </IconBtn>
       </div>
       {media.status !== 'approved' && (
         <span className="absolute top-1.5 left-1.5 text-2xs px-1.5 py-0.5 rounded bg-black/70 text-white/80 capitalize">
@@ -311,14 +426,28 @@ function MediaCard({ media, onHide, onReport, onDelete }: {
   )
 }
 
-function IconBtn({ children, title, onClick, danger }: {
-  children: React.ReactNode; title: string; onClick: () => void; danger?: boolean
+function IconBtn({
+  children,
+  title,
+  onClick,
+  danger,
+}: {
+  children: React.ReactNode
+  title: string
+  onClick: () => void
+  danger?: boolean
 }) {
   return (
-    <button title={title} onClick={onClick}
-      className={cn('h-7 w-7 rounded-lg flex items-center justify-center backdrop-blur-sm transition-colors',
-        danger ? 'bg-red-500/30 text-red-200 hover:bg-red-500/50'
-               : 'bg-black/50 text-white/80 hover:bg-black/70')}>
+    <button
+      title={title}
+      onClick={onClick}
+      className={cn(
+        'h-7 w-7 rounded-lg flex items-center justify-center backdrop-blur-sm transition-colors',
+        danger
+          ? 'bg-red-500/30 text-red-200 hover:bg-red-500/50'
+          : 'bg-black/50 text-white/80 hover:bg-black/70'
+      )}
+    >
       {children}
     </button>
   )

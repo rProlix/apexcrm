@@ -5,74 +5,103 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  CheckCircle2, AlertCircle, CalendarDays, ShoppingBag, Star, CreditCard, User,
-  Eye, EyeOff, Loader2, LogIn,
+  CheckCircle2,
+  AlertCircle,
+  CalendarDays,
+  ShoppingBag,
+  Star,
+  CreditCard,
+  User,
+  Eye,
+  EyeOff,
+  Loader2,
+  LogIn,
 } from 'lucide-react'
-import {
-  createLegalAgreement,
-  LEGAL_AGREEMENT_REQUIRED_MESSAGE,
-} from '@/lib/legal/consent'
+import { createLegalAgreement, LEGAL_AGREEMENT_REQUIRED_MESSAGE } from '@/lib/legal/consent'
 import { getPlatformLegalUrl } from '@/lib/legal/policies'
 
 interface EnabledModules {
   appointments?: boolean
-  orders?:       boolean
-  rewards?:      boolean
-  payments?:     boolean
-  store?:        boolean
+  orders?: boolean
+  rewards?: boolean
+  payments?: boolean
+  store?: boolean
 }
 
 interface ValidatedInvite {
-  id:             string
-  email:          string
-  fullName:       string | null
-  phone:          string | null
-  tenantId:       string
-  tenantName:     string
-  tenantLogo:     string | null
-  customerId:     string | null
-  expiresAt:      string
+  id: string
+  email: string
+  fullName: string | null
+  phone: string | null
+  tenantId: string
+  tenantName: string
+  tenantLogo: string | null
+  customerId: string | null
+  expiresAt: string
   enabledModules: EnabledModules
 }
 
 interface Props {
-  token:           string
+  token: string
   currentUserEmail?: string | null
 }
 
 const MODULE_FEATURES = [
-  { key: 'appointments', label: 'Book & manage appointments', Icon: CalendarDays, color: 'text-blue-400' },
-  { key: 'orders',       label: 'View your orders & history',  Icon: ShoppingBag,  color: 'text-amber-400' },
-  { key: 'rewards',      label: 'Earn & redeem rewards',       Icon: Star,         color: 'text-yellow-400' },
-  { key: 'payments',     label: 'View invoices & payments',    Icon: CreditCard,   color: 'text-emerald-400' },
-  { key: 'profile',      label: 'Manage your profile',         Icon: User,         color: 'text-white/60',  always: true },
+  {
+    key: 'appointments',
+    label: 'Book & manage appointments',
+    Icon: CalendarDays,
+    color: 'text-blue-400',
+  },
+  {
+    key: 'orders',
+    label: 'View your orders & history',
+    Icon: ShoppingBag,
+    color: 'text-amber-400',
+  },
+  { key: 'rewards', label: 'Earn & redeem rewards', Icon: Star, color: 'text-yellow-400' },
+  {
+    key: 'payments',
+    label: 'View invoices & payments',
+    Icon: CreditCard,
+    color: 'text-emerald-400',
+  },
+  {
+    key: 'profile',
+    label: 'Manage your profile',
+    Icon: User,
+    color: 'text-white/60',
+    always: true,
+  },
 ] as const
 
 export function InviteAcceptClient({ token, currentUserEmail }: Props) {
   const router = useRouter()
 
-  const [phase,       setPhase]       = useState<'loading' | 'invalid' | 'valid' | 'form' | 'submitting' | 'success'>('loading')
-  const [invite,      setInvite]      = useState<ValidatedInvite | null>(null)
-  const [invError,    setInvError]    = useState<string | null>(null)
-  const [invCode,     setInvCode]     = useState<string | null>(null)
+  const [phase, setPhase] = useState<
+    'loading' | 'invalid' | 'valid' | 'form' | 'submitting' | 'success'
+  >('loading')
+  const [invite, setInvite] = useState<ValidatedInvite | null>(null)
+  const [invError, setInvError] = useState<string | null>(null)
+  const [invCode, setInvCode] = useState<string | null>(null)
 
   // Form state
-  const [fullName,     setFullName]     = useState('')
-  const [phone,        setPhone]        = useState('')
-  const [password,     setPassword]     = useState('')
-  const [confirmPass,  setConfirmPass]  = useState('')
-  const [showPass,     setShowPass]     = useState(false)
-  const [formError,    setFormError]    = useState<string | null>(null)
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPass, setConfirmPass] = useState('')
+  const [showPass, setShowPass] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
   const [acceptedLegal, setAcceptedLegal] = useState(false)
 
   // Validate token on mount
   useEffect(() => {
     async function validate() {
       try {
-        const res  = await fetch('/api/customer-invites/validate', {
-          method:  'POST',
+        const res = await fetch('/api/customer-invites/validate', {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ token }),
+          body: JSON.stringify({ token }),
         })
         const data = await res.json()
         if (!data.ok) {
@@ -86,7 +115,10 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
         setPhone(data.invite.phone ?? '')
 
         // If user is already signed in with the correct email, skip password form
-        if (currentUserEmail && currentUserEmail.toLowerCase() === data.invite.email.toLowerCase()) {
+        if (
+          currentUserEmail &&
+          currentUserEmail.toLowerCase() === data.invite.email.toLowerCase()
+        ) {
           setPhase('valid')
         } else {
           setPhase('form')
@@ -104,24 +136,36 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
 
     // If in form phase, validate password
     if (phase === 'form') {
-      if (!password) { setFormError('Password is required.'); return }
-      if (password.length < 6) { setFormError('Password must be at least 6 characters.'); return }
-      if (password !== confirmPass) { setFormError('Passwords do not match.'); return }
-      if (!acceptedLegal) { setFormError(LEGAL_AGREEMENT_REQUIRED_MESSAGE); return }
+      if (!password) {
+        setFormError('Password is required.')
+        return
+      }
+      if (password.length < 6) {
+        setFormError('Password must be at least 6 characters.')
+        return
+      }
+      if (password !== confirmPass) {
+        setFormError('Passwords do not match.')
+        return
+      }
+      if (!acceptedLegal) {
+        setFormError(LEGAL_AGREEMENT_REQUIRED_MESSAGE)
+        return
+      }
     }
 
     setFormError(null)
     setPhase('submitting')
 
     try {
-      const res  = await fetch('/api/customer-invites/accept', {
-        method:  'POST',
+      const res = await fetch('/api/customer-invites/accept', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
+        body: JSON.stringify({
           token,
-          password:  phase === 'form' ? password : undefined,
-          fullName:  fullName.trim() || undefined,
-          phone:     phone.trim() || undefined,
+          password: phase === 'form' ? password : undefined,
+          fullName: fullName.trim() || undefined,
+          phone: phone.trim() || undefined,
           legalAgreement: phase === 'form' ? createLegalAgreement() : undefined,
         }),
       })
@@ -152,7 +196,18 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
       setFormError('Network error. Please check your connection and try again.')
       setPhase(currentUserEmail ? 'valid' : 'form')
     }
-  }, [invite, phase, password, confirmPass, acceptedLegal, token, fullName, phone, currentUserEmail, router])
+  }, [
+    invite,
+    phase,
+    password,
+    confirmPass,
+    acceptedLegal,
+    token,
+    fullName,
+    phone,
+    currentUserEmail,
+    router,
+  ])
 
   // ── Loading ────────────────────────────────────────────────────────────────
 
@@ -168,8 +223,8 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
   // ── Invalid ────────────────────────────────────────────────────────────────
 
   if (phase === 'invalid') {
-    const isExpired  = invCode === 'INVITE_EXPIRED'
-    const isRevoked  = invCode === 'INVITE_REVOKED'
+    const isExpired = invCode === 'INVITE_EXPIRED'
+    const isRevoked = invCode === 'INVITE_REVOKED'
     const isAccepted = invCode === 'INVITE_ACCEPTED'
 
     return (
@@ -179,10 +234,13 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
         </div>
         <div>
           <h2 className="text-lg font-bold text-white mb-2">
-            {isExpired  ? 'Invite Expired' :
-             isRevoked  ? 'Invite Revoked' :
-             isAccepted ? 'Already Accepted' :
-             'Invalid Invite'}
+            {isExpired
+              ? 'Invite Expired'
+              : isRevoked
+                ? 'Invite Revoked'
+                : isAccepted
+                  ? 'Already Accepted'
+                  : 'Invalid Invite'}
           </h2>
           <p className="text-sm text-white/50 leading-relaxed max-w-sm">
             {invError ?? 'This invite link is invalid or no longer available.'}
@@ -230,10 +288,12 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
   if (!invite) return null
 
   const mods = invite.enabledModules
-  const enabledFeatures = MODULE_FEATURES.filter(f => f.key === 'profile' || mods[f.key as keyof EnabledModules])
+  const enabledFeatures = MODULE_FEATURES.filter(
+    (f) => f.key === 'profile' || mods[f.key as keyof EnabledModules]
+  )
 
   const isAlreadyLoggedIn = phase === 'valid'
-  const isSubmitting      = phase === 'submitting'
+  const isSubmitting = phase === 'submitting'
 
   return (
     <div className="space-y-6">
@@ -255,12 +315,8 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
             </div>
           )}
         </div>
-        <h1 className="text-2xl font-bold text-white mb-1">
-          {invite.tenantName} invited you
-        </h1>
-        <p className="text-sm text-white/50">
-          Create your account to access your personal portal
-        </p>
+        <h1 className="text-2xl font-bold text-white mb-1">{invite.tenantName} invited you</h1>
+        <p className="text-sm text-white/50">Create your account to access your personal portal</p>
       </div>
 
       {/* What you'll get */}
@@ -269,7 +325,7 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
           Your portal includes
         </p>
         <div className="space-y-2.5">
-          {enabledFeatures.map(f => (
+          {enabledFeatures.map((f) => (
             <div key={f.key} className="flex items-center gap-3">
               <f.Icon className={`w-4 h-4 ${f.color} flex-shrink-0`} />
               <span className="text-sm text-white/70">{f.label}</span>
@@ -280,7 +336,12 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
 
       {/* Expiry */}
       <p className="text-xs text-white/30 text-center">
-        Invite expires {new Date(invite.expiresAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+        Invite expires{' '}
+        {new Date(invite.expiresAt).toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        })}
       </p>
 
       {/* Form error */}
@@ -295,9 +356,7 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
       {isAlreadyLoggedIn ? (
         <div className="space-y-4">
           <div className="rounded-xl bg-emerald-400/8 border border-emerald-400/20 px-4 py-3">
-            <p className="text-xs font-medium text-emerald-300">
-              Signed in as {currentUserEmail}
-            </p>
+            <p className="text-xs font-medium text-emerald-300">Signed in as {currentUserEmail}</p>
             <p className="text-xs text-emerald-300/60 mt-0.5">
               Click below to link this account to {invite.tenantName}.
             </p>
@@ -307,10 +366,15 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
             disabled={isSubmitting}
             className="w-full h-12 rounded-xl font-semibold text-sm bg-gold-gradient text-graphite-900 hover:shadow-glow-gold disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
           >
-            {isSubmitting
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Linking account…</>
-              : <><CheckCircle2 className="w-4 h-4" /> Accept &amp; link account</>
-            }
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Linking account…
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-4 h-4" /> Accept &amp; link account
+              </>
+            )}
           </button>
         </div>
       ) : (
@@ -335,7 +399,7 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
             <input
               type="text"
               value={fullName}
-              onChange={e => setFullName(e.target.value)}
+              onChange={(e) => setFullName(e.target.value)}
               placeholder="Jane Smith"
               className="w-full h-10 px-3 rounded-xl bg-white/4 border border-white/10 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-gold-500/50"
             />
@@ -350,14 +414,14 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
               <input
                 type={showPass ? 'text' : 'password'}
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="Min. 6 characters"
                 minLength={6}
                 className="w-full h-10 pl-3 pr-10 rounded-xl bg-white/4 border border-white/10 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-gold-500/50"
               />
               <button
                 type="button"
-                onClick={() => setShowPass(v => !v)}
+                onClick={() => setShowPass((v) => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60"
                 aria-label={showPass ? 'Hide password' : 'Show password'}
               >
@@ -374,7 +438,7 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
             <input
               type={showPass ? 'text' : 'password'}
               value={confirmPass}
-              onChange={e => setConfirmPass(e.target.value)}
+              onChange={(e) => setConfirmPass(e.target.value)}
               placeholder="Re-enter password"
               minLength={6}
               className="w-full h-10 px-3 rounded-xl bg-white/4 border border-white/10 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-gold-500/50"
@@ -385,9 +449,11 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
             htmlFor="invite-legal-agreement"
             className={`
               flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-colors
-              ${acceptedLegal
-                ? 'border-gold-500/40 bg-gold-500/[0.07]'
-                : 'border-white/10 bg-white/[0.025] hover:border-white/20'}
+              ${
+                acceptedLegal
+                  ? 'border-gold-500/40 bg-gold-500/[0.07]'
+                  : 'border-white/10 bg-white/[0.025] hover:border-white/20'
+              }
             `}
           >
             <input
@@ -399,23 +465,48 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
             />
             <span className="text-xs leading-5 text-white/50">
               I agree to the{' '}
-              <a href={getPlatformLegalUrl('terms')} target="_blank" rel="noreferrer" className="font-medium text-gold-400 hover:text-gold-300">
+              <a
+                href={getPlatformLegalUrl('terms')}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-gold-400 hover:text-gold-300"
+              >
                 Terms of Use
               </a>{' '}
               and{' '}
-              <a href={getPlatformLegalUrl('acceptable-use')} target="_blank" rel="noreferrer" className="font-medium text-gold-400 hover:text-gold-300">
+              <a
+                href={getPlatformLegalUrl('acceptable-use')}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-gold-400 hover:text-gold-300"
+              >
                 Acceptable Use Policy
               </a>
               , and acknowledge the{' '}
-              <a href={getPlatformLegalUrl('privacy')} target="_blank" rel="noreferrer" className="font-medium text-gold-400 hover:text-gold-300">
+              <a
+                href={getPlatformLegalUrl('privacy')}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-gold-400 hover:text-gold-300"
+              >
                 Privacy Policy
               </a>
               ,{' '}
-              <a href={getPlatformLegalUrl('cookie-policy')} target="_blank" rel="noreferrer" className="font-medium text-gold-400 hover:text-gold-300">
+              <a
+                href={getPlatformLegalUrl('cookie-policy')}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-gold-400 hover:text-gold-300"
+              >
                 Cookie Policy
               </a>
               , and{' '}
-              <a href={getPlatformLegalUrl('ai-notice')} target="_blank" rel="noreferrer" className="font-medium text-gold-400 hover:text-gold-300">
+              <a
+                href={getPlatformLegalUrl('ai-notice')}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-gold-400 hover:text-gold-300"
+              >
                 AI Notice
               </a>
               .
@@ -427,15 +518,23 @@ export function InviteAcceptClient({ token, currentUserEmail }: Props) {
             disabled={isSubmitting || !acceptedLegal}
             className="w-full h-12 rounded-xl font-semibold text-sm bg-gold-gradient text-graphite-900 hover:shadow-glow-gold disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
           >
-            {isSubmitting
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating account…</>
-              : <><CheckCircle2 className="w-4 h-4" /> Create account &amp; accept</>
-            }
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Creating account…
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-4 h-4" /> Create account &amp; accept
+              </>
+            )}
           </button>
 
           <p className="text-center text-xs text-white/30">
             Already have an account?{' '}
-            <a href={`/login?next=/invite/customer?token=${encodeURIComponent(token)}`} className="text-gold-400 hover:text-gold-300">
+            <a
+              href={`/login?next=/invite/customer?token=${encodeURIComponent(token)}`}
+              className="text-gold-400 hover:text-gold-300"
+            >
               Sign in first
             </a>
           </p>

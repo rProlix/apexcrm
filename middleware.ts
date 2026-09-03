@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 import { createMiddlewareSupabaseClient } from '@/lib/supabase/middleware'
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
-const VERCEL_URL  = process.env.VERCEL_URL ?? ''
+const VERCEL_URL = process.env.VERCEL_URL ?? ''
 
 // Paths that require an authenticated session on the owner domain.
 // All other paths (/, /login, /signup, /sites/*, /api/*) remain public.
@@ -12,7 +12,7 @@ const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/admin']
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
-  const host     = req.headers.get('host') ?? ''
+  const host = req.headers.get('host') ?? ''
   const hostname = host.split(':')[0]
 
   // Debug — check Vercel Function logs to confirm routing behaviour
@@ -51,14 +51,13 @@ export async function middleware(req: NextRequest) {
   console.log('[middleware] USER:', user?.id ?? 'none')
 
   // ── Platform domain check ─────────────────────────────────────────────────
-  const isOwnerDomain = (
-    hostname === ROOT_DOMAIN          ||
+  const isOwnerDomain =
+    hostname === ROOT_DOMAIN ||
     hostname === `www.${ROOT_DOMAIN}` ||
     hostname === `app.${ROOT_DOMAIN}` ||
-    hostname === 'localhost'          ||
-    hostname.endsWith('.vercel.app')  ||
+    hostname === 'localhost' ||
+    hostname.endsWith('.vercel.app') ||
     (VERCEL_URL && hostname === VERCEL_URL.split(':')[0])
-  )
 
   // ── Auth guard — protect owner-dashboard routes on the root domain ─────────
   //
@@ -109,16 +108,17 @@ export async function middleware(req: NextRequest) {
   // These pass through to the root Next.js app unchanged; request.url in the
   // handler still reflects the original subdomain host, so redirect URLs built
   // from request.url will correctly point back to the subdomain.
-  if (subdomain && (
-    pathname.startsWith('/invite/') ||
-    pathname === '/auth/callback'   ||
-    pathname.startsWith('/auth/callback?')
-  )) {
+  if (
+    subdomain &&
+    (pathname.startsWith('/invite/') ||
+      pathname === '/auth/callback' ||
+      pathname.startsWith('/auth/callback?'))
+  ) {
     return sessionResponse
   }
 
   if (subdomain) {
-    const rewriteUrl    = req.nextUrl.clone()
+    const rewriteUrl = req.nextUrl.clone()
     rewriteUrl.pathname = `/sites/${subdomain}${pathname === '/' ? '' : pathname}`
 
     console.log('[middleware] REWRITE →', rewriteUrl.pathname)
@@ -133,7 +133,7 @@ export async function middleware(req: NextRequest) {
     // fell back to getSiteBySlug() → "Site not found".
     const requestHeaders = new Headers(req.headers)
     requestHeaders.set('x-original-host', hostname)
-    requestHeaders.set('x-tenant-slug',   subdomain)
+    requestHeaders.set('x-tenant-slug', subdomain)
 
     const rewriteResponse = NextResponse.rewrite(rewriteUrl, {
       request: { headers: requestHeaders },

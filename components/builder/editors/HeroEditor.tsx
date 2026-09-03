@@ -5,7 +5,9 @@ import { uploadSectionImage } from '@/lib/builder/api'
 import { useRef } from 'react'
 import { Field, Textarea, Select, Toggle } from './FormFields'
 
-interface Props { sectionId: string }
+interface Props {
+  sectionId: string
+}
 
 export function HeroEditor({ sectionId }: Props) {
   const { sections, updateSectionContent, tenantId } = useBuilderStore()
@@ -86,9 +88,9 @@ export function HeroEditor({ sectionId }: Props) {
           value={(c.align as string) ?? 'center'}
           onChange={(v) => set('align', v)}
           options={[
-            { value: 'left',   label: 'Left' },
+            { value: 'left', label: 'Left' },
             { value: 'center', label: 'Center' },
-            { value: 'right',  label: 'Right' },
+            { value: 'right', label: 'Right' },
           ]}
         />
       </Field>
@@ -116,7 +118,10 @@ export function HeroEditor({ sectionId }: Props) {
             Upload Image
           </button>
           {typeof c.backgroundImage === 'string' && c.backgroundImage && (
-            <button onClick={() => set('backgroundImage', '')} style={{ ...btnStyle, color: '#ef4444', borderColor: '#ef4444' }}>
+            <button
+              onClick={() => set('backgroundImage', '')}
+              style={{ ...btnStyle, color: '#ef4444', borderColor: '#ef4444' }}
+            >
               Remove
             </button>
           )}
@@ -132,7 +137,10 @@ export function HeroEditor({ sectionId }: Props) {
           />
           <Field label={`Overlay Opacity: ${c.overlayOpacity ?? 40}%`}>
             <input
-              type="range" min={0} max={90} step={5}
+              type="range"
+              min={0}
+              max={90}
+              step={5}
               value={(c.overlayOpacity as number) ?? 40}
               onChange={(e) => set('overlayOpacity', Number(e.target.value))}
               style={{ width: '100%' }}
@@ -145,24 +153,24 @@ export function HeroEditor({ sectionId }: Props) {
 }
 
 const inputStyle: React.CSSProperties = {
-  width:        '100%',
-  padding:      '0.5rem 0.75rem',
-  background:   '#18181b',
-  border:       '1px solid #3f3f46',
+  width: '100%',
+  padding: '0.5rem 0.75rem',
+  background: '#18181b',
+  border: '1px solid #3f3f46',
   borderRadius: '0.5rem',
-  color:        '#f4f4f5',
-  fontSize:     '0.875rem',
-  outline:      'none',
-  boxSizing:    'border-box',
+  color: '#f4f4f5',
+  fontSize: '0.875rem',
+  outline: 'none',
+  boxSizing: 'border-box',
 }
 
 const btnStyle: React.CSSProperties = {
-  padding:      '0.4rem 0.875rem',
+  padding: '0.4rem 0.875rem',
   borderRadius: '0.5rem',
-  border:       '1px solid #3f3f46',
-  background:   '#27272a',
-  color:        '#a1a1aa',
-  cursor:       'pointer',
-  fontSize:     '0.8125rem',
-  fontWeight:   500,
+  border: '1px solid #3f3f46',
+  background: '#27272a',
+  color: '#a1a1aa',
+  cursor: 'pointer',
+  fontSize: '0.8125rem',
+  fontWeight: 500,
 }

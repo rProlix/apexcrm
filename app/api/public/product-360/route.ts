@@ -2,10 +2,10 @@
 // Public storefront endpoint. No auth required.
 // Returns only enabled, ready, in-promo packages.
 
-import { NextRequest, NextResponse }  from 'next/server'
-import { getSupabaseServerClient }    from '@/lib/supabase/server'
-import { isPackagePubliclyVisible }   from '@/lib/product-360/visibility'
-import type { P360PublicPayload }     from '@/lib/product-360/types'
+import { NextRequest, NextResponse } from 'next/server'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { isPackagePubliclyVisible } from '@/lib/product-360/visibility'
+import type { P360PublicPayload } from '@/lib/product-360/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,10 +14,10 @@ export const dynamic = 'force-dynamic'
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const tenantParam = searchParams.get('tenant')
-  const productId   = searchParams.get('productId')
+  const productId = searchParams.get('productId')
 
   if (!tenantParam) return NextResponse.json({ error: 'tenant param required' }, { status: 400 })
-  if (!productId)   return NextResponse.json({ error: 'productId param required' }, { status: 400 })
+  if (!productId) return NextResponse.json({ error: 'productId param required' }, { status: 400 })
 
   const supabase = getSupabaseServerClient()
 
@@ -53,12 +53,15 @@ export async function GET(req: NextRequest) {
   const payloads: P360PublicPayload[] = []
 
   for (const pkg of packages as Record<string, unknown>[]) {
-    if (!isPackagePubliclyVisible({
-      status:         pkg.status          as string,
-      is_enabled:     pkg.is_enabled      as boolean,
-      promo_starts_at: pkg.promo_starts_at as string | null,
-      promo_ends_at:   pkg.promo_ends_at  as string | null,
-    })) continue
+    if (
+      !isPackagePubliclyVisible({
+        status: pkg.status as string,
+        is_enabled: pkg.is_enabled as boolean,
+        promo_starts_at: pkg.promo_starts_at as string | null,
+        promo_ends_at: pkg.promo_ends_at as string | null,
+      })
+    )
+      continue
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: frames } = await (supabase as any)
@@ -75,16 +78,16 @@ export async function GET(req: NextRequest) {
       .eq('is_enabled', true)
 
     payloads.push({
-      packageId:      pkg.id         as string,
-      packageName:    pkg.name       as string,
-      slug:           pkg.slug       as string,
-      packageType:    pkg.package_type as P360PublicPayload['packageType'],
-      coverUrl:       (pkg.cover_frame_url ?? null) as string | null,
+      packageId: pkg.id as string,
+      packageName: pkg.name as string,
+      slug: pkg.slug as string,
+      packageType: pkg.package_type as P360PublicPayload['packageType'],
+      coverUrl: (pkg.cover_frame_url ?? null) as string | null,
       viewerSettings: (pkg.settings ?? {}) as P360PublicPayload['viewerSettings'],
       lightingConfig: (pkg.lighting_config ?? {}) as P360PublicPayload['lightingConfig'],
-      cameraConfig:   (pkg.camera_config   ?? {}) as P360PublicPayload['cameraConfig'],
-      frames:         (frames ?? []) as P360PublicPayload['frames'],
-      hotspots:       (hotspots ?? []) as P360PublicPayload['hotspots'],
+      cameraConfig: (pkg.camera_config ?? {}) as P360PublicPayload['cameraConfig'],
+      frames: (frames ?? []) as P360PublicPayload['frames'],
+      hotspots: (hotspots ?? []) as P360PublicPayload['hotspots'],
     })
   }
 

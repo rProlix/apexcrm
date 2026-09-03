@@ -17,9 +17,7 @@ export function AiAutofillEmptyState() {
       <div className="h-16 w-16 rounded-2xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center mb-5">
         <Wand2 className="h-8 w-8 text-gold-400/70" strokeWidth={1.5} />
       </div>
-      <h3 className="text-base font-semibold text-white mb-1">
-        Paste the raw details.
-      </h3>
+      <h3 className="text-base font-semibold text-white mb-1">Paste the raw details.</h3>
       <p className="text-sm text-white/40 max-w-xs mb-6">
         AI analysis will organize the content — reviews, services, hours, menus, and more.
       </p>

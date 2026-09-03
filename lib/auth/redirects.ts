@@ -53,17 +53,15 @@ export function sanitizeNextPath(next?: string | null, fallback = '/account'): s
  * Always returns HTTPS in production. Returns HTTP only for localhost in dev.
  */
 export function getRequestOrigin(req: Request): string {
-  const url   = new URL(req.url)
+  const url = new URL(req.url)
   const proto = req.headers.get('x-forwarded-proto') || url.protocol.replace(':', '') || 'https'
 
-  const host =
-    req.headers.get('x-forwarded-host') ||
-    req.headers.get('host')             ||
-    url.host
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || url.host
 
-  const cleanHost  = host.split(':')[0]
-  const isLocalhost = cleanHost === 'localhost' || cleanHost === '127.0.0.1' || cleanHost.endsWith('.localhost')
-  const protocol   = isLocalhost ? 'http' : 'https'
+  const cleanHost = host.split(':')[0]
+  const isLocalhost =
+    cleanHost === 'localhost' || cleanHost === '127.0.0.1' || cleanHost.endsWith('.localhost')
+  const protocol = isLocalhost ? 'http' : 'https'
 
   // Preserve port for local development (e.g. localhost:3000)
   const port = host.includes(':') ? `:${host.split(':')[1]}` : ''
@@ -88,7 +86,7 @@ export function getRequestOrigin(req: Request): string {
  *   // On custombiz.com              → https://custombiz.com/auth/callback?next=%2Faccount
  */
 export function getStorefrontEmailRedirectTo(req: Request, next = '/account'): string {
-  const origin   = getRequestOrigin(req)
+  const origin = getRequestOrigin(req)
   const safeNext = sanitizeNextPath(next, '/account')
   return `${origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
 }
@@ -122,22 +120,22 @@ export function getStorefrontPasswordResetRedirectTo(req: Request): string {
  * @param tenantId  When provided, appended as `tenant_id` query param.
  */
 export function getStorefrontEmailRedirectToFromHeaders(
-  source:   HeaderLike,
-  next:     string = '/account',
-  tenantId?: string,
+  source: HeaderLike,
+  next: string = '/account',
+  tenantId?: string
 ): string {
   const safeNext = sanitizeNextPath(next, '/account')
 
   // x-original-host is set by middleware for every subdomain rewrite — it's the
   // authoritative header for the real public-facing host.
   const originalHost = source.get('x-original-host') ?? ''
-  const rawHost      = source.get('host')             ?? ''
-  const chosen       = (originalHost || rawHost).trim()
+  const rawHost = source.get('host') ?? ''
+  const chosen = (originalHost || rawHost).trim()
 
   if (!chosen) {
     console.error(
       '[redirects] getStorefrontEmailRedirectToFromHeaders: no host header found. ' +
-      'Falling back to APP_URL — confirmation email will link to the main CRM domain.',
+        'Falling back to APP_URL — confirmation email will link to the main CRM domain.'
     )
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://nexoranow.com').replace(/\/$/, '')
     let url = `${appUrl}/auth/callback?next=${encodeURIComponent(safeNext)}`
@@ -145,9 +143,9 @@ export function getStorefrontEmailRedirectToFromHeaders(
     return url
   }
 
-  const cleanHost  = chosen.split(':')[0]
+  const cleanHost = chosen.split(':')[0]
   const isLocalhost = cleanHost === 'localhost' || cleanHost.endsWith('.localhost')
-  const isProd     = process.env.NODE_ENV === 'production'
+  const isProd = process.env.NODE_ENV === 'production'
 
   if (isProd && isLocalhost) {
     console.error('[redirects] Localhost host in production — falling back to APP_URL.')
@@ -158,8 +156,8 @@ export function getStorefrontEmailRedirectToFromHeaders(
   }
 
   const protocol = isLocalhost ? 'http' : 'https'
-  const port     = chosen.includes(':') ? `:${chosen.split(':')[1]}` : ''
-  const origin   = `${protocol}://${cleanHost}${port}`
+  const port = chosen.includes(':') ? `:${chosen.split(':')[1]}` : ''
+  const origin = `${protocol}://${cleanHost}${port}`
 
   let url = `${origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
   if (tenantId) url += `&tenant_id=${encodeURIComponent(tenantId)}`
@@ -172,17 +170,17 @@ export function getStorefrontEmailRedirectToFromHeaders(
  */
 export function getStorefrontPasswordResetRedirectToFromHeaders(source: HeaderLike): string {
   const originalHost = source.get('x-original-host') ?? ''
-  const rawHost      = source.get('host')             ?? ''
-  const chosen       = (originalHost || rawHost).trim()
+  const rawHost = source.get('host') ?? ''
+  const chosen = (originalHost || rawHost).trim()
 
   if (!chosen) {
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://nexoranow.com').replace(/\/$/, '')
     return `${appUrl}/auth/callback?type=recovery&next=${encodeURIComponent('/reset-password')}`
   }
 
-  const cleanHost  = chosen.split(':')[0]
+  const cleanHost = chosen.split(':')[0]
   const isLocalhost = cleanHost === 'localhost' || cleanHost.endsWith('.localhost')
-  const isProd     = process.env.NODE_ENV === 'production'
+  const isProd = process.env.NODE_ENV === 'production'
 
   if (isProd && isLocalhost) {
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://nexoranow.com').replace(/\/$/, '')
@@ -190,8 +188,8 @@ export function getStorefrontPasswordResetRedirectToFromHeaders(source: HeaderLi
   }
 
   const protocol = isLocalhost ? 'http' : 'https'
-  const port     = chosen.includes(':') ? `:${chosen.split(':')[1]}` : ''
-  const origin   = `${protocol}://${cleanHost}${port}`
+  const port = chosen.includes(':') ? `:${chosen.split(':')[1]}` : ''
+  const origin = `${protocol}://${cleanHost}${port}`
   return `${origin}/auth/callback?type=recovery&next=${encodeURIComponent('/reset-password')}`
 }
 
@@ -210,13 +208,10 @@ export function getStorefrontPasswordResetRedirectToFromHeaders(source: HeaderLi
  *   getCrmEmailRedirectTo('/onboarding') // https://nexoranow.com/auth/callback?next=%2Fonboarding
  */
 export function getCrmEmailRedirectTo(next = '/dashboard'): string {
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.APP_URL             ||
-    'https://nexoranow.com'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://nexoranow.com'
 
   const cleanAppUrl = appUrl.replace(/\/$/, '')
-  const safeNext    = sanitizeNextPath(next, '/dashboard')
+  const safeNext = sanitizeNextPath(next, '/dashboard')
   return `${cleanAppUrl}/auth/callback?next=${encodeURIComponent(safeNext)}`
 }
 
@@ -227,7 +222,7 @@ export function getCrmEmailRedirectTo(next = '/dashboard'): string {
 export function getCrmPasswordResetRedirectTo(): string {
   const appUrl = (
     process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.APP_URL             ||
+    process.env.APP_URL ||
     'https://nexoranow.com'
   ).replace(/\/$/, '')
   return `${appUrl}/auth/callback?type=recovery&next=${encodeURIComponent('/reset-password')}`
@@ -247,11 +242,11 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 export function isMainCrmHost(host: string): boolean {
   const h = host.split(':')[0]
   return (
-    h === ROOT_DOMAIN          ||
+    h === ROOT_DOMAIN ||
     h === `www.${ROOT_DOMAIN}` ||
     h === `app.${ROOT_DOMAIN}` ||
-    h === 'localhost'          ||
-    h === '127.0.0.1'         ||
+    h === 'localhost' ||
+    h === '127.0.0.1' ||
     h.endsWith('.vercel.app')
   )
 }

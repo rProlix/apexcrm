@@ -11,8 +11,9 @@ import { getProviderStatus } from '@/lib/email/config'
 
 export async function GET() {
   const ctx = await getUserContext()
-  if (!ctx)                                   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!['owner', 'admin'].includes(ctx.role)) return NextResponse.json({ error: 'Forbidden' },    { status: 403 })
+  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!['owner', 'admin'].includes(ctx.role))
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const status = getProviderStatus()
   return NextResponse.json(status)

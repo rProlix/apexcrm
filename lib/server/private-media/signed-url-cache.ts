@@ -21,18 +21,20 @@ export async function getCachedPrivateMediaSignedUrl({
   const pending = pendingUrls.get(cacheKey)
   if (pending) return pending
 
-  const request = create().then((url) => {
-    const value = { url, expiresAt: now + ttlSeconds * 1_000 }
-    signedUrlCache.set(cacheKey, value)
-    while (signedUrlCache.size > MAX_ENTRIES) {
-      const oldestKey = signedUrlCache.keys().next().value
-      if (!oldestKey) break
-      signedUrlCache.delete(oldestKey)
-    }
-    return value
-  }).finally(() => {
-    if (pendingUrls.get(cacheKey) === request) pendingUrls.delete(cacheKey)
-  })
+  const request = create()
+    .then((url) => {
+      const value = { url, expiresAt: now + ttlSeconds * 1_000 }
+      signedUrlCache.set(cacheKey, value)
+      while (signedUrlCache.size > MAX_ENTRIES) {
+        const oldestKey = signedUrlCache.keys().next().value
+        if (!oldestKey) break
+        signedUrlCache.delete(oldestKey)
+      }
+      return value
+    })
+    .finally(() => {
+      if (pendingUrls.get(cacheKey) === request) pendingUrls.delete(cacheKey)
+    })
   pendingUrls.set(cacheKey, request)
   return request
 }

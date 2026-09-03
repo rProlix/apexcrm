@@ -4,21 +4,22 @@ import type { ModuleDefinition } from '@/modules/shared/moduleTypes'
 import { getInventoryClient as getSupabaseServerClient } from '@/lib/inventory/supabaseInventory'
 
 export const inventoryModule: ModuleDefinition = {
-  key:         'inventory',
-  label:       'Inventory',
-  description: 'Track stock, supplies, barcode scans, sales trends, low-stock alerts, and predictive restocking.',
-  icon:        Package,
-  href:        '/inventory',
-  color:       'text-teal-400',
-  bgColor:     'bg-teal-400/10',
-  order:       13,
+  key: 'inventory',
+  label: 'Inventory',
+  description:
+    'Track stock, supplies, barcode scans, sales trends, low-stock alerts, and predictive restocking.',
+  icon: Package,
+  href: '/inventory',
+  color: 'text-teal-400',
+  bgColor: 'bg-teal-400/10',
+  order: 13,
 
   stats: [
     {
-      key:          'inventory_items',
-      label:        'Items',
-      category:     'usage',
-      color:        'text-teal-400',
+      key: 'inventory_items',
+      label: 'Items',
+      category: 'usage',
+      color: 'text-teal-400',
       emptyMessage: 'No items tracked yet',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -31,10 +32,10 @@ export const inventoryModule: ModuleDefinition = {
       },
     },
     {
-      key:          'inventory_low_stock',
-      label:        'Low Stock',
-      category:     'operations',
-      color:        'text-orange-400',
+      key: 'inventory_low_stock',
+      label: 'Low Stock',
+      category: 'operations',
+      color: 'text-orange-400',
       emptyMessage: 'All stock levels OK',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -51,10 +52,10 @@ export const inventoryModule: ModuleDefinition = {
       },
     },
     {
-      key:          'inventory_alerts',
-      label:        'Open Alerts',
-      category:     'operations',
-      color:        'text-red-400',
+      key: 'inventory_alerts',
+      label: 'Open Alerts',
+      category: 'operations',
+      color: 'text-red-400',
       emptyMessage: 'No open alerts',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -95,8 +96,8 @@ export const inventoryModule: ModuleDefinition = {
     ).length
 
     return [
-      { label: 'Items',       value: items ?? 0 },
-      { label: 'Low Stock',   value: lowStock },
+      { label: 'Items', value: items ?? 0 },
+      { label: 'Low Stock', value: lowStock },
       { label: 'Open Alerts', value: alerts ?? 0 },
     ]
   },

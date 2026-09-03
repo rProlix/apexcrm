@@ -22,9 +22,9 @@
 /** Minimal interface covering ReadonlyHeaders (next/headers) and Headers (fetch API). */
 type HeaderLike = { get(name: string): string | null }
 
-const APP_URL     = (process.env.NEXT_PUBLIC_APP_URL  ?? 'https://nexoranow.com').replace(/\/$/, '')
-const ROOT_DOMAIN =  process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
-const IS_PROD     =  process.env.NODE_ENV === 'production'
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://nexoranow.com').replace(/\/$/, '')
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
+const IS_PROD = process.env.NODE_ENV === 'production'
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -63,13 +63,13 @@ function resolveProtocol(cleanHost: string): string {
  */
 export function resolveOriginFromHeaders(source: HeaderLike): string {
   const originalHost = source.get('x-original-host') ?? ''
-  const rawHost      = source.get('host')             ?? ''
-  const chosen       = (originalHost || rawHost).trim()
+  const rawHost = source.get('host') ?? ''
+  const chosen = (originalHost || rawHost).trim()
 
   if (!chosen) {
     console.warn(
       '[getAuthRedirectUrl] No host header found. Falling back to APP_URL. ' +
-      'This usually means a server action was called outside of an HTTP request context.',
+        'This usually means a server action was called outside of an HTTP request context.'
     )
     return APP_URL
   }
@@ -80,7 +80,7 @@ export function resolveOriginFromHeaders(source: HeaderLike): string {
   if (IS_PROD && (cleanHost === 'localhost' || cleanHost.endsWith('.localhost'))) {
     console.error(
       '[getAuthRedirectUrl] Localhost host detected in production environment. ' +
-      'Falling back to APP_URL to prevent invalid Supabase redirect URLs.',
+        'Falling back to APP_URL to prevent invalid Supabase redirect URLs.'
     )
     return APP_URL
   }
@@ -104,10 +104,10 @@ export function resolveOriginFromHeaders(source: HeaderLike): string {
 export function isMainCrmHost(host: string): boolean {
   const h = host.split(':')[0]
   return (
-    h === ROOT_DOMAIN          ||
+    h === ROOT_DOMAIN ||
     h === `www.${ROOT_DOMAIN}` ||
     h === `app.${ROOT_DOMAIN}` ||
-    h === 'localhost'          ||
+    h === 'localhost' ||
     h.endsWith('.vercel.app')
   )
 }
@@ -153,18 +153,18 @@ export function getCrmAuthRedirectUrl(next: string = '/dashboard'): string {
  *   getStorefrontAuthRedirectUrl(request.headers, '/account', tenantId)
  */
 export function getStorefrontAuthRedirectUrl(
-  source:   HeaderLike,
-  next:     string = '/account',
-  tenantId?: string,
+  source: HeaderLike,
+  next: string = '/account',
+  tenantId?: string
 ): string {
   const nextPath = safeNextPath(next, '/account')
-  const origin   = resolveOriginFromHeaders(source)
+  const origin = resolveOriginFromHeaders(source)
 
   if (origin === APP_URL) {
     console.error(
       '[getStorefrontAuthRedirectUrl] Could not resolve storefront host — ' +
-      'confirmation email will redirect to the main CRM domain instead of the ' +
-      'business storefront. Check that middleware sets x-original-host correctly.',
+        'confirmation email will redirect to the main CRM domain instead of the ' +
+        'business storefront. Check that middleware sets x-original-host correctly.'
     )
   }
 

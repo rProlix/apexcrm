@@ -6,59 +6,62 @@ import { RotateCcw, Search } from 'lucide-react'
 import { formatCurrency } from '@/lib/payments/formatCurrency'
 
 interface Transaction {
-  id:                      string
+  id: string
   provider_transaction_id: string | null
-  amount:                  number
-  currency:                string
-  status:                  string
-  created_at:              string
+  amount: number
+  currency: string
+  status: string
+  created_at: string
 }
 
 interface Refund {
-  id:                     string
+  id: string
   payment_transaction_id: string
-  provider_refund_id:     string | null
-  amount:                 number
-  status:                 string
-  created_at:             string
+  provider_refund_id: string | null
+  amount: number
+  status: string
+  created_at: string
   payment_transactions?: {
     provider_transaction_id: string | null
-    amount:                  number
-    currency:                string
-    status:                  string
+    amount: number
+    currency: string
+    status: string
   }
 }
 
 interface Props {
-  initialRefunds:        Refund[]
+  initialRefunds: Refund[]
   availableTransactions: Transaction[]
-  tenantId:              string
+  tenantId: string
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  pending:  'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
+  pending: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
   succeeded: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
-  failed:   'text-red-400 bg-red-400/10 border-red-400/20',
+  failed: 'text-red-400 bg-red-400/10 border-red-400/20',
 }
 
 export function RefundForm({ initialRefunds, availableTransactions, tenantId: _tenantId }: Props) {
   const [refunds, setRefunds] = useState<Refund[]>(initialRefunds)
-  const [search,  setSearch]  = useState('')
+  const [search, setSearch] = useState('')
 
   const [form, setForm] = useState({
     transaction_id: '',
-    amount:         '',
-    reason:         '',
+    amount: '',
+    reason: '',
   })
   const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
   const selectedTx = availableTransactions.find((tx) => tx.id === form.transaction_id)
 
   async function handleRefund(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.transaction_id) { setError('Select a transaction to refund'); return }
+    if (!form.transaction_id) {
+      setError('Select a transaction to refund')
+      return
+    }
 
     setLoading(true)
     setError(null)
@@ -70,15 +73,17 @@ export function RefundForm({ initialRefunds, availableTransactions, tenantId: _t
       if (form.reason.trim()) body.reason = form.reason.trim()
 
       const res = await fetch('/api/payments/refunds', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
+        body: JSON.stringify(body),
       })
 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
 
-      setSuccess(`Refund of ${formatCurrency(Number(data.refund.amount), selectedTx?.currency ?? 'USD')} issued successfully`)
+      setSuccess(
+        `Refund of ${formatCurrency(Number(data.refund.amount), selectedTx?.currency ?? 'USD')} issued successfully`
+      )
       setForm({ transaction_id: '', amount: '', reason: '' })
 
       // Reload refunds
@@ -115,8 +120,16 @@ export function RefundForm({ initialRefunds, availableTransactions, tenantId: _t
           Issue New Refund
         </h2>
 
-        {error   && <div className="mb-4 p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">{error}</div>}
-        {success && <div className="mb-4 p-3 rounded-xl bg-emerald-400/8 border border-emerald-400/20 text-sm text-emerald-400">{success}</div>}
+        {error && (
+          <div className="mb-4 p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-4 p-3 rounded-xl bg-emerald-400/8 border border-emerald-400/20 text-sm text-emerald-400">
+            {success}
+          </div>
+        )}
 
         <form onSubmit={handleRefund} className="space-y-4">
           {/* Transaction select */}
@@ -125,7 +138,9 @@ export function RefundForm({ initialRefunds, availableTransactions, tenantId: _t
               Transaction <span className="text-red-400">*</span>
             </label>
             {availableTransactions.length === 0 ? (
-              <p className="text-sm text-white/30 italic">No succeeded transactions available for refund</p>
+              <p className="text-sm text-white/30 italic">
+                No succeeded transactions available for refund
+              </p>
             ) : (
               <select
                 value={form.transaction_id}
@@ -177,7 +192,9 @@ export function RefundForm({ initialRefunds, availableTransactions, tenantId: _t
 
           {/* Reason */}
           <div>
-            <label className="block text-xs font-medium text-white/50 mb-2">Reason (optional)</label>
+            <label className="block text-xs font-medium text-white/50 mb-2">
+              Reason (optional)
+            </label>
             <input
               type="text"
               value={form.reason}
@@ -238,14 +255,13 @@ export function RefundForm({ initialRefunds, availableTransactions, tenantId: _t
                   </p>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <span className={`text-xs px-2 py-0.5 rounded-md border ${STATUS_STYLES[r.status] ?? STATUS_STYLES.pending}`}>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-md border ${STATUS_STYLES[r.status] ?? STATUS_STYLES.pending}`}
+                  >
                     {r.status}
                   </span>
                   <span className="text-sm font-semibold text-orange-400">
-                    {formatCurrency(
-                      Number(r.amount),
-                      r.payment_transactions?.currency ?? 'USD'
-                    )}
+                    {formatCurrency(Number(r.amount), r.payment_transactions?.currency ?? 'USD')}
                   </span>
                 </div>
               </motion.div>

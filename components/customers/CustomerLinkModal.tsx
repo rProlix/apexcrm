@@ -5,23 +5,29 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Link2, Unlink, Loader2, CheckCircle2 } from 'lucide-react'
 
 interface Props {
-  customerId:    string
-  customerName:  string
-  hasAccount:    boolean
-  accountId?:    string
-  tenantId:      string
-  onClose:       () => void
-  onSuccess?:    () => void
+  customerId: string
+  customerName: string
+  hasAccount: boolean
+  accountId?: string
+  tenantId: string
+  onClose: () => void
+  onSuccess?: () => void
 }
 
 export function CustomerLinkModal({
-  customerId, customerName, hasAccount, accountId, tenantId, onClose, onSuccess
+  customerId,
+  customerName,
+  hasAccount,
+  accountId,
+  tenantId,
+  onClose,
+  onSuccess,
 }: Props) {
-  const [email, setEmail]          = useState('')
-  const [name, setName]            = useState(customerName)
+  const [email, setEmail] = useState('')
+  const [name, setName] = useState(customerName)
   const [isPending, startTransition] = useTransition()
-  const [success, setSuccess]      = useState(false)
-  const [error, setError]          = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleUnlink = () => {
     if (!accountId) return
@@ -29,13 +35,16 @@ export function CustomerLinkModal({
       setError(null)
       try {
         const res = await fetch('/api/customers/link', {
-          method:  'DELETE',
+          method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ account_id: accountId, tenant_id: tenantId }),
+          body: JSON.stringify({ account_id: accountId, tenant_id: tenantId }),
         })
         if (!res.ok) throw new Error((await res.json()).error ?? 'Unlink failed')
         setSuccess(true)
-        setTimeout(() => { onSuccess?.(); onClose() }, 1200)
+        setTimeout(() => {
+          onSuccess?.()
+          onClose()
+        }, 1200)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Unknown error')
       }
@@ -48,13 +57,21 @@ export function CustomerLinkModal({
       setError(null)
       try {
         const res = await fetch('/api/customers/link', {
-          method:  'POST',
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ customer_id: customerId, email: email.trim(), name, tenant_id: tenantId }),
+          body: JSON.stringify({
+            customer_id: customerId,
+            email: email.trim(),
+            name,
+            tenant_id: tenantId,
+          }),
         })
         if (!res.ok) throw new Error((await res.json()).error ?? 'Link failed')
         setSuccess(true)
-        setTimeout(() => { onSuccess?.(); onClose() }, 1200)
+        setTimeout(() => {
+          onSuccess?.()
+          onClose()
+        }, 1200)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Unknown error')
       }
@@ -117,7 +134,11 @@ export function CustomerLinkModal({
                 disabled={isPending}
                 className="w-full inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/8 disabled:opacity-50 transition-all"
               >
-                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlink className="w-4 h-4" />}
+                {isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Unlink className="w-4 h-4" />
+                )}
                 Remove portal access
               </button>
             </div>
@@ -129,14 +150,14 @@ export function CustomerLinkModal({
               <input
                 type="email"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="customer@example.com"
                 className="w-full h-10 px-4 rounded-xl bg-graphite-900 border border-white/8 text-white placeholder:text-white/25 text-sm focus:outline-none focus:border-gold-500/40 transition-colors"
               />
               <input
                 type="text"
                 value={name}
-                onChange={e => setName(e.target.value)}
+                onChange={(e) => setName(e.target.value)}
                 placeholder="Full name (optional)"
                 className="w-full h-10 px-4 rounded-xl bg-graphite-900 border border-white/8 text-white placeholder:text-white/25 text-sm focus:outline-none focus:border-gold-500/40 transition-colors"
               />
@@ -147,7 +168,11 @@ export function CustomerLinkModal({
                 disabled={isPending || !email.trim()}
                 className="w-full inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold bg-gold-gradient text-graphite-900 hover:shadow-glow-gold disabled:opacity-50 transition-all"
               >
-                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+                {isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Link2 className="w-4 h-4" />
+                )}
                 Link account
               </button>
             </div>

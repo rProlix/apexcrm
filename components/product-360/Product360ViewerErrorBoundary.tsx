@@ -9,14 +9,14 @@ import { Component, type ReactNode } from 'react'
 import Product360SequencePreview from './Product360SequencePreview'
 
 interface Props {
-  children:     ReactNode
-  frameUrls?:   string[]
+  children: ReactNode
+  frameUrls?: string[]
   productName?: string
-  className?:   string
+  className?: string
 }
 
 interface State {
-  hasError:     boolean
+  hasError: boolean
   errorMessage: string
 }
 
@@ -28,7 +28,7 @@ export class Product360ViewerErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: unknown): State {
     return {
-      hasError:     true,
+      hasError: true,
       errorMessage: error instanceof Error ? error.message : 'Unknown viewer error',
     }
   }
@@ -37,7 +37,7 @@ export class Product360ViewerErrorBoundary extends Component<Props, State> {
     console.warn(
       '[360-viewer] Error boundary caught — falling back to sequence preview.',
       error instanceof Error ? error.message : error,
-      info?.componentStack?.slice(0, 200),
+      info?.componentStack?.slice(0, 200)
     )
   }
 
@@ -52,11 +52,7 @@ export class Product360ViewerErrorBoundary extends Component<Props, State> {
           Interactive preview unavailable on this device — showing safe preview mode.
         </div>
         {frameUrls.length > 0 ? (
-          <Product360SequencePreview
-            frameUrls={frameUrls}
-            productName={productName}
-            autoSpin
-          />
+          <Product360SequencePreview frameUrls={frameUrls} productName={productName} autoSpin />
         ) : (
           <div className="aspect-square rounded-2xl bg-white/4 border border-white/8 flex items-center justify-center">
             <p className="text-xs text-white/30">Preview unavailable</p>

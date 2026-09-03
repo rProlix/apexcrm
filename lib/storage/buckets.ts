@@ -69,41 +69,106 @@ export function isPublicBucket(bucket: string): boolean {
 // ─── Allowed MIME types per bucket ───────────────────────────────────────────
 
 export const ALLOWED_MIME_TYPES: Record<StorageBucket, string[]> = {
-  'website-assets':          ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'],
-  'product-assets':          ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'],
-  'spin-360-assets':         ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
-  'brand-assets':            ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml', 'image/x-icon'],
-  'event-media':             [
-    'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
-    'video/mp4', 'video/quicktime', 'video/webm',
-    'audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/x-m4a', 'audio/m4a', 'audio/aac', 'audio/wav', 'audio/x-wav', 'audio/ogg',
+  'website-assets': [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/svg+xml',
   ],
-  'customer-assets':         ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf', 'text/plain'],
-  'appointment-assets':      ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'],
-  'damage-assessment-assets':['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'],
-  'document-assets':         ['application/pdf', 'text/plain', 'application/json', 'image/jpeg', 'image/png', 'image/webp'],
-  'import-assets':           ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'text/plain', 'application/json'],
-  'temp-assets':             ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'application/pdf', 'text/plain'],
+  'product-assets': ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'],
+  'spin-360-assets': ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
+  'brand-assets': [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/svg+xml',
+    'image/x-icon',
+  ],
+  'event-media': [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+    'video/mp4',
+    'video/quicktime',
+    'video/webm',
+    'audio/webm',
+    'audio/mp4',
+    'audio/mpeg',
+    'audio/x-m4a',
+    'audio/m4a',
+    'audio/aac',
+    'audio/wav',
+    'audio/x-wav',
+    'audio/ogg',
+  ],
+  'customer-assets': [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'application/pdf',
+    'text/plain',
+  ],
+  'appointment-assets': ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'],
+  'damage-assessment-assets': [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'application/pdf',
+  ],
+  'document-assets': [
+    'application/pdf',
+    'text/plain',
+    'application/json',
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+  ],
+  'import-assets': [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'text/plain',
+    'application/json',
+  ],
+  'temp-assets': [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'application/pdf',
+    'text/plain',
+  ],
   'scroll-experience-sources': ['video/mp4', 'application/mp4'],
-  'scroll-experience-media':   ['video/mp4', 'image/webp'],
+  'scroll-experience-media': ['video/mp4', 'image/webp'],
 }
 
 // ─── Max file sizes per bucket (bytes) ───────────────────────────────────────
 
 export const MAX_FILE_SIZE_BYTES: Record<StorageBucket, number> = {
-  'website-assets':           10 * 1024 * 1024,   // 10 MB
-  'product-assets':           15 * 1024 * 1024,   // 15 MB
-  'spin-360-assets':          25 * 1024 * 1024,   // 25 MB
-  'brand-assets':              5 * 1024 * 1024,   //  5 MB
-  'event-media':              70 * 1024 * 1024,   // 70 MB (short video clips)
-  'customer-assets':          20 * 1024 * 1024,   // 20 MB
-  'appointment-assets':       20 * 1024 * 1024,   // 20 MB
-  'damage-assessment-assets': 30 * 1024 * 1024,   // 30 MB
-  'document-assets':          25 * 1024 * 1024,   // 25 MB
-  'import-assets':            30 * 1024 * 1024,   // 30 MB
-  'temp-assets':              20 * 1024 * 1024,   // 20 MB
-  'scroll-experience-sources':10 * 1024 * 1024,   // 10 MB
-  'scroll-experience-media': 100 * 1024 * 1024,   // processed derivatives
+  'website-assets': 10 * 1024 * 1024, // 10 MB
+  'product-assets': 15 * 1024 * 1024, // 15 MB
+  'spin-360-assets': 25 * 1024 * 1024, // 25 MB
+  'brand-assets': 5 * 1024 * 1024, //  5 MB
+  'event-media': 70 * 1024 * 1024, // 70 MB (short video clips)
+  'customer-assets': 20 * 1024 * 1024, // 20 MB
+  'appointment-assets': 20 * 1024 * 1024, // 20 MB
+  'damage-assessment-assets': 30 * 1024 * 1024, // 30 MB
+  'document-assets': 25 * 1024 * 1024, // 25 MB
+  'import-assets': 30 * 1024 * 1024, // 30 MB
+  'temp-assets': 20 * 1024 * 1024, // 20 MB
+  'scroll-experience-sources': 10 * 1024 * 1024, // 10 MB
+  'scroll-experience-media': 100 * 1024 * 1024, // processed derivatives
 }
 
 // ─── Path helpers ─────────────────────────────────────────────────────────────
@@ -127,11 +192,11 @@ export function getTenantPath(tenantId: string, folderParts: string[]): string {
  */
 export function sanitizeFileName(raw: string): string {
   return raw
-    .replace(/[/\\]/g, '')           // no directory separators
-    .replace(/\0/g, '')              // no null bytes
-    .replace(/^\.*/, '')             // no leading dots (hidden file trick)
+    .replace(/[/\\]/g, '') // no directory separators
+    .replace(/\0/g, '') // no null bytes
+    .replace(/^\.*/, '') // no leading dots (hidden file trick)
     .replace(/[^a-zA-Z0-9._\-]/g, '_') // only safe chars
-    .slice(0, 200)                   // cap length
+    .slice(0, 200) // cap length
 }
 
 /**
@@ -154,7 +219,7 @@ export function assertAllowedMimeType(bucket: StorageBucket, mimeType: string): 
   if (!allowed.includes(mimeType)) {
     throw new Error(
       `MIME type "${mimeType}" is not allowed in bucket "${bucket}". ` +
-      `Allowed: ${allowed.join(', ')}`,
+        `Allowed: ${allowed.join(', ')}`
     )
   }
 }
@@ -166,7 +231,7 @@ export function assertFileSizeWithinLimit(bucket: StorageBucket, sizeBytes: numb
   const limit = MAX_FILE_SIZE_BYTES[bucket]
   if (sizeBytes > limit) {
     throw new Error(
-      `File size ${sizeBytes} bytes exceeds the ${limit / 1024 / 1024} MB limit for bucket "${bucket}"`,
+      `File size ${sizeBytes} bytes exceeds the ${limit / 1024 / 1024} MB limit for bucket "${bucket}"`
     )
   }
 }

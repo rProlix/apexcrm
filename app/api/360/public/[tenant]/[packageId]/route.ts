@@ -5,9 +5,9 @@
 // Resolves tenant by slug/subdomain, returns package + frames ONLY if status = 'ready'.
 // Never exposes draft/generating/failed packages to the public.
 
-import { NextRequest, NextResponse }  from 'next/server'
-import { getSupabaseServerClient }    from '@/lib/supabase/server'
-import { getTenantFromHost }          from '@/lib/tenant/getTenantFromHost'
+import { NextRequest, NextResponse } from 'next/server'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getTenantFromHost } from '@/lib/tenant/getTenantFromHost'
 
 type Params = { params: Promise<{ tenant: string; packageId: string }> }
 
@@ -29,8 +29,8 @@ export async function GET(req: NextRequest, { params }: Params) {
     tenantId = tenantRow.id
   } else {
     // Fallback: resolve from request Host header
-    const host       = req.headers.get('host') ?? ''
-    const fromHost   = await getTenantFromHost(host)
+    const host = req.headers.get('host') ?? ''
+    const fromHost = await getTenantFromHost(host)
     if (fromHost) tenantId = fromHost.id
   }
 
@@ -58,10 +58,10 @@ export async function GET(req: NextRequest, { params }: Params) {
     .order('frame_index')
 
   return NextResponse.json({
-    packageId:   pkg.id,
+    packageId: pkg.id,
     packageName: pkg.name,
-    frameCount:  pkg.frame_count,
-    coverImage:  pkg.cover_image_url,
-    frames:      frames ?? [],
+    frameCount: pkg.frame_count,
+    coverImage: pkg.cover_image_url,
+    frames: frames ?? [],
   })
 }

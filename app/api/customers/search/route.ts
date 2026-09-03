@@ -14,12 +14,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const q      = req.nextUrl.searchParams.get('q') ?? ''
-  const limit  = Math.min(Number(req.nextUrl.searchParams.get('limit') ?? 20), 50)
+  const q = req.nextUrl.searchParams.get('q') ?? ''
+  const limit = Math.min(Number(req.nextUrl.searchParams.get('limit') ?? 20), 50)
 
-  const tenantId = ctx.role === 'owner'
-    ? (req.nextUrl.searchParams.get('tenant_id') ?? ctx.tenant_id)
-    : ctx.tenant_id
+  const tenantId =
+    ctx.role === 'owner'
+      ? (req.nextUrl.searchParams.get('tenant_id') ?? ctx.tenant_id)
+      : ctx.tenant_id
 
   if (!tenantId) {
     return NextResponse.json({ error: 'tenant_id required' }, { status: 400 })

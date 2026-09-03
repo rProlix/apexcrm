@@ -10,18 +10,18 @@ import { useEffect, useRef } from 'react'
 import type { ScrollHeroPalette } from '@/lib/website/premium3d/types'
 
 interface Props {
-  palette:        ScrollHeroPalette
+  palette: ScrollHeroPalette
   applyGlobally?: boolean
   /** The section root element to observe */
-  targetRef:      React.RefObject<HTMLElement | null>
+  targetRef: React.RefObject<HTMLElement | null>
 }
 
 // Map from our palette keys to global website CSS variables (best-effort).
 const GLOBAL_VAR_MAP: Array<[keyof ScrollHeroPalette, string]> = [
   ['background', '--color-background'],
   ['foreground', '--color-text'],
-  ['accent',     '--color-primary'],
-  ['muted',      '--color-muted'],
+  ['accent', '--color-primary'],
+  ['muted', '--color-muted'],
 ]
 
 export function SectionPaletteObserver({ palette, applyGlobally, targetRef }: Props) {
@@ -57,7 +57,7 @@ export function SectionPaletteObserver({ palette, applyGlobally, targetRef }: Pr
           else restore()
         }
       },
-      { threshold: [0, 0.4, 0.6, 1] },
+      { threshold: [0, 0.4, 0.6, 1] }
     )
     observer.observe(el)
 

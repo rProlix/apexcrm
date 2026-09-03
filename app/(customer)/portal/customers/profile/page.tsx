@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function CustomerPortalProfilePage() {
   const host = (await headers()).get('host') ?? ''
-  const ctx  = await requireCustomerAuth(host)
+  const ctx = await requireCustomerAuth(host)
 
   const customer = await getTenantCustomerById(ctx.tenant_id, ctx.customer_id)
   if (!customer) redirect('/login')
@@ -36,7 +36,9 @@ export default async function CustomerPortalProfilePage() {
 
       {/* Read-only info */}
       <div className="premium-panel premium-border rounded-2xl p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider">Account Info</h2>
+        <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider">
+          Account Info
+        </h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-xs text-white/30">Name</p>

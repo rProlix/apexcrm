@@ -2,10 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
-import {
-  createSessionServerClient,
-  getSupabaseServerClient,
-} from '@/lib/supabase/server'
+import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   getStorefrontEmailRedirectToFromHeaders,
   getStorefrontPasswordResetRedirectToFromHeaders,
@@ -41,13 +38,13 @@ function sanitizeRedirect(next: unknown): string {
 
 export async function customerSignup(
   _prev: unknown,
-  formData: FormData,
+  formData: FormData
 ): Promise<{ error?: string; message?: string }> {
-  const email     = (formData.get('email')     as string | null)?.trim() ?? ''
-  const password  =  formData.get('password')  as string | null  ?? ''
-  const fullName  = (formData.get('full_name') as string | null)?.trim() ?? ''
-  const tenantId  =  formData.get('tenant_id') as string | null  ?? ''
-  const next      = sanitizeRedirect(formData.get('next'))
+  const email = (formData.get('email') as string | null)?.trim() ?? ''
+  const password = (formData.get('password') as string | null) ?? ''
+  const fullName = (formData.get('full_name') as string | null)?.trim() ?? ''
+  const tenantId = (formData.get('tenant_id') as string | null) ?? ''
+  const next = sanitizeRedirect(formData.get('next'))
 
   if (!email || !password || !fullName || !tenantId) {
     return { error: 'All fields are required.' }
@@ -66,12 +63,14 @@ export async function customerSignup(
 
   // ── Diagnostics — never log passwords or tokens ────────────────────────
   console.info('[auth:storefront_customer_signup]', {
-    flow:              'storefront_customer_signup',
+    flow: 'storefront_customer_signup',
     email,
-    tenant_id:         tenantId,
-    request_host:      headersList.get('x-original-host') ?? headersList.get('host') ?? 'unknown',
+    tenant_id: tenantId,
+    request_host: headersList.get('x-original-host') ?? headersList.get('host') ?? 'unknown',
     email_redirect_to: emailRedirectTo,
-    uses_main_domain:  emailRedirectTo.startsWith(process.env.NEXT_PUBLIC_APP_URL ?? 'https://nexoranow.com'),
+    uses_main_domain: emailRedirectTo.startsWith(
+      process.env.NEXT_PUBLIC_APP_URL ?? 'https://nexoranow.com'
+    ),
   })
 
   const sessionClient = await createSessionServerClient()
@@ -122,7 +121,11 @@ export async function customerSignup(
 
     if (customerError || !newCustomer) {
       // Clean up the auth user we just created to avoid orphaned accounts
-      try { await serviceClient.auth.admin.deleteUser(signupData.user.id) } catch { /* no-op */ }
+      try {
+        await serviceClient.auth.admin.deleteUser(signupData.user.id)
+      } catch {
+        /* no-op */
+      }
       return { error: 'Profile setup failed. Please try again.' }
     }
 
@@ -137,23 +140,25 @@ export async function customerSignup(
   // Link the auth user to the customer record.
   // Conflict target is (auth_user_id, tenant_id) — see migration 066.
   // This allows one auth user to be a customer at multiple businesses.
-  const { error: linkError } = await serviceClient
-    .from('customer_accounts')
-    .upsert(
-      {
-        tenant_id:    tenantId,
-        customer_id:  customerId,
-        auth_user_id: signupData.user.id,
-        email,
-        status:       accountStatus,
-      },
-      { onConflict: 'auth_user_id,tenant_id' },
-    )
+  const { error: linkError } = await serviceClient.from('customer_accounts').upsert(
+    {
+      tenant_id: tenantId,
+      customer_id: customerId,
+      auth_user_id: signupData.user.id,
+      email,
+      status: accountStatus,
+    },
+    { onConflict: 'auth_user_id,tenant_id' }
+  )
 
   if (linkError) {
     // Log but do NOT delete the customer row — partial state is recoverable.
     // The user can re-attempt login, which will try to link again.
-    console.error('[customerSignup] customer_accounts upsert error:', linkError.message, linkError.code)
+    console.error(
+      '[customerSignup] customer_accounts upsert error:',
+      linkError.message,
+      linkError.code
+    )
     return {
       error: 'Account link failed. Please try again, or contact the business for an invite.',
     }
@@ -177,25 +182,29 @@ export async function customerSignup(
 
 export async function customerLogin(
   _prev: unknown,
-  formData: FormData,
+  formData: FormData
 ): Promise<{ error?: string }> {
-  const email    = (formData.get('email')    as string | null)?.trim() ?? ''
-  const password =  formData.get('password') as string | null  ?? ''
-  const tenantId =  formData.get('tenant_id') as string | null ?? ''
-  const next     = sanitizeRedirect(formData.get('next'))
+  const email = (formData.get('email') as string | null)?.trim() ?? ''
+  const password = (formData.get('password') as string | null) ?? ''
+  const tenantId = (formData.get('tenant_id') as string | null) ?? ''
+  const next = sanitizeRedirect(formData.get('next'))
 
   if (!email || !password) {
     return { error: 'Email and password are required.' }
   }
 
   const sessionClient = await createSessionServerClient()
-  const { data: signInData, error } = await sessionClient.auth.signInWithPassword({ email, password })
+  const { data: signInData, error } = await sessionClient.auth.signInWithPassword({
+    email,
+    password,
+  })
 
   if (error || !signInData.user) {
     // Supabase returns "Email not confirmed" as a specific error — surface it clearly.
     if (error?.message?.toLowerCase().includes('email not confirmed')) {
       return {
-        error: 'Please confirm your email address before signing in. Check your inbox for the confirmation link.',
+        error:
+          'Please confirm your email address before signing in. Check your inbox for the confirmation link.',
       }
     }
     return { error: 'Invalid email or password.' }
@@ -265,7 +274,9 @@ export async function customerLogin(
       // Try to auto-activate: if Supabase says email is confirmed, activate now.
       // (This handles the edge case where the callback activation failed.)
       try {
-        const { data: authUserData } = await serviceClient.auth.admin.getUserById(signInData.user.id)
+        const { data: authUserData } = await serviceClient.auth.admin.getUserById(
+          signInData.user.id
+        )
         if (authUserData?.user?.email_confirmed_at) {
           await serviceClient
             .from('customer_accounts')
@@ -316,9 +327,9 @@ export async function customerLogout(formData: FormData): Promise<void> {
 
 export async function customerForgotPassword(
   _prev: unknown,
-  formData: FormData,
+  formData: FormData
 ): Promise<{ error?: string; message?: string }> {
-  const email    = (formData.get('email') as string | null)?.trim() ?? ''
+  const email = (formData.get('email') as string | null)?.trim() ?? ''
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { error: 'Please enter a valid email address.' }
@@ -328,14 +339,16 @@ export async function customerForgotPassword(
   const emailRedirectTo = getStorefrontPasswordResetRedirectToFromHeaders(headersList)
 
   console.info('[auth:storefront_password_reset]', {
-    flow:              'storefront_password_reset',
+    flow: 'storefront_password_reset',
     email,
-    request_host:      headersList.get('x-original-host') ?? headersList.get('host') ?? 'unknown',
+    request_host: headersList.get('x-original-host') ?? headersList.get('host') ?? 'unknown',
     email_redirect_to: emailRedirectTo,
   })
 
   const sessionClient = await createSessionServerClient()
-  const { error } = await sessionClient.auth.resetPasswordForEmail(email, { redirectTo: emailRedirectTo })
+  const { error } = await sessionClient.auth.resetPasswordForEmail(email, {
+    redirectTo: emailRedirectTo,
+  })
 
   if (error) {
     console.error('[customerForgotPassword] resetPasswordForEmail:', error.message)
@@ -359,10 +372,10 @@ export async function customerForgotPassword(
 
 export async function customerResetPassword(
   _prev: unknown,
-  formData: FormData,
+  formData: FormData
 ): Promise<{ error?: string; message?: string }> {
-  const password        = formData.get('password')         as string | null ?? ''
-  const confirmPassword = formData.get('confirm_password') as string | null ?? ''
+  const password = (formData.get('password') as string | null) ?? ''
+  const confirmPassword = (formData.get('confirm_password') as string | null) ?? ''
 
   if (!password || password.length < 6) {
     return { error: 'Password must be at least 6 characters.' }
@@ -372,7 +385,10 @@ export async function customerResetPassword(
   }
 
   const sessionClient = await createSessionServerClient()
-  const { data: { user }, error: userError } = await sessionClient.auth.getUser()
+  const {
+    data: { user },
+    error: userError,
+  } = await sessionClient.auth.getUser()
 
   if (userError || !user) {
     return {

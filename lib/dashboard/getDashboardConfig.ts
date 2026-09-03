@@ -9,8 +9,8 @@ import type {
 
 const SECTION_LABELS: Record<StatCategory, string> = {
   operations: 'Operations',
-  financial:  'Financial',
-  usage:      'Usage',
+  financial: 'Financial',
+  usage: 'Usage',
 }
 
 // Section display order
@@ -45,7 +45,7 @@ export async function getDashboardConfig(
       let isEmpty = true
 
       try {
-        value   = await stat.getValue(tenantId)
+        value = await stat.getValue(tenantId)
         isEmpty = isEmptyValue(value)
       } catch {
         isEmpty = true
@@ -54,14 +54,14 @@ export async function getDashboardConfig(
       const formatted = stat.format ? stat.format(value) : String(value)
 
       return {
-        key:          stat.key,
-        label:        stat.label,
-        category:     stat.category,
+        key: stat.key,
+        label: stat.label,
+        category: stat.category,
         value,
         formatted,
         isEmpty,
         emptyMessage: stat.emptyMessage ?? 'No data yet',
-        color:        stat.color,
+        color: stat.color,
       }
     })
   )

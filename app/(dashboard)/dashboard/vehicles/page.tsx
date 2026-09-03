@@ -16,7 +16,10 @@ import {
   type FleetAnalysisInput,
   type FleetDamageCaseInput,
 } from '@/lib/van-damage/fleet-damage'
-import { selectVehicleProfileImage, type VehicleImageCandidate } from '@/lib/van-damage/inspection-vehicle'
+import {
+  selectVehicleProfileImage,
+  type VehicleImageCandidate,
+} from '@/lib/van-damage/inspection-vehicle'
 import { PageHeader } from '@/components/ui/PageHeader'
 
 export const metadata = { title: 'Fleet — NexoraNow' }
@@ -96,67 +99,65 @@ export default async function VehiclesPage({
     imageResult,
     uploadSessionsResult,
   ] = await Promise.all([
-      db
-        .from('vehicles')
-        .select(
-          'id, name, van_number, make, model, year, plate_number, status, metadata, updated_at'
-        )
-        .eq('tenant_id', tenantId)
-        .order('updated_at', { ascending: false })
-        .limit(250),
-      db.rpc('get_fleet_needs_attention', { p_tenant_id: tenantId, p_business_id: tenantId }),
-      db.from('tenants').select('branding').eq('id', tenantId).maybeSingle(),
-      db
-        .from('fleet_maintenance_items')
-        .select(
-          'id,van_id,title,status,effective_priority,severity,operational_impact,resolution_effort,due_at,latest_activity_at'
-        )
-        .eq('tenant_id', tenantId)
-        .eq('business_id', tenantId)
-        .not('status', 'in', '("completed","cancelled")')
-        .order('latest_activity_at', { ascending: false })
-        .limit(750),
-      looseDb
-        .from('van_damage_cases')
-        .select(
-          'id,tenant_id,business_id,van_id,lifecycle_status,current_severity,max_observed_severity,effective_severity,needs_review,latest_observed_inspection_id,latest_evidence_image_id,first_detected_inspection_id,first_upload_session_id,first_evidence_image_id,first_reporter_snapshot,first_source_timestamp,first_source_timestamp_kind,latest_uploader_snapshot,last_observed_at'
-        )
-        .eq('tenant_id', tenantId)
-        .eq('business_id', tenantId)
-        .order('last_observed_at', { ascending: false })
-        .limit(750),
-      db
-        .from('van_damage_inspections')
-        .select('id,tenant_id,business_id,van_id,status,created_at,completed_at')
-        .eq('tenant_id', tenantId)
-        .eq('business_id', tenantId)
-        .order('created_at', { ascending: false })
-        .limit(1000),
-      db
-        .from('van_damage_ai_runs')
-        .select('inspection_id,tenant_id,status,completed_at')
-        .eq('tenant_id', tenantId)
-        .eq('business_id', tenantId)
-        .order('created_at', { ascending: false })
-        .limit(1000),
-      looseDb
-        .from('van_damage_images')
-        .select(
-          'id,upload_session_id,image_role,created_at,upload_order,original_file_index,van_damage_inspections(van_id)'
-        )
-        .eq('tenant_id', tenantId)
-        .eq('business_id', tenantId)
-        .in('status', ['uploaded', 'processing', 'analyzed', 'needs_review', 'failed'])
-        .order('created_at', { ascending: false })
-        .limit(1500),
-      looseDb
-        .from('van_damage_upload_sessions')
-        .select('id,inspection_id,van_id')
-        .eq('tenant_id', tenantId)
-        .eq('business_id', tenantId)
-        .order('upload_started_at', { ascending: false })
-        .limit(1500),
-    ])
+    db
+      .from('vehicles')
+      .select('id, name, van_number, make, model, year, plate_number, status, metadata, updated_at')
+      .eq('tenant_id', tenantId)
+      .order('updated_at', { ascending: false })
+      .limit(250),
+    db.rpc('get_fleet_needs_attention', { p_tenant_id: tenantId, p_business_id: tenantId }),
+    db.from('tenants').select('branding').eq('id', tenantId).maybeSingle(),
+    db
+      .from('fleet_maintenance_items')
+      .select(
+        'id,van_id,title,status,effective_priority,severity,operational_impact,resolution_effort,due_at,latest_activity_at'
+      )
+      .eq('tenant_id', tenantId)
+      .eq('business_id', tenantId)
+      .not('status', 'in', '("completed","cancelled")')
+      .order('latest_activity_at', { ascending: false })
+      .limit(750),
+    looseDb
+      .from('van_damage_cases')
+      .select(
+        'id,tenant_id,business_id,van_id,lifecycle_status,current_severity,max_observed_severity,effective_severity,needs_review,latest_observed_inspection_id,latest_evidence_image_id,first_detected_inspection_id,first_upload_session_id,first_evidence_image_id,first_reporter_snapshot,first_source_timestamp,first_source_timestamp_kind,latest_uploader_snapshot,last_observed_at'
+      )
+      .eq('tenant_id', tenantId)
+      .eq('business_id', tenantId)
+      .order('last_observed_at', { ascending: false })
+      .limit(750),
+    db
+      .from('van_damage_inspections')
+      .select('id,tenant_id,business_id,van_id,status,created_at,completed_at')
+      .eq('tenant_id', tenantId)
+      .eq('business_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(1000),
+    db
+      .from('van_damage_ai_runs')
+      .select('inspection_id,tenant_id,status,completed_at')
+      .eq('tenant_id', tenantId)
+      .eq('business_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(1000),
+    looseDb
+      .from('van_damage_images')
+      .select(
+        'id,upload_session_id,image_role,created_at,upload_order,original_file_index,van_damage_inspections(van_id)'
+      )
+      .eq('tenant_id', tenantId)
+      .eq('business_id', tenantId)
+      .in('status', ['uploaded', 'processing', 'analyzed', 'needs_review', 'failed'])
+      .order('created_at', { ascending: false })
+      .limit(1500),
+    looseDb
+      .from('van_damage_upload_sessions')
+      .select('id,inspection_id,van_id')
+      .eq('tenant_id', tenantId)
+      .eq('business_id', tenantId)
+      .order('upload_started_at', { ascending: false })
+      .limit(1500),
+  ])
 
   const uploadSessions = (uploadSessionsResult.data ?? []) as UploadSessionRawRow[]
   const sessionById = new Map(uploadSessions.map((session) => [session.id, session]))
@@ -202,21 +203,21 @@ export default async function VehiclesPage({
       profileImageId: profileImage.imageId,
     }
   }) as FleetVehicleRow[]
-  const damageCases: Array<Record<string, unknown>> = ((damageCasesResult.data ?? []) as Array<Record<string, unknown>>).map(
-    (damageCase) => {
-      const session =
-        typeof damageCase.first_upload_session_id === 'string'
-          ? sessionById.get(damageCase.first_upload_session_id)
-          : null
-      return {
-        ...damageCase,
-        van_id:
-          (typeof damageCase.van_id === 'string' ? damageCase.van_id : null) ??
-          session?.van_id ??
-          null,
-      }
+  const damageCases: Array<Record<string, unknown>> = (
+    (damageCasesResult.data ?? []) as Array<Record<string, unknown>>
+  ).map((damageCase) => {
+    const session =
+      typeof damageCase.first_upload_session_id === 'string'
+        ? sessionById.get(damageCase.first_upload_session_id)
+        : null
+    return {
+      ...damageCase,
+      van_id:
+        (typeof damageCase.van_id === 'string' ? damageCase.van_id : null) ??
+        session?.van_id ??
+        null,
     }
-  )
+  })
   const attention = (attentionResult.data ?? []).map((item) => {
     const damageCase = damageCases.find((candidate) => candidate.id === item.latest_damage_case_id)
     return {

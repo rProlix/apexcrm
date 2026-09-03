@@ -4,21 +4,21 @@ import type { ModuleDefinition } from '@/modules/shared/moduleTypes'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const appointmentsModule: ModuleDefinition = {
-  key:         'appointments',
-  label:       'Appointments',
+  key: 'appointments',
+  label: 'Appointments',
   description: 'Schedule and manage service bookings',
-  icon:        CalendarDays,
-  href:        '/appointments',
-  color:       'text-gold-400',
-  bgColor:     'bg-gold-400/10',
-  order:       2,
+  icon: CalendarDays,
+  href: '/appointments',
+  color: 'text-gold-400',
+  bgColor: 'bg-gold-400/10',
+  order: 2,
 
   stats: [
     {
-      key:          'appts_upcoming',
-      label:        'Upcoming',
-      category:     'operations',
-      color:        'text-gold-400',
+      key: 'appts_upcoming',
+      label: 'Upcoming',
+      category: 'operations',
+      color: 'text-gold-400',
       emptyMessage: 'No upcoming appointments',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -32,10 +32,10 @@ export const appointmentsModule: ModuleDefinition = {
       },
     },
     {
-      key:          'appts_today',
-      label:        'Today',
-      category:     'operations',
-      color:        'text-sky-400',
+      key: 'appts_today',
+      label: 'Today',
+      category: 'operations',
+      color: 'text-sky-400',
       emptyMessage: 'Nothing scheduled today',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -49,10 +49,10 @@ export const appointmentsModule: ModuleDefinition = {
       },
     },
     {
-      key:          'appts_completed',
-      label:        'Completed',
-      category:     'usage',
-      color:        'text-emerald-400',
+      key: 'appts_completed',
+      label: 'Completed',
+      category: 'usage',
+      color: 'text-emerald-400',
       emptyMessage: 'No completed appointments yet',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -65,10 +65,10 @@ export const appointmentsModule: ModuleDefinition = {
       },
     },
     {
-      key:          'appts_pending',
-      label:        'Pending Review',
-      category:     'operations',
-      color:        'text-amber-400',
+      key: 'appts_pending',
+      label: 'Pending Review',
+      category: 'operations',
+      color: 'text-amber-400',
       emptyMessage: 'No pending appointments',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -93,14 +93,14 @@ export const appointmentsModule: ModuleDefinition = {
 
     if (!data) return []
 
-    const upcoming  = data.filter((a) => a.starts_at > now && a.status !== 'canceled')
-    const today     = data.filter((a) => a.starts_at.slice(0, 10) === now.slice(0, 10))
+    const upcoming = data.filter((a) => a.starts_at > now && a.status !== 'canceled')
+    const today = data.filter((a) => a.starts_at.slice(0, 10) === now.slice(0, 10))
     const confirmed = data.filter((a) => a.status === 'confirmed')
 
     return [
-      { label: 'Upcoming',  value: upcoming.length  },
-      { label: 'Today',     value: today.length      },
-      { label: 'Confirmed', value: confirmed.length  },
+      { label: 'Upcoming', value: upcoming.length },
+      { label: 'Today', value: today.length },
+      { label: 'Confirmed', value: confirmed.length },
     ]
   },
 }

@@ -9,16 +9,28 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import {
-  CalendarDays, MapPin, FileText, ChevronLeft,
-  CheckCircle2, XCircle, AlertCircle, Loader2, RefreshCw, Pencil, User,
+  CalendarDays,
+  MapPin,
+  FileText,
+  ChevronLeft,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Loader2,
+  RefreshCw,
+  Pencil,
+  User,
 } from 'lucide-react'
-import { StatusBadge }    from '@/components/appointments/StatusBadge'
+import { StatusBadge } from '@/components/appointments/StatusBadge'
 import { TimeSlotPicker } from '@/components/appointments/TimeSlotPicker'
 import type { Appointment, TimeSlot } from '@/lib/appointments/types'
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString([], {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
   })
 }
 function fmtTime(iso: string) {
@@ -33,18 +45,18 @@ function durationLabel(starts: string, ends: string) {
 }
 
 export default function CustomerAppointmentDetailPage() {
-  const { id }       = useParams<{ id: string }>()
+  const { id } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
-  const justBooked   = searchParams.get('booked') === '1'
+  const justBooked = searchParams.get('booked') === '1'
 
-  const [appt,         setAppt]         = useState<Appointment | null>(null)
-  const [loading,      setLoading]      = useState(true)
+  const [appt, setAppt] = useState<Appointment | null>(null)
+  const [loading, setLoading] = useState(true)
   const [rescheduling, setRescheduling] = useState(false)
-  const [newDate,      setNewDate]      = useState('')
-  const [newSlot,      setNewSlot]      = useState<TimeSlot | null>(null)
-  const [saving,       setSaving]       = useState(false)
-  const [canceling,    setCanceling]    = useState(false)
-  const [error,        setError]        = useState<string | null>(null)
+  const [newDate, setNewDate] = useState('')
+  const [newSlot, setNewSlot] = useState<TimeSlot | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [canceling, setCanceling] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`/api/appointments/${id}`)
@@ -60,9 +72,9 @@ export default function CustomerAppointmentDetailPage() {
     setError(null)
     try {
       const res = await fetch('/api/appointments/reschedule', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ id, starts_at: newSlot.start, ends_at: newSlot.end }),
+        body: JSON.stringify({ id, starts_at: newSlot.start, ends_at: newSlot.end }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed')
@@ -82,9 +94,9 @@ export default function CustomerAppointmentDetailPage() {
     setError(null)
     try {
       const res = await fetch(`/api/appointments/${id}`, {
-        method:  'PATCH',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ status: 'canceled' }),
+        body: JSON.stringify({ status: 'canceled' }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed')
@@ -108,7 +120,10 @@ export default function CustomerAppointmentDetailPage() {
     return (
       <div className="text-center py-16">
         <p className="text-white/40">Appointment not found.</p>
-        <Link href="/portal/appointments" className="mt-4 inline-block text-gold-400 text-sm underline">
+        <Link
+          href="/portal/appointments"
+          className="mt-4 inline-block text-gold-400 text-sm underline"
+        >
           Back to appointments
         </Link>
       </div>
@@ -116,12 +131,15 @@ export default function CustomerAppointmentDetailPage() {
   }
 
   const canModify = appt.status !== 'completed' && appt.status !== 'canceled'
-  const isPast    = new Date(appt.ends_at) < new Date()
+  const isPast = new Date(appt.ends_at) < new Date()
 
   return (
     <div className="max-w-lg mx-auto space-y-5">
       {/* Back */}
-      <Link href="/portal/appointments" className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors">
+      <Link
+        href="/portal/appointments"
+        className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
+      >
         <ChevronLeft className="w-3.5 h-3.5" />
         My Appointments
       </Link>
@@ -138,7 +156,9 @@ export default function CustomerAppointmentDetailPage() {
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
             <div>
               <p className="text-sm font-semibold text-emerald-300">Appointment booked!</p>
-              <p className="text-xs text-emerald-400/70 mt-0.5">We&apos;ll confirm your booking shortly.</p>
+              <p className="text-xs text-emerald-400/70 mt-0.5">
+                We&apos;ll confirm your booking shortly.
+              </p>
             </div>
           </motion.div>
         )}
@@ -157,9 +177,7 @@ export default function CustomerAppointmentDetailPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h1 className="text-xl font-bold text-white">{appt.title}</h1>
-              {appt.description && (
-                <p className="text-sm text-white/50 mt-1">{appt.description}</p>
-              )}
+              {appt.description && <p className="text-sm text-white/50 mt-1">{appt.description}</p>}
             </div>
             <StatusBadge status={appt.status} size="md" />
           </div>
@@ -184,7 +202,8 @@ export default function CustomerAppointmentDetailPage() {
               <div>
                 <p className="text-sm text-white">{fmtDate(appt.starts_at)}</p>
                 <p className="text-xs text-white/40">
-                  {fmtTime(appt.starts_at)} – {fmtTime(appt.ends_at)} · {durationLabel(appt.starts_at, appt.ends_at)}
+                  {fmtTime(appt.starts_at)} – {fmtTime(appt.ends_at)} ·{' '}
+                  {durationLabel(appt.starts_at, appt.ends_at)}
                 </p>
               </div>
             </div>
@@ -227,9 +246,7 @@ export default function CustomerAppointmentDetailPage() {
       </motion.div>
 
       {/* Error */}
-      {error && (
-        <p className="text-xs text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>
-      )}
+      {error && <p className="text-xs text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>}
 
       {/* Actions */}
       {canModify && !isPast && (
@@ -248,7 +265,11 @@ export default function CustomerAppointmentDetailPage() {
                 disabled={canceling}
                 className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-400/8 transition-colors disabled:opacity-50"
               >
-                {canceling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                {canceling ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <XCircle className="w-3.5 h-3.5" />
+                )}
                 {canceling ? 'Canceling…' : 'Cancel'}
               </button>
             </>
@@ -266,7 +287,8 @@ export default function CustomerAppointmentDetailPage() {
               {appt.professional && (
                 <div className="flex items-center gap-2 text-xs text-white/50">
                   <User className="w-3 h-3" />
-                  Rescheduling with <span className="text-white/70 font-medium ml-1">{appt.professional.name}</span>
+                  Rescheduling with{' '}
+                  <span className="text-white/70 font-medium ml-1">{appt.professional.name}</span>
                 </div>
               )}
 
@@ -276,7 +298,10 @@ export default function CustomerAppointmentDetailPage() {
                   type="date"
                   value={newDate}
                   min={new Date().toISOString().slice(0, 10)}
-                  onChange={(e) => { setNewDate(e.target.value); setNewSlot(null) }}
+                  onChange={(e) => {
+                    setNewDate(e.target.value)
+                    setNewSlot(null)
+                  }}
                   className="w-full h-10 px-3 bg-graphite-700 border border-surface-border rounded-xl text-sm text-white focus:outline-none focus:border-gold-500/50 transition-colors"
                 />
               </div>
@@ -295,7 +320,11 @@ export default function CustomerAppointmentDetailPage() {
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => { setRescheduling(false); setNewDate(''); setNewSlot(null) }}
+                  onClick={() => {
+                    setRescheduling(false)
+                    setNewDate('')
+                    setNewSlot(null)
+                  }}
                   className="flex-1 h-9 rounded-xl border border-surface-border text-white/50 text-sm hover:text-white transition-colors"
                 >
                   Cancel
@@ -305,7 +334,11 @@ export default function CustomerAppointmentDetailPage() {
                   disabled={!newSlot || saving}
                   className="flex-1 h-9 rounded-xl bg-gold-gradient text-graphite-900 text-sm font-semibold disabled:opacity-40 hover:shadow-glow-gold transition-shadow flex items-center justify-center gap-2"
                 >
-                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  {saving ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  )}
                   {saving ? 'Saving…' : 'Confirm'}
                 </button>
               </div>
@@ -316,7 +349,10 @@ export default function CustomerAppointmentDetailPage() {
 
       {/* Book another */}
       <div className="text-center pt-2">
-        <Link href="/portal/appointments/book" className="text-xs text-white/30 hover:text-gold-400 transition-colors">
+        <Link
+          href="/portal/appointments/book"
+          className="text-xs text-white/30 hover:text-gold-400 transition-colors"
+        >
           Book another appointment →
         </Link>
       </div>

@@ -5,19 +5,19 @@ import { renderBaseEmail, renderBasePlainText } from './base'
 import type { TemplateResult } from '../types'
 
 export interface CustomerInviteData {
-  businessName:      string
-  businessLogoUrl?:  string | null
-  businessWebsite?:  string | null
-  primaryColor?:     string | null
-  customerName?:     string
-  invitedByName?:    string
-  inviteUrl:         string
-  expiresAt?:        Date | string
+  businessName: string
+  businessLogoUrl?: string | null
+  businessWebsite?: string | null
+  primaryColor?: string | null
+  customerName?: string
+  invitedByName?: string
+  inviteUrl: string
+  expiresAt?: Date | string
   enabledModules?: {
     appointments?: boolean
-    orders?:       boolean
-    rewards?:      boolean
-    payments?:     boolean
+    orders?: boolean
+    rewards?: boolean
+    payments?: boolean
   }
 }
 
@@ -37,21 +37,25 @@ export function buildCustomerInviteEmail(data: CustomerInviteData): TemplateResu
     enabledModules = {},
   } = data
 
-  const greeting     = customerName ? `Hi ${customerName},` : 'Hi there,'
-  const invitedBy    = invitedByName ? ` by ${invitedByName}` : ''
+  const greeting = customerName ? `Hi ${customerName},` : 'Hi there,'
+  const invitedBy = invitedByName ? ` by ${invitedByName}` : ''
   const expFormatted = expiresAt
-    ? new Date(expiresAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    ? new Date(expiresAt).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
     : null
 
   const features: string[] = []
   if (enabledModules.appointments) features.push('📅 View and manage your appointments')
-  if (enabledModules.orders)       features.push('🛍️ Track your orders and purchase history')
-  if (enabledModules.rewards)      features.push('⭐ Check your rewards and loyalty perks')
-  if (enabledModules.payments)     features.push('💳 View invoices and payment history')
+  if (enabledModules.orders) features.push('🛍️ Track your orders and purchase history')
+  if (enabledModules.rewards) features.push('⭐ Check your rewards and loyalty perks')
+  if (enabledModules.payments) features.push('💳 View invoices and payment history')
   features.push('👤 Manage your profile and preferences')
 
   const featuresHtml = features
-    .map(f => `<li style="padding:5px 0;color:#374151;font-size:14px;">${f}</li>`)
+    .map((f) => `<li style="padding:5px 0;color:#374151;font-size:14px;">${f}</li>`)
     .join('')
 
   const bodyHtml = `
@@ -63,12 +67,16 @@ export function buildCustomerInviteEmail(data: CustomerInviteData): TemplateResu
     <ul style="margin:0 0 28px;padding-left:0;list-style:none;">
       ${featuresHtml}
     </ul>
-    ${expFormatted ? `
+    ${
+      expFormatted
+        ? `
     <div style="background:#fef9ec;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:24px;">
       <p style="color:#92400e;font-size:13px;margin:0;">
         ⏰ Invite expires <strong>${expFormatted}</strong>
       </p>
-    </div>` : ''}
+    </div>`
+        : ''
+    }
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
     <p style="color:#9ca3af;font-size:12px;line-height:1.6;margin:0;">
       If you didn't expect this invitation, you can safely ignore this email.
@@ -82,7 +90,7 @@ ${greeting}
 You've been invited${invitedBy} to create a customer account with ${businessName}.
 
 With your account you'll be able to:
-${features.map(f => `  • ${f.replace(/[^\w\s,.()']/g, '')}`).join('\n')}
+${features.map((f) => `  • ${f.replace(/[^\w\s,.()']/g, '')}`).join('\n')}
 ${expFormatted ? `\nInvite expires: ${expFormatted}` : ''}
 
 If you didn't expect this invitation, you can safely ignore this email.
@@ -91,22 +99,22 @@ If you didn't expect this invitation, you can safely ignore this email.
   return {
     subject: `You're invited to ${businessName}`,
     html: renderBaseEmail({
-      title:              `Invitation from ${businessName}`,
-      previewText:        `${businessName} has invited you to create your customer account`,
+      title: `Invitation from ${businessName}`,
+      previewText: `${businessName} has invited you to create your customer account`,
       bodyHtml,
-      ctaLabel:           'Create your account',
-      ctaUrl:             inviteUrl,
-      tenantName:         businessName,
-      tenantLogoUrl:      businessLogoUrl,
-      tenantWebsiteUrl:   businessWebsite,
+      ctaLabel: 'Create your account',
+      ctaUrl: inviteUrl,
+      tenantName: businessName,
+      tenantLogoUrl: businessLogoUrl,
+      tenantWebsiteUrl: businessWebsite,
       tenantPrimaryColor: primaryColor,
     }),
     text: renderBasePlainText({
       bodyText,
-      ctaLabel:          'Create your account',
-      ctaUrl:            inviteUrl,
-      tenantName:        businessName,
-      tenantWebsiteUrl:  businessWebsite,
+      ctaLabel: 'Create your account',
+      ctaUrl: inviteUrl,
+      tenantName: businessName,
+      tenantWebsiteUrl: businessWebsite,
     }),
   }
 }

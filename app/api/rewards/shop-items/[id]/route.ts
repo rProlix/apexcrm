@@ -36,13 +36,25 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() }
-  catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   const allowed = [
-    'name', 'description', 'points_cost', 'is_active', 'image_url',
-    'product_id', 'redemption_type', 'discount_type', 'discount_value',
-    'inventory_count', 'max_redemptions_per_customer', 'settings',
+    'name',
+    'description',
+    'points_cost',
+    'is_active',
+    'image_url',
+    'product_id',
+    'redemption_type',
+    'discount_type',
+    'discount_value',
+    'inventory_count',
+    'max_redemptions_per_customer',
+    'settings',
   ]
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   for (const key of allowed) {

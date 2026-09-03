@@ -9,17 +9,20 @@
 import { useEffect, useRef, useState } from 'react'
 
 const SMALL_SEQUENCE = 24 // preload everything if <= this many frames
-const PRELOAD_WINDOW = 4  // frames to preload on each side otherwise
+const PRELOAD_WINDOW = 4 // frames to preload on each side otherwise
 
 interface UseImageSequenceScrubOptions {
-  frames:      string[]
-  imgRef:      React.RefObject<HTMLImageElement | null>
+  frames: string[]
+  imgRef: React.RefObject<HTMLImageElement | null>
   progressRef: React.RefObject<number>
-  active:      boolean
+  active: boolean
 }
 
 export function useImageSequenceScrub({
-  frames, imgRef, progressRef, active,
+  frames,
+  imgRef,
+  progressRef,
+  active,
 }: UseImageSequenceScrubOptions): { errored: boolean; setErrored: (v: boolean) => void } {
   const cacheRef = useRef<Map<number, HTMLImageElement>>(new Map())
   const lastIndexRef = useRef(-1)

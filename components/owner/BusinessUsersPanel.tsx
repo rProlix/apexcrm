@@ -4,71 +4,86 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import {
-  Users, Plus, RefreshCw, AlertCircle, CheckCircle2, XCircle,
-  Clock, Shield, ChevronDown, Key, Trash2, RotateCcw,
+  Users,
+  Plus,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Shield,
+  ChevronDown,
+  Key,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react'
 import { CreateBusinessUserModal } from './CreateBusinessUserModal'
 import { ROLE_LABELS, STATUS_LABELS } from '@/lib/types/businessUsers'
 import type { BusinessRole, BusinessUserStatus } from '@/lib/types/businessUsers'
 
 interface Member {
-  id:           string
+  id: string
   auth_user_id: string | null
-  email:        string
-  fullName:     string | null
-  role:         BusinessRole
-  status:       BusinessUserStatus
-  approved:     boolean
-  created_at:   string
+  email: string
+  fullName: string | null
+  role: BusinessRole
+  status: BusinessUserStatus
+  approved: boolean
+  created_at: string
 }
 
 interface Props {
-  tenantId:   string
+  tenantId: string
   tenantName: string
 }
 
 const ROLE_COLORS: Record<BusinessRole, string> = {
-  owner:   'text-gold-400   bg-gold-400/10   border-gold-400/20',
-  admin:   'text-blue-400   bg-blue-400/10   border-blue-400/20',
+  owner: 'text-gold-400   bg-gold-400/10   border-gold-400/20',
+  admin: 'text-blue-400   bg-blue-400/10   border-blue-400/20',
   manager: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
-  staff:   'text-white/50   bg-white/4       border-white/10',
+  staff: 'text-white/50   bg-white/4       border-white/10',
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  active:    'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
-  invited:   'text-amber-400  bg-amber-400/10  border-amber-400/20',
-  pending:   'text-amber-400  bg-amber-400/10  border-amber-400/20',
+  active: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+  invited: 'text-amber-400  bg-amber-400/10  border-amber-400/20',
+  pending: 'text-amber-400  bg-amber-400/10  border-amber-400/20',
   suspended: 'text-red-400    bg-red-400/10    border-red-400/20',
-  disabled:  'text-white/30   bg-white/4       border-white/8',
+  disabled: 'text-white/30   bg-white/4       border-white/8',
 }
 
 const STATUS_ICONS: Record<string, React.ElementType> = {
-  active:    CheckCircle2,
-  invited:   Clock,
-  pending:   Clock,
+  active: CheckCircle2,
+  invited: Clock,
+  pending: Clock,
   suspended: XCircle,
-  disabled:  XCircle,
+  disabled: XCircle,
 }
 
 type ActionType = 'role' | 'status' | 'reset-password' | 'remove' | null
 
 export function BusinessUsersPanel({ tenantId, tenantName }: Props) {
-  const [members,      setMembers]      = useState<Member[]>([])
-  const [loading,      setLoading]      = useState(true)
-  const [showCreate,   setShowCreate]   = useState(false)
-  const [error,        setError]        = useState<string | null>(null)
-  const [actionState,  setActionState]  = useState<{ memberId: string; type: ActionType } | null>(null)
-  const [actionError,  setActionError]  = useState<{ id: string; msg: string } | null>(null)
-  const [newPassword,  setNewPassword]  = useState('')
-  const [newRole,      setNewRole]      = useState<BusinessRole>('staff')
+  const [members, setMembers] = useState<Member[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showCreate, setShowCreate] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [actionState, setActionState] = useState<{ memberId: string; type: ActionType } | null>(
+    null
+  )
+  const [actionError, setActionError] = useState<{ id: string; msg: string } | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [newRole, setNewRole] = useState<BusinessRole>('staff')
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const res  = await fetch(`/api/owner/business-users?tenantId=${tenantId}`)
+      const res = await fetch(`/api/owner/business-users?tenantId=${tenantId}`)
       const data = await res.json()
-      if (!data.ok) { setError(data.error ?? 'Failed to load users.'); return }
+      if (!data.ok) {
+        setError(data.error ?? 'Failed to load users.')
+        return
+      }
       setMembers(data.members ?? [])
     } catch {
       setError('Network error. Could not load business users.')
@@ -77,51 +92,55 @@ export function BusinessUsersPanel({ tenantId, tenantName }: Props) {
     }
   }, [tenantId])
 
-  useEffect(() => { load() }, [load])
-
-  const doAction = useCallback(async (
-    memberId: string,
-    type: ActionType,
-    payload: Record<string, unknown>
-  ) => {
-    setActionError(null)
-    try {
-      let url  = `/api/owner/business-users/${memberId}`
-      let method = 'PATCH'
-
-      if (type === 'reset-password') {
-        url    = `/api/owner/business-users/${memberId}/reset-password`
-        method = 'POST'
-      } else if (type === 'remove') {
-        method = 'DELETE'
-      }
-
-      const res  = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload),
-      })
-      const data = await res.json()
-
-      if (!data.ok) {
-        setActionError({ id: memberId, msg: data.error ?? 'Action failed.' })
-        return
-      }
-
-      setActionState(null)
-      setNewPassword('')
-      await load()
-    } catch {
-      setActionError({ id: memberId, msg: 'Network error.' })
-    }
+  useEffect(() => {
+    load()
   }, [load])
 
-  const openAction = useCallback((memberId: string, type: ActionType, currentRole?: BusinessRole) => {
-    setActionState({ memberId, type })
-    setActionError(null)
-    setNewPassword('')
-    if (type === 'role' && currentRole) setNewRole(currentRole)
-  }, [])
+  const doAction = useCallback(
+    async (memberId: string, type: ActionType, payload: Record<string, unknown>) => {
+      setActionError(null)
+      try {
+        let url = `/api/owner/business-users/${memberId}`
+        let method = 'PATCH'
+
+        if (type === 'reset-password') {
+          url = `/api/owner/business-users/${memberId}/reset-password`
+          method = 'POST'
+        } else if (type === 'remove') {
+          method = 'DELETE'
+        }
+
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        const data = await res.json()
+
+        if (!data.ok) {
+          setActionError({ id: memberId, msg: data.error ?? 'Action failed.' })
+          return
+        }
+
+        setActionState(null)
+        setNewPassword('')
+        await load()
+      } catch {
+        setActionError({ id: memberId, msg: 'Network error.' })
+      }
+    },
+    [load]
+  )
+
+  const openAction = useCallback(
+    (memberId: string, type: ActionType, currentRole?: BusinessRole) => {
+      setActionState({ memberId, type })
+      setActionError(null)
+      setNewPassword('')
+      if (type === 'role' && currentRole) setNewRole(currentRole)
+    },
+    []
+  )
 
   const closeAction = useCallback(() => {
     setActionState(null)
@@ -174,7 +193,10 @@ export function BusinessUsersPanel({ tenantId, tenantName }: Props) {
       {loading && members.length === 0 && (
         <div className="space-y-2">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-14 rounded-xl bg-white/4 border border-white/6 animate-pulse" />
+            <div
+              key={i}
+              className="h-14 rounded-xl bg-white/4 border border-white/6 animate-pulse"
+            />
           ))}
         </div>
       )}
@@ -200,7 +222,7 @@ export function BusinessUsersPanel({ tenantId, tenantName }: Props) {
       {/* Members list */}
       {members.length > 0 && (
         <div className="space-y-2">
-          {members.map(member => {
+          {members.map((member) => {
             const StatusIcon = STATUS_ICONS[member.status] ?? CheckCircle2
             const isActing = actionState?.memberId === member.id
 
@@ -224,13 +246,17 @@ export function BusinessUsersPanel({ tenantId, tenantName }: Props) {
                       <span className="text-sm font-semibold text-white truncate">
                         {member.fullName ?? member.email}
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${ROLE_COLORS[member.role]}`}>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full border font-medium ${ROLE_COLORS[member.role]}`}
+                      >
                         {ROLE_LABELS[member.role]}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <span className="text-xs text-white/40 truncate">{member.email}</span>
-                      <span className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full border ${STATUS_COLORS[member.status] ?? STATUS_COLORS.active}`}>
+                      <span
+                        className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full border ${STATUS_COLORS[member.status] ?? STATUS_COLORS.active}`}
+                      >
                         <StatusIcon className="w-2.5 h-2.5" />
                         {STATUS_LABELS[member.status]}
                       </span>
@@ -271,7 +297,9 @@ export function BusinessUsersPanel({ tenantId, tenantName }: Props) {
                         </button>
                       ) : member.status === 'suspended' || member.status === 'disabled' ? (
                         <button
-                          onClick={() => doAction(member.id, 'status', { status: 'active', approved: true })}
+                          onClick={() =>
+                            doAction(member.id, 'status', { status: 'active', approved: true })
+                          }
                           title="Reactivate user"
                           className="h-7 px-2 rounded-lg text-xs text-emerald-400/70 hover:text-emerald-400 hover:bg-emerald-400/8 border border-transparent hover:border-emerald-400/20 transition-colors flex items-center gap-1"
                         >
@@ -318,7 +346,7 @@ export function BusinessUsersPanel({ tenantId, tenantName }: Props) {
                       <>
                         <p className="text-xs font-medium text-white/60">Change role</p>
                         <div className="grid grid-cols-3 gap-1.5">
-                          {(['admin', 'manager', 'staff'] as BusinessRole[]).map(r => (
+                          {(['admin', 'manager', 'staff'] as BusinessRole[]).map((r) => (
                             <button
                               key={r}
                               type="button"
@@ -340,7 +368,10 @@ export function BusinessUsersPanel({ tenantId, tenantName }: Props) {
                           >
                             Save role
                           </button>
-                          <button onClick={closeAction} className="flex-1 h-8 rounded-lg text-xs text-white/50 bg-white/4 border border-white/8">
+                          <button
+                            onClick={closeAction}
+                            className="flex-1 h-8 rounded-lg text-xs text-white/50 bg-white/4 border border-white/8"
+                          >
                             Cancel
                           </button>
                         </div>
@@ -353,7 +384,7 @@ export function BusinessUsersPanel({ tenantId, tenantName }: Props) {
                         <input
                           type="text"
                           value={newPassword}
-                          onChange={e => setNewPassword(e.target.value)}
+                          onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="Min. 8 characters"
                           minLength={8}
                           className="w-full h-9 px-3 rounded-lg bg-white/4 border border-white/10 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-gold-500/50"
@@ -362,7 +393,10 @@ export function BusinessUsersPanel({ tenantId, tenantName }: Props) {
                           <button
                             onClick={() => {
                               if (newPassword.length < 8) {
-                                setActionError({ id: member.id, msg: 'Password must be at least 8 characters.' })
+                                setActionError({
+                                  id: member.id,
+                                  msg: 'Password must be at least 8 characters.',
+                                })
                                 return
                               }
                               doAction(member.id, 'reset-password', { password: newPassword })
@@ -372,12 +406,16 @@ export function BusinessUsersPanel({ tenantId, tenantName }: Props) {
                             <Shield className="w-3 h-3 inline mr-1" />
                             Reset password
                           </button>
-                          <button onClick={closeAction} className="flex-1 h-8 rounded-lg text-xs text-white/50 bg-white/4 border border-white/8">
+                          <button
+                            onClick={closeAction}
+                            className="flex-1 h-8 rounded-lg text-xs text-white/50 bg-white/4 border border-white/8"
+                          >
                             Cancel
                           </button>
                         </div>
                         <p className="text-xs text-amber-300/70">
-                          The new password will be shown to you only once — save it before confirming.
+                          The new password will be shown to you only once — save it before
+                          confirming.
                         </p>
                       </>
                     )}
@@ -385,7 +423,8 @@ export function BusinessUsersPanel({ tenantId, tenantName }: Props) {
                     {actionState.type === 'remove' && (
                       <>
                         <p className="text-xs text-white/60">
-                          This will <strong className="text-red-400">disable</strong> the user&apos;s access. Their data will be preserved.
+                          This will <strong className="text-red-400">disable</strong> the
+                          user&apos;s access. Their data will be preserved.
                         </p>
                         <div className="flex gap-2">
                           <button
@@ -394,7 +433,10 @@ export function BusinessUsersPanel({ tenantId, tenantName }: Props) {
                           >
                             Confirm remove
                           </button>
-                          <button onClick={closeAction} className="flex-1 h-8 rounded-lg text-xs text-white/50 bg-white/4 border border-white/8">
+                          <button
+                            onClick={closeAction}
+                            className="flex-1 h-8 rounded-lg text-xs text-white/50 bg-white/4 border border-white/8"
+                          >
                             Cancel
                           </button>
                         </div>

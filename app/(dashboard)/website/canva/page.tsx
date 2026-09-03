@@ -14,7 +14,11 @@ import { getPrimaryBuilderWebsite, getWebsite } from '@/lib/website/registry'
 
 export const metadata = { title: 'Import Canva Event Website' }
 
-export default async function WebsiteCanvaPage({ searchParams }: { searchParams: Promise<{ websiteId?: string }> }) {
+export default async function WebsiteCanvaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ websiteId?: string }>
+}) {
   const ctx = await requireRole(['owner', 'admin'])
   const tenantId = ctx.tenant_id ?? (await resolveWebsiteTenantId())
   if (!tenantId) redirect('/dashboard?error=no_tenant')
@@ -29,7 +33,8 @@ export default async function WebsiteCanvaPage({ searchParams }: { searchParams:
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">{target.name}</h1>
             <p className="text-sm text-white/40 mt-1">
-              Edit this Canva event website. It has its own URL ({target.public_url}) and is separate from your business website.
+              Edit this Canva event website. It has its own URL ({target.public_url}) and is
+              separate from your business website.
             </p>
           </div>
           <CanvaImportPanel
@@ -45,7 +50,11 @@ export default async function WebsiteCanvaPage({ searchParams }: { searchParams:
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getSupabaseServerClient() as any
-  const { data: settings } = await db.from('site_settings').select('*').eq('tenant_id', tenantId).maybeSingle()
+  const { data: settings } = await db
+    .from('site_settings')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
   const { data: imports } = await db
     .from('website_canva_imports')
     .select('*')
@@ -61,7 +70,8 @@ export default async function WebsiteCanvaPage({ searchParams }: { searchParams:
       <div>
         <h1 className="text-2xl font-bold text-white tracking-tight">Import Canva Event Website</h1>
         <p className="text-sm text-white/40 mt-1">
-          Bring a Canva design into your Invitation/Event website while keeping native POV Event Camera features.
+          Bring a Canva design into your Invitation/Event website while keeping native POV Event
+          Camera features.
         </p>
       </div>
 
@@ -86,16 +96,20 @@ export default async function WebsiteCanvaPage({ searchParams }: { searchParams:
           subdomain: (s?.subdomain as string) ?? null,
           custom_domain: (s?.custom_domain as string) ?? null,
         }}
-        website={website ? {
-          website_id: website.id,
-          website_type: website.website_type,
-          public_slug: website.public_slug,
-          public_url: website.public_url,
-          status: website.status,
-          published_at: website.published_at,
-          live_url: website.live_url,
-          has_unpublished_changes: website.has_unpublished_changes,
-        } : null}
+        website={
+          website
+            ? {
+                website_id: website.id,
+                website_type: website.website_type,
+                public_slug: website.public_slug,
+                public_url: website.public_url,
+                status: website.status,
+                published_at: website.published_at,
+                live_url: website.live_url,
+                has_unpublished_changes: website.has_unpublished_changes,
+              }
+            : null
+        }
         runs={{
           latestRunId: runDiag.latestRunId,
           latestRunStatus: runDiag.latestRunStatus,

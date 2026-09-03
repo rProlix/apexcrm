@@ -6,11 +6,7 @@ import {
   getRequiredLegalDocuments,
   validateLegalAgreement,
 } from '@/lib/legal/consent'
-import {
-  LEGAL_DOCUMENT_ORDER,
-  LEGAL_DOCUMENTS,
-  LEGAL_VERSION,
-} from '@/lib/legal/policies'
+import { LEGAL_DOCUMENT_ORDER, LEGAL_DOCUMENTS, LEGAL_VERSION } from '@/lib/legal/policies'
 
 test('the current agreement carries the exact version of every legal document', () => {
   const acceptedAt = new Date('2026-07-26T12:00:00.000Z')
@@ -24,7 +20,7 @@ test('the current agreement carries the exact version of every legal document', 
   assert.equal(agreement.aiNoticeVersion, LEGAL_DOCUMENTS['ai-notice'].version)
   assert.equal(
     agreement.dataProcessingAddendumVersion,
-    LEGAL_DOCUMENTS['data-processing-addendum'].version,
+    LEGAL_DOCUMENTS['data-processing-addendum'].version
   )
   assert.equal(agreement.cookiePolicyVersion, LEGAL_DOCUMENTS['cookie-policy'].version)
 })
@@ -34,20 +30,16 @@ test('legal agreement validation rejects missing acceptance and stale versions',
 
   assert.equal(validateLegalAgreement(null, 'customer', now).ok, false)
   assert.equal(
-    validateLegalAgreement(
-      { ...createLegalAgreement(now), accepted: false },
-      'customer',
-      now,
-    ).ok,
-    false,
+    validateLegalAgreement({ ...createLegalAgreement(now), accepted: false }, 'customer', now).ok,
+    false
   )
   assert.equal(
     validateLegalAgreement(
       { ...createLegalAgreement(now), termsVersion: 'old-version' },
       'business_admin',
-      now,
+      now
     ).ok,
-    false,
+    false
   )
 })
 
@@ -56,7 +48,7 @@ test('legal agreement validation accepts current versions and recent evidence', 
   const result = validateLegalAgreement(
     createLegalAgreement(new Date('2026-07-26T11:59:30.000Z')),
     'business_admin',
-    now,
+    now
   )
 
   assert.equal(result.ok, true)
@@ -66,14 +58,21 @@ test('legal agreement validation accepts current versions and recent evidence', 
 })
 
 test('business consent includes the DPA while customer consent does not', () => {
-  assert.deepEqual(
-    getRequiredLegalDocuments('customer'),
-    ['terms', 'privacy', 'acceptable-use', 'ai-notice', 'cookie-policy'],
-  )
-  assert.deepEqual(
-    getRequiredLegalDocuments('business_admin'),
-    ['terms', 'privacy', 'acceptable-use', 'ai-notice', 'cookie-policy', 'data-processing-addendum'],
-  )
+  assert.deepEqual(getRequiredLegalDocuments('customer'), [
+    'terms',
+    'privacy',
+    'acceptable-use',
+    'ai-notice',
+    'cookie-policy',
+  ])
+  assert.deepEqual(getRequiredLegalDocuments('business_admin'), [
+    'terms',
+    'privacy',
+    'acceptable-use',
+    'ai-notice',
+    'cookie-policy',
+    'data-processing-addendum',
+  ])
 })
 
 test('every published policy has substantive versioned content', () => {
@@ -112,7 +111,7 @@ test('signup clients and APIs enforce legal acceptance on both business and cust
 test('the consent migration is append-only and stores auditable evidence', () => {
   const migration = readFileSync(
     'supabase/migrations/20260726120000_legal_policies_and_consents.sql',
-    'utf8',
+    'utf8'
   )
 
   assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.legal_consents/)

@@ -11,7 +11,9 @@ export function UsageChartWidget({ data }: UsageChartWidgetProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-xs font-semibold text-white/35 uppercase tracking-widest">{data.label}</p>
+        <p className="text-xs font-semibold text-white/35 uppercase tracking-widest">
+          {data.label}
+        </p>
         <span className="text-xs text-white/20">30 days</span>
       </div>
       <PremiumLineChart

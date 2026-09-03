@@ -14,9 +14,10 @@ export async function GET(req: NextRequest) {
   const dashUser = await resolveStoreUser(req)
 
   if (dashUser && (dashUser.role === 'admin' || dashUser.role === 'owner')) {
-    const tenantId = dashUser.role === 'owner'
-      ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
-      : dashUser.tenant_id
+    const tenantId =
+      dashUser.role === 'owner'
+        ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
+        : dashUser.tenant_id
 
     const { data, error } = await supabase
       .from('orders')
@@ -72,7 +73,10 @@ export async function POST(req: NextRequest) {
   const items = body.items as Array<{ product_id: string; quantity: number }> | undefined
 
   if (!Array.isArray(items) || items.length === 0) {
-    return NextResponse.json({ error: 'items array is required and must not be empty' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'items array is required and must not be empty' },
+      { status: 400 }
+    )
   }
 
   for (const item of items) {
@@ -128,9 +132,9 @@ export async function POST(req: NextRequest) {
   const { data: order, error: orderErr } = await supabase
     .from('orders')
     .insert({
-      tenant_id:    customer.tenant_id,
-      customer_id:  customer.customer_id,
-      status:       'pending',
+      tenant_id: customer.tenant_id,
+      customer_id: customer.customer_id,
+      status: 'pending',
       total_amount: totalAmount,
     })
     .select()
@@ -138,16 +142,19 @@ export async function POST(req: NextRequest) {
 
   if (orderErr || !order) {
     console.error('[POST /api/store/orders] order insert', orderErr?.message)
-    return NextResponse.json({ error: orderErr?.message ?? 'Order creation failed' }, { status: 500 })
+    return NextResponse.json(
+      { error: orderErr?.message ?? 'Order creation failed' },
+      { status: 500 }
+    )
   }
 
   // Insert order items
   const orderItems = items.map((item) => ({
-    tenant_id:  customer.tenant_id,
-    order_id:   order.id,
+    tenant_id: customer.tenant_id,
+    order_id: order.id,
     product_id: item.product_id,
-    quantity:   item.quantity,
-    price:      Number(productMap.get(item.product_id)!.price),
+    quantity: item.quantity,
+    price: Number(productMap.get(item.product_id)!.price),
   }))
 
   const { error: itemsErr } = await supabase.from('order_items').insert(orderItems)
@@ -164,11 +171,15 @@ export async function POST(req: NextRequest) {
       supabase
         .rpc('decrement_product_inventory', {
           p_product_id: item.product_id,
-          p_quantity:   item.quantity,
+          p_quantity: item.quantity,
         })
         .then(({ error: rpcErr }) => {
           if (rpcErr) {
-            console.warn('[POST /api/store/orders] inventory decrement failed for', item.product_id, rpcErr.message)
+            console.warn(
+              '[POST /api/store/orders] inventory decrement failed for',
+              item.product_id,
+              rpcErr.message
+            )
           }
         })
     )
@@ -176,13 +187,13 @@ export async function POST(req: NextRequest) {
 
   // ── Apply rewards (non-blocking — never fails the order) ─────────────────
   applyOrderRewards({
-    tenantId:   customer.tenant_id,
+    tenantId: customer.tenant_id,
     customerId: customer.customer_id,
-    orderId:    order.id,
-    items:      items.map((item) => ({
+    orderId: order.id,
+    items: items.map((item) => ({
       product_id: item.product_id,
-      quantity:   item.quantity,
-      price:      Number(productMap.get(item.product_id)!.price),
+      quantity: item.quantity,
+      price: Number(productMap.get(item.product_id)!.price),
     })),
   }).catch((err) => {
     console.warn('[POST /api/store/orders] rewards application failed', err)

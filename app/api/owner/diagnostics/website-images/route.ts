@@ -10,12 +10,16 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { checkWebsiteImageSchema } from '@/lib/website-images/checkWebsiteImageSchema'
-import { WEBSITE_IMAGE_BUCKET, WEBSITE_IMAGE_MODEL, getWebsiteImageModel } from '@/lib/ai/websiteImageConfig'
+import {
+  WEBSITE_IMAGE_BUCKET,
+  WEBSITE_IMAGE_MODEL,
+  getWebsiteImageModel,
+} from '@/lib/ai/websiteImageConfig'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export async function GET() {
   const ctx = await getUserContext()
-  if (!ctx)            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (ctx.role !== 'owner')
     return NextResponse.json({ error: 'Owner role required.' }, { status: 403 })
 
@@ -26,27 +30,27 @@ export async function GET() {
 
   // ── 2. Storage buckets ─────────────────────────────────────────────────────
   let bucketsChecked = false
-  let assetsOk       = false
-  let imagesOk       = false
-  let bucketDetail   = ''
+  let assetsOk = false
+  let imagesOk = false
+  let bucketDetail = ''
   try {
     const { data: buckets, error } = await supabase.storage.listBuckets()
     if (error) {
       bucketDetail = `listBuckets failed: ${error.message}`
     } else {
       bucketsChecked = true
-      assetsOk = !!buckets?.find(b => b.id === WEBSITE_IMAGE_BUCKET)
-      imagesOk = !!buckets?.find(b => b.id === 'website-images')
+      assetsOk = !!buckets?.find((b) => b.id === WEBSITE_IMAGE_BUCKET)
+      imagesOk = !!buckets?.find((b) => b.id === 'website-images')
     }
   } catch (e) {
     bucketDetail = `Exception: ${e instanceof Error ? e.message : String(e)}`
   }
 
   // ── 3. Environment variables ───────────────────────────────────────────────
-  const geminiKey     = !!process.env.GEMINI_API_KEY
-  const serviceKey    = !!process.env.SUPABASE_SERVICE_ROLE_KEY
-  const supabaseUrl   = process.env.NEXT_PUBLIC_SUPABASE_URL ?? null
-  const activeModel   = getWebsiteImageModel()
+  const geminiKey = !!process.env.GEMINI_API_KEY
+  const serviceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? null
+  const activeModel = getWebsiteImageModel()
 
   // ── 4. created_by column nullability ──────────────────────────────────────
   let createdByNullable = true
@@ -61,7 +65,9 @@ export async function GET() {
         .maybeSingle()
       const col = data as { is_nullable?: string } | null
       createdByNullable = col?.is_nullable !== 'NO'
-    } catch { /* treat as nullable */ }
+    } catch {
+      /* treat as nullable */
+    }
   }
 
   // ── 5. Recent failed plans ─────────────────────────────────────────────────
@@ -75,7 +81,9 @@ export async function GET() {
         .order('updated_at', { ascending: false })
         .limit(5)
       recentFailed = (data ?? []) as unknown as Array<Record<string, unknown>>
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   // ── 6. Invalid aspect_ratio rows ───────────────────────────────────────────
@@ -90,131 +98,171 @@ export async function GET() {
         .select('id, tenant_id, section_type, aspect_ratio, status, created_at')
         .order('created_at', { ascending: false })
         .limit(200)
-      type RatioRow = { id: string; tenant_id: string; section_type: string | null; aspect_ratio: string | null; status: string; created_at: string }
+      type RatioRow = {
+        id: string
+        tenant_id: string
+        section_type: string | null
+        aspect_ratio: string | null
+        status: string
+        created_at: string
+      }
       const rows = (allRecent ?? []) as unknown as RatioRow[]
-      const invalid = rows.filter(r => !(VALID_RATIOS as string[]).includes(r.aspect_ratio ?? ''))
-      invalidAspectRatioCount   = invalid.length
+      const invalid = rows.filter((r) => !(VALID_RATIOS as string[]).includes(r.aspect_ratio ?? ''))
+      invalidAspectRatioCount = invalid.length
       invalidAspectRatioExamples = invalid.slice(0, 5) as unknown as Array<Record<string, unknown>>
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   // ── 7. Build structured response ──────────────────────────────────────────
-  const envOk    = geminiKey && serviceKey && !!supabaseUrl
+  const envOk = geminiKey && serviceKey && !!supabaseUrl
   const bucketOk = assetsOk || imagesOk
-  const allOk    = schema.ok && envOk && bucketOk
+  const allOk = schema.ok && envOk && bucketOk
 
   // Smart contextual guidance
   const fixes: string[] = []
   if (!schema.tables.website_image_plans.exists)
-    fixes.push('Run migration 054_website_image_plans_complete.sql — table website_image_plans is missing.')
+    fixes.push(
+      'Run migration 054_website_image_plans_complete.sql — table website_image_plans is missing.'
+    )
   if (!schema.tables.website_image_jobs.exists)
-    fixes.push('Run migration 054_website_image_plans_complete.sql — table website_image_jobs is missing.')
+    fixes.push(
+      'Run migration 054_website_image_plans_complete.sql — table website_image_jobs is missing.'
+    )
   if (!schema.tables.website_section_images.exists)
-    fixes.push('Run migration 054_website_image_plans_complete.sql — table website_section_images is missing.')
+    fixes.push(
+      'Run migration 054_website_image_plans_complete.sql — table website_section_images is missing.'
+    )
   if (schema.tables.website_image_plans.missingColumns.length)
-    fixes.push(`website_image_plans is missing columns: ${schema.tables.website_image_plans.missingColumns.join(', ')} — re-run migration 054.`)
+    fixes.push(
+      `website_image_plans is missing columns: ${schema.tables.website_image_plans.missingColumns.join(', ')} — re-run migration 054.`
+    )
   if (schema.tables.website_image_jobs.missingColumns.length)
-    fixes.push(`website_image_jobs is missing columns: ${schema.tables.website_image_jobs.missingColumns.join(', ')} — re-run migration 054.`)
+    fixes.push(
+      `website_image_jobs is missing columns: ${schema.tables.website_image_jobs.missingColumns.join(', ')} — re-run migration 054.`
+    )
   if (schema.tables.website_section_images.missingColumns.length)
-    fixes.push(`website_section_images is missing columns: ${schema.tables.website_section_images.missingColumns.join(', ')} — re-run migration 054.`)
+    fixes.push(
+      `website_section_images is missing columns: ${schema.tables.website_section_images.missingColumns.join(', ')} — re-run migration 054.`
+    )
   if (!schema.compatViewExists)
     fixes.push('website_generated_images compatibility view is missing — re-run migration 054.')
   if (!geminiKey)
-    fixes.push('Add GEMINI_API_KEY to Vercel → Project → Settings → Environment Variables → Redeploy.')
-  if (!serviceKey)
-    fixes.push('Add SUPABASE_SERVICE_ROLE_KEY to Vercel environment variables.')
+    fixes.push(
+      'Add GEMINI_API_KEY to Vercel → Project → Settings → Environment Variables → Redeploy.'
+    )
+  if (!serviceKey) fixes.push('Add SUPABASE_SERVICE_ROLE_KEY to Vercel environment variables.')
   if (!supabaseUrl)
     fixes.push('NEXT_PUBLIC_SUPABASE_URL is not set. Check Vercel environment variables.')
   if (!schema.usedRpc)
-    fixes.push('Run migration 058_schema_check_helpers.sql to enable accurate schema detection via RPC.')
+    fixes.push(
+      'Run migration 058_schema_check_helpers.sql to enable accurate schema detection via RPC.'
+    )
   if (bucketsChecked && !assetsOk && !imagesOk)
-    fixes.push(`Storage bucket "${WEBSITE_IMAGE_BUCKET}" not found. Run migration 054 or create it manually in Supabase Dashboard → Storage.`)
+    fixes.push(
+      `Storage bucket "${WEBSITE_IMAGE_BUCKET}" not found. Run migration 054 or create it manually in Supabase Dashboard → Storage.`
+    )
   if (!createdByNullable)
-    fixes.push('created_by column in website_image_plans is NOT NULL — re-run migration 054 to make it nullable.')
+    fixes.push(
+      'created_by column in website_image_plans is NOT NULL — re-run migration 054 to make it nullable.'
+    )
   if (supabaseUrl && schema.ok && !schema.usedRpc)
-    fixes.push('The app may be connected to a different Supabase project. Verify NEXT_PUBLIC_SUPABASE_URL matches the project where you ran migration 054.')
+    fixes.push(
+      'The app may be connected to a different Supabase project. Verify NEXT_PUBLIC_SUPABASE_URL matches the project where you ran migration 054.'
+    )
   if (invalidAspectRatioCount > 0)
-    fixes.push(`${invalidAspectRatioCount} row(s) have invalid aspect_ratio values. Run migration 059_fix_aspect_ratios.sql, or call POST /api/owner/diagnostics/website-images/repair-aspect-ratios.`)
+    fixes.push(
+      `${invalidAspectRatioCount} row(s) have invalid aspect_ratio values. Run migration 059_fix_aspect_ratios.sql, or call POST /api/owner/diagnostics/website-images/repair-aspect-ratios.`
+    )
 
-  return NextResponse.json({
-    ok:        allOk,
-    timestamp: new Date().toISOString(),
-    checkMethod: schema.usedRpc ? 'rpc_check_website_image_schema' : 'direct_query_fallback',
+  return NextResponse.json(
+    {
+      ok: allOk,
+      timestamp: new Date().toISOString(),
+      checkMethod: schema.usedRpc ? 'rpc_check_website_image_schema' : 'direct_query_fallback',
 
-    supabase: {
-      url:              supabaseUrl,
-      serviceRolePresent: serviceKey,
-      note: schema.usedRpc
-        ? 'Schema checked via RPC — bypasses PostgREST cache. Results are authoritative.'
-        : 'Schema checked via direct query — run migration 058_schema_check_helpers.sql for authoritative RPC-based checks.',
-    },
-
-    tables: {
-      website_image_plans: {
-        exists:         schema.tables.website_image_plans.exists,
-        missingColumns: schema.tables.website_image_plans.missingColumns,
+      supabase: {
+        url: supabaseUrl,
+        serviceRolePresent: serviceKey,
+        note: schema.usedRpc
+          ? 'Schema checked via RPC — bypasses PostgREST cache. Results are authoritative.'
+          : 'Schema checked via direct query — run migration 058_schema_check_helpers.sql for authoritative RPC-based checks.',
       },
-      website_image_jobs: {
-        exists:         schema.tables.website_image_jobs.exists,
-        missingColumns: schema.tables.website_image_jobs.missingColumns,
+
+      tables: {
+        website_image_plans: {
+          exists: schema.tables.website_image_plans.exists,
+          missingColumns: schema.tables.website_image_plans.missingColumns,
+        },
+        website_image_jobs: {
+          exists: schema.tables.website_image_jobs.exists,
+          missingColumns: schema.tables.website_image_jobs.missingColumns,
+        },
+        website_section_images: {
+          exists: schema.tables.website_section_images.exists,
+          missingColumns: schema.tables.website_section_images.missingColumns,
+        },
+        website_generated_images_view: {
+          exists: schema.compatViewExists,
+          note: 'Compatibility view over website_section_images for old code references.',
+        },
       },
-      website_section_images: {
-        exists:         schema.tables.website_section_images.exists,
-        missingColumns: schema.tables.website_section_images.missingColumns,
+
+      functions: {
+        activate_website_section_image: schema.activateFnExists,
+        check_website_image_schema_rpc: schema.usedRpc,
       },
-      website_generated_images_view: {
-        exists: schema.compatViewExists,
-        note:   'Compatibility view over website_section_images for old code references.',
+
+      storage: {
+        [WEBSITE_IMAGE_BUCKET]: assetsOk,
+        'website-images': imagesOk,
+        bucketCheckError: bucketDetail || null,
       },
-    },
 
-    functions: {
-      activate_website_section_image: schema.activateFnExists,
-      check_website_image_schema_rpc: schema.usedRpc,
-    },
+      env: {
+        GEMINI_API_KEY: geminiKey ? 'present' : 'MISSING',
+        SUPABASE_SERVICE_ROLE_KEY: serviceKey ? 'present' : 'MISSING',
+        NEXT_PUBLIC_SUPABASE_URL: supabaseUrl ?? 'MISSING',
+        WEBSITE_IMAGE_MODEL: activeModel,
+        expectedModel: WEBSITE_IMAGE_MODEL,
+        modelMatchesExpected: activeModel === WEBSITE_IMAGE_MODEL,
+      },
 
-    storage: {
-      [WEBSITE_IMAGE_BUCKET]: assetsOk,
-      'website-images':       imagesOk,
-      bucketCheckError:       bucketDetail || null,
-    },
+      database: {
+        allTablesPresent: schema.allTablesPresent,
+        createdByNullable,
+        schemaErrors: schema.errors,
+        schemaSummary: schema.summary,
+      },
 
-    env: {
-      GEMINI_API_KEY:             geminiKey ? 'present' : 'MISSING',
-      SUPABASE_SERVICE_ROLE_KEY:  serviceKey ? 'present' : 'MISSING',
-      NEXT_PUBLIC_SUPABASE_URL:   supabaseUrl ?? 'MISSING',
-      WEBSITE_IMAGE_MODEL:        activeModel,
-      expectedModel:              WEBSITE_IMAGE_MODEL,
-      modelMatchesExpected:       activeModel === WEBSITE_IMAGE_MODEL,
-    },
+      aspectRatios: {
+        allowedValues: VALID_RATIOS,
+        invalidExistingPlanCount: invalidAspectRatioCount,
+        invalidExamples: invalidAspectRatioExamples,
+        repairEndpoint:
+          invalidAspectRatioCount > 0
+            ? 'POST /api/owner/diagnostics/website-images/repair-aspect-ratios'
+            : null,
+      },
 
-    database: {
-      allTablesPresent: schema.allTablesPresent,
-      createdByNullable,
-      schemaErrors:     schema.errors,
-      schemaSummary:    schema.summary,
-    },
+      recentFailedPlans: recentFailed,
+      fixes,
 
-    aspectRatios: {
-      allowedValues:            VALID_RATIOS,
-      invalidExistingPlanCount: invalidAspectRatioCount,
-      invalidExamples:          invalidAspectRatioExamples,
-      repairEndpoint:           invalidAspectRatioCount > 0
-        ? 'POST /api/owner/diagnostics/website-images/repair-aspect-ratios'
-        : null,
+      instructions:
+        fixes.length === 0
+          ? null
+          : {
+              step1: 'In your Supabase Dashboard → SQL Editor, run:',
+              step2: '  supabase/migrations/054_website_image_plans_complete.sql',
+              step3: '  supabase/migrations/058_schema_check_helpers.sql',
+              step4: 'Redeploy on Vercel.',
+              step5: 'Visit /api/owner/diagnostics/website-images and confirm ok=true.',
+              warning:
+                'Ensure you are running migrations against the SAME Supabase project ' +
+                'that NEXT_PUBLIC_SUPABASE_URL points to.',
+            },
     },
-
-    recentFailedPlans: recentFailed,
-    fixes,
-
-    instructions: fixes.length === 0 ? null : {
-      step1: 'In your Supabase Dashboard → SQL Editor, run:',
-      step2: '  supabase/migrations/054_website_image_plans_complete.sql',
-      step3: '  supabase/migrations/058_schema_check_helpers.sql',
-      step4: 'Redeploy on Vercel.',
-      step5: 'Visit /api/owner/diagnostics/website-images and confirm ok=true.',
-      warning: 'Ensure you are running migrations against the SAME Supabase project ' +
-               'that NEXT_PUBLIC_SUPABASE_URL points to.',
-    },
-  }, { status: allOk ? 200 : 207 })
+    { status: allOk ? 200 : 207 }
+  )
 }

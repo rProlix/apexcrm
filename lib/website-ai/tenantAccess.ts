@@ -8,7 +8,7 @@ import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
 import type { UserContext } from '@/lib/auth/types'
 
 export interface TenantAccessResult {
-  ctx:      UserContext
+  ctx: UserContext
   tenantId: string
 }
 
@@ -18,15 +18,12 @@ export interface TenantAccessResult {
  * - Admin: always uses their own ctx.tenant_id; rejects mismatches
  * Returns null if resolution fails (caller should return 400/403).
  */
-export function resolveTenantAccess(
-  ctx:           UserContext,
-  hintTenantId?: string | null,
-): string | null {
+export function resolveTenantAccess(ctx: UserContext, hintTenantId?: string | null): string | null {
   const hint = sanitizeTenantId(hintTenantId)
   const self = sanitizeTenantId(ctx.tenant_id)
 
   if (ctx.role === 'owner') return hint ?? self
-  if (self && hint && self !== hint) return null   // mismatch — block
+  if (self && hint && self !== hint) return null // mismatch — block
   return self ?? hint
 }
 
@@ -35,7 +32,7 @@ export function resolveTenantAccess(
  * Returns null if auth fails or role is insufficient.
  */
 export async function requireAiAutofillAccess(
-  hintTenantId?: string | null,
+  hintTenantId?: string | null
 ): Promise<TenantAccessResult | null> {
   const ctx = await getUserContext()
   if (!ctx) return null
@@ -50,10 +47,7 @@ export async function requireAiAutofillAccess(
 /**
  * Verifies that a specific job belongs to the resolved tenant.
  */
-export async function verifyJobAccess(
-  jobId:    string,
-  tenantId: string,
-): Promise<boolean> {
+export async function verifyJobAccess(jobId: string, tenantId: string): Promise<boolean> {
   const db = getSupabaseServerClient()
   const { data } = await db
     .from('website_ai_import_jobs')
@@ -70,7 +64,7 @@ export async function verifyJobAccess(
  */
 export async function verifySuggestionAccess(
   suggestionId: string,
-  tenantId:     string,
+  tenantId: string
 ): Promise<boolean> {
   const db = getSupabaseServerClient()
   const { data } = await db

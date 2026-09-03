@@ -19,5 +19,8 @@ export function verifySlackSignature(input: {
     .digest('hex')}`
   const suppliedBuffer = Buffer.from(signature)
   const expectedBuffer = Buffer.from(expected)
-  return suppliedBuffer.length === expectedBuffer.length && timingSafeEqual(suppliedBuffer, expectedBuffer)
+  return (
+    suppliedBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(suppliedBuffer, expectedBuffer)
+  )
 }

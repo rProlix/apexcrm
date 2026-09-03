@@ -18,7 +18,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const tenantId = user.isOwner
     ? (req.nextUrl.searchParams.get('tenantId') ?? user.tenantId)
     : user.tenantId
-  if (!tenantId) return NextResponse.json({ ok: false, error: 'Could not resolve tenant' }, { status: 400 })
+  if (!tenantId)
+    return NextResponse.json({ ok: false, error: 'Could not resolve tenant' }, { status: 400 })
 
   try {
     const supabase = getSupabaseServerClient()
@@ -33,14 +34,18 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       .maybeSingle()
 
     if (existingErr) throw new Error(existingErr.message)
-    if (!existing) return NextResponse.json({ ok: false, error: 'Package not found' }, { status: 404 })
+    if (!existing)
+      return NextResponse.json({ ok: false, error: 'Package not found' }, { status: 404 })
 
     const status = String(existing.status ?? '')
     if (status !== 'ready' && status !== 'completed') {
-      return NextResponse.json({
-        ok: false,
-        error: `Only ready/completed packages can be activated. Current status: ${status || 'unknown'}`,
-      }, { status: 409 })
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Only ready/completed packages can be activated. Current status: ${status || 'unknown'}`,
+        },
+        { status: 409 }
+      )
     }
 
     const pkg = await setPrimaryPackage(packageId, tenantId)

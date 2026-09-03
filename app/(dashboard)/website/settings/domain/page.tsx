@@ -4,14 +4,14 @@ export const dynamic = 'force-dynamic'
 // Website-specific domain settings — mirrors /settings/domain but lives under the
 // website section and shows website-focused context (public site URL, preview link).
 
-import { redirect }          from 'next/navigation'
-import { getUserContext }    from '@/lib/auth/getUserContext'
+import { redirect } from 'next/navigation'
+import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { DomainManager }     from '@/components/domains/DomainManager'
-import { SubdomainDisplay }  from '@/components/domains/SubdomainDisplay'
+import { DomainManager } from '@/components/domains/DomainManager'
+import { SubdomainDisplay } from '@/components/domains/SubdomainDisplay'
 import { DomainPreviewCard } from '@/components/domains/DomainPreviewCard'
-import { Globe, ArrowLeft }  from 'lucide-react'
-import Link                  from 'next/link'
+import { Globe, ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
 
 export const metadata = { title: 'Website Domain' }
 
@@ -23,9 +23,9 @@ export default async function WebsiteSettingsDomainPage() {
 
   const tenantId = ctx.tenant_id ?? ''
 
-  let slug          = 'your-business'
+  let slug = 'your-business'
   let customDomain: string | null = null
-  let isVerified    = false
+  let isVerified = false
 
   if (tenantId) {
     const db = getSupabaseServerClient()
@@ -35,7 +35,7 @@ export default async function WebsiteSettingsDomainPage() {
       .eq('id', tenantId)
       .maybeSingle()
     if (tenant) {
-      slug         = tenant.slug
+      slug = tenant.slug
       customDomain = tenant.custom_domain ?? null
     }
 
@@ -78,11 +78,7 @@ export default async function WebsiteSettingsDomainPage() {
       <div className="mb-6 space-y-3">
         <SubdomainDisplay slug={slug} label="Your Free Website URL" />
         {customDomain && (
-          <DomainPreviewCard
-            slug={slug}
-            customDomain={customDomain}
-            isVerified={isVerified}
-          />
+          <DomainPreviewCard slug={slug} customDomain={customDomain} isVerified={isVerified} />
         )}
       </div>
 

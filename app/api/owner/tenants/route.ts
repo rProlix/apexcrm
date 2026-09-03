@@ -11,7 +11,10 @@ import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supaba
 export async function GET(_req: NextRequest) {
   // ── 1. Authenticate ────────────────────────────────────────────────────────
   const session = await createSessionServerClient()
-  const { data: { user }, error: authErr } = await session.auth.getUser()
+  const {
+    data: { user },
+    error: authErr,
+  } = await session.auth.getUser()
 
   if (authErr || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -31,23 +34,15 @@ export async function GET(_req: NextRequest) {
   }
 
   // ── 3. Fetch tenants with lightweight aggregates ────────────────────────────
-  const [
-    { data: tenants, error: tenantErr },
-    { data: moduleCounts },
-    { data: userCounts },
-  ] = await Promise.all([
-    admin
-      .from('tenants')
-      .select('id, name, slug, subdomain, custom_domain, status, created_at, branding')
-      .order('created_at', { ascending: false }),
-    admin
-      .from('tenant_modules')
-      .select('tenant_id, enabled'),
-    admin
-      .from('users')
-      .select('tenant_id')
-      .not('tenant_id', 'is', null),
-  ])
+  const [{ data: tenants, error: tenantErr }, { data: moduleCounts }, { data: userCounts }] =
+    await Promise.all([
+      admin
+        .from('tenants')
+        .select('id, name, slug, subdomain, custom_domain, status, created_at, branding')
+        .order('created_at', { ascending: false }),
+      admin.from('tenant_modules').select('tenant_id, enabled'),
+      admin.from('users').select('tenant_id').not('tenant_id', 'is', null),
+    ])
 
   if (tenantErr) {
     console.error('[GET /api/owner/tenants] error:', tenantErr.message)
@@ -71,16 +66,16 @@ export async function GET(_req: NextRequest) {
   }
 
   const result = (tenants ?? []).map((t) => ({
-    id:             t.id,
-    name:           t.name,
-    slug:           t.slug,
-    subdomain:      t.subdomain,
-    custom_domain:  t.custom_domain,
-    status:         t.status,
-    created_at:     t.created_at,
-    branding:       t.branding,
+    id: t.id,
+    name: t.name,
+    slug: t.slug,
+    subdomain: t.subdomain,
+    custom_domain: t.custom_domain,
+    status: t.status,
+    created_at: t.created_at,
+    branding: t.branding,
     enabled_modules: enabledCountMap[t.id] ?? 0,
-    staff_count:    userCountMap[t.id]  ?? 0,
+    staff_count: userCountMap[t.id] ?? 0,
   }))
 
   return NextResponse.json({ tenants: result })

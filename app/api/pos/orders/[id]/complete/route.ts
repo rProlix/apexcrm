@@ -22,12 +22,17 @@ export async function POST(req: NextRequest, { params }: Params) {
     .single()
 
   if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-  if (order.status === 'completed') return NextResponse.json({ error: 'Order already completed' }, { status: 400 })
-  if (['cancelled','refunded'].includes(order.status)) {
-    return NextResponse.json({ error: 'Cannot complete a cancelled or refunded order' }, { status: 400 })
+  if (order.status === 'completed')
+    return NextResponse.json({ error: 'Order already completed' }, { status: 400 })
+  if (['cancelled', 'refunded'].includes(order.status)) {
+    return NextResponse.json(
+      { error: 'Cannot complete a cancelled or refunded order' },
+      { status: 400 }
+    )
   }
 
-  await supabase.from('pos_orders')
+  await supabase
+    .from('pos_orders')
     .update({
       status: 'completed',
       fulfillment_status: 'fulfilled',
@@ -36,19 +41,26 @@ export async function POST(req: NextRequest, { params }: Params) {
     .eq('id', orderId)
     .eq('tenant_id', user.tenant_id)
 
-  await supabase.from('pos_order_items')
+  await supabase
+    .from('pos_order_items')
     .update({ fulfillment_status: 'fulfilled' })
     .eq('order_id', orderId)
     .eq('tenant_id', user.tenant_id)
 
   await supabase.from('pos_order_events').insert({
-    tenant_id: user.tenant_id, order_id: orderId,
-    event_type: 'completed', message: 'Order completed',
+    tenant_id: user.tenant_id,
+    order_id: orderId,
+    event_type: 'completed',
+    message: 'Order completed',
     created_by: user.id,
   })
 
   // Inventory deduction
-  applyPOSInventoryMovements({ orderId, tenantId: user.tenant_id, trigger: 'order_completed' }).catch(console.warn)
+  applyPOSInventoryMovements({
+    orderId,
+    tenantId: user.tenant_id,
+    trigger: 'order_completed',
+  }).catch(console.warn)
 
   // Apply rewards if customer attached
   if (order.customer_id) {
@@ -60,14 +72,16 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     if (items && items.length > 0) {
       applyOrderRewards({
-        tenantId:   user.tenant_id,
+        tenantId: user.tenant_id,
         customerId: order.customer_id,
         orderId,
-        items: (items as Array<{ product_id: string; quantity: number; total_cents: number }>).map((i) => ({
-          product_id: i.product_id ?? '',
-          quantity:   i.quantity,
-          price:      i.total_cents / 100,
-        })),
+        items: (items as Array<{ product_id: string; quantity: number; total_cents: number }>).map(
+          (i) => ({
+            product_id: i.product_id ?? '',
+            quantity: i.quantity,
+            price: i.total_cents / 100,
+          })
+        ),
       }).catch(console.warn)
     }
   }

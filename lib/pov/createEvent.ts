@@ -43,15 +43,21 @@ export interface CreatePovEventInput {
   settings?: Record<string, unknown>
 }
 
-export interface CreatePovEventResult { event?: AnyRow; error?: string }
+export interface CreatePovEventResult {
+  event?: AnyRow
+  error?: string
+}
 
-export async function createPovEventRecord(input: CreatePovEventInput): Promise<CreatePovEventResult> {
+export async function createPovEventRecord(
+  input: CreatePovEventInput
+): Promise<CreatePovEventResult> {
   const { tenantId } = input
   const name = String(input.name ?? '').trim()
   if (!name) return { error: 'Event name is required.' }
 
   const eventType = POV_EVENT_TYPES.includes(input.event_type as PovEventType)
-    ? (input.event_type as PovEventType) : 'other'
+    ? (input.event_type as PovEventType)
+    : 'other'
   const timezone = input.timezone || 'America/Los_Angeles'
   const eventDate = input.event_date || null
   const revealAt = input.gallery_reveal_at
@@ -65,8 +71,12 @@ export async function createPovEventRecord(input: CreatePovEventInput): Promise<
 
   let slug = generateEventSlug(name)
   for (let attempt = 0; attempt < 3; attempt++) {
-    const { data: clash } = await db.from('pov_events').select('id')
-      .eq('tenant_id', tenantId).eq('slug', slug).maybeSingle()
+    const { data: clash } = await db
+      .from('pov_events')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('slug', slug)
+      .maybeSingle()
     if (!clash) break
     slug = generateEventSlug(name)
   }
@@ -90,8 +100,10 @@ export async function createPovEventRecord(input: CreatePovEventInput): Promise<
     video_max_seconds: Number(input.video_max_seconds ?? 15),
     audio_max_seconds: Number(input.audio_max_seconds ?? 30),
     require_pin: input.require_pin === undefined ? true : Boolean(input.require_pin),
-    allow_guest_login: input.allow_guest_login === undefined ? true : Boolean(input.allow_guest_login),
-    allow_guest_registration: input.allow_guest_registration === undefined ? true : Boolean(input.allow_guest_registration),
+    allow_guest_login:
+      input.allow_guest_login === undefined ? true : Boolean(input.allow_guest_login),
+    allow_guest_registration:
+      input.allow_guest_registration === undefined ? true : Boolean(input.allow_guest_registration),
     gallery_locked_message: input.gallery_locked_message || defaults.gallery_locked_message,
     gallery_unlocked_message: input.gallery_unlocked_message || defaults.gallery_unlocked_message,
     theme: { theme_key: themeKey, ...(input.theme ?? {}) },
@@ -116,22 +128,41 @@ export async function createPovEventRecord(input: CreatePovEventInput): Promise<
     await getSupabaseServerClient()
       .from('site_settings')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .upsert({ tenant_id: tenantId, website_type: websiteType, pov_enabled: true, pov_event_id: event.id } as any,
-        { onConflict: 'tenant_id' })
+      .upsert(
+        {
+          tenant_id: tenantId,
+          website_type: websiteType,
+          pov_enabled: true,
+          pov_event_id: event.id,
+        } as any,
+        { onConflict: 'tenant_id' }
+      )
   } catch (e) {
-    console.warn('[createPovEventRecord] site_settings link failed:', e instanceof Error ? e.message : e)
+    console.warn(
+      '[createPovEventRecord] site_settings link failed:',
+      e instanceof Error ? e.message : e
+    )
   }
 
   if (websiteType === 'invitational') {
     try {
       await ensureInvitationPages(tenantId, {
-        eventName: event.name, eventDate: event.event_date, eventSlug: event.slug, povEnabled: true,
+        eventName: event.name,
+        eventDate: event.event_date,
+        eventSlug: event.slug,
+        povEnabled: true,
       })
-    } catch { /* non-fatal */ }
+    } catch {
+      /* non-fatal */
+    }
   }
 
   // Register the event as its own separate website/app record.
-  try { await ensureWebsiteRegistry(tenantId) } catch { /* non-fatal */ }
+  try {
+    await ensureWebsiteRegistry(tenantId)
+  } catch {
+    /* non-fatal */
+  }
 
   return { event }
 }

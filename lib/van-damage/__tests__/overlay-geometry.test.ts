@@ -43,25 +43,31 @@ test('overlay geometry handles EXIF rotation and rejects unsafe boxes', () => {
     { ok: true, box: { x: 0.4, y: 0.1, width: 0.4, height: 0.3 }, source: 'normalized' }
   )
   assert.equal(
-    failureReason(resolveDamageOverlayGeometry({
-      imageId: 'image-1',
-      findingImageId: 'other-image',
-      box: { x: 0.1, y: 0.1, width: 0.2, height: 0.2 },
-    })),
+    failureReason(
+      resolveDamageOverlayGeometry({
+        imageId: 'image-1',
+        findingImageId: 'other-image',
+        box: { x: 0.1, y: 0.1, width: 0.2, height: 0.2 },
+      })
+    ),
     'wrong_image'
   )
   assert.equal(
-    failureReason(resolveDamageOverlayGeometry({
-      imageId: 'image-1',
-      box: { x: -0.1, y: 0.1, width: 0.2, height: 0.2 },
-    })),
+    failureReason(
+      resolveDamageOverlayGeometry({
+        imageId: 'image-1',
+        box: { x: -0.1, y: 0.1, width: 0.2, height: 0.2 },
+      })
+    ),
     'outside_image'
   )
   assert.equal(
-    failureReason(resolveDamageOverlayGeometry({
-      imageId: 'image-1',
-      box: { x: 0, y: 0, width: 1, height: 1 },
-    })),
+    failureReason(
+      resolveDamageOverlayGeometry({
+        imageId: 'image-1',
+        box: { x: 0, y: 0, width: 1, height: 1 },
+      })
+    ),
     'too_large'
   )
 })

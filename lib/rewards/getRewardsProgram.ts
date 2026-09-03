@@ -3,15 +3,15 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { RewardsProgram, EarningRules, PunchCardRule, ProgramSettings } from '@/types/rewards'
 
 const DEFAULT_EARNING_RULES: EarningRules = {
-  points_per_dollar:    10,
-  enabled:              true,
+  points_per_dollar: 10,
+  enabled: true,
   bonus_points_products: [],
 }
 
 const DEFAULT_SETTINGS: ProgramSettings = {
-  points_enabled:        true,
-  punch_cards_enabled:   true,
-  shop_enabled:          true,
+  points_enabled: true,
+  punch_cards_enabled: true,
+  shop_enabled: true,
   min_redemption_points: 100,
 }
 
@@ -40,9 +40,9 @@ export async function getRewardsProgram(tenantId: string): Promise<RewardsProgra
 
   return {
     ...data,
-    earning_rules:    (data.earning_rules    as unknown as EarningRules)    ?? DEFAULT_EARNING_RULES,
+    earning_rules: (data.earning_rules as unknown as EarningRules) ?? DEFAULT_EARNING_RULES,
     punch_card_rules: (data.punch_card_rules as unknown as PunchCardRule[]) ?? [],
-    settings:         (data.settings         as unknown as ProgramSettings) ?? DEFAULT_SETTINGS,
+    settings: (data.settings as unknown as ProgramSettings) ?? DEFAULT_SETTINGS,
   } as RewardsProgram
 }
 

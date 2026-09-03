@@ -64,13 +64,13 @@ https://*.vercel.app/reset-password
 
 ## How Redirect URLs Are Generated
 
-| Flow | Helper used | Example output |
-|------|-------------|----------------|
-| Customer storefront signup | `getStorefrontEmailRedirectTo(request, '/account')` in `app/api/storefront/auth/signup/route.ts` | `https://erickvcontacf.nexoranow.com/auth/callback?next=%2Faccount&tenant_id=…` |
-| Customer forgot password | `getStorefrontPasswordResetRedirectToFromHeaders(headers)` in `lib/actions/customer-auth.ts` | `https://erickvcontacf.nexoranow.com/auth/callback?type=recovery&next=%2Freset-password` |
-| CRM business owner signup | `getCrmEmailRedirectTo('/dashboard')` in `components/auth/SignupForm.tsx` | `https://nexoranow.com/auth/callback?next=%2Fdashboard` |
-| CRM onboarding wizard | `getCrmEmailRedirectTo('/dashboard')` in `components/onboarding/BusinessSignupWizard.tsx` | `https://nexoranow.com/auth/callback?next=%2Fdashboard` |
-| Customer invite acceptance | `buildInviteUrl()` in `lib/invites/inviteHelpers.ts` | `https://erickvcontacf.nexoranow.com/invite/customer?token=…` |
+| Flow                       | Helper used                                                                                      | Example output                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Customer storefront signup | `getStorefrontEmailRedirectTo(request, '/account')` in `app/api/storefront/auth/signup/route.ts` | `https://erickvcontacf.nexoranow.com/auth/callback?next=%2Faccount&tenant_id=…`          |
+| Customer forgot password   | `getStorefrontPasswordResetRedirectToFromHeaders(headers)` in `lib/actions/customer-auth.ts`     | `https://erickvcontacf.nexoranow.com/auth/callback?type=recovery&next=%2Freset-password` |
+| CRM business owner signup  | `getCrmEmailRedirectTo('/dashboard')` in `components/auth/SignupForm.tsx`                        | `https://nexoranow.com/auth/callback?next=%2Fdashboard`                                  |
+| CRM onboarding wizard      | `getCrmEmailRedirectTo('/dashboard')` in `components/onboarding/BusinessSignupWizard.tsx`        | `https://nexoranow.com/auth/callback?next=%2Fdashboard`                                  |
+| Customer invite acceptance | `buildInviteUrl()` in `lib/invites/inviteHelpers.ts`                                             | `https://erickvcontacf.nexoranow.com/invite/customer?token=…`                            |
 
 ---
 
@@ -110,6 +110,7 @@ This means `emailRedirectTo` was **not** passed to Supabase, OR the URL was
 not in the Additional Redirect URLs list and Supabase silently discarded it.
 
 **Check:**
+
 1. Server logs for `[storefront-signup-redirect]` — verify `generatedEmailRedirectTo`
    has the correct subdomain.
 2. Supabase Dashboard — confirm all patterns above are in Additional Redirect URLs.
@@ -120,12 +121,13 @@ not in the Additional Redirect URLs list and Supabase silently discarded it.
 Ensure `middleware.ts` has the passthrough for `/auth/callback`:
 
 ```typescript
-if (subdomain && (
-  pathname.startsWith('/invite/') ||
-  pathname === '/auth/callback'   ||
-  pathname.startsWith('/auth/callback?')
-)) {
-  return sessionResponse  // pass through to root app
+if (
+  subdomain &&
+  (pathname.startsWith('/invite/') ||
+    pathname === '/auth/callback' ||
+    pathname.startsWith('/auth/callback?'))
+) {
+  return sessionResponse // pass through to root app
 }
 ```
 

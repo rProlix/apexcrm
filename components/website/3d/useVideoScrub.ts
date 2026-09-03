@@ -11,18 +11,23 @@
 import { useEffect, useRef, useState } from 'react'
 
 interface UseVideoScrubOptions {
-  videoRef:    React.RefObject<HTMLVideoElement | null>
+  videoRef: React.RefObject<HTMLVideoElement | null>
   progressRef: React.RefObject<number>
-  active:      boolean
+  active: boolean
   /** 0 (snappy) .. 1 (very smooth) */
-  smoothing?:  number
+  smoothing?: number
   /** Optional clip window in seconds */
-  startTime?:  number
-  endTime?:    number
+  startTime?: number
+  endTime?: number
 }
 
 export function useVideoScrub({
-  videoRef, progressRef, active, smoothing = 0.12, startTime, endTime,
+  videoRef,
+  progressRef,
+  active,
+  smoothing = 0.12,
+  startTime,
+  endTime,
 }: UseVideoScrubOptions): { ready: boolean; errored: boolean } {
   const [ready, setReady] = useState(false)
   const [errored, setErrored] = useState(false)
@@ -81,13 +86,17 @@ export function useVideoScrub({
             if (typeof anyV.fastSeek === 'function') anyV.fastSeek(clamped)
             else v.currentTime = clamped
             lastSetRef.current = clamped
-          } catch { /* ignore transient seek errors */ }
+          } catch {
+            /* ignore transient seek errors */
+          }
         }
       }
       rafId = requestAnimationFrame(loop)
     }
     rafId = requestAnimationFrame(loop)
-    return () => { if (rafId) cancelAnimationFrame(rafId) }
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId)
+    }
   }, [ready, errored, active, smoothing, startTime, endTime, videoRef, progressRef])
 
   return { ready, errored }

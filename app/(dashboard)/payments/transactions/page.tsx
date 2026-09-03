@@ -14,7 +14,7 @@ export default async function TransactionsPage() {
 
   const tenantId = ctx.tenant_id ?? ''
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase  = getSupabaseServerClient() as any
+  const supabase = getSupabaseServerClient() as any
 
   const { data: transactions } = await supabase
     .from('payment_transactions')

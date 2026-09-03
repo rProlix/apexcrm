@@ -10,8 +10,8 @@ export { punchCardProgressPercent, punchCardRewardLabel } from './punchCardUtils
  * Includes product name via join.
  */
 export async function getCustomerPunchCards(
-  tenantId:   string,
-  customerId: string,
+  tenantId: string,
+  customerId: string
 ): Promise<RewardPunchCard[]> {
   const supabase = getSupabaseServerClient()
 
@@ -34,8 +34,8 @@ export async function getCustomerPunchCards(
  * Returns all active punch cards for a customer.
  */
 export async function getActivePunchCards(
-  tenantId:   string,
-  customerId: string,
+  tenantId: string,
+  customerId: string
 ): Promise<RewardPunchCard[]> {
   const supabase = getSupabaseServerClient()
 
@@ -74,4 +74,3 @@ export async function getAllPunchCards(tenantId: string): Promise<RewardPunchCar
 
   return (data ?? []) as unknown as RewardPunchCard[]
 }
-

@@ -24,27 +24,33 @@ export async function GET(req: NextRequest, { params }: Params) {
 
 export async function POST(req: NextRequest, { params }: Params) {
   const user = await resolveStoreUser(req)
-  if (!user || !['admin','owner','manager'].includes(user.role)) {
+  if (!user || !['admin', 'owner', 'manager'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const { productId } = await params
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  if (!body.modifier_group_id) return NextResponse.json({ error: 'modifier_group_id required' }, { status: 400 })
+  if (!body.modifier_group_id)
+    return NextResponse.json({ error: 'modifier_group_id required' }, { status: 400 })
 
   const supabase = getPOSClient()
   const { data, error } = await supabase
     .from('pos_product_modifier_groups')
-    .upsert({
-      tenant_id:         user.tenant_id,
-      product_id:        productId,
-      modifier_group_id: body.modifier_group_id,
-      sort_order:        body.sort_order ?? 0,
-    }, { onConflict: 'tenant_id,product_id,modifier_group_id' })
+    .upsert(
+      {
+        tenant_id: user.tenant_id,
+        product_id: productId,
+        modifier_group_id: body.modifier_group_id,
+        sort_order: body.sort_order ?? 0,
+      },
+      { onConflict: 'tenant_id,product_id,modifier_group_id' }
+    )
     .select('*')
     .single()
 

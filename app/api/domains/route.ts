@@ -3,11 +3,11 @@
 // POST /api/domains — add a custom domain to a tenant
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getSupabaseServerClient }   from '@/lib/supabase/server'
-import { getUserContext }             from '@/lib/auth/getUserContext'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getUserContext } from '@/lib/auth/getUserContext'
 import { isValidDomain, isPublicHostname, normalizeHost } from '@/lib/domain/normalizeHost'
-import { addDomainToVercel }          from '@/lib/vercel/addDomain'
-import crypto                         from 'crypto'
+import { addDomainToVercel } from '@/lib/vercel/addDomain'
+import crypto from 'crypto'
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
@@ -16,11 +16,12 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 export async function GET(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if ((ctx.role as string) === 'customer') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if ((ctx.role as string) === 'customer')
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const db = getSupabaseServerClient()
   const { searchParams } = req.nextUrl
-  const filterTenantId   = searchParams.get('tenant_id')
+  const filterTenantId = searchParams.get('tenant_id')
 
   let query = db
     .from('tenant_domains')
@@ -98,9 +99,15 @@ export async function POST(req: NextRequest) {
 
   if (existing) {
     if (existing.tenant_id === tenantId) {
-      return NextResponse.json({ error: 'Domain already registered for this tenant' }, { status: 409 })
+      return NextResponse.json(
+        { error: 'Domain already registered for this tenant' },
+        { status: 409 }
+      )
     }
-    return NextResponse.json({ error: 'Domain is already taken by another tenant' }, { status: 409 })
+    return NextResponse.json(
+      { error: 'Domain is already taken by another tenant' },
+      { status: 409 }
+    )
   }
 
   // Generate verification token
@@ -109,16 +116,16 @@ export async function POST(req: NextRequest) {
   const { data: domainRow, error: insertError } = await db
     .from('tenant_domains')
     .insert({
-      tenant_id:           tenantId,
-      hostname:            domain,
-      domain_type:         'custom',
-      is_primary:          false,
-      is_verified:         false,
-      verified:            false,
-      verification_token:  verificationToken,
+      tenant_id: tenantId,
+      hostname: domain,
+      domain_type: 'custom',
+      is_primary: false,
+      is_verified: false,
+      verified: false,
+      verification_token: verificationToken,
       verification_method: 'dns_txt',
-      ssl_status:          'pending',
-      metadata:            {},
+      ssl_status: 'pending',
+      metadata: {},
     })
     .select('*')
     .single()
@@ -132,12 +139,15 @@ export async function POST(req: NextRequest) {
 
   const dnsInstructions = buildDnsInstructions(domain, verificationToken)
 
-  return NextResponse.json({
-    ok:              true,
-    domain:          domainRow,
-    vercel:          { ok: vercelResult.ok, configured: vercelResult.configured },
-    dnsInstructions,
-  }, { status: 201 })
+  return NextResponse.json(
+    {
+      ok: true,
+      domain: domainRow,
+      vercel: { ok: vercelResult.ok, configured: vercelResult.configured },
+      dnsInstructions,
+    },
+    { status: 201 }
+  )
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -145,22 +155,22 @@ export async function POST(req: NextRequest) {
 function buildDnsInstructions(domain: string, token: string) {
   return {
     txt: {
-      host:  `_yourcrm-verify.${domain}`,
+      host: `_yourcrm-verify.${domain}`,
       value: `yourcrm-verify=${token}`,
-      type:  'TXT',
-      ttl:   '300',
+      type: 'TXT',
+      ttl: '300',
     },
     cname: {
-      host:  domain.startsWith('www.') ? domain : `www.${domain}`,
+      host: domain.startsWith('www.') ? domain : `www.${domain}`,
       value: `cname.${ROOT_DOMAIN}`,
-      type:  'CNAME',
-      ttl:   '300',
+      type: 'CNAME',
+      ttl: '300',
     },
     apex: {
-      host:  '@',
+      host: '@',
       value: '76.76.21.21',
-      type:  'A',
-      ttl:   '300',
+      type: 'A',
+      ttl: '300',
     },
   }
 }

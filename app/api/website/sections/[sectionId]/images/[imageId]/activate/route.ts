@@ -18,9 +18,11 @@ type RouteContext = {
 }
 
 function wsiFrom(supabase: ReturnType<typeof getSupabaseServerClient>) {
-  return (supabase as unknown as {
-    from: (t: 'website_section_images') => ReturnType<typeof supabase.from>
-  }).from('website_section_images') as ReturnType<typeof supabase.from>
+  return (
+    supabase as unknown as {
+      from: (t: 'website_section_images') => ReturnType<typeof supabase.from>
+    }
+  ).from('website_section_images') as ReturnType<typeof supabase.from>
 }
 
 export async function POST(_req: NextRequest, context: RouteContext) {
@@ -51,7 +53,7 @@ export async function POST(_req: NextRequest, context: RouteContext) {
   if (image.is_archived) {
     return NextResponse.json(
       { error: 'Cannot activate an archived image. Restore it first.' },
-      { status: 422 },
+      { status: 422 }
     )
   }
 
@@ -59,7 +61,11 @@ export async function POST(_req: NextRequest, context: RouteContext) {
 
   // ── Deactivate all other images for same slot ─────────────────────────────
   await wsiFrom(supabase)
-    .update({ is_active: false, status: 'generated', updated_at: new Date().toISOString() } as never)
+    .update({
+      is_active: false,
+      status: 'generated',
+      updated_at: new Date().toISOString(),
+    } as never)
     .eq('tenant_id', tenantId)
     .eq('section_id', sectionId)
     .eq('slot_key', image.slot_key)
@@ -99,7 +105,7 @@ export async function POST(_req: NextRequest, context: RouteContext) {
       image.image_role ?? 'primary',
       imageUrl,
       image.alt_text ?? '',
-      image.plan_id ?? '',
+      image.plan_id ?? ''
     )
 
     const merged = mergeImageIntoContent(sectionContent, contentPatch)
@@ -125,20 +131,25 @@ export async function POST(_req: NextRequest, context: RouteContext) {
         const snap = await getCurrentWebsiteSnapshot(tid)
         if (snap.data) {
           const n = normalizeSnapshotForInsert(snap.data)
-          await updateDraftSnapshot(tid, n as unknown as Parameters<typeof updateDraftSnapshot>[1], uid)
+          await updateDraftSnapshot(
+            tid,
+            n as unknown as Parameters<typeof updateDraftSnapshot>[1],
+            uid
+          )
         }
-      } catch { /* non-fatal */ }
+      } catch {
+        /* non-fatal */
+      }
     })
   }
 
   return NextResponse.json({
-    success:       true,
+    success: true,
     activated,
     updatedSection,
     sectionId,
     imageId,
-    imageSlot:     image.slot_key,
-    publicUrl:     imageUrl,
+    imageSlot: image.slot_key,
+    publicUrl: imageUrl,
   })
 }
-

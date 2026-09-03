@@ -73,7 +73,8 @@ const AMAZON_RE = /\bamazon\b/i
 const CAMERA_RE = /\b(event\s*camera|pov\s*camera|upload\s*memories|camera|take\s*photos)\b/i
 const GALLERY_RE = /\b(gallery|view\s*gallery|memories|photo\s*album)\b/i
 const LOGIN_RE = /\b(login|sign\s*in|guest\s*login|enter\s*pin)\b/i
-const DETAILS_RE = /\b(event\s*details|details|location|venue|directions|schedule|when\s*&?\s*where)\b/i
+const DETAILS_RE =
+  /\b(event\s*details|details|location|venue|directions|schedule|when\s*&?\s*where)\b/i
 
 export function detectRsvpIntent(text: string): boolean {
   return RSVP_RE.test(text)
@@ -107,7 +108,7 @@ export function routeForPdfAction(
   action: PdfLinkActionType,
   ctx: EventRouteContext,
   externalUrl?: string,
-  label?: string,
+  label?: string
 ): { href: string; dead?: boolean; warning?: string } {
   const slug = ctx.eventSlug
   switch (action) {
@@ -130,20 +131,36 @@ export function routeForPdfAction(
       const ext = externalUrl ? safeExternalUrl(externalUrl) : null
       if (ext) return { href: ext }
       if (label && REGISTRY_RE.test(label)) {
-        return { href: '#', dead: true, warning: 'Registry link detected but no URL found. Assign in Link Mapping.' }
+        return {
+          href: '#',
+          dead: true,
+          warning: 'Registry link detected but no URL found. Assign in Link Mapping.',
+        }
       }
-      return { href: '#', dead: true, warning: `Button "${label ?? 'Link'}" detected but no destination was found.` }
+      return {
+        href: '#',
+        dead: true,
+        warning: `Button "${label ?? 'Link'}" detected but no destination was found.`,
+      }
     }
     default: {
       const ext = externalUrl ? safeExternalUrl(externalUrl) : null
       if (ext) return { href: ext }
-      return { href: '#', dead: true, warning: `Button "${label ?? 'Link'}" detected but no destination was found.` }
+      return {
+        href: '#',
+        dead: true,
+        warning: `Button "${label ?? 'Link'}" detected but no destination was found.`,
+      }
     }
   }
 }
 
 function pdfCoordsToPercent(link: PdfLinkAnnotation): {
-  xPercent?: number; yPercent?: number; widthPercent?: number; heightPercent?: number; hasCoordinates: boolean
+  xPercent?: number
+  yPercent?: number
+  widthPercent?: number
+  heightPercent?: number
+  hasCoordinates: boolean
 } {
   const pw = link.pageWidth ?? 0
   const ph = link.pageHeight ?? 0
@@ -162,9 +179,13 @@ function pdfCoordsToPercent(link: PdfLinkAnnotation): {
   return { xPercent, yPercent, widthPercent, heightPercent, hasCoordinates: true }
 }
 
-export function mapPdfLinkAnnotation(link: PdfLinkAnnotation, ctx: EventRouteContext, index: number): PdfMappedAction {
+export function mapPdfLinkAnnotation(
+  link: PdfLinkAnnotation,
+  ctx: EventRouteContext,
+  index: number
+): PdfMappedAction {
   const label = (link.label || link.url || `Link ${index + 1}`).trim()
-  const external = link.url ? safeExternalUrl(link.url) ?? undefined : undefined
+  const external = link.url ? (safeExternalUrl(link.url) ?? undefined) : undefined
   const action = classifyPdfLinkLabel(label, link.url)
   const routed = routeForPdfAction(action, ctx, external, label)
   const coords = pdfCoordsToPercent(link)
@@ -184,7 +205,7 @@ export function mapPdfLinkAnnotation(link: PdfLinkAnnotation, ctx: EventRouteCon
 export function buildPdfLinkMapping(
   annotations: PdfLinkAnnotation[],
   aiButtons: Array<{ label?: string; href?: string; actionType?: string; pageNumber?: number }>,
-  ctx: EventRouteContext,
+  ctx: EventRouteContext
 ): PdfMappedAction[] {
   const mapped: PdfMappedAction[] = []
   const seen = new Set<string>()
@@ -201,7 +222,7 @@ export function buildPdfLinkMapping(
     const btn = aiButtons[i]
     const label = String(btn.label ?? `Button ${i + 1}`).trim()
     const pageNumber = btn.pageNumber ?? 1
-    const external = btn.href ? safeExternalUrl(btn.href) ?? undefined : undefined
+    const external = btn.href ? (safeExternalUrl(btn.href) ?? undefined) : undefined
     let action = classifyPdfLinkLabel(label, btn.href)
     const raw = String(btn.actionType ?? '').toLowerCase()
     if (raw.includes('rsvp')) action = 'rsvp'
@@ -227,12 +248,22 @@ export function buildPdfLinkMapping(
 
   if (ctx.povEnabled) {
     mapped.push({
-      id: 'native-camera', label: 'Open Event Camera', actionType: 'event_camera',
-      href: `/events/${ctx.eventSlug}/camera`, pageNumber: 1, source: 'native_pov', hasCoordinates: false,
+      id: 'native-camera',
+      label: 'Open Event Camera',
+      actionType: 'event_camera',
+      href: `/events/${ctx.eventSlug}/camera`,
+      pageNumber: 1,
+      source: 'native_pov',
+      hasCoordinates: false,
     })
     mapped.push({
-      id: 'native-gallery', label: 'View Gallery', actionType: 'gallery',
-      href: `/events/${ctx.eventSlug}/gallery`, pageNumber: 1, source: 'native_pov', hasCoordinates: false,
+      id: 'native-gallery',
+      label: 'View Gallery',
+      actionType: 'gallery',
+      href: `/events/${ctx.eventSlug}/gallery`,
+      pageNumber: 1,
+      source: 'native_pov',
+      hasCoordinates: false,
     })
   }
 
@@ -241,7 +272,7 @@ export function buildPdfLinkMapping(
 
 export function overlaysAndFallbacksForPage(
   pageNumber: number,
-  links: PdfMappedAction[],
+  links: PdfMappedAction[]
 ): { overlays: PdfOverlayConfig[]; fallbackActions: PdfFallbackAction[] } {
   const pageLinks = links.filter((l) => l.pageNumber === pageNumber && !l.dead)
   const overlays: PdfOverlayConfig[] = []

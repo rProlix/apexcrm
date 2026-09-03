@@ -15,14 +15,16 @@ export default async function POSOrdersPage() {
     await guardModuleAccess(ctx.tenant_id, 'pos', ctx.role)
   }
 
-  const supabase  = getPOSClient()
-  const tenantId  = ctx.tenant_id ?? ''
+  const supabase = getPOSClient()
+  const tenantId = ctx.tenant_id ?? ''
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
   const { data: orders } = await supabase
     .from('pos_orders')
-    .select('id,order_number,status,payment_status,total_cents,created_at,table_name,customer_id,customers(name)')
+    .select(
+      'id,order_number,status,payment_status,total_cents,created_at,table_name,customer_id,customers(name)'
+    )
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .limit(100)

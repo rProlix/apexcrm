@@ -23,24 +23,27 @@ export async function POST(req: NextRequest, context: RouteContext) {
   if (!tenantId) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
 
   // Parse request body
-  let preserveBrand        = false
-  let preserveImages       = true
+  let preserveBrand = false
+  let preserveImages = true
   let generateMissingImages = false
-  let applyAnimations      = true
+  let applyAnimations = true
   let pageId: string | null = null
 
   try {
     const body = await req.json()
-    if (typeof body.preserveBrand        === 'boolean') preserveBrand        = body.preserveBrand
-    if (typeof body.preserveImages       === 'boolean') preserveImages       = body.preserveImages
-    if (typeof body.generateMissingImages === 'boolean') generateMissingImages = body.generateMissingImages
-    if (typeof body.applyAnimations      === 'boolean') applyAnimations      = body.applyAnimations
-    if (typeof body.pageId               === 'string')  pageId               = body.pageId
-  } catch { /* optional body */ }
+    if (typeof body.preserveBrand === 'boolean') preserveBrand = body.preserveBrand
+    if (typeof body.preserveImages === 'boolean') preserveImages = body.preserveImages
+    if (typeof body.generateMissingImages === 'boolean')
+      generateMissingImages = body.generateMissingImages
+    if (typeof body.applyAnimations === 'boolean') applyAnimations = body.applyAnimations
+    if (typeof body.pageId === 'string') pageId = body.pageId
+  } catch {
+    /* optional body */
+  }
 
   const result = await applyTemplateToWebsite({
     tenantId,
-    templateKey:           templateId,
+    templateKey: templateId,
     preserveBrand,
     preserveImages,
     generateMissingImages,
@@ -56,27 +59,29 @@ export async function POST(req: NextRequest, context: RouteContext) {
   try {
     const db = getSupabaseServerClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tenant } = await (db as any)
+    const { data: tenant } = (await (db as any)
       .from('tenants')
       .select('slug')
       .eq('id', tenantId)
-      .maybeSingle() as { data: { slug: string } | null; error: unknown }
+      .maybeSingle()) as { data: { slug: string } | null; error: unknown }
 
     if (tenant?.slug) {
       revalidatePath(`/sites/${tenant.slug}`)
     }
-  } catch { /* non-critical */ }
+  } catch {
+    /* non-critical */
+  }
 
   revalidatePath('/website')
 
   return NextResponse.json({
-    ok:                    true,
+    ok: true,
     templateApplicationId: result.templateApplicationId,
-    beforeVersionId:       result.beforeVersionId,
-    afterVersionId:        result.afterVersionId,
-    sectionsUpdated:       result.sectionsUpdated,
-    sectionsCreated:       result.sectionsCreated,
-    previewUrl:            result.previewUrl,
-    message:               result.message,
+    beforeVersionId: result.beforeVersionId,
+    afterVersionId: result.afterVersionId,
+    sectionsUpdated: result.sectionsUpdated,
+    sectionsCreated: result.sectionsCreated,
+    previewUrl: result.previewUrl,
+    message: result.message,
   })
 }

@@ -9,9 +9,9 @@ import { RewardsShopGrid } from '@/components/rewards/RewardsShopGrid'
 import type { RewardShopItem } from '@/types/rewards'
 
 export default function CustomerRewardsShopPage() {
-  const [items, setItems]       = useState<RewardShopItem[]>([])
-  const [balance, setBalance]   = useState(0)
-  const [loading, setLoading]   = useState(true)
+  const [items, setItems] = useState<RewardShopItem[]>([])
+  const [balance, setBalance] = useState(0)
+  const [loading, setLoading] = useState(true)
   useEffect(() => {
     async function load() {
       const [itemsRes, balRes] = await Promise.all([
@@ -33,9 +33,9 @@ export default function CustomerRewardsShopPage() {
 
   async function handleRedeem(itemId: string) {
     const res = await fetch('/api/rewards/redemptions', {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ item_id: itemId }),
+      body: JSON.stringify({ item_id: itemId }),
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error)
@@ -64,16 +64,14 @@ export default function CustomerRewardsShopPage() {
         </div>
         <div className="flex items-center gap-2 premium-panel premium-border rounded-xl px-4 py-2.5 flex-shrink-0">
           <Star className="h-4 w-4 text-amber-400" strokeWidth={1.75} />
-          <span className="text-sm font-bold text-amber-400 tabular-nums">{balance.toLocaleString()}</span>
+          <span className="text-sm font-bold text-amber-400 tabular-nums">
+            {balance.toLocaleString()}
+          </span>
           <span className="text-xs text-white/40">pts</span>
         </div>
       </div>
 
-      <RewardsShopGrid
-        items={items}
-        userPoints={balance}
-        onRedeem={handleRedeem}
-      />
+      <RewardsShopGrid items={items} userPoints={balance} onRedeem={handleRedeem} />
     </div>
   )
 }

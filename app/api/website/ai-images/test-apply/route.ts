@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   let body: { tenantId?: string; sectionId?: string; imageUrl?: string; imageRole?: string }
   try {
-    body = await req.json() as typeof body
+    body = (await req.json()) as typeof body
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
   }
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   const { tenantId, sectionId, imageUrl, imageRole = 'hero_background' } = body
 
   if (!sectionId) return NextResponse.json({ error: 'sectionId is required.' }, { status: 400 })
-  if (!imageUrl)  return NextResponse.json({ error: 'imageUrl is required.' }, { status: 400 })
+  if (!imageUrl) return NextResponse.json({ error: 'imageUrl is required.' }, { status: 400 })
 
   const supabase = getSupabaseServerClient()
 
@@ -55,12 +55,12 @@ export async function POST(req: NextRequest) {
     imageRole,
     imageUrl,
     'Test image applied via test-apply route',
-    'test-plan-id',
+    'test-plan-id'
   )
 
   const mergedContent = mergeImageIntoContent(
     section.content as Record<string, unknown>,
-    contentPatch,
+    contentPatch
   )
 
   console.log('[AI-IMAGE][TEST-APPLY] applying image', {
@@ -86,9 +86,9 @@ export async function POST(req: NextRequest) {
   console.log('[AI-IMAGE][TEST-APPLY] success', { sectionId, sectionType: section.section_type })
 
   return NextResponse.json({
-    ok:                 true,
+    ok: true,
     sectionId,
-    sectionType:        section.section_type,
+    sectionType: section.section_type,
     imageUrl,
     imageRole,
     placementDescription,

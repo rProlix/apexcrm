@@ -10,18 +10,43 @@ export const dynamic = 'force-dynamic'
 
 export default async function CustomerPortalHomePage() {
   const host = (await headers()).get('host') ?? ''
-  const ctx  = await requireCustomerAuth(host)
+  const ctx = await requireCustomerAuth(host)
 
   const customer = await getTenantCustomerById(ctx.tenant_id, ctx.customer_id)
   if (!customer) redirect('/login')
 
   const initials = customer.name
-    .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 
   const links = [
-    { icon: ShoppingBag, label: 'My Orders',   href: '/portal/customers/orders',   desc: 'View your order history',    color: 'text-amber-400', bg: 'bg-amber-400/10' },
-    { icon: CreditCard,  label: 'Payments',     href: '/portal/customers/payments', desc: 'View invoices & transactions', color: 'text-cyan-400',  bg: 'bg-cyan-400/10'  },
-    { icon: Settings,    label: 'My Profile',   href: '/portal/customers/profile',  desc: 'Update your preferences',    color: 'text-gold-400',  bg: 'bg-gold-400/10'  },
+    {
+      icon: ShoppingBag,
+      label: 'My Orders',
+      href: '/portal/customers/orders',
+      desc: 'View your order history',
+      color: 'text-amber-400',
+      bg: 'bg-amber-400/10',
+    },
+    {
+      icon: CreditCard,
+      label: 'Payments',
+      href: '/portal/customers/payments',
+      desc: 'View invoices & transactions',
+      color: 'text-cyan-400',
+      bg: 'bg-cyan-400/10',
+    },
+    {
+      icon: Settings,
+      label: 'My Profile',
+      href: '/portal/customers/profile',
+      desc: 'Update your preferences',
+      color: 'text-gold-400',
+      bg: 'bg-gold-400/10',
+    },
   ]
 
   return (
@@ -50,14 +75,18 @@ export default async function CustomerPortalHomePage() {
             href={href}
             className="group flex items-center gap-4 p-4 premium-panel premium-border rounded-2xl hover:border-gold-500/30 hover:shadow-glow-gold transition-all duration-200"
           >
-            <div className={`h-11 w-11 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}>
+            <div
+              className={`h-11 w-11 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}
+            >
               <Icon className={`w-5 h-5 ${color}`} />
             </div>
             <div className="flex-1">
               <p className="font-semibold text-white text-sm">{label}</p>
               <p className="text-xs text-white/40 mt-0.5">{desc}</p>
             </div>
-            <span className="text-white/20 group-hover:text-gold-400 transition-colors text-lg">→</span>
+            <span className="text-white/20 group-hover:text-gold-400 transition-colors text-lg">
+              →
+            </span>
           </Link>
         ))}
       </div>

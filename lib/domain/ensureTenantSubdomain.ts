@@ -12,7 +12,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
  */
 export async function ensureTenantSubdomain(
   tenantId: string,
-  slug:     string,
+  slug: string
 ): Promise<string | null> {
   const db = getSupabaseServerClient() as any
 
@@ -29,16 +29,16 @@ export async function ensureTenantSubdomain(
   const { data: inserted, error } = await db
     .from('tenant_domains')
     .insert({
-      tenant_id:           tenantId,
-      hostname:            slug,
-      domain_type:         'subdomain',
-      is_primary:          true,
-      is_verified:         true,
-      verified:            true,
-      ssl_status:          'active',
+      tenant_id: tenantId,
+      hostname: slug,
+      domain_type: 'subdomain',
+      is_primary: true,
+      is_verified: true,
+      verified: true,
+      ssl_status: 'active',
       verification_method: null,
-      verification_token:  null,
-      metadata:            {},
+      verification_token: null,
+      metadata: {},
     })
     .select('id')
     .maybeSingle()
@@ -63,10 +63,7 @@ export async function ensureTenantSubdomain(
 /**
  * Ensures that site_settings contains a row with the correct subdomain value.
  */
-export async function ensureSiteSettings(
-  tenantId: string,
-  slug:     string,
-): Promise<void> {
+export async function ensureSiteSettings(tenantId: string, slug: string): Promise<void> {
   const db = getSupabaseServerClient() as any
 
   const { data: existing } = await db
@@ -84,13 +81,11 @@ export async function ensureSiteSettings(
     return
   }
 
-  await db
-    .from('site_settings')
-    .insert({
-      tenant_id:   tenantId,
-      subdomain:   slug,
-      domain_type: 'subdomain',
-      domain_mode: 'subdomain',
-      is_published: false,
-    })
+  await db.from('site_settings').insert({
+    tenant_id: tenantId,
+    subdomain: slug,
+    domain_type: 'subdomain',
+    domain_mode: 'subdomain',
+    is_published: false,
+  })
 }

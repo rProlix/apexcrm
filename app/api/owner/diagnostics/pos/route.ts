@@ -5,7 +5,7 @@ import { getPOSClient } from '@/lib/pos/supabasePOS'
 
 export async function GET(req: NextRequest) {
   const user = await resolveStoreUser(req)
-  if (!user || !['admin','owner'].includes(user.role)) {
+  if (!user || !['admin', 'owner'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -13,7 +13,13 @@ export async function GET(req: NextRequest) {
   const checks: Record<string, { ok: boolean; detail?: string }> = {}
 
   // Check POS tables exist
-  for (const table of ['pos_orders','pos_order_items','pos_settings','pos_registers','pos_kitchen_tickets']) {
+  for (const table of [
+    'pos_orders',
+    'pos_order_items',
+    'pos_settings',
+    'pos_registers',
+    'pos_kitchen_tickets',
+  ]) {
     try {
       const { error } = await supabase.from(table).select('id').limit(1)
       checks[`table_${table}`] = { ok: !error, detail: error?.message }
@@ -47,7 +53,8 @@ export async function GET(req: NextRequest) {
     .eq('is_enabled', true)
   checks['payment_providers_configured'] = {
     ok: (providers ?? []).length > 0,
-    detail: (providers ?? []).map((p: { provider_key: string }) => p.provider_key).join(', ') || 'none',
+    detail:
+      (providers ?? []).map((p: { provider_key: string }) => p.provider_key).join(', ') || 'none',
   }
 
   // Store products available
@@ -56,7 +63,10 @@ export async function GET(req: NextRequest) {
     .select('id', { count: 'exact', head: true })
     .eq('tenant_id', user.tenant_id)
     .eq('is_active', true)
-  checks['store_products_available'] = { ok: (productCount ?? 0) > 0, detail: `${productCount ?? 0} active products` }
+  checks['store_products_available'] = {
+    ok: (productCount ?? 0) > 0,
+    detail: `${productCount ?? 0} active products`,
+  }
 
   // Inventory module
   const { data: invModule } = await supabase

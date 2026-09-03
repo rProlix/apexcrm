@@ -9,7 +9,10 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { publishWebsiteById } from '@/lib/website/registry'
 
-function resolveTenantId(ctx: Awaited<ReturnType<typeof getUserContext>>, override?: string | null): string | null {
+function resolveTenantId(
+  ctx: Awaited<ReturnType<typeof getUserContext>>,
+  override?: string | null
+): string | null {
   if (!ctx) return null
   const hint = sanitizeTenantId(override)
   const self = sanitizeTenantId(ctx.tenant_id)
@@ -18,9 +21,13 @@ function resolveTenantId(ctx: Awaited<ReturnType<typeof getUserContext>>, overri
   return self ?? hint
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ websiteId: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ websiteId: string }> }
+) {
   const ctx = await getUserContext()
-  if (!ctx || !['owner', 'admin'].includes(ctx.role)) return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 })
+  if (!ctx || !['owner', 'admin'].includes(ctx.role))
+    return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 })
 
   const { websiteId } = await params
   const body = await req.json().catch(() => ({}))
@@ -31,7 +38,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ web
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 400 })
 
   return NextResponse.json({
-    ok: true, published: true, status: result.status,
-    liveUrl: result.liveUrl, publishedAt: result.publishedAt,
+    ok: true,
+    published: true,
+    status: result.status,
+    liveUrl: result.liveUrl,
+    publishedAt: result.publishedAt,
   })
 }

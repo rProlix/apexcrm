@@ -7,9 +7,9 @@
 // URLs are intentionally unsupported.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserContext }           from '@/lib/auth/getUserContext'
-import { getSupabaseServerClient }  from '@/lib/supabase/server'
-import { STORAGE_BUCKETS }          from '@/lib/storage/buckets'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { STORAGE_BUCKETS } from '@/lib/storage/buckets'
 
 const BUCKET = STORAGE_BUCKETS.WEBSITE_ASSETS
 
@@ -17,8 +17,16 @@ const BUCKET = STORAGE_BUCKETS.WEBSITE_ASSETS
 const MAX_BYTES = 100 * 1024 * 1024 // 100 MB
 
 const VALID_ASSET_TYPES = new Set([
-  'glb', 'gltf', 'video', 'image_sequence', 'image_sequence_frame', 'thumbnail',
-  'poster', 'fallback', 'environment', 'texture',
+  'glb',
+  'gltf',
+  'video',
+  'image_sequence',
+  'image_sequence_frame',
+  'thumbnail',
+  'poster',
+  'fallback',
+  'environment',
+  'texture',
 ])
 
 const VALID_RENDER_MODES = new Set(['three_model', 'video_scrub'])
@@ -42,16 +50,16 @@ function numOrNull(v: FormDataEntryValue | null): number | null {
 const BLOCKED_EXT = new Set(['splinecode', 'spline'])
 
 const EXT_MIME: Record<string, string> = {
-  glb:  'model/gltf-binary',
+  glb: 'model/gltf-binary',
   gltf: 'model/gltf+json',
-  mp4:  'video/mp4',
+  mp4: 'video/mp4',
   webm: 'video/webm',
   webp: 'image/webp',
-  jpg:  'image/jpeg',
+  jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
-  png:  'image/png',
-  hdr:  'image/vnd.radiance',
-  exr:  'image/x-exr',
+  png: 'image/png',
+  hdr: 'image/vnd.radiance',
+  exr: 'image/x-exr',
 }
 
 function forbidden() {
@@ -65,23 +73,25 @@ export async function POST(req: NextRequest) {
   const tenantId = ctx.tenant_id ?? req.nextUrl.searchParams.get('tenant_id') ?? ''
   if (!tenantId) return NextResponse.json({ error: 'tenant_id required' }, { status: 400 })
 
-  const form      = await req.formData()
-  const file      = form.get('file') as File | null
+  const form = await req.formData()
+  const file = form.get('file') as File | null
   const assetType = (form.get('asset_type') as string | null) ?? 'glb'
-  const name      = (form.get('name') as string | null) ?? (file?.name ?? 'asset')
+  const name = (form.get('name') as string | null) ?? file?.name ?? 'asset'
 
   // Optional grouping / scoping fields (Media Manager).
-  const websiteId  = (form.get('website_id') as string | null) || null
+  const websiteId = (form.get('website_id') as string | null) || null
   const businessId = (form.get('business_id') as string | null) || null
-  const sectionId  = (form.get('section_id') as string | null) || null
+  const sectionId = (form.get('section_id') as string | null) || null
   const sequenceId = (form.get('sequence_id') as string | null) || null
   const renderMode = (form.get('render_mode') as string | null) || null
-  const sortOrder  = intOrNull(form.get('sort_order')) ?? 0
+  const sortOrder = intOrNull(form.get('sort_order')) ?? 0
   let metadata: Record<string, unknown> = {}
   try {
     const m = form.get('metadata')
     if (m) metadata = JSON.parse(String(m))
-  } catch { /* ignore malformed metadata */ }
+  } catch {
+    /* ignore malformed metadata */
+  }
 
   if (!file) return NextResponse.json({ error: 'file required' }, { status: 400 })
   if (!VALID_ASSET_TYPES.has(assetType)) {
@@ -91,7 +101,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Invalid render_mode "${renderMode}"` }, { status: 422 })
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: `File exceeds ${MAX_BYTES / 1024 / 1024}MB limit` }, { status: 413 })
+    return NextResponse.json(
+      { error: `File exceeds ${MAX_BYTES / 1024 / 1024}MB limit` },
+      { status: 413 }
+    )
   }
 
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
@@ -111,7 +124,10 @@ export async function POST(req: NextRequest) {
     db.storage.from(BUCKET).upload(filename, file, { contentType, upsert: false })
 
   let { error: uploadError } = await doUpload()
-  if (uploadError && (uploadError.message.includes('not found') || uploadError.message.includes('Bucket not found'))) {
+  if (
+    uploadError &&
+    (uploadError.message.includes('not found') || uploadError.message.includes('Bucket not found'))
+  ) {
     await db.storage.createBucket(BUCKET, { public: true })
     ;({ error: uploadError } = await doUpload())
   }
@@ -128,29 +144,29 @@ export async function POST(req: NextRequest) {
   const { data: asset, error: insertError } = await (db as any)
     .from('website_3d_assets')
     .insert({
-      tenant_id:       tenantId,
-      website_id:      websiteId,
-      business_id:     businessId,
-      section_id:      sectionId,
-      sequence_id:     sequenceId,
+      tenant_id: tenantId,
+      website_id: websiteId,
+      business_id: businessId,
+      section_id: sectionId,
+      sequence_id: sequenceId,
       name,
-      asset_type:      assetType,
-      render_mode:     renderMode,
-      storage_provider:'supabase',
-      bucket:          BUCKET,
-      storage_path:    filename,
-      public_url:      publicUrl,
+      asset_type: assetType,
+      render_mode: renderMode,
+      storage_provider: 'supabase',
+      bucket: BUCKET,
+      storage_path: filename,
+      public_url: publicUrl,
       file_size_bytes: file.size,
-      mime_type:       contentType,
-      width:           intOrNull(form.get('width')),
-      height:          intOrNull(form.get('height')),
+      mime_type: contentType,
+      width: intOrNull(form.get('width')),
+      height: intOrNull(form.get('height')),
       duration_seconds: numOrNull(form.get('duration_seconds')),
-      frame_count:     intOrNull(form.get('frame_count')),
-      frame_index:     intOrNull(form.get('frame_index')),
-      fps:             numOrNull(form.get('fps')),
-      sort_order:      sortOrder,
-      created_by:      ctx.id ?? null,
-      metadata:        { original_name: file.name, ...metadata },
+      frame_count: intOrNull(form.get('frame_count')),
+      frame_index: intOrNull(form.get('frame_index')),
+      fps: numOrNull(form.get('fps')),
+      sort_order: sortOrder,
+      created_by: ctx.id ?? null,
+      metadata: { original_name: file.name, ...metadata },
     })
     .select('*')
     .single()

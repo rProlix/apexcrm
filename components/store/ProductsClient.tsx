@@ -7,22 +7,22 @@ import { Button } from '@/components/ui/Button'
 import { ProductForm, type ProductFormValues } from '@/components/store/ProductForm'
 
 interface Product extends ProductFormValues {
-  id:              string
-  created_at:      string
-  currency:        string
+  id: string
+  created_at: string
+  currency: string
   spin_package_id?: string | null
 }
 
 interface Props {
   initialProducts: Product[]
-  tenantId:        string
+  tenantId: string
 }
 
 export function ProductsClient({ initialProducts, tenantId }: Props) {
-  const [products,      setProducts]      = useState<Product[]>(initialProducts)
-  const [showForm,      setShowForm]      = useState(false)
-  const [editTarget,    setEditTarget]    = useState<Product | null>(null)
-  const [deleting,      setDeleting]      = useState<string | null>(null)
+  const [products, setProducts] = useState<Product[]>(initialProducts)
+  const [showForm, setShowForm] = useState(false)
+  const [editTarget, setEditTarget] = useState<Product | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   function openCreate() {
@@ -65,9 +65,9 @@ export function ProductsClient({ initialProducts, tenantId }: Props) {
 
   async function toggleActive(product: Product) {
     const res = await fetch(`/api/store/products/${product.id}`, {
-      method:  'PATCH',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ is_active: !product.is_active }),
+      body: JSON.stringify({ is_active: !product.is_active }),
     })
     if (res.ok) {
       const { product: updated } = await res.json()
@@ -119,7 +119,10 @@ export function ProductsClient({ initialProducts, tenantId }: Props) {
           tenantId={tenantId}
           product={editTarget ?? undefined}
           onSuccess={handleFormSuccess}
-          onCancel={() => { setShowForm(false); setEditTarget(null) }}
+          onCancel={() => {
+            setShowForm(false)
+            setEditTarget(null)
+          }}
         />
       )}
     </div>
@@ -129,15 +132,15 @@ export function ProductsClient({ initialProducts, tenantId }: Props) {
 // ─── Product Card ─────────────────────────────────────────────────────────────
 
 interface CardProps {
-  product:          Product
-  deleting:         boolean
+  product: Product
+  deleting: boolean
   confirmingDelete: boolean
-  onEdit:           () => void
-  onToggle:         () => void
-  onDeleteRequest:  () => void
-  onDeleteConfirm:  () => void
-  onDeleteCancel:   () => void
-  tenantId:         string
+  onEdit: () => void
+  onToggle: () => void
+  onDeleteRequest: () => void
+  onDeleteConfirm: () => void
+  onDeleteCancel: () => void
+  tenantId: string
 }
 
 function ProductCard({
@@ -211,9 +214,7 @@ function ProductCard({
           {product.currency}{' '}
           {Number(product.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}
         </span>
-        <span className="text-xs text-white/40">
-          {product.inventory_count} in stock
-        </span>
+        <span className="text-xs text-white/40">{product.inventory_count} in stock</span>
       </div>
 
       {/* Actions */}
@@ -243,10 +244,11 @@ function ProductCard({
             title={product.is_active ? 'Deactivate' : 'Activate'}
             className="h-8 w-8 rounded-lg text-white/40 hover:text-amber-400 hover:bg-amber-400/8 transition-colors flex items-center justify-center"
           >
-            {product.is_active
-              ? <ToggleRight className="h-4 w-4" />
-              : <ToggleLeft  className="h-4 w-4" />
-            }
+            {product.is_active ? (
+              <ToggleRight className="h-4 w-4" />
+            ) : (
+              <ToggleLeft className="h-4 w-4" />
+            )}
           </button>
           <button
             onClick={onEdit}

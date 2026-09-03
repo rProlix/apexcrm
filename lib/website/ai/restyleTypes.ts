@@ -46,13 +46,7 @@ export interface PageRestyleUpgrade {
     | 'layered_surfaces'
     | 'image_blend'
     | 'premium_cards'
-  sectionFlow:
-    | 'soft_blend'
-    | 'curved'
-    | 'angled'
-    | 'layered'
-    | 'editorial'
-    | 'minimal'
+  sectionFlow: 'soft_blend' | 'curved' | 'angled' | 'layered' | 'editorial' | 'minimal'
 }
 
 export interface SectionRestyleUpgrade {

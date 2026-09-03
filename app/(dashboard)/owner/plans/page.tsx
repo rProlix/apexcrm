@@ -1,9 +1,9 @@
 export const dynamic = 'force-dynamic'
 
-import { redirect }             from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
 import { PLAN_CATALOG, MODULE_CATALOG, type CRMPlanKey } from '@/lib/plans/planCatalog'
-import { OwnerPlansClient }     from './OwnerPlansClient'
+import { OwnerPlansClient } from './OwnerPlansClient'
 
 export const metadata = {
   title: 'Plan Management — Owner',
@@ -11,7 +11,9 @@ export const metadata = {
 
 export default async function OwnerPlansPage() {
   const sessionClient = await createSessionServerClient()
-  const { data: { user } } = await sessionClient.auth.getUser()
+  const {
+    data: { user },
+  } = await sessionClient.auth.getUser()
 
   if (!user) redirect('/login')
 
@@ -28,7 +30,8 @@ export default async function OwnerPlansPage() {
   // Load subscriptions with tenant names
   const { data: subscriptions } = await admin
     .from('subscriptions')
-    .select(`
+    .select(
+      `
       id,
       tenant_id,
       plan_key,
@@ -38,18 +41,16 @@ export default async function OwnerPlansPage() {
       current_period_end,
       created_at,
       tenants (name, slug)
-    `)
+    `
+    )
     .order('created_at', { ascending: false })
     .limit(100)
 
-  const plans = (Object.values(PLAN_CATALOG) as typeof PLAN_CATALOG[CRMPlanKey][])
-    .sort((a, b) => a.sort_order - b.sort_order)
+  const plans = (Object.values(PLAN_CATALOG) as (typeof PLAN_CATALOG)[CRMPlanKey][]).sort(
+    (a, b) => a.sort_order - b.sort_order
+  )
 
   return (
-    <OwnerPlansClient
-      plans={plans}
-      modules={MODULE_CATALOG}
-      subscriptions={subscriptions ?? []}
-    />
+    <OwnerPlansClient plans={plans} modules={MODULE_CATALOG} subscriptions={subscriptions ?? []} />
   )
 }

@@ -1,49 +1,53 @@
 // components/domains/DomainPreviewCard.tsx
 'use client'
 
-import { motion }       from 'framer-motion'
+import { motion } from 'framer-motion'
 import { ExternalLink, Globe, LayoutDashboard, Users, ShoppingBag } from 'lucide-react'
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 interface DomainPreviewCardProps {
-  slug:         string
+  slug: string
   customDomain?: string | null
-  isVerified?:  boolean
+  isVerified?: boolean
 }
 
 interface UrlEntry {
-  icon:  React.ReactNode
+  icon: React.ReactNode
   label: string
-  url:   string
+  url: string
   badge?: string
 }
 
-export function DomainPreviewCard({ slug, customDomain, isVerified = false }: DomainPreviewCardProps) {
+export function DomainPreviewCard({
+  slug,
+  customDomain,
+  isVerified = false,
+}: DomainPreviewCardProps) {
   const subdomainBase = `https://${slug}.${ROOT_DOMAIN}`
-  const activeBase    = customDomain && isVerified ? `https://${customDomain}` : subdomainBase
+  const activeBase = customDomain && isVerified ? `https://${customDomain}` : subdomainBase
 
   const urls: UrlEntry[] = [
     {
-      icon:  <Globe           className="h-4 w-4" />,
+      icon: <Globe className="h-4 w-4" />,
       label: 'Public Website',
-      url:   `${activeBase}/`,
+      url: `${activeBase}/`,
       badge: customDomain && isVerified ? 'Custom' : 'Subdomain',
     },
     {
-      icon:  <LayoutDashboard className="h-4 w-4" />,
+      icon: <LayoutDashboard className="h-4 w-4" />,
       label: 'CRM Dashboard',
-      url:   `${activeBase}/dashboard`,
+      url: `${activeBase}/dashboard`,
     },
     {
-      icon:  <Users           className="h-4 w-4" />,
+      icon: <Users className="h-4 w-4" />,
       label: 'Customer Portal',
-      url:   `${activeBase}/portal`,
+      url: `${activeBase}/portal`,
     },
     {
-      icon:  <ShoppingBag     className="h-4 w-4" />,
+      icon: <ShoppingBag className="h-4 w-4" />,
       label: 'Online Store',
-      url:   `${activeBase}/store`,
+      url: `${activeBase}/store`,
     },
   ]
 
@@ -93,7 +97,8 @@ export function DomainPreviewCard({ slug, customDomain, isVerified = false }: Do
       {customDomain && !isVerified && (
         <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
           <p className="text-xs text-amber-400/80">
-            Custom domain added but not yet verified. URLs above use the platform subdomain until verification is complete.
+            Custom domain added but not yet verified. URLs above use the platform subdomain until
+            verification is complete.
           </p>
         </div>
       )}

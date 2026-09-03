@@ -2,19 +2,19 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface CustomerTransaction {
-  id:                     string
-  invoice_id:             string | null
-  provider_key:           string
+  id: string
+  invoice_id: string | null
+  provider_key: string
   provider_transaction_id: string | null
-  amount:                 number
-  currency:               string
-  status:                 string
-  transaction_type:       string
-  created_at:             string
-  invoice?:               {
+  amount: number
+  currency: string
+  status: string
+  transaction_type: string
+  created_at: string
+  invoice?: {
     invoice_number: string
-    title:          string
-    status:         string
+    title: string
+    status: string
   } | null
 }
 
@@ -23,16 +23,17 @@ export interface CustomerTransaction {
  * Strictly scoped by both tenant_id and customer_id.
  */
 export async function getCustomerTransactions(
-  tenantId:   string,
+  tenantId: string,
   customerId: string,
-  limit:      number = 50
+  limit: number = 50
 ): Promise<CustomerTransaction[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
 
   const { data, error } = await supabase
     .from('payment_transactions')
-    .select(`
+    .select(
+      `
       id,
       invoice_id,
       provider_key,
@@ -47,7 +48,8 @@ export async function getCustomerTransactions(
         title,
         status
       )
-    `)
+    `
+    )
     .eq('tenant_id', tenantId)
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false })
@@ -62,19 +64,19 @@ export async function getCustomerTransactions(
 }
 
 export interface CustomerInvoice {
-  id:             string
+  id: string
   invoice_number: string
-  title:          string
-  description:    string | null
-  amount:         number
-  currency:       string
-  status:         string
-  due_date:       string | null
-  created_at:     string
+  title: string
+  description: string | null
+  amount: number
+  currency: string
+  status: string
+  due_date: string | null
+  created_at: string
   invoice_items?: Array<{
-    name:        string
-    quantity:    number
-    unit_price:  number
+    name: string
+    quantity: number
+    unit_price: number
     total_price: number
   }>
 }
@@ -84,16 +86,17 @@ export interface CustomerInvoice {
  * Strictly scoped by both tenant_id and customer_id.
  */
 export async function getCustomerInvoices(
-  tenantId:   string,
+  tenantId: string,
   customerId: string,
-  limit:      number = 50
+  limit: number = 50
 ): Promise<CustomerInvoice[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
 
   const { data, error } = await supabase
     .from('invoices')
-    .select(`
+    .select(
+      `
       id,
       invoice_number,
       title,
@@ -109,7 +112,8 @@ export async function getCustomerInvoices(
         unit_price,
         total_price
       )
-    `)
+    `
+    )
     .eq('tenant_id', tenantId)
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false })
@@ -128,16 +132,17 @@ export async function getCustomerInvoices(
  * Returns null if not found or does not belong to the customer.
  */
 export async function getCustomerInvoiceById(
-  tenantId:   string,
+  tenantId: string,
   customerId: string,
-  invoiceId:  string
+  invoiceId: string
 ): Promise<CustomerInvoice | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
 
   const { data } = await supabase
     .from('invoices')
-    .select(`
+    .select(
+      `
       id,
       invoice_number,
       title,
@@ -153,7 +158,8 @@ export async function getCustomerInvoiceById(
         unit_price,
         total_price
       )
-    `)
+    `
+    )
     .eq('id', invoiceId)
     .eq('tenant_id', tenantId)
     .eq('customer_id', customerId)

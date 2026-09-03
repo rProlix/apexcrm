@@ -5,15 +5,25 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { MonthView } from './MonthView'
-import { WeekView }  from './WeekView'
-import { DayView }   from './DayView'
+import { WeekView } from './WeekView'
+import { DayView } from './DayView'
 import type { Appointment } from '@/lib/appointments/types'
 
 type ViewMode = 'month' | 'week' | 'day'
 
 const MONTHS = [
-  'January','February','March','April','May','June',
-  'July','August','September','October','November','December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ]
 
 function headerLabel(mode: ViewMode, anchor: Date): string {
@@ -29,28 +39,33 @@ function headerLabel(mode: ViewMode, anchor: Date): string {
     const e = end.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
     return `${s} – ${e}`
   }
-  return anchor.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  return anchor.toLocaleDateString([], {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
 function navigate(mode: ViewMode, anchor: Date, dir: 1 | -1): Date {
   const d = new Date(anchor)
   if (mode === 'month') d.setMonth(d.getMonth() + dir)
-  if (mode === 'week')  d.setDate(d.getDate() + dir * 7)
-  if (mode === 'day')   d.setDate(d.getDate() + dir)
+  if (mode === 'week') d.setDate(d.getDate() + dir * 7)
+  if (mode === 'day') d.setDate(d.getDate() + dir)
   return d
 }
 
 interface Props {
   appointments: Appointment[]
-  onSelect:     (appt: Appointment) => void
-  onNew?:       (defaultStart?: string) => void
-  isAdmin?:     boolean
+  onSelect: (appt: Appointment) => void
+  onNew?: (defaultStart?: string) => void
+  isAdmin?: boolean
 }
 
 export function CalendarView({ appointments, onSelect, onNew, isAdmin }: Props) {
-  const [mode,   setMode]   = useState<ViewMode>('month')
+  const [mode, setMode] = useState<ViewMode>('month')
   const [anchor, setAnchor] = useState(new Date())
-  const [dir,    setDir]    = useState<1 | -1>(1)
+  const [dir, setDir] = useState<1 | -1>(1)
 
   function go(d: 1 | -1) {
     setDir(d)
@@ -134,7 +149,7 @@ export function CalendarView({ appointments, onSelect, onNew, isAdmin }: Props) 
             key={anchor.toISOString().slice(0, 7) + mode}
             initial={{ opacity: 0, x: dir * 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{    opacity: 0, x: dir * -20 }}
+            exit={{ opacity: 0, x: dir * -20 }}
             transition={{ duration: 0.2, ease: 'easeInOut' }}
           >
             {mode === 'month' && (
@@ -150,11 +165,7 @@ export function CalendarView({ appointments, onSelect, onNew, isAdmin }: Props) 
               />
             )}
             {mode === 'week' && (
-              <WeekView
-                anchor={anchor}
-                appointments={appointments}
-                onSelect={onSelect}
-              />
+              <WeekView anchor={anchor} appointments={appointments} onSelect={onSelect} />
             )}
             {mode === 'day' && (
               <DayView

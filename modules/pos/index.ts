@@ -4,23 +4,24 @@ import type { ModuleDefinition } from '@/modules/shared/moduleTypes'
 import { getPOSClient } from '@/lib/pos/supabasePOS'
 
 export const posModule: ModuleDefinition = {
-  key:         'pos',
-  label:       'Point of Sale',
-  description: 'Create in-person orders, customize items, collect payments, manage tickets, and sync sales with inventory.',
-  icon:        ShoppingCart,
-  href:        '/pos',
-  color:       'text-violet-400',
-  bgColor:     'bg-violet-400/10',
-  order:       14,
+  key: 'pos',
+  label: 'Point of Sale',
+  description:
+    'Create in-person orders, customize items, collect payments, manage tickets, and sync sales with inventory.',
+  icon: ShoppingCart,
+  href: '/pos',
+  color: 'text-violet-400',
+  bgColor: 'bg-violet-400/10',
+  order: 14,
 
   stats: [
     {
-      key:          'pos_sales_today',
-      label:        'Sales Today',
-      category:     'financial',
-      color:        'text-violet-400',
+      key: 'pos_sales_today',
+      label: 'Sales Today',
+      category: 'financial',
+      color: 'text-violet-400',
       emptyMessage: 'No sales today yet',
-      format:       (v) => `$${(Number(v) / 100).toFixed(2)}`,
+      format: (v) => `$${(Number(v) / 100).toFixed(2)}`,
       async getValue(tenantId) {
         const supabase = getPOSClient()
         const today = new Date()
@@ -35,10 +36,10 @@ export const posModule: ModuleDefinition = {
       },
     },
     {
-      key:          'pos_open_orders',
-      label:        'Open Orders',
-      category:     'operations',
-      color:        'text-yellow-400',
+      key: 'pos_open_orders',
+      label: 'Open Orders',
+      category: 'operations',
+      color: 'text-yellow-400',
       emptyMessage: 'No open orders',
       async getValue(tenantId) {
         const supabase = getPOSClient()
@@ -51,10 +52,10 @@ export const posModule: ModuleDefinition = {
       },
     },
     {
-      key:          'pos_orders_today',
-      label:        'Orders Today',
-      category:     'usage',
-      color:        'text-teal-400',
+      key: 'pos_orders_today',
+      label: 'Orders Today',
+      category: 'usage',
+      color: 'text-teal-400',
       emptyMessage: 'No orders today',
       async getValue(tenantId) {
         const supabase = getPOSClient()

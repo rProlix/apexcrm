@@ -1,7 +1,10 @@
 // lib/website/import-engine/confidence.ts
 // Confidence scoring and validation for import reconstructions.
 
-import type { DesignImportConfidence, DesignImportReconstruction } from '@/lib/website/import-engine/types'
+import type {
+  DesignImportConfidence,
+  DesignImportReconstruction,
+} from '@/lib/website/import-engine/types'
 
 export const CONFIDENCE_RETRY_THRESHOLD = 90
 export const COMPONENT_COVERAGE_THRESHOLD = 0.7
@@ -18,19 +21,26 @@ export function scoreConfidence(opts: {
   hasTheme: boolean
   hasResponsiveHints: boolean
 }): DesignImportConfidence {
-  const sectionRatio = opts.detectedComponents > 0
-    ? Math.min(1, opts.reconstructedSections / opts.detectedComponents)
-    : opts.reconstructedSections > 0 ? 0.85 : 0.2
+  const sectionRatio =
+    opts.detectedComponents > 0
+      ? Math.min(1, opts.reconstructedSections / opts.detectedComponents)
+      : opts.reconstructedSections > 0
+        ? 0.85
+        : 0.2
 
-  const imageRatio = opts.imagesFound > 0
-    ? Math.min(1, opts.imagesInSections / opts.imagesFound)
-    : opts.reconstructedSections > 0 ? 0.75 : 0.3
+  const imageRatio =
+    opts.imagesFound > 0
+      ? Math.min(1, opts.imagesInSections / opts.imagesFound)
+      : opts.reconstructedSections > 0
+        ? 0.75
+        : 0.3
 
-  const buttonRatio = opts.buttonsFound > 0
-    ? Math.min(1, opts.buttonsMapped / opts.buttonsFound)
-    : 1
+  const buttonRatio =
+    opts.buttonsFound > 0 ? Math.min(1, opts.buttonsMapped / opts.buttonsFound) : 1
 
-  const visualMatch = Math.round(Math.min(100, (opts.renderedPages > 0 ? 40 : 0) + sectionRatio * 60))
+  const visualMatch = Math.round(
+    Math.min(100, (opts.renderedPages > 0 ? 40 : 0) + sectionRatio * 60)
+  )
   const layoutMatch = Math.round(sectionRatio * 100)
   const typographyMatch = opts.hasTheme ? 88 : 65
   const colorMatch = opts.hasTheme ? 92 : 60
@@ -40,26 +50,45 @@ export function scoreConfidence(opts: {
   const responsiveMatch = opts.hasResponsiveHints ? 88 : 72
 
   const overall = Math.round(
-    (visualMatch * 0.22 + layoutMatch * 0.2 + typographyMatch * 0.1 + colorMatch * 0.1 +
-      imagesMatch * 0.15 + buttonsMatch * 0.1 + animationsMatch * 0.08 + responsiveMatch * 0.05),
+    visualMatch * 0.22 +
+      layoutMatch * 0.2 +
+      typographyMatch * 0.1 +
+      colorMatch * 0.1 +
+      imagesMatch * 0.15 +
+      buttonsMatch * 0.1 +
+      animationsMatch * 0.08 +
+      responsiveMatch * 0.05
   )
 
   return {
-    visualMatch, layoutMatch, typographyMatch, colorMatch,
-    imagesMatch, buttonsMatch, animationsMatch, responsiveMatch,
+    visualMatch,
+    layoutMatch,
+    typographyMatch,
+    colorMatch,
+    imagesMatch,
+    buttonsMatch,
+    animationsMatch,
+    responsiveMatch,
     overall,
   }
 }
 
-export function needsRetry(confidence: DesignImportConfidence, reconstruction: DesignImportReconstruction): boolean {
+export function needsRetry(
+  confidence: DesignImportConfidence,
+  reconstruction: DesignImportReconstruction
+): boolean {
   if (confidence.overall < CONFIDENCE_RETRY_THRESHOLD) return true
-  const coverage = reconstruction.detectedComponentCount > 0
-    ? countSections(reconstruction) / reconstruction.detectedComponentCount
-    : countSections(reconstruction) >= 3 ? 1 : 0
+  const coverage =
+    reconstruction.detectedComponentCount > 0
+      ? countSections(reconstruction) / reconstruction.detectedComponentCount
+      : countSections(reconstruction) >= 3
+        ? 1
+        : 0
   if (coverage < COMPONENT_COVERAGE_THRESHOLD) return true
-  const buttonOnly = countSections(reconstruction) > 0 &&
+  const buttonOnly =
+    countSections(reconstruction) > 0 &&
     reconstruction.pages.every((p) =>
-      p.sections.every((s) => s.section_type === 'cta' || s.section_type === 'button'),
+      p.sections.every((s) => s.section_type === 'cta' || s.section_type === 'button')
     )
   return buttonOnly
 }

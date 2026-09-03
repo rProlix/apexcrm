@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import { X, Search, User } from 'lucide-react'
 
 interface Customer {
-  id:     string
-  name:   string
+  id: string
+  name: string
   email?: string | null
   phone?: string | null
 }
@@ -14,28 +14,35 @@ interface Props {
   tenantId: string
   selected: Customer | null
   onSelect: (c: Customer) => void
-  onClose:  () => void
+  onClose: () => void
 }
 
 export function CustomerSelector({ tenantId, selected, onSelect, onClose }: Props) {
-  const [search, setSearch]         = useState('')
-  const [customers, setCustomers]   = useState<Customer[]>([])
-  const [loading, setLoading]       = useState(false)
+  const [search, setSearch] = useState('')
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loading, setLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
-  const [newName, setNewName]       = useState('')
-  const [newEmail, setNewEmail]     = useState('')
-  const [newPhone, setNewPhone]     = useState('')
-  const [creating, setCreating]     = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [newPhone, setNewPhone] = useState('')
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
-    if (search.length < 2) { setCustomers([]); return }
+    if (search.length < 2) {
+      setCustomers([])
+      return
+    }
     setLoading(true)
     const t = setTimeout(async () => {
       try {
         const res = await fetch(`/api/customers?search=${encodeURIComponent(search)}&limit=20`)
         const data = await res.json()
         setCustomers(data.customers ?? [])
-      } catch { setCustomers([]) } finally { setLoading(false) }
+      } catch {
+        setCustomers([])
+      } finally {
+        setLoading(false)
+      }
     }, 300)
     return () => clearTimeout(t)
   }, [search])
@@ -47,11 +54,19 @@ export function CustomerSelector({ tenantId, selected, onSelect, onClose }: Prop
       const res = await fetch('/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName.trim(), email: newEmail || null, phone: newPhone || null }),
+        body: JSON.stringify({
+          name: newName.trim(),
+          email: newEmail || null,
+          phone: newPhone || null,
+        }),
       })
       const data = await res.json()
       if (data.customer) onSelect(data.customer)
-    } catch { /* silent */ } finally { setCreating(false) }
+    } catch {
+      /* silent */
+    } finally {
+      setCreating(false)
+    }
   }
 
   return (
@@ -59,7 +74,9 @@ export function CustomerSelector({ tenantId, selected, onSelect, onClose }: Prop
       <div className="w-full sm:max-w-md bg-zinc-900 sm:rounded-2xl overflow-hidden shadow-2xl">
         <div className="flex items-center justify-between p-4 border-b border-zinc-800">
           <h2 className="text-lg font-semibold text-zinc-100">Select Customer</h2>
-          <button onClick={onClose}><X className="w-5 h-5 text-zinc-400" /></button>
+          <button onClick={onClose}>
+            <X className="w-5 h-5 text-zinc-400" />
+          </button>
         </div>
 
         <div className="p-4 space-y-3">
@@ -81,7 +98,12 @@ export function CustomerSelector({ tenantId, selected, onSelect, onClose }: Prop
                 <User className="w-4 h-4 text-violet-400" />
                 <span className="text-sm text-violet-300">{selected.name}</span>
               </div>
-              <button onClick={() => onSelect({ id: '', name: '' })} className="text-xs text-zinc-500 hover:text-red-400">Remove</button>
+              <button
+                onClick={() => onSelect({ id: '', name: '' })}
+                className="text-xs text-zinc-500 hover:text-red-400"
+              >
+                Remove
+              </button>
             </div>
           )}
 
@@ -117,16 +139,39 @@ export function CustomerSelector({ tenantId, selected, onSelect, onClose }: Prop
           ) : (
             <div className="space-y-2 p-3 bg-zinc-800 rounded-lg">
               <p className="text-sm font-medium text-zinc-300">New Customer</p>
-              <input type="text" placeholder="Name *" value={newName} onChange={(e) => setNewName(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-violet-500" />
-              <input type="email" placeholder="Email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-violet-500" />
-              <input type="tel" placeholder="Phone" value={newPhone} onChange={(e) => setNewPhone(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-violet-500" />
+              <input
+                type="text"
+                placeholder="Name *"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+              />
+              <input
+                type="email"
+                placeholder="Email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+              />
+              <input
+                type="tel"
+                placeholder="Phone"
+                value={newPhone}
+                onChange={(e) => setNewPhone(e.target.value)}
+                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+              />
               <div className="flex gap-2">
-                <button onClick={() => setShowCreate(false)} className="flex-1 py-2 bg-zinc-700 rounded text-sm text-zinc-300 hover:bg-zinc-600">Cancel</button>
-                <button onClick={handleCreate} disabled={creating || !newName.trim()}
-                  className="flex-1 py-2 bg-violet-600 rounded text-sm text-white font-medium hover:bg-violet-700 disabled:opacity-50">
+                <button
+                  onClick={() => setShowCreate(false)}
+                  className="flex-1 py-2 bg-zinc-700 rounded text-sm text-zinc-300 hover:bg-zinc-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreate}
+                  disabled={creating || !newName.trim()}
+                  className="flex-1 py-2 bg-violet-600 rounded text-sm text-white font-medium hover:bg-violet-700 disabled:opacity-50"
+                >
                   {creating ? 'Creating…' : 'Create'}
                 </button>
               </div>

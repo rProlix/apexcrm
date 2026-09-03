@@ -153,9 +153,7 @@ export const LEGAL_DOCUMENTS: Record<LegalDocumentKey, LegalDocument> = {
       },
       {
         heading: '17. Contact',
-        paragraphs: [
-          `Questions about these Terms may be sent to ${LEGAL_CONTACT_EMAIL}.`,
-        ],
+        paragraphs: [`Questions about these Terms may be sent to ${LEGAL_CONTACT_EMAIL}.`],
       },
     ],
   },
@@ -404,7 +402,8 @@ export const LEGAL_DOCUMENTS: Record<LegalDocumentKey, LegalDocument> = {
     key: 'data-processing-addendum',
     shortTitle: 'Data Processing',
     title: 'Data Processing Addendum',
-    description: 'Data protection terms for business customers using NexoraNow to process personal data.',
+    description:
+      'Data protection terms for business customers using NexoraNow to process personal data.',
     version: LEGAL_VERSION,
     effectiveDate: LEGAL_EFFECTIVE_DATE,
     sections: [
@@ -555,9 +554,7 @@ export const LEGAL_DOCUMENT_ORDER: LegalDocumentKey[] = [
 ]
 
 export function getLegalDocument(key: string): LegalDocument | null {
-  return key in LEGAL_DOCUMENTS
-    ? LEGAL_DOCUMENTS[key as LegalDocumentKey]
-    : null
+  return key in LEGAL_DOCUMENTS ? LEGAL_DOCUMENTS[key as LegalDocumentKey] : null
 }
 
 export function getPlatformLegalUrl(key: LegalDocumentKey): string {

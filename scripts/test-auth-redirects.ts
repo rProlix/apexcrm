@@ -10,8 +10,10 @@
 
 // ── Bootstrap env for the script (mirrors .env.local defaults) ────────────────
 // Set defaults only — don't reassign read-only properties in TypeScript strict mode
-if (!process.env['NEXT_PUBLIC_APP_URL'])    process.env['NEXT_PUBLIC_APP_URL']    = 'https://nexoranow.com'
-if (!process.env['NEXT_PUBLIC_ROOT_DOMAIN']) process.env['NEXT_PUBLIC_ROOT_DOMAIN'] = 'nexoranow.com'
+if (!process.env['NEXT_PUBLIC_APP_URL'])
+  process.env['NEXT_PUBLIC_APP_URL'] = 'https://nexoranow.com'
+if (!process.env['NEXT_PUBLIC_ROOT_DOMAIN'])
+  process.env['NEXT_PUBLIC_ROOT_DOMAIN'] = 'nexoranow.com'
 
 // ── Import helpers ─────────────────────────────────────────────────────────────
 // We import directly so this script works without a full Next.js build.
@@ -53,13 +55,21 @@ function makeHeaders(map: Record<string, string>) {
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n▶ sanitizeNextPath')
 
-assert('valid path returned as-is',            sanitizeNextPath('/account'),    '/account')
-assert('valid path with sub-route',            sanitizeNextPath('/account/orders'), '/account/orders')
-assert('empty string → fallback',              sanitizeNextPath('',  '/account'), '/account')
-assert('null → fallback',                      sanitizeNextPath(null, '/account'), '/account')
-assert('absolute URL rejected → fallback',     sanitizeNextPath('https://evil.com', '/account'), '/account')
-assert('protocol-relative rejected → fallback', sanitizeNextPath('//evil.com', '/account'), '/account')
-assert('custom fallback used',                 sanitizeNextPath(null, '/dashboard'), '/dashboard')
+assert('valid path returned as-is', sanitizeNextPath('/account'), '/account')
+assert('valid path with sub-route', sanitizeNextPath('/account/orders'), '/account/orders')
+assert('empty string → fallback', sanitizeNextPath('', '/account'), '/account')
+assert('null → fallback', sanitizeNextPath(null, '/account'), '/account')
+assert(
+  'absolute URL rejected → fallback',
+  sanitizeNextPath('https://evil.com', '/account'),
+  '/account'
+)
+assert(
+  'protocol-relative rejected → fallback',
+  sanitizeNextPath('//evil.com', '/account'),
+  '/account'
+)
+assert('custom fallback used', sanitizeNextPath(null, '/dashboard'), '/dashboard')
 
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n▶ getRequestOrigin')
@@ -67,34 +77,35 @@ console.log('\n▶ getRequestOrigin')
 assert(
   'subdomain request → subdomain origin',
   getRequestOrigin(makeRequest('https://erickvcontacf.nexoranow.com/api/storefront/auth/signup')),
-  'https://erickvcontacf.nexoranow.com',
+  'https://erickvcontacf.nexoranow.com'
 )
 
 assert(
   'main domain request → main domain origin',
   getRequestOrigin(makeRequest('https://nexoranow.com/api/storefront/auth/signup')),
-  'https://nexoranow.com',
+  'https://nexoranow.com'
 )
 
 assert(
   'custom domain request → custom domain origin',
   getRequestOrigin(makeRequest('https://custombiz.com/api/storefront/auth/signup')),
-  'https://custombiz.com',
+  'https://custombiz.com'
 )
 
 assert(
   'localhost → http origin',
   getRequestOrigin(makeRequest('http://localhost:3000/api/storefront/auth/signup')),
-  'http://localhost:3000',
+  'http://localhost:3000'
 )
 
 assert(
   'x-forwarded-host takes priority over url.host',
-  getRequestOrigin(makeRequest(
-    'https://nexoranow.com/api/storefront/auth/signup',
-    { 'x-forwarded-host': 'erickvcontacf.nexoranow.com' },
-  )),
-  'https://erickvcontacf.nexoranow.com',
+  getRequestOrigin(
+    makeRequest('https://nexoranow.com/api/storefront/auth/signup', {
+      'x-forwarded-host': 'erickvcontacf.nexoranow.com',
+    })
+  ),
+  'https://erickvcontacf.nexoranow.com'
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,27 +115,27 @@ assert(
   'subdomain → storefront callback URL',
   getStorefrontEmailRedirectTo(
     makeRequest('https://erickvcontacf.nexoranow.com/api/storefront/auth/signup'),
-    '/account',
+    '/account'
   ),
-  'https://erickvcontacf.nexoranow.com/auth/callback?next=%2Faccount',
+  'https://erickvcontacf.nexoranow.com/auth/callback?next=%2Faccount'
 )
 
 assert(
   'custom domain → custom domain callback URL',
   getStorefrontEmailRedirectTo(
     makeRequest('https://custombiz.com/api/storefront/auth/signup'),
-    '/account',
+    '/account'
   ),
-  'https://custombiz.com/auth/callback?next=%2Faccount',
+  'https://custombiz.com/auth/callback?next=%2Faccount'
 )
 
 assert(
   'open redirect in next rejected → /account fallback',
   getStorefrontEmailRedirectTo(
     makeRequest('https://erickvcontacf.nexoranow.com/api/storefront/auth/signup'),
-    'https://evil.com',
+    'https://evil.com'
   ),
-  'https://erickvcontacf.nexoranow.com/auth/callback?next=%2Faccount',
+  'https://erickvcontacf.nexoranow.com/auth/callback?next=%2Faccount'
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -133,29 +144,29 @@ console.log('\n▶ getCrmEmailRedirectTo')
 assert(
   'CRM signup → nexoranow.com/auth/callback?next=/dashboard',
   getCrmEmailRedirectTo('/dashboard'),
-  'https://nexoranow.com/auth/callback?next=%2Fdashboard',
+  'https://nexoranow.com/auth/callback?next=%2Fdashboard'
 )
 
 assert(
   'custom next path',
   getCrmEmailRedirectTo('/onboarding'),
-  'https://nexoranow.com/auth/callback?next=%2Fonboarding',
+  'https://nexoranow.com/auth/callback?next=%2Fonboarding'
 )
 
 assert(
   'open redirect in next rejected',
   getCrmEmailRedirectTo('https://evil.com'),
-  'https://nexoranow.com/auth/callback?next=%2Fdashboard',
+  'https://nexoranow.com/auth/callback?next=%2Fdashboard'
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n▶ isMainCrmHost')
 
-assert('nexoranow.com is main',    String(isMainCrmHost('nexoranow.com')),                   'true')
-assert('subdomain is NOT main',    String(isMainCrmHost('erickvcontacf.nexoranow.com')),     'false')
-assert('localhost is main (dev)',   String(isMainCrmHost('localhost')),                       'true')
-assert('vercel preview is main',   String(isMainCrmHost('myapp-abc123.vercel.app')),         'true')
-assert('custom domain is NOT main', String(isMainCrmHost('custombiz.com')),                  'false')
+assert('nexoranow.com is main', String(isMainCrmHost('nexoranow.com')), 'true')
+assert('subdomain is NOT main', String(isMainCrmHost('erickvcontacf.nexoranow.com')), 'false')
+assert('localhost is main (dev)', String(isMainCrmHost('localhost')), 'true')
+assert('vercel preview is main', String(isMainCrmHost('myapp-abc123.vercel.app')), 'true')
+assert('custom domain is NOT main', String(isMainCrmHost('custombiz.com')), 'false')
 
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n▶ getStorefrontEmailRedirectToFromHeaders (server action path)')
@@ -165,18 +176,18 @@ assert(
   getStorefrontEmailRedirectToFromHeaders(
     makeHeaders({ 'x-original-host': 'erickvcontacf.nexoranow.com' }),
     '/account',
-    'tenant-uuid-123',
+    'tenant-uuid-123'
   ),
-  'https://erickvcontacf.nexoranow.com/auth/callback?next=%2Faccount&tenant_id=tenant-uuid-123',
+  'https://erickvcontacf.nexoranow.com/auth/callback?next=%2Faccount&tenant_id=tenant-uuid-123'
 )
 
 assert(
   'host fallback when x-original-host absent',
   getStorefrontEmailRedirectToFromHeaders(
     makeHeaders({ host: 'erickvcontacf.nexoranow.com' }),
-    '/account',
+    '/account'
   ),
-  'https://erickvcontacf.nexoranow.com/auth/callback?next=%2Faccount',
+  'https://erickvcontacf.nexoranow.com/auth/callback?next=%2Faccount'
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -184,26 +195,23 @@ console.log('\n▶ Key acceptance criteria')
 
 const storefrontReq = makeRequest('https://erickvcontacf.nexoranow.com/api/storefront/auth/signup')
 const storefrontUrl = getStorefrontEmailRedirectTo(storefrontReq, '/account')
-const storefrontOk  = storefrontUrl.startsWith('https://erickvcontacf.nexoranow.com') &&
-                      storefrontUrl.includes('/auth/callback') &&
-                      storefrontUrl.includes('next=%2Faccount')
+const storefrontOk =
+  storefrontUrl.startsWith('https://erickvcontacf.nexoranow.com') &&
+  storefrontUrl.includes('/auth/callback') &&
+  storefrontUrl.includes('next=%2Faccount')
 
 assert(
   'storefront confirmation email DOES NOT link to nexoranow.com',
   String(!storefrontUrl.startsWith('https://nexoranow.com')),
-  'true',
+  'true'
 )
 
-assert(
-  'storefront confirmation email links to the SUBDOMAIN',
-  String(storefrontOk),
-  'true',
-)
+assert('storefront confirmation email links to the SUBDOMAIN', String(storefrontOk), 'true')
 
 assert(
   'CRM confirmation email links to nexoranow.com (not a subdomain)',
   String(getCrmEmailRedirectTo('/dashboard').startsWith('https://nexoranow.com')),
-  'true',
+  'true'
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

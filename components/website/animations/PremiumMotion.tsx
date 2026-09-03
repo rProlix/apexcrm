@@ -7,9 +7,9 @@ import { motion, useReducedMotion } from 'framer-motion'
 import type { ReactNode } from 'react'
 
 interface FadeUpProps {
-  children:   ReactNode
-  delay?:     number
-  duration?:  number
+  children: ReactNode
+  delay?: number
+  duration?: number
   className?: string
 }
 
@@ -71,7 +71,7 @@ export function GlassCard({ children, className }: { children: ReactNode; classN
       className={className}
       whileHover={{
         backdropFilter: 'blur(12px)',
-        borderColor:    'rgba(255,255,255,0.3)',
+        borderColor: 'rgba(255,255,255,0.3)',
         y: -2,
       }}
       transition={{ duration: 0.2 }}
@@ -82,7 +82,13 @@ export function GlassCard({ children, className }: { children: ReactNode; classN
 }
 
 /** Spotlight sweep shimmer on hover (CSS-powered, no JS). */
-export function SpotlightCard({ children, className }: { children: ReactNode; className?: string }) {
+export function SpotlightCard({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) {
   return (
     <div
       className={`relative overflow-hidden group ${className ?? ''}`}

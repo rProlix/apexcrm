@@ -16,16 +16,16 @@
 //   route. The generation service will skip already-completed frames and
 //   continue from where it left off.
 
-import { NextRequest, NextResponse }  from 'next/server'
-import { resolveP360ApiUser }         from '@/lib/product-360/auth'
-import { getSupabaseServerClient }    from '@/lib/supabase/server'
-import { generatePackage }            from '@/lib/product-360/generationService'
-import { getP360Provider }            from '@/lib/ai/360/provider'
-import { getProduct360Provider }       from '@/lib/product-360/providers'
+import { NextRequest, NextResponse } from 'next/server'
+import { resolveP360ApiUser } from '@/lib/product-360/auth'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { generatePackage } from '@/lib/product-360/generationService'
+import { getP360Provider } from '@/lib/ai/360/provider'
+import { getProduct360Provider } from '@/lib/product-360/providers'
 
-export const dynamic     = 'force-dynamic'
-export const runtime     = 'nodejs'
-export const maxDuration = 300  // seconds — Vercel Pro/Enterprise
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+export const maxDuration = 300 // seconds — Vercel Pro/Enterprise
 
 type Ctx = { params: Promise<{ packageId: string }> }
 
@@ -36,19 +36,58 @@ const RESUMABLE_STATUSES = new Set(['draft', 'failed', 'paused_quota', 'cancelle
 export async function POST(req: NextRequest, ctx: Ctx) {
   const { packageId } = await ctx.params
   const user = await resolveP360ApiUser(req)
-  if (!user) return NextResponse.json({ ok: false, error: { type: 'auth_error', title: 'Unauthorized', message: 'Unauthorized', retryable: false } }, { status: 401 })
+  if (!user)
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'auth_error',
+          title: 'Unauthorized',
+          message: 'Unauthorized',
+          retryable: false,
+        },
+      },
+      { status: 401 }
+    )
   if (user.role !== 'owner' && user.role !== 'admin') {
-    return NextResponse.json({ ok: false, error: { type: 'auth_error', title: 'Forbidden', message: 'Only owners and admins can generate 360° packages', retryable: false } }, { status: 403 })
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'auth_error',
+          title: 'Forbidden',
+          message: 'Only owners and admins can generate 360° packages',
+          retryable: false,
+        },
+      },
+      { status: 403 }
+    )
   }
 
   let body: Record<string, unknown> = {}
-  try { body = await req.json() } catch { /* body optional */ }
+  try {
+    body = await req.json()
+  } catch {
+    /* body optional */
+  }
 
   const tenantId = user.isOwner
-    ? (body.tenantId as string | undefined) ?? user.tenantId
+    ? ((body.tenantId as string | undefined) ?? user.tenantId)
     : user.tenantId
 
-  if (!tenantId) return NextResponse.json({ ok: false, error: { type: 'invalid_request', title: 'Missing tenant', message: 'Could not resolve tenant', retryable: false } }, { status: 400 })
+  if (!tenantId)
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'invalid_request',
+          title: 'Missing tenant',
+          message: 'Could not resolve tenant',
+          retryable: false,
+        },
+      },
+      { status: 400 }
+    )
 
   const supabase = getSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,48 +96,80 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // ── Validate package ────────────────────────────────────────────────────────
   const { data: pkg } = await db
     .from('product_360_packages')
-    .select('id, status, product_id, frames_done, target_frame_count, next_retry_at, generation_provider, provider, reference_image_url, master_frame_url')
+    .select(
+      'id, status, product_id, frames_done, target_frame_count, next_retry_at, generation_provider, provider, reference_image_url, master_frame_url'
+    )
     .eq('id', packageId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
   if (!pkg) {
-    return NextResponse.json({ ok: false, error: { type: 'invalid_request', title: 'Not found', message: 'Package not found', retryable: false } }, { status: 404 })
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'invalid_request',
+          title: 'Not found',
+          message: 'Package not found',
+          retryable: false,
+        },
+      },
+      { status: 404 }
+    )
   }
 
   const currentStatus = (pkg as Record<string, unknown>).status as string
 
   if (currentStatus === 'generating' || currentStatus === 'processing') {
-    return NextResponse.json({
-      ok: false,
-      error: { type: 'invalid_request', title: 'Already running', message: 'Generation is already in progress for this package', retryable: false },
-    }, { status: 409 })
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'invalid_request',
+          title: 'Already running',
+          message: 'Generation is already in progress for this package',
+          retryable: false,
+        },
+      },
+      { status: 409 }
+    )
   }
 
   if (!RESUMABLE_STATUSES.has(currentStatus) && currentStatus !== 'queued') {
-    return NextResponse.json({
-      ok: false,
-      error: { type: 'invalid_request', title: 'Cannot generate', message: `Package is in status "${currentStatus}" and cannot be started. Archive it and create a new package.`, retryable: false },
-    }, { status: 409 })
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'invalid_request',
+          title: 'Cannot generate',
+          message: `Package is in status "${currentStatus}" and cannot be started. Archive it and create a new package.`,
+          retryable: false,
+        },
+      },
+      { status: 409 }
+    )
   }
 
   // ── Check next_retry_at for paused_quota packages ───────────────────────────
   const nextRetryAt = (pkg as Record<string, unknown>).next_retry_at as string | null
   if (currentStatus === 'paused_quota' && nextRetryAt) {
     const retryMs = new Date(nextRetryAt).getTime()
-    const nowMs   = Date.now()
+    const nowMs = Date.now()
     if (retryMs > nowMs && !body.forceResume) {
       const waitSec = Math.ceil((retryMs - nowMs) / 1000)
-      return NextResponse.json({
-        ok: false,
-        error: {
-          type:      'quota_exceeded',
-          title:     'Too soon to retry',
-          message:   `Quota still limited. Try again in ${waitSec}s (or send forceResume: true to override).`,
-          retryable: true,
-          retryAt:   nextRetryAt,
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            type: 'quota_exceeded',
+            title: 'Too soon to retry',
+            message: `Quota still limited. Try again in ${waitSec}s (or send forceResume: true to override).`,
+            retryable: true,
+            retryAt: nextRetryAt,
+          },
         },
-      }, { status: 429 })
+        { status: 429 }
+      )
     }
   }
 
@@ -106,78 +177,130 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // Done before the provider check so any subsequent failure sets status → 'failed'
   // in the DB, which fetchPackages() will pick up. Without this order, a missing
   // API key left the package in 'draft' indefinitely with no visible error.
-  const existingDone = (pkg as Record<string, unknown>).frames_done as number ?? 0
+  const existingDone = ((pkg as Record<string, unknown>).frames_done as number) ?? 0
   await db
     .from('product_360_packages')
     .update({
-      status:              'queued',
-      generation_error:    null,
-      last_error_message:  null,
-      cancel_requested:    false,
+      status: 'queued',
+      generation_error: null,
+      last_error_message: null,
+      cancel_requested: false,
       cancel_requested_at: null,
-      cancelled_at:        null,
-      frames_done:         existingDone,
-      updated_at:          new Date().toISOString(),
+      cancelled_at: null,
+      frames_done: existingDone,
+      updated_at: new Date().toISOString(),
     })
     .eq('id', packageId)
 
-  console.info(`[p360:generate/route] pkg=${packageId} queued (was: ${currentStatus}), verifying provider…`)
+  console.info(
+    `[p360:generate/route] pkg=${packageId} queued (was: ${currentStatus}), verifying provider…`
+  )
 
   // ── Verify selected provider is configured ──────────────────────────────────
   // Leonardo uses the product-360 provider stack; Gemini/Imagen keeps the legacy
   // sync provider stack for existing packages.
-  const providerName = String((pkg as Record<string, unknown>).generation_provider ?? (pkg as Record<string, unknown>).provider ?? 'gemini').toLowerCase()
+  const providerName = String(
+    (pkg as Record<string, unknown>).generation_provider ??
+      (pkg as Record<string, unknown>).provider ??
+      'gemini'
+  ).toLowerCase()
   if (providerName === 'leonardo') {
     const p360Provider = getProduct360Provider('leonardo')
     if (!p360Provider.isAvailable()) {
-      const missingVars = p360Provider.configErrors().map(e => e.replace(/^Missing\s+/, '')).join(', ')
+      const missingVars = p360Provider
+        .configErrors()
+        .map((e) => e.replace(/^Missing\s+/, ''))
+        .join(', ')
       const errMsg = `Missing Leonardo environment variables: ${missingVars}. Fix: add ${missingVars} to your server environment and restart/redeploy.`
-      await db.from('product_360_packages').update({
-        status: 'failed',
-        generation_stage: 'failed',
-        generation_error: errMsg,
-        last_error_message: errMsg,
-        last_provider_error: 'missing_env_vars',
-        last_provider_error_details: errMsg,
-        updated_at: new Date().toISOString(),
-      }).eq('id', packageId)
-      return NextResponse.json({ ok: false, error: { type: 'missing_env_vars', title: 'Leonardo not configured', message: errMsg, retryable: false } }, { status: 503 })
+      await db
+        .from('product_360_packages')
+        .update({
+          status: 'failed',
+          generation_stage: 'failed',
+          generation_error: errMsg,
+          last_error_message: errMsg,
+          last_provider_error: 'missing_env_vars',
+          last_provider_error_details: errMsg,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', packageId)
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            type: 'missing_env_vars',
+            title: 'Leonardo not configured',
+            message: errMsg,
+            retryable: false,
+          },
+        },
+        { status: 503 }
+      )
     }
 
-    const hasReference = Boolean((pkg as Record<string, unknown>).reference_image_url || (pkg as Record<string, unknown>).master_frame_url)
+    const hasReference = Boolean(
+      (pkg as Record<string, unknown>).reference_image_url ||
+      (pkg as Record<string, unknown>).master_frame_url
+    )
     if (!hasReference) {
-      const errMsg = 'Leonardo generation requires a reference image or master frame. Upload a product reference image or generate a master frame first.'
-      await db.from('product_360_packages').update({
-        status: 'failed',
-        generation_stage: 'failed',
-        generation_error: errMsg,
-        last_error_message: errMsg,
-        updated_at: new Date().toISOString(),
-      }).eq('id', packageId)
-      return NextResponse.json({ ok: false, error: { type: 'missing_reference_image', title: 'Reference image required', message: errMsg, retryable: false } }, { status: 422 })
+      const errMsg =
+        'Leonardo generation requires a reference image or master frame. Upload a product reference image or generate a master frame first.'
+      await db
+        .from('product_360_packages')
+        .update({
+          status: 'failed',
+          generation_stage: 'failed',
+          generation_error: errMsg,
+          last_error_message: errMsg,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', packageId)
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            type: 'missing_reference_image',
+            title: 'Reference image required',
+            message: errMsg,
+            retryable: false,
+          },
+        },
+        { status: 422 }
+      )
     }
   } else {
     const provider = getP360Provider()
     if (!provider) {
-      const errMsg = 'AI image generation is not configured. Ask an administrator to configure the server-side AI image service.'
-      await db.from('product_360_packages').update({
-        status:             'failed',
-        generation_error:   errMsg,
-        last_error_message: errMsg,
-        updated_at:         new Date().toISOString(),
-      }).eq('id', packageId)
-      console.error(`[p360:generate/route] pkg=${packageId} — provider not configured, marked failed`)
-      return NextResponse.json({
-        ok: false,
-        error: {
-          type:      'auth_error',
-          title:     'AI not configured',
-          message:   errMsg,
-          retryable: false,
+      const errMsg =
+        'AI image generation is not configured. Ask an administrator to configure the server-side AI image service.'
+      await db
+        .from('product_360_packages')
+        .update({
+          status: 'failed',
+          generation_error: errMsg,
+          last_error_message: errMsg,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', packageId)
+      console.error(
+        `[p360:generate/route] pkg=${packageId} — provider not configured, marked failed`
+      )
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            type: 'auth_error',
+            title: 'AI not configured',
+            message: errMsg,
+            retryable: false,
+          },
         },
-      }, { status: 503 })
+        { status: 503 }
+      )
     }
-    console.info(`[p360:generate/route] pkg=${packageId} provider="${provider.name}" model="${provider.model}", starting…`)
+    console.info(
+      `[p360:generate/route] pkg=${packageId} provider="${provider.name}" model="${provider.model}", starting…`
+    )
   }
 
   // ── Pump mode: return immediately so the client drives frame-by-frame gen ────
@@ -198,37 +321,43 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (pumpMode) {
     // Pre-create all frame rows so the pump can pick them up without re-querying
     // the package for target_frame_count on every pump call.
-    const targetCount = (pkg as Record<string, unknown>).target_frame_count as number ?? 12
-    const totalFrames = Math.min(targetCount, parseInt(process.env.MAX_360_FRAMES_PER_PACKAGE ?? '24', 10) || 24)
+    const targetCount = ((pkg as Record<string, unknown>).target_frame_count as number) ?? 12
+    const totalFrames = Math.min(
+      targetCount,
+      parseInt(process.env.MAX_360_FRAMES_PER_PACKAGE ?? '24', 10) || 24
+    )
 
     const framesToCreate = Array.from({ length: totalFrames }, (_, i) => ({
-      package_id:  packageId,
-      tenant_id:   tenantId,
-      product_id:  (pkg as Record<string, unknown>).product_id as string | null,
+      package_id: packageId,
+      tenant_id: tenantId,
+      product_id: (pkg as Record<string, unknown>).product_id as string | null,
       frame_index: i,
       angle_degrees: Math.round((i / totalFrames) * 360),
-      status:         'queued',
+      status: 'queued',
       is_master_frame: i === 0,
       generation_attempt: 1,
-      updated_at:  new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }))
 
     // Upsert — only creates rows that don't already exist (existing rows keep status)
     if (framesToCreate.length > 0) {
-      await db.from('product_360_frames')
+      await db
+        .from('product_360_frames')
         .upsert(framesToCreate, { onConflict: 'package_id,frame_index', ignoreDuplicates: true })
     }
 
-    console.info(`[p360:generate/route] pkg=${packageId} pump mode — ${totalFrames} frame rows seeded, returning queued`)
+    console.info(
+      `[p360:generate/route] pkg=${packageId} pump mode — ${totalFrames} frame rows seeded, returning queued`
+    )
     return NextResponse.json({
       ok: true,
       data: {
-        status:       'queued',
+        status: 'queued',
         packageId,
-        pumpMode:     true,
+        pumpMode: true,
         totalFrames,
         framesSeeded: totalFrames,
-        message:      'Package queued. Call POST /pump to process frames one at a time.',
+        message: 'Package queued. Call POST /pump to process frames one at a time.',
       },
     })
   }
@@ -238,53 +367,61 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   // ── User-requested cancellation ───────────────────────────────────────────
   if (result.cancelled) {
-    console.info(`[p360:generate/route] pkg=${packageId} — generation stopped by user (${result.framesGenerated} frames saved)`)
+    console.info(
+      `[p360:generate/route] pkg=${packageId} — generation stopped by user (${result.framesGenerated} frames saved)`
+    )
     return NextResponse.json({
       ok: true,
       data: {
-        status:          'cancelled',
+        status: 'cancelled',
         packageId,
         framesGenerated: result.framesGenerated,
-        message:         `Generation stopped. ${result.framesGenerated} frame${result.framesGenerated !== 1 ? 's' : ''} were saved.`,
+        message: `Generation stopped. ${result.framesGenerated} frame${result.framesGenerated !== 1 ? 's' : ''} were saved.`,
       },
     })
   }
 
   // ── 429 quota pause ────────────────────────────────────────────────────────
   if (result.pausedForQuota) {
-    return NextResponse.json({
-      ok: false,
-      error: {
-        type:            'quota_exceeded',
-        title:           'Image generation quota reached',
-        message:         result.errorMessage ?? 'Quota exceeded. Generation paused.',
-        retryable:       true,
-        framesGenerated: result.framesGenerated,
-        retryAt:         result.retryAt ?? null,
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'quota_exceeded',
+          title: 'Image generation quota reached',
+          message: result.errorMessage ?? 'Quota exceeded. Generation paused.',
+          retryable: true,
+          framesGenerated: result.framesGenerated,
+          retryAt: result.retryAt ?? null,
+        },
       },
-    }, { status: 429 })
+      { status: 429 }
+    )
   }
 
   if (!result.success) {
     console.error(`[p360:generate/route] pkg=${packageId} failed: ${result.errorMessage}`)
-    return NextResponse.json({
-      ok: false,
-      error: {
-        type:      'unknown',
-        title:     'Generation failed',
-        message:   result.errorMessage ?? 'Generation failed',
-        retryable: false,
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          type: 'unknown',
+          title: 'Generation failed',
+          message: result.errorMessage ?? 'Generation failed',
+          retryable: false,
+        },
       },
-    }, { status: 500 })
+      { status: 500 }
+    )
   }
 
   return NextResponse.json({
     ok: true,
     data: {
-      status:          'ready',
+      status: 'ready',
       packageId,
       framesGenerated: result.framesGenerated,
-      previewUrl:      result.previewUrl ?? null,
+      previewUrl: result.previewUrl ?? null,
     },
   })
 }

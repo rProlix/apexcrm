@@ -16,9 +16,10 @@ export async function GET(req: NextRequest) {
   }
 
   // Owners can optionally target a different tenant via query param
-  const tenantId = user.role === 'owner'
-    ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
-    : user.tenant_id
+  const tenantId =
+    user.role === 'owner'
+      ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
+      : user.tenant_id
 
   const supabase = getSupabaseServerClient()
   const { data, error } = await supabase
@@ -70,13 +71,14 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('products')
     .insert({
-      tenant_id:       tenantId,
-      name:            name.trim(),
-      description:     typeof description === 'string' ? description.trim() || null : null,
+      tenant_id: tenantId,
+      name: name.trim(),
+      description: typeof description === 'string' ? description.trim() || null : null,
       price,
-      currency:        typeof currency === 'string' && currency.length === 3 ? currency : 'USD',
-      inventory_count: typeof inventory_count === 'number' ? Math.max(0, Math.floor(inventory_count)) : 0,
-      is_active:       typeof is_active === 'boolean' ? is_active : true,
+      currency: typeof currency === 'string' && currency.length === 3 ? currency : 'USD',
+      inventory_count:
+        typeof inventory_count === 'number' ? Math.max(0, Math.floor(inventory_count)) : 0,
+      is_active: typeof is_active === 'boolean' ? is_active : true,
     })
     .select()
     .single()

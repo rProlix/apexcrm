@@ -26,19 +26,21 @@ export async function POST(req: NextRequest) {
   // Accept optional tenantId from body to build a realistic path
   let tenantId = ctx.tenant_id ?? 'test-tenant'
   try {
-    const body = await req.json() as { tenantId?: string }
+    const body = (await req.json()) as { tenantId?: string }
     if (body.tenantId) tenantId = body.tenantId
-  } catch { /* no body — use defaults */ }
+  } catch {
+    /* no body — use defaults */
+  }
 
-  const timestamp   = Date.now()
+  const timestamp = Date.now()
   const storagePath = `tenants/${tenantId}/website/generated/test-plan/test_${timestamp}.png`
-  const mimeType    = 'image/png'
-  const buffer      = Buffer.from(TINY_PNG_BASE64, 'base64')
+  const mimeType = 'image/png'
+  const buffer = Buffer.from(TINY_PNG_BASE64, 'base64')
 
   console.log('[AI-IMAGE][TEST-STORAGE] upload starting', {
-    bucket:     WEBSITE_IMAGE_BUCKET,
+    bucket: WEBSITE_IMAGE_BUCKET,
     storagePath,
-    sizeBytes:  buffer.length,
+    sizeBytes: buffer.length,
     tenantId,
     hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
   })
@@ -46,23 +48,29 @@ export async function POST(req: NextRequest) {
   // ── Check bucket exists ───────────────────────────────────────────────────
   const { data: buckets, error: bucketsErr } = await supabase.storage.listBuckets()
   if (bucketsErr) {
-    return NextResponse.json({
-      ok:     false,
-      step:   'list_buckets',
-      error:  bucketsErr.message,
-      detail: 'Could not list storage buckets. Check SUPABASE_SERVICE_ROLE_KEY.',
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        ok: false,
+        step: 'list_buckets',
+        error: bucketsErr.message,
+        detail: 'Could not list storage buckets. Check SUPABASE_SERVICE_ROLE_KEY.',
+      },
+      { status: 500 }
+    )
   }
 
-  const bucketExists = buckets?.some(b => b.id === WEBSITE_IMAGE_BUCKET)
+  const bucketExists = buckets?.some((b) => b.id === WEBSITE_IMAGE_BUCKET)
   if (!bucketExists) {
-    return NextResponse.json({
-      ok:     false,
-      step:   'bucket_check',
-      error:  `Bucket "${WEBSITE_IMAGE_BUCKET}" does not exist.`,
-      detail: `Run migration 031_website_assets_bucket.sql, or go to Supabase Dashboard → Storage → New bucket → name: "${WEBSITE_IMAGE_BUCKET}", public: true.`,
-      buckets: buckets?.map(b => b.id) ?? [],
-    }, { status: 404 })
+    return NextResponse.json(
+      {
+        ok: false,
+        step: 'bucket_check',
+        error: `Bucket "${WEBSITE_IMAGE_BUCKET}" does not exist.`,
+        detail: `Run migration 031_website_assets_bucket.sql, or go to Supabase Dashboard → Storage → New bucket → name: "${WEBSITE_IMAGE_BUCKET}", public: true.`,
+        buckets: buckets?.map((b) => b.id) ?? [],
+      },
+      { status: 404 }
+    )
   }
 
   // ── Upload test image ─────────────────────────────────────────────────────
@@ -72,13 +80,16 @@ export async function POST(req: NextRequest) {
 
   if (uploadErr) {
     console.error('[AI-IMAGE][TEST-STORAGE] upload failed', uploadErr)
-    return NextResponse.json({
-      ok:         false,
-      step:       'upload',
-      error:      uploadErr.message,
-      storagePath,
-      bucket:     WEBSITE_IMAGE_BUCKET,
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        ok: false,
+        step: 'upload',
+        error: uploadErr.message,
+        storagePath,
+        bucket: WEBSITE_IMAGE_BUCKET,
+      },
+      { status: 500 }
+    )
   }
 
   // ── Get public URL ────────────────────────────────────────────────────────
@@ -88,12 +99,12 @@ export async function POST(req: NextRequest) {
   console.log('[AI-IMAGE][TEST-STORAGE] upload success', { storagePath, publicUrl })
 
   return NextResponse.json({
-    ok:         true,
-    bucket:     WEBSITE_IMAGE_BUCKET,
+    ok: true,
+    bucket: WEBSITE_IMAGE_BUCKET,
     storagePath,
     publicUrl,
-    sizeBytes:  buffer.length,
+    sizeBytes: buffer.length,
     mimeType,
-    message:    'Test image uploaded successfully. Storage is working correctly.',
+    message: 'Test image uploaded successfully. Storage is working correctly.',
   })
 }

@@ -24,15 +24,15 @@ export async function GET() {
 
   const branding = (data?.branding ?? {}) as Record<string, unknown>
   const notifications = (branding.notifications ?? {
-    email_new_order:       true,
-    email_new_lead:        true,
-    email_new_customer:    false,
-    email_appointment:     true,
-    email_payment:         true,
-    email_weekly_digest:   true,
-    webhook_url:           null,
-    webhook_new_order:     false,
-    webhook_new_lead:      false,
+    email_new_order: true,
+    email_new_lead: true,
+    email_new_customer: false,
+    email_appointment: true,
+    email_payment: true,
+    email_weekly_digest: true,
+    webhook_url: null,
+    webhook_new_order: false,
+    webhook_new_lead: false,
   }) as Record<string, unknown>
 
   return NextResponse.json({ notifications })
@@ -57,9 +57,15 @@ export async function PATCH(req: NextRequest) {
   const existingNotifications = (branding.notifications ?? {}) as Record<string, unknown>
 
   const allowedKeys = [
-    'email_new_order', 'email_new_lead', 'email_new_customer',
-    'email_appointment', 'email_payment', 'email_weekly_digest',
-    'webhook_url', 'webhook_new_order', 'webhook_new_lead',
+    'email_new_order',
+    'email_new_lead',
+    'email_new_customer',
+    'email_appointment',
+    'email_payment',
+    'email_weekly_digest',
+    'webhook_url',
+    'webhook_new_order',
+    'webhook_new_lead',
   ]
   const patch: Record<string, unknown> = {}
   for (const key of allowedKeys) {

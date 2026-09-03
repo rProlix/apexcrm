@@ -10,9 +10,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { saveCanvaEventDraft } from '@/lib/website/canva/eventWebsite'
-import { CANVA_IMPORT_MODES, type CanvaImportMode, type CanvaImportSettings } from '@/lib/website/canva/types'
+import {
+  CANVA_IMPORT_MODES,
+  type CanvaImportMode,
+  type CanvaImportSettings,
+} from '@/lib/website/canva/types'
 
-function resolveTenantId(ctx: Awaited<ReturnType<typeof getUserContext>>, override?: string | null): string | null {
+function resolveTenantId(
+  ctx: Awaited<ReturnType<typeof getUserContext>>,
+  override?: string | null
+): string | null {
   if (!ctx) return null
   const hint = sanitizeTenantId(override)
   const self = sanitizeTenantId(ctx.tenant_id)
@@ -29,7 +36,8 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const tenantId = resolveTenantId(ctx, (body.tenant_id as string) ?? null)
-  if (!tenantId) return NextResponse.json({ ok: false, error: 'No tenant for this account.' }, { status: 400 })
+  if (!tenantId)
+    return NextResponse.json({ ok: false, error: 'No tenant for this account.' }, { status: 400 })
 
   const importMode = String(body.importMode ?? 'preserve') as CanvaImportMode
   if (!CANVA_IMPORT_MODES.includes(importMode)) {
@@ -46,7 +54,10 @@ export async function POST(req: NextRequest) {
     canvaUrl: (body.canvaUrl as string) ?? null,
     embedCode: (body.embedCode as string) ?? null,
     isCustomDomain: Boolean(body.isCustomCanvaDomain ?? body.isCustomDomain),
-    settings: (typeof body.settings === 'object' && body.settings ? (body.settings as Partial<CanvaImportSettings>) : undefined),
+    settings:
+      typeof body.settings === 'object' && body.settings
+        ? (body.settings as Partial<CanvaImportSettings>)
+        : undefined,
     povEnabled: Boolean(body.povEnabled),
     povEventId: (body.povEventId as string) ?? null,
     createdBy: ctx.id ?? null,

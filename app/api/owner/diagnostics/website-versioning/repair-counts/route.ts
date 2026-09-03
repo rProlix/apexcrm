@@ -19,10 +19,17 @@ export async function POST() {
   if (!ctx.tenant_id) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db  = getSupabaseServerClient() as any
+  const db = getSupabaseServerClient() as any
   const tid = ctx.tenant_id
 
-  const fixed: { id: string; version_number: number; old_page_count: number; old_section_count: number; new_page_count: number; new_section_count: number }[] = []
+  const fixed: {
+    id: string
+    version_number: number
+    old_page_count: number
+    old_section_count: number
+    new_page_count: number
+    new_section_count: number
+  }[] = []
   const errors: string[] = []
   let checked = 0
 
@@ -35,17 +42,22 @@ export async function POST() {
 
     if (error) throw new Error(error.message)
     if (!data || data.length === 0) {
-      return NextResponse.json({ ok: true, message: 'No versions to repair', checked: 0, fixed: [] })
+      return NextResponse.json({
+        ok: true,
+        message: 'No versions to repair',
+        checked: 0,
+        fixed: [],
+      })
     }
 
     for (const row of data as Record<string, unknown>[]) {
       checked++
-      const snap     = row.snapshot as WebsiteSnapshot | null
+      const snap = row.snapshot as WebsiteSnapshot | null
       if (!snap?.pages) continue
 
-      const newPageCount    = snap.pages.length
+      const newPageCount = snap.pages.length
       const newSectionCount = snap.pages.reduce((s, p) => s + (p.sections?.length ?? 0), 0)
-      const oldPageCount    = (row.page_count as number)    ?? 0
+      const oldPageCount = (row.page_count as number) ?? 0
       const oldSectionCount = (row.section_count as number) ?? 0
 
       // Only update if counts differ or if schemaVersion is missing
@@ -62,11 +74,11 @@ export async function POST() {
           errors.push(`v${row.version_number}: ${upErr.message}`)
         } else {
           fixed.push({
-            id:                row.id as string,
-            version_number:    row.version_number as number,
-            old_page_count:    oldPageCount,
+            id: row.id as string,
+            version_number: row.version_number as number,
+            old_page_count: oldPageCount,
             old_section_count: oldSectionCount,
-            new_page_count:    newPageCount,
+            new_page_count: newPageCount,
             new_section_count: newSectionCount,
           })
         }
@@ -101,9 +113,9 @@ export async function POST() {
     }
 
     return NextResponse.json({
-      ok:              errors.length === 0,
+      ok: errors.length === 0,
       checked,
-      fixed_versions:  fixed.length,
+      fixed_versions: fixed.length,
       fixed_sort_order: sortOrderFixed,
       fixed,
       errors: errors.length > 0 ? errors : undefined,
@@ -111,7 +123,7 @@ export async function POST() {
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

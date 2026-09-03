@@ -35,12 +35,15 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
   const patch: Record<string, unknown> = {}
-  if (typeof body.quantity_per_product === 'number') patch.quantity_per_product = body.quantity_per_product
+  if (typeof body.quantity_per_product === 'number')
+    patch.quantity_per_product = body.quantity_per_product
   if (typeof body.deduct_on_sale === 'boolean') patch.deduct_on_sale = body.deduct_on_sale
 
   const supabase = getSupabaseServerClient()

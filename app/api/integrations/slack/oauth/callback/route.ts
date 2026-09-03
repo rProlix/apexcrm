@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
   }).catch(() => null)
   if (!response?.ok) return redirectResult(appUrl, state.businessId, 'error_exchange_failed')
 
-  const oauth = await response.json() as OAuthResponse
+  const oauth = (await response.json()) as OAuthResponse
   const token = oauth.access_token
   const teamId = oauth.team?.id
   if (!oauth.ok || !token || !teamId) {
@@ -81,11 +81,16 @@ export async function GET(request: NextRequest) {
     p_slack_app_id: oauth.app_id ?? null,
     p_encrypted_bot_token: encryptSecret(token),
     p_token_last4: token.slice(-4),
-    p_scopes: (oauth.scope ?? '').split(',').map((scope) => scope.trim()).filter(Boolean),
+    p_scopes: (oauth.scope ?? '')
+      .split(',')
+      .map((scope) => scope.trim())
+      .filter(Boolean),
     p_connected_by: access.userId,
   })
   if (save.error) {
-    const reason = save.error.message.includes('another business') ? 'error_workspace_already_connected' : 'error_save_failed'
+    const reason = save.error.message.includes('another business')
+      ? 'error_workspace_already_connected'
+      : 'error_save_failed'
     return redirectResult(appUrl, state.businessId, reason)
   }
 

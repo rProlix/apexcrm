@@ -16,10 +16,11 @@ export const STATUS_CONSTRAINT_NAME = 'website_image_plans_status_check'
  */
 export function isCheckConstraintError(
   err: { message?: string; code?: string } | null | undefined,
-  constraintName?: string,
+  constraintName?: string
 ): boolean {
   if (!err) return false
-  if (err.code !== POSTGRES_CHECK_VIOLATION && !err.message?.includes('violates check constraint')) return false
+  if (err.code !== POSTGRES_CHECK_VIOLATION && !err.message?.includes('violates check constraint'))
+    return false
   if (constraintName) {
     return (err.message ?? '').includes(constraintName)
   }
@@ -30,7 +31,7 @@ export function isCheckConstraintError(
  * Returns true when the error is specifically an aspect_ratio CHECK violation.
  */
 export function isAspectRatioConstraintError(
-  err: { message?: string; code?: string } | null | undefined,
+  err: { message?: string; code?: string } | null | undefined
 ): boolean {
   return isCheckConstraintError(err, ASPECT_RATIO_CONSTRAINT_NAME)
 }

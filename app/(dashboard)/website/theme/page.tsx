@@ -22,5 +22,10 @@ export default async function WebsiteThemePage() {
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
-  return <ThemeClient tenantId={tenantId} initialSettings={(settings ?? null) as import('@/lib/website/types').SiteSettings | null} />
+  return (
+    <ThemeClient
+      tenantId={tenantId}
+      initialSettings={(settings ?? null) as import('@/lib/website/types').SiteSettings | null}
+    />
+  )
 }

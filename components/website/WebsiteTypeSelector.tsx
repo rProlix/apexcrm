@@ -13,20 +13,29 @@ import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { CanvaImportPanel } from '@/components/website/canva/CanvaImportPanel'
 import {
-  WEBSITE_TYPE_OPTIONS, POV_EVENT_TYPES, POV_EVENT_TYPE_LABELS, POV_THEMES,
+  WEBSITE_TYPE_OPTIONS,
+  POV_EVENT_TYPES,
+  POV_EVENT_TYPE_LABELS,
+  POV_THEMES,
   type WebsiteType,
 } from '@/lib/pov/types'
 
 const ICONS: Record<WebsiteType, React.ElementType> = {
-  business:     Store,
-  creative:     Palette,
+  business: Store,
+  creative: Palette,
   invitational: PartyPopper,
-  pov_event:    Camera,
+  pov_event: Camera,
 }
 
 const COMMON_TZ = [
-  'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York',
-  'America/Phoenix', 'America/Anchorage', 'Pacific/Honolulu', 'UTC',
+  'America/Los_Angeles',
+  'America/Denver',
+  'America/Chicago',
+  'America/New_York',
+  'America/Phoenix',
+  'America/Anchorage',
+  'Pacific/Honolulu',
+  'UTC',
 ]
 
 function nextDayNineAmLocal(): string {
@@ -38,16 +47,16 @@ function nextDayNineAmLocal(): string {
 }
 
 interface Props {
-  tenantId:          string
-  currentType?:      WebsiteType
+  tenantId: string
+  currentType?: WebsiteType
   currentPovEnabled?: boolean
 }
 
 export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }: Props) {
   const router = useRouter()
   const [selected, setSelected] = useState<WebsiteType | null>(currentType ?? null)
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Invitation/Event: optional POV Event Camera
   const [povEnabled, setPovEnabled] = useState(Boolean(currentPovEnabled))
@@ -98,7 +107,10 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
   }
 
   async function createPovEvent(websiteType: 'pov_event' | 'invitational') {
-    if (!pov.name.trim()) { setError('Please enter an event name.'); return }
+    if (!pov.name.trim()) {
+      setError('Please enter an event name.')
+      return
+    }
     setSaving(true)
     setError(null)
     try {
@@ -131,7 +143,11 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
       const res = await fetch('/api/website/invitation/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant_id: tenantId, event_name: pov.name || undefined, event_date: pov.event_date || undefined }),
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          event_name: pov.name || undefined,
+          event_date: pov.event_date || undefined,
+        }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not save')
@@ -145,9 +161,9 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
 
   function handleContinue() {
     if (!selected) return
-    if (selected === 'pov_event') return                 // POV form button handles it
+    if (selected === 'pov_event') return // POV form button handles it
     if (selected === 'invitational') {
-      if (povEnabled) return                             // POV form button handles it
+      if (povEnabled) return // POV form button handles it
       void createInvitationSite()
       return
     }
@@ -181,20 +197,28 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
             <button
               key={opt.value}
               type="button"
-              onClick={() => { setSelected(opt.value); setError(null) }}
+              onClick={() => {
+                setSelected(opt.value)
+                setError(null)
+              }}
               className={cn(
                 'text-left rounded-2xl border p-5 transition-all duration-200',
                 active
                   ? 'border-gold-500/50 bg-gold-500/10 shadow-glow-gold'
-                  : 'border-surface-border bg-graphite-800/60 hover:border-white/20',
+                  : 'border-surface-border bg-graphite-800/60 hover:border-white/20'
               )}
             >
               <div className="flex items-start gap-4">
-                <div className={cn(
-                  'h-11 w-11 rounded-xl border flex items-center justify-center shrink-0',
-                  active ? 'bg-gold-500/15 border-gold-500/30' : 'bg-white/5 border-white/10',
-                )}>
-                  <Icon className={cn('h-5 w-5', active ? 'text-gold-400' : 'text-white/50')} strokeWidth={1.75} />
+                <div
+                  className={cn(
+                    'h-11 w-11 rounded-xl border flex items-center justify-center shrink-0',
+                    active ? 'bg-gold-500/15 border-gold-500/30' : 'bg-white/5 border-white/10'
+                  )}
+                >
+                  <Icon
+                    className={cn('h-5 w-5', active ? 'text-gold-400' : 'text-white/50')}
+                    strokeWidth={1.75}
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -211,15 +235,27 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
 
       {/* Invitation/Event: optional POV Event Camera toggle */}
       {selected === 'invitational' && (
-        <button type="button" onClick={() => setPovEnabled((v) => !v)}
+        <button
+          type="button"
+          onClick={() => setPovEnabled((v) => !v)}
           className={cn(
             'w-full text-left rounded-2xl border p-5 transition-all duration-200',
-            povEnabled ? 'border-gold-500/50 bg-gold-500/10' : 'border-surface-border bg-graphite-800/60 hover:border-white/20',
-          )}>
+            povEnabled
+              ? 'border-gold-500/50 bg-gold-500/10'
+              : 'border-surface-border bg-graphite-800/60 hover:border-white/20'
+          )}
+        >
           <div className="flex items-start gap-4">
-            <div className={cn('h-10 w-10 rounded-xl border flex items-center justify-center shrink-0',
-              povEnabled ? 'bg-gold-500/15 border-gold-500/30' : 'bg-white/5 border-white/10')}>
-              <Camera className={cn('h-5 w-5', povEnabled ? 'text-gold-400' : 'text-white/50')} strokeWidth={1.75} />
+            <div
+              className={cn(
+                'h-10 w-10 rounded-xl border flex items-center justify-center shrink-0',
+                povEnabled ? 'bg-gold-500/15 border-gold-500/30' : 'bg-white/5 border-white/10'
+              )}
+            >
+              <Camera
+                className={cn('h-5 w-5', povEnabled ? 'text-gold-400' : 'text-white/50')}
+                strokeWidth={1.75}
+              />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -227,7 +263,8 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
                 {povEnabled && <Check className="h-4 w-4 text-gold-400" />}
               </div>
               <p className="text-xs text-white/40 leading-relaxed mt-1">
-                Let guests use their phone number and PIN to upload photos, short videos, and audio messages. The gallery unlocks the next day.
+                Let guests use their phone number and PIN to upload photos, short videos, and audio
+                messages. The gallery unlocks the next day.
               </p>
             </div>
           </div>
@@ -237,15 +274,27 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
       {/* Invitation/Event: optional Import from Canva step */}
       {selected === 'invitational' && (
         <div className="space-y-4">
-          <button type="button" onClick={() => setShowCanva((v) => !v)}
+          <button
+            type="button"
+            onClick={() => setShowCanva((v) => !v)}
             className={cn(
               'w-full text-left rounded-2xl border p-5 transition-all duration-200',
-              showCanva ? 'border-gold-500/50 bg-gold-500/10' : 'border-surface-border bg-graphite-800/60 hover:border-white/20',
-            )}>
+              showCanva
+                ? 'border-gold-500/50 bg-gold-500/10'
+                : 'border-surface-border bg-graphite-800/60 hover:border-white/20'
+            )}
+          >
             <div className="flex items-start gap-4">
-              <div className={cn('h-10 w-10 rounded-xl border flex items-center justify-center shrink-0',
-                showCanva ? 'bg-gold-500/15 border-gold-500/30' : 'bg-white/5 border-white/10')}>
-                <Sparkles className={cn('h-5 w-5', showCanva ? 'text-gold-400' : 'text-white/50')} strokeWidth={1.75} />
+              <div
+                className={cn(
+                  'h-10 w-10 rounded-xl border flex items-center justify-center shrink-0',
+                  showCanva ? 'bg-gold-500/15 border-gold-500/30' : 'bg-white/5 border-white/10'
+                )}
+              >
+                <Sparkles
+                  className={cn('h-5 w-5', showCanva ? 'text-gold-400' : 'text-white/50')}
+                  strokeWidth={1.75}
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -253,7 +302,8 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
                   {showCanva && <Check className="h-4 w-4 text-gold-400" />}
                 </div>
                 <p className="text-xs text-white/40 leading-relaxed mt-1">
-                  Bring in a Canva website/design. Preserve mode keeps animations exactly; converted mode rebuilds editable sections. POV Event Camera features stay native.
+                  Bring in a Canva website/design. Preserve mode keeps animations exactly; converted
+                  mode rebuilds editable sections. POV Event Camera features stay native.
                 </p>
               </div>
             </div>
@@ -262,7 +312,9 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
             <CanvaImportPanel
               tenantId={tenantId}
               eventWebsiteMode
-              onSaved={() => { /* draft now lives in My Sites & Apps */ }}
+              onSaved={() => {
+                /* draft now lives in My Sites & Apps */
+              }}
             />
           )}
         </div>
@@ -271,7 +323,9 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
       {/* Create button for non-POV types (and invitation without POV) */}
       {selected && selected !== 'pov_event' && !(selected === 'invitational' && povEnabled) && (
         <Button variant="primary" onClick={handleContinue} loading={saving}>
-          {selected === 'invitational' ? 'Create Event Website' : `Create ${WEBSITE_TYPE_OPTIONS.find((o) => o.value === selected)?.label}`}
+          {selected === 'invitational'
+            ? 'Create Event Website'
+            : `Create ${WEBSITE_TYPE_OPTIONS.find((o) => o.value === selected)?.label}`}
           <ArrowRight className="h-4 w-4" />
         </Button>
       )}
@@ -295,25 +349,39 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
           </div>
 
           <Field label="Event name">
-            <input className={inputCls} value={pov.name} maxLength={120}
+            <input
+              className={inputCls}
+              value={pov.name}
+              maxLength={120}
               onChange={(e) => set('name', e.target.value)}
-              placeholder="Sarah & Mike's Wedding" />
+              placeholder="Sarah & Mike's Wedding"
+            />
           </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Event type">
-              <select className={inputCls} value={pov.event_type}
-                onChange={(e) => set('event_type', e.target.value)}>
+              <select
+                className={inputCls}
+                value={pov.event_type}
+                onChange={(e) => set('event_type', e.target.value)}
+              >
                 {POV_EVENT_TYPES.map((t) => (
-                  <option key={t} value={t}>{POV_EVENT_TYPE_LABELS[t]}</option>
+                  <option key={t} value={t}>
+                    {POV_EVENT_TYPE_LABELS[t]}
+                  </option>
                 ))}
               </select>
             </Field>
             <Field label="Theme / style">
-              <select className={inputCls} value={pov.theme_key}
-                onChange={(e) => set('theme_key', e.target.value)}>
+              <select
+                className={inputCls}
+                value={pov.theme_key}
+                onChange={(e) => set('theme_key', e.target.value)}
+              >
                 {POV_THEMES.map((t) => (
-                  <option key={t.key} value={t.key}>{t.label}</option>
+                  <option key={t.key} value={t.key}>
+                    {t.label}
+                  </option>
                 ))}
               </select>
             </Field>
@@ -321,53 +389,108 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Event date">
-              <input type="date" className={inputCls} value={pov.event_date}
-                onChange={(e) => set('event_date', e.target.value)} />
+              <input
+                type="date"
+                className={inputCls}
+                value={pov.event_date}
+                onChange={(e) => set('event_date', e.target.value)}
+              />
             </Field>
             <Field label="Event start time">
-              <input type="datetime-local" className={inputCls} value={pov.event_start_at}
-                onChange={(e) => set('event_start_at', e.target.value)} />
+              <input
+                type="datetime-local"
+                className={inputCls}
+                value={pov.event_start_at}
+                onChange={(e) => set('event_start_at', e.target.value)}
+              />
             </Field>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Timezone">
-              <select className={inputCls} value={pov.timezone}
-                onChange={(e) => set('timezone', e.target.value)}>
+              <select
+                className={inputCls}
+                value={pov.timezone}
+                onChange={(e) => set('timezone', e.target.value)}
+              >
                 {[pov.timezone, ...COMMON_TZ.filter((t) => t !== pov.timezone)].map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
                 ))}
               </select>
             </Field>
             <Field label="Gallery reveal time" hint="Defaults to the next day at 9:00 AM local.">
-              <input type="datetime-local" className={inputCls} value={pov.gallery_reveal_at}
-                onChange={(e) => set('gallery_reveal_at', e.target.value)} />
+              <input
+                type="datetime-local"
+                className={inputCls}
+                value={pov.gallery_reveal_at}
+                onChange={(e) => set('gallery_reveal_at', e.target.value)}
+              />
             </Field>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Toggle label="Allow photos" on={pov.allow_photos} onClick={() => set('allow_photos', !pov.allow_photos)} />
-            <Toggle label="Allow 15s videos" on={pov.allow_videos} onClick={() => set('allow_videos', !pov.allow_videos)} />
-            <Toggle label="Allow 30s audio" on={pov.allow_audio} onClick={() => set('allow_audio', !pov.allow_audio)} />
-            <Toggle label="Require guest PIN" on={pov.require_pin} onClick={() => set('require_pin', !pov.require_pin)} />
-            <Toggle label="Allow registration" on={pov.allow_guest_registration} onClick={() => set('allow_guest_registration', !pov.allow_guest_registration)} />
-            <Toggle label="Allow login" on={pov.allow_guest_login} onClick={() => set('allow_guest_login', !pov.allow_guest_login)} />
+            <Toggle
+              label="Allow photos"
+              on={pov.allow_photos}
+              onClick={() => set('allow_photos', !pov.allow_photos)}
+            />
+            <Toggle
+              label="Allow 15s videos"
+              on={pov.allow_videos}
+              onClick={() => set('allow_videos', !pov.allow_videos)}
+            />
+            <Toggle
+              label="Allow 30s audio"
+              on={pov.allow_audio}
+              onClick={() => set('allow_audio', !pov.allow_audio)}
+            />
+            <Toggle
+              label="Require guest PIN"
+              on={pov.require_pin}
+              onClick={() => set('require_pin', !pov.require_pin)}
+            />
+            <Toggle
+              label="Allow registration"
+              on={pov.allow_guest_registration}
+              onClick={() => set('allow_guest_registration', !pov.allow_guest_registration)}
+            />
+            <Toggle
+              label="Allow login"
+              on={pov.allow_guest_login}
+              onClick={() => set('allow_guest_login', !pov.allow_guest_login)}
+            />
           </div>
 
           <Field label="Gallery locked message">
-            <input className={inputCls} value={pov.gallery_locked_message} maxLength={200}
-              onChange={(e) => set('gallery_locked_message', e.target.value)} />
+            <input
+              className={inputCls}
+              value={pov.gallery_locked_message}
+              maxLength={200}
+              onChange={(e) => set('gallery_locked_message', e.target.value)}
+            />
           </Field>
           <Field label="Gallery unlocked message">
-            <input className={inputCls} value={pov.gallery_unlocked_message} maxLength={200}
-              onChange={(e) => set('gallery_unlocked_message', e.target.value)} />
+            <input
+              className={inputCls}
+              value={pov.gallery_unlocked_message}
+              maxLength={200}
+              onChange={(e) => set('gallery_unlocked_message', e.target.value)}
+            />
           </Field>
 
-          <Button variant="primary"
-            onClick={() => createPovEvent(selected === 'invitational' ? 'invitational' : 'pov_event')}
-            loading={saving}>
+          <Button
+            variant="primary"
+            onClick={() =>
+              createPovEvent(selected === 'invitational' ? 'invitational' : 'pov_event')
+            }
+            loading={saving}
+          >
             <Camera className="h-4 w-4" />
-            {selected === 'invitational' ? 'Create Invitation Site with Camera' : 'Create POV Event App'}
+            {selected === 'invitational'
+              ? 'Create Invitation Site with Camera'
+              : 'Create POV Event App'}
           </Button>
         </motion.div>
       )}
@@ -378,7 +501,15 @@ export function WebsiteTypeSelector({ tenantId, currentType, currentPovEnabled }
 const inputCls =
   'w-full h-10 px-3 rounded-xl bg-graphite-900 border border-surface-border text-sm text-white placeholder-white/30 focus:border-gold-500/50 focus:outline-none transition-colors'
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string
+  hint?: string
+  children: React.ReactNode
+}) {
   return (
     <label className="block">
       <span className="text-xs font-medium text-white/60">{label}</span>
@@ -390,14 +521,22 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 function Toggle({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick}
+    <button
+      type="button"
+      onClick={onClick}
       className={cn(
         'inline-flex items-center gap-2 h-9 px-3 rounded-xl text-xs font-medium border transition-colors',
-        on ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-           : 'bg-white/5 border-white/10 text-white/40',
-      )}>
-      <span className={cn('h-3.5 w-3.5 rounded-full border flex items-center justify-center',
-        on ? 'border-emerald-400 bg-emerald-400/20' : 'border-white/20')}>
+        on
+          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+          : 'bg-white/5 border-white/10 text-white/40'
+      )}
+    >
+      <span
+        className={cn(
+          'h-3.5 w-3.5 rounded-full border flex items-center justify-center',
+          on ? 'border-emerald-400 bg-emerald-400/20' : 'border-white/20'
+        )}
+      >
         {on && <Check className="h-2.5 w-2.5 text-emerald-300" />}
       </span>
       {label}

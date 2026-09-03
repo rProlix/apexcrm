@@ -4,21 +4,21 @@ import type { ModuleDefinition } from '@/modules/shared/moduleTypes'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const rewardsModule: ModuleDefinition = {
-  key:         'rewards',
-  label:       'Rewards',
+  key: 'rewards',
+  label: 'Rewards',
   description: 'Manage customer loyalty points, punch cards, and rewards shop',
-  icon:        Star,
-  href:        '/dashboard/rewards',
-  color:       'text-yellow-400',
-  bgColor:     'bg-yellow-400/10',
-  order:       3,
+  icon: Star,
+  href: '/dashboard/rewards',
+  color: 'text-yellow-400',
+  bgColor: 'bg-yellow-400/10',
+  order: 3,
 
   stats: [
     {
-      key:          'rewards_members',
-      label:        'Loyalty Members',
-      category:     'usage',
-      color:        'text-yellow-400',
+      key: 'rewards_members',
+      label: 'Loyalty Members',
+      category: 'usage',
+      color: 'text-yellow-400',
       emptyMessage: 'No loyalty members yet',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -38,10 +38,10 @@ export const rewardsModule: ModuleDefinition = {
       },
     },
     {
-      key:          'rewards_points_total',
-      label:        'Points Issued',
-      category:     'usage',
-      color:        'text-amber-400',
+      key: 'rewards_points_total',
+      label: 'Points Issued',
+      category: 'usage',
+      color: 'text-amber-400',
       emptyMessage: 'No points issued',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -61,10 +61,10 @@ export const rewardsModule: ModuleDefinition = {
       },
     },
     {
-      key:          'rewards_shop_items',
-      label:        'Shop Items',
-      category:     'usage',
-      color:        'text-orange-400',
+      key: 'rewards_shop_items',
+      label: 'Shop Items',
+      category: 'usage',
+      color: 'text-orange-400',
       emptyMessage: 'No shop items yet',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -77,10 +77,10 @@ export const rewardsModule: ModuleDefinition = {
       },
     },
     {
-      key:          'rewards_active_punch_cards',
-      label:        'Active Punch Cards',
-      category:     'operations',
-      color:        'text-gold-400',
+      key: 'rewards_active_punch_cards',
+      label: 'Active Punch Cards',
+      category: 'operations',
+      color: 'text-gold-400',
       emptyMessage: 'No active punch cards',
       async getValue(tenantId) {
         const supabase = getSupabaseServerClient()
@@ -115,15 +115,15 @@ export const rewardsModule: ModuleDefinition = {
     ])
 
     const balances = balancesRes.data ?? []
-    const totalIssued    = balances.reduce((s, r) => s + (r.lifetime_points_earned ?? 0), 0)
-    const totalRedeemed  = balances.reduce((s, r) => s + (r.lifetime_points_redeemed ?? 0), 0)
+    const totalIssued = balances.reduce((s, r) => s + (r.lifetime_points_earned ?? 0), 0)
+    const totalRedeemed = balances.reduce((s, r) => s + (r.lifetime_points_redeemed ?? 0), 0)
 
     return [
-      { label: 'Members',       value: balances.length },
+      { label: 'Members', value: balances.length },
       { label: 'Points Issued', value: totalIssued.toLocaleString() },
-      { label: 'Redeemed',      value: totalRedeemed.toLocaleString() },
-      { label: 'Shop Items',    value: shopRes.count ?? 0 },
-      { label: 'Punch Cards',   value: punchRes.count ?? 0 },
+      { label: 'Redeemed', value: totalRedeemed.toLocaleString() },
+      { label: 'Shop Items', value: shopRes.count ?? 0 },
+      { label: 'Punch Cards', value: punchRes.count ?? 0 },
     ]
   },
 }

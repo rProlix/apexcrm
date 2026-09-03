@@ -2,10 +2,10 @@
 // POST — Force-reconcile and finalize a specific stuck package.
 // Owner / admin only.
 
-import { NextRequest, NextResponse }  from 'next/server'
-import { resolveP360ApiUser }         from '@/lib/product-360/auth'
-import { getSupabaseServerClient }    from '@/lib/supabase/server'
-import { reconcilePackageProgress }   from '@/lib/product-360/reconcile'
+import { NextRequest, NextResponse } from 'next/server'
+import { resolveP360ApiUser } from '@/lib/product-360/auth'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { reconcilePackageProgress } from '@/lib/product-360/reconcile'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +20,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   const tenantId = user.isOwner
-    ? ((await req.json().catch(() => ({}))) as Record<string, unknown>).tenantId as string | undefined ?? user.tenantId
+    ? ((((await req.json().catch(() => ({}))) as Record<string, unknown>).tenantId as
+        | string
+        | undefined) ?? user.tenantId)
     : user.tenantId
 
   if (!tenantId) return NextResponse.json({ error: 'Could not resolve tenant' }, { status: 400 })

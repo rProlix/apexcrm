@@ -11,13 +11,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const { id: orderId, itemId } = await params
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
   const supabase = getPOSClient()
 
-  const allowed = ['quantity','notes','kitchen_notes','fulfillment_status','unit_price_cents']
+  const allowed = ['quantity', 'notes', 'kitchen_notes', 'fulfillment_status', 'unit_price_cents']
   const update: Record<string, unknown> = {}
   for (const k of allowed) {
     if (k in body) update[k] = body[k]

@@ -2,18 +2,18 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface PaymentSettings {
-  id:                       string
-  tenant_id:                string
-  default_provider:         string
-  currency:                 string
-  tax_rate:                 number
-  allow_manual_invoices:    boolean
+  id: string
+  tenant_id: string
+  default_provider: string
+  currency: string
+  tax_rate: number
+  allow_manual_invoices: boolean
   allow_saved_payment_methods: boolean
-  allow_partial_payments:   boolean
-  receipt_email_enabled:    boolean
-  webhook_secret:           Record<string, string> | null
-  created_at:               string
-  updated_at:               string
+  allow_partial_payments: boolean
+  receipt_email_enabled: boolean
+  webhook_secret: Record<string, string> | null
+  created_at: string
+  updated_at: string
 }
 
 /**
@@ -39,7 +39,9 @@ export async function getPaymentSettings(tenantId: string): Promise<PaymentSetti
     .single()
 
   if (error || !created) {
-    throw new Error(`[getPaymentSettings] Failed to bootstrap settings for tenant ${tenantId}: ${error?.message}`)
+    throw new Error(
+      `[getPaymentSettings] Failed to bootstrap settings for tenant ${tenantId}: ${error?.message}`
+    )
   }
 
   return created as PaymentSettings
@@ -50,7 +52,7 @@ export async function getPaymentSettings(tenantId: string): Promise<PaymentSetti
  */
 export async function upsertPaymentSettings(
   tenantId: string,
-  updates:  Partial<Omit<PaymentSettings, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>
+  updates: Partial<Omit<PaymentSettings, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>
 ): Promise<PaymentSettings> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any

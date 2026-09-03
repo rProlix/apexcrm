@@ -59,11 +59,11 @@ export function isUnsafeOrInternalHost(hostname: string): boolean {
   const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
   if (m) {
     const [a, b] = [Number(m[1]), Number(m[2])]
-    if (a === 127) return true                 // loopback
-    if (a === 10) return true                   // private
-    if (a === 0) return true                    // unspecified
-    if (a === 169 && b === 254) return true     // link-local
-    if (a === 192 && b === 168) return true     // private
+    if (a === 127) return true // loopback
+    if (a === 10) return true // private
+    if (a === 0) return true // unspecified
+    if (a === 169 && b === 254) return true // link-local
+    if (a === 192 && b === 168) return true // private
     if (a === 172 && b >= 16 && b <= 31) return true // private
     if (a === 100 && b >= 64 && b <= 127) return true // CGNAT
     return false // other IPv4 literals are technically public but discouraged
@@ -77,7 +77,7 @@ export function isUnsafeOrInternalHost(hostname: string): boolean {
  */
 export function validateCanvaPreserveUrl(
   input: string,
-  options?: { allowCustomDomains?: boolean },
+  options?: { allowCustomDomains?: boolean }
 ): CanvaUrlValidationResult {
   const raw = (input ?? '').trim()
   if (!raw) return { ok: false, reason: 'Please paste a Canva website URL.' }
@@ -110,20 +110,39 @@ export function validateCanvaPreserveUrl(
   }
 
   if (isNativeCanvaHost(hostname)) {
-    return { ok: true, normalizedUrl: url.toString(), hostname, isNativeCanvaDomain: true, validationMode: 'native_canva_domain' }
+    return {
+      ok: true,
+      normalizedUrl: url.toString(),
+      hostname,
+      isNativeCanvaDomain: true,
+      validationMode: 'native_canva_domain',
+    }
   }
   if (isCanvaSiteHost(hostname)) {
-    return { ok: true, normalizedUrl: url.toString(), hostname, isCanvaSiteDomain: true, validationMode: 'canva_site_domain' }
+    return {
+      ok: true,
+      normalizedUrl: url.toString(),
+      hostname,
+      isCanvaSiteDomain: true,
+      validationMode: 'canva_site_domain',
+    }
   }
 
   if (options?.allowCustomDomains) {
-    return { ok: true, normalizedUrl: url.toString(), hostname, isCustomDomain: true, validationMode: 'custom_domain' }
+    return {
+      ok: true,
+      normalizedUrl: url.toString(),
+      hostname,
+      isCustomDomain: true,
+      validationMode: 'custom_domain',
+    }
   }
 
   return {
     ok: false,
     hostname,
-    reason: 'This looks like a custom domain. Enable “This is a custom domain connected to my Canva website” to use it.',
+    reason:
+      'This looks like a custom domain. Enable “This is a custom domain connected to my Canva website” to use it.',
   }
 }
 
@@ -162,7 +181,10 @@ export function toCanvaIframeSrc(normalizedUrl: string): string {
       }
       if (!url.searchParams.has('embed')) url.searchParams.set('embed', '')
       // URLSearchParams renders ?embed= ; Canva accepts the bare flag form.
-      return url.toString().replace(/embed=$/, 'embed').replace(/embed=&/, 'embed&')
+      return url
+        .toString()
+        .replace(/embed=$/, 'embed')
+        .replace(/embed=&/, 'embed&')
     }
     return url.toString()
   } catch {
@@ -212,9 +234,15 @@ export function parseCanvaEmbedSource(input: {
   const warnings: string[] = []
 
   const empty: CanvaEmbedSource = {
-    originalInput, normalizedUrl: null, iframeSrc: null, sourceDomain: null,
-    sourceType: 'canva_url', validationMode: 'native_canva_domain',
-    canAttemptIframe: false, requiresExternalOpenFallback: true, warnings,
+    originalInput,
+    normalizedUrl: null,
+    iframeSrc: null,
+    sourceDomain: null,
+    sourceType: 'canva_url',
+    validationMode: 'native_canva_domain',
+    canAttemptIframe: false,
+    requiresExternalOpenFallback: true,
+    warnings,
   }
   if (!originalInput) {
     warnings.push('No Canva URL or embed code was provided.')
@@ -254,11 +282,15 @@ export function parseCanvaEmbedSource(input: {
       : validation.isCanvaSiteDomain
         ? 'canva_site'
         : 'custom_domain'
-  const validationMode: CanvaValidationMode = cameFromEmbed ? 'embed_code' : (validation.validationMode ?? 'native_canva_domain')
+  const validationMode: CanvaValidationMode = cameFromEmbed
+    ? 'embed_code'
+    : (validation.validationMode ?? 'native_canva_domain')
 
   const isCustom = validation.isCustomDomain === true
   if (isCustom) {
-    warnings.push('Custom domains can block iframe embedding. If that happens, a polished “Open Canva Website” fallback is shown while Event Camera and Gallery stay available.')
+    warnings.push(
+      'Custom domains can block iframe embedding. If that happens, a polished “Open Canva Website” fallback is shown while Event Camera and Gallery stay available.'
+    )
   }
 
   return {

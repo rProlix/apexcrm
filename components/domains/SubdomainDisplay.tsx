@@ -1,15 +1,15 @@
 // components/domains/SubdomainDisplay.tsx
 'use client'
 
-import { useState }               from 'react'
-import { motion }                 from 'framer-motion'
+import { useState } from 'react'
+import { motion } from 'framer-motion'
 import { Globe, Copy, Check, ExternalLink } from 'lucide-react'
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 interface SubdomainDisplayProps {
-  slug:    string
-  label?:  string
+  slug: string
+  label?: string
   showLink?: boolean
 }
 
@@ -35,9 +35,7 @@ export function SubdomainDisplay({ slug, label, showLink = true }: SubdomainDisp
             <p className="text-xs font-medium text-zinc-500">
               {label ?? 'Platform Subdomain (Free)'}
             </p>
-            <p className="truncate font-mono text-sm font-semibold text-sky-300">
-              {url}
-            </p>
+            <p className="truncate font-mono text-sm font-semibold text-sky-300">{url}</p>
           </div>
         </div>
 
@@ -58,10 +56,11 @@ export function SubdomainDisplay({ slug, label, showLink = true }: SubdomainDisp
             whileTap={{ scale: 0.9 }}
             className="rounded-lg p-2 text-zinc-500 transition-colors hover:bg-zinc-700/50 hover:text-zinc-300"
           >
-            {copied
-              ? <Check className="h-3.5 w-3.5 text-emerald-400" />
-              : <Copy  className="h-3.5 w-3.5" />
-            }
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-emerald-400" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
           </motion.button>
         </div>
       </div>

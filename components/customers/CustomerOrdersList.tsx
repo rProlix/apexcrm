@@ -6,17 +6,17 @@ import { ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react'
 import type { CustomerOrder } from '@/lib/customers/getCustomerOrders'
 
 interface Props {
-  orders:   CustomerOrder[]
+  orders: CustomerOrder[]
   tenantId: string
   compact?: boolean
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  pending:   'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
+  pending: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
   completed: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
   cancelled: 'text-red-400 bg-red-400/10 border-red-400/20',
-  refunded:  'text-orange-400 bg-orange-400/10 border-orange-400/20',
-  processing:'text-blue-400 bg-blue-400/10 border-blue-400/20',
+  refunded: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
+  processing: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
 }
 
 function OrderRow({ order }: { order: CustomerOrder }) {
@@ -30,7 +30,7 @@ function OrderRow({ order }: { order: CustomerOrder }) {
     >
       <button
         type="button"
-        onClick={() => setExpanded(v => !v)}
+        onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center justify-between p-4 text-left hover:bg-white/2 transition-colors"
       >
         <div className="flex items-center gap-3">
@@ -45,20 +45,23 @@ function OrderRow({ order }: { order: CustomerOrder }) {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${STATUS_STYLES[order.status] ?? 'text-white/40 bg-white/4 border-white/8'}`}>
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full border font-medium ${STATUS_STYLES[order.status] ?? 'text-white/40 bg-white/4 border-white/8'}`}
+          >
             {order.status}
           </span>
           <span className="text-sm font-bold text-white">${order.total_amount.toFixed(2)}</span>
-          {expanded
-            ? <ChevronUp className="w-4 h-4 text-white/30" />
-            : <ChevronDown className="w-4 h-4 text-white/30" />
-          }
+          {expanded ? (
+            <ChevronUp className="w-4 h-4 text-white/30" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-white/30" />
+          )}
         </div>
       </button>
 
       {expanded && (
         <div className="border-t border-white/6 px-4 pb-4 pt-3 space-y-2">
-          {order.order_items.map(item => (
+          {order.order_items.map((item) => (
             <div key={item.id} className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-white/80">
@@ -95,7 +98,7 @@ export function CustomerOrdersList({ orders, tenantId: _tenantId, compact }: Pro
 
   return (
     <div className="space-y-2">
-      {displayed.map(order => (
+      {displayed.map((order) => (
         <OrderRow key={order.id} order={order} />
       ))}
     </div>

@@ -28,16 +28,18 @@ function getBrowserCookieDomain(): string | undefined {
  */
 export function getSupabaseBrowserClient() {
   const { url, key: anon } = getSupabaseEnv()
-  const cookieDomain       = getBrowserCookieDomain()
+  const cookieDomain = getBrowserCookieDomain()
 
   return createBrowserClient<Database>(url, anon, {
-    ...(cookieDomain ? {
-      cookieOptions: {
-        domain:   cookieDomain,
-        path:     '/',
-        sameSite: 'lax' as const,
-        secure:   true,
-      },
-    } : {}),
+    ...(cookieDomain
+      ? {
+          cookieOptions: {
+            domain: cookieDomain,
+            path: '/',
+            sameSite: 'lax' as const,
+            secure: true,
+          },
+        }
+      : {}),
   })
 }

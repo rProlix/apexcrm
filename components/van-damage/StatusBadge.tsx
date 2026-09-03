@@ -9,7 +9,9 @@ const styles: Record<string, string> = {
 
 export function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${styles[status] ?? 'bg-white/5 text-white/60 border-white/10'}`}>
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${styles[status] ?? 'bg-white/5 text-white/60 border-white/10'}`}
+    >
       {status.replaceAll('_', ' ')}
     </span>
   )

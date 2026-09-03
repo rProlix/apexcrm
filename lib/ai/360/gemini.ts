@@ -10,9 +10,9 @@
 
 import type { P360ImageProvider, P360GenerateFrameParams, P360GenerateFrameResult } from './types'
 
-const API_BASE    = 'https://generativelanguage.googleapis.com/v1beta/models'
+const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 const DEFAULT_MODEL = 'gemini-2.5-flash-lite'
-const TIMEOUT_MS  = 120_000
+const TIMEOUT_MS = 120_000
 
 function getModel(): string {
   return (process.env.GEMINI_360_MODEL ?? DEFAULT_MODEL).trim()
@@ -20,21 +20,24 @@ function getModel(): string {
 
 function getApiKey(): string {
   const key = process.env.GEMINI_API_KEY?.trim()
-  if (!key) throw new Error('GEMINI_API_KEY is not set. Configure it in your environment variables.')
+  if (!key)
+    throw new Error('GEMINI_API_KEY is not set. Configure it in your environment variables.')
   return key
 }
 
 interface GeminiInlineData {
   mimeType: string
-  data:     string  // base64
+  data: string // base64
 }
 
 interface GeminiPart {
-  text?:       string
+  text?: string
   inlineData?: GeminiInlineData
 }
 
-interface GeminiContent { parts: GeminiPart[] }
+interface GeminiContent {
+  parts: GeminiPart[]
+}
 
 interface GeminiCandidate {
   content?: GeminiContent
@@ -48,12 +51,16 @@ interface GeminiResponse {
 
 function extractImageFromResponse(json: GeminiResponse): { b64: string; mimeType: string } {
   if (json.error) {
-    throw new Error(`Gemini API error ${json.error.code} (${json.error.status}): ${json.error.message}`)
+    throw new Error(
+      `Gemini API error ${json.error.code} (${json.error.status}): ${json.error.message}`
+    )
   }
 
   const candidates = json.candidates ?? []
   if (!candidates.length) {
-    throw new Error('Gemini returned no candidates. The model may not support image generation — try a different GEMINI_360_MODEL.')
+    throw new Error(
+      'Gemini returned no candidates. The model may not support image generation — try a different GEMINI_360_MODEL.'
+    )
   }
 
   for (const candidate of candidates) {
@@ -61,7 +68,7 @@ function extractImageFromResponse(json: GeminiResponse): { b64: string; mimeType
     for (const part of parts) {
       if (part.inlineData?.data) {
         return {
-          b64:      part.inlineData.data,
+          b64: part.inlineData.data,
           mimeType: part.inlineData.mimeType ?? 'image/png',
         }
       }
@@ -82,15 +89,15 @@ function extractImageFromResponse(json: GeminiResponse): { b64: string; mimeType
   const finishReason = candidates[0]?.finishReason
   throw new Error(
     `Gemini returned no image data (finishReason: ${finishReason ?? 'unknown'}). ` +
-    `Ensure the configured model (${getModel()}) supports image generation. ` +
-    `Try gemini-2.0-flash-exp or set GEMINI_360_MODEL to an image-capable model.`,
+      `Ensure the configured model (${getModel()}) supports image generation. ` +
+      `Try gemini-2.0-flash-exp or set GEMINI_360_MODEL to an image-capable model.`
   )
 }
 
 async function callGeminiGenerateContent(
-  model:  string,
+  model: string,
   prompt: string,
-  signal: AbortSignal,
+  signal: AbortSignal
 ): Promise<{ b64: string; mimeType: string }> {
   const apiKey = getApiKey()
 
@@ -106,27 +113,26 @@ async function callGeminiGenerateContent(
   //     Image output is requested via responseModalities, not responseMimeType.
   //   imageWidth / imageHeight — not valid generationConfig fields; use prompt text instead.
   const requestBody = {
-    contents: [
-      { parts: [{ text: prompt }] },
-    ],
+    contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
       responseModalities: ['IMAGE', 'TEXT'],
     },
   }
 
-  const res = await fetch(
-    `${API_BASE}/${model}:generateContent?key=${apiKey}`,
-    {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(requestBody),
-      signal,
-    },
-  )
+  const res = await fetch(`${API_BASE}/${model}:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody),
+    signal,
+  })
 
   if (!res.ok) {
     let errText = ''
-    try { errText = await res.text() } catch { /* ignore */ }
+    try {
+      errText = await res.text()
+    } catch {
+      /* ignore */
+    }
     throw new Error(`Gemini API HTTP ${res.status}: ${errText.slice(0, 600)}`)
   }
 
@@ -135,7 +141,7 @@ async function callGeminiGenerateContent(
 }
 
 export const geminiProvider: P360ImageProvider = {
-  name:  'gemini',
+  name: 'gemini',
   model: getModel(),
 
   isAvailable() {
@@ -143,32 +149,29 @@ export const geminiProvider: P360ImageProvider = {
   },
 
   async generateFrame(params: P360GenerateFrameParams): Promise<P360GenerateFrameResult> {
-    const model     = getModel()
+    const model = getModel()
     const timeoutMs = params.timeoutMs ?? TIMEOUT_MS
 
     // Gemini does not accept width/height in generationConfig.
     // Encode the desired output size in the prompt so the model targets those
     // dimensions. The actual pixel dimensions depend on the model's output.
-    const w = params.width  ?? 1024
+    const w = params.width ?? 1024
     const h = params.height ?? 1024
     const sizeHint = `Output a ${w}×${h} image. `
-    const fullPrompt = params.prompt.startsWith(sizeHint)
-      ? params.prompt
-      : sizeHint + params.prompt
+    const fullPrompt = params.prompt.startsWith(sizeHint) ? params.prompt : sizeHint + params.prompt
 
     const controller = new AbortController()
-    const timer      = setTimeout(() => controller.abort(), timeoutMs)
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
 
     try {
       const { b64, mimeType } = await callGeminiGenerateContent(
         model,
         fullPrompt,
-        controller.signal,
+        controller.signal
       )
 
       const imageBuffer = Buffer.from(b64, 'base64')
       return { imageBuffer, mimeType, provider: 'gemini', model }
-
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         throw new Error(`Gemini image generation timed out after ${timeoutMs / 1000}s.`)

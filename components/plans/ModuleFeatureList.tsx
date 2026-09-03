@@ -5,13 +5,17 @@ import type { CRMModuleKey, CRMPlanKey } from '@/lib/plans/planCatalog'
 import { MODULE_CATALOG } from '@/lib/plans/planCatalog'
 
 interface ModuleFeatureListProps {
-  modules:     CRMModuleKey[]
+  modules: CRMModuleKey[]
   lockedKeys?: CRMModuleKey[]
-  planKey?:    CRMPlanKey
-  compact?:    boolean
+  planKey?: CRMPlanKey
+  compact?: boolean
 }
 
-export function ModuleFeatureList({ modules, lockedKeys = [], compact = false }: ModuleFeatureListProps) {
+export function ModuleFeatureList({
+  modules,
+  lockedKeys = [],
+  compact = false,
+}: ModuleFeatureListProps) {
   return (
     <ul className={cn('space-y-1', compact && 'space-y-0.5')}>
       {modules.map((key) => {
@@ -27,15 +31,15 @@ export function ModuleFeatureList({ modules, lockedKeys = [], compact = false }:
               isLocked ? 'text-white/30' : 'text-white/70'
             )}
           >
-            <span className={cn(compact ? 'text-sm' : 'text-base', isLocked && 'grayscale opacity-40')}>
+            <span
+              className={cn(compact ? 'text-sm' : 'text-base', isLocked && 'grayscale opacity-40')}
+            >
               {catalog.icon}
             </span>
             <span className={isLocked ? 'line-through decoration-white/20' : ''}>
               {catalog.label}
             </span>
-            {isLocked && (
-              <span className="text-xs text-white/25 ml-auto">Locked</span>
-            )}
+            {isLocked && <span className="text-xs text-white/25 ml-auto">Locked</span>}
           </li>
         )
       })}

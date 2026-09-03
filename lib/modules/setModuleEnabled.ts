@@ -2,8 +2,8 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface SetModuleResult {
-  success:  boolean
-  error?:   string
+  success: boolean
+  error?: string
 }
 
 /**
@@ -18,19 +18,19 @@ export interface SetModuleResult {
  * @param config    - Optional JSONB config to merge/set alongside the flag
  */
 export async function setModuleEnabled(
-  tenantId:  string,
+  tenantId: string,
   moduleKey: string,
-  enabled:   boolean,
-  config?:   Record<string, unknown>,
+  enabled: boolean,
+  config?: Record<string, unknown>
 ): Promise<SetModuleResult> {
   const supabase = getSupabaseServerClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
-    tenant_id:  tenantId,
+    tenant_id: tenantId,
     module_key: moduleKey,
     enabled,
-    config:     config ?? {},
+    config: config ?? {},
     updated_at: new Date().toISOString(),
   }
 

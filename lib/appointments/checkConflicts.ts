@@ -2,11 +2,11 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 interface ConflictCheck {
-  tenant_id:   string
-  starts_at:   string
-  ends_at:     string
-  exclude_id?: string   // omit current appointment when rescheduling
-  staff_id?:   string   // if provided, also check for staff double-booking
+  tenant_id: string
+  starts_at: string
+  ends_at: string
+  exclude_id?: string // omit current appointment when rescheduling
+  staff_id?: string // if provided, also check for staff double-booking
 }
 
 /**

@@ -4,15 +4,31 @@
 import type { GeminiResult, GeminiSuggestion } from './types'
 
 const AI_SUGGESTION_TYPES = new Set([
-  'hero','about','services','products','menu','reviews','testimonials',
-  'faq','contact','hours','gallery','policies','social_links','navigation',
-  'page','section','seo','promotion','unknown',
+  'hero',
+  'about',
+  'services',
+  'products',
+  'menu',
+  'reviews',
+  'testimonials',
+  'faq',
+  'contact',
+  'hours',
+  'gallery',
+  'policies',
+  'social_links',
+  'navigation',
+  'page',
+  'section',
+  'seo',
+  'promotion',
+  'unknown',
 ])
-const AI_ACTIONS = new Set(['create','update','append','replace','ignore'])
+const AI_ACTIONS = new Set(['create', 'update', 'append', 'replace', 'ignore'])
 
 export interface ParseResult {
   result: GeminiResult | null
-  error?:  string
+  error?: string
 }
 
 export function parseGeminiResult(rawText: string): ParseResult {
@@ -29,7 +45,7 @@ export function parseGeminiResult(rawText: string): ParseResult {
     } catch {
       return {
         result: null,
-        error:  'Gemini returned unreadable data. Try again with cleaner text.',
+        error: 'Gemini returned unreadable data. Try again with cleaner text.',
       }
     }
   }
@@ -41,24 +57,27 @@ export function parseGeminiResult(rawText: string): ParseResult {
   const obj = parsed as Record<string, unknown>
 
   const suggestions = Array.isArray(obj.suggestions)
-    ? (obj.suggestions as unknown[]).map(normalizeSuggestion).filter(Boolean) as GeminiSuggestion[]
+    ? ((obj.suggestions as unknown[])
+        .map(normalizeSuggestion)
+        .filter(Boolean) as GeminiSuggestion[])
     : []
 
   const result: GeminiResult = {
-    summary:              asString(obj.summary, 'Content analyzed'),
+    summary: asString(obj.summary, 'Content analyzed'),
     detectedBusinessType: asBusinessType(obj.detectedBusinessType),
     detectedContentTypes: asStringArray(obj.detectedContentTypes),
-    overallConfidence:    asNumber(obj.overallConfidence, 0),
-    designSystem:         asObject(obj.designSystem) ?? undefined,
+    overallConfidence: asNumber(obj.overallConfidence, 0),
+    designSystem: asObject(obj.designSystem) ?? undefined,
     suggestions,
-    warnings:             asStringArray(obj.warnings),
+    warnings: asStringArray(obj.warnings),
     missingInfoQuestions: asStringArray(obj.missingInfoQuestions),
   }
 
   if (result.suggestions.length === 0 && result.warnings.length === 0) {
     return {
       result,
-      error: 'No website-ready content was detected. Try pasting reviews, services, products, hours, or contact info.',
+      error:
+        'No website-ready content was detected. Try pasting reviews, services, products, hours, or contact info.',
     }
   }
 
@@ -71,7 +90,7 @@ function cleanJsonText(text: string): string {
   t = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '')
   // Strip leading/trailing non-JSON characters
   const first = t.indexOf('{')
-  const last  = t.lastIndexOf('}')
+  const last = t.lastIndexOf('}')
   if (first !== -1 && last !== -1 && last > first) {
     t = t.slice(first, last + 1)
   }
@@ -92,17 +111,17 @@ function normalizeSuggestion(raw: unknown): GeminiSuggestion | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const s = raw as Record<string, unknown>
 
-  const type   = asString(s.type, 'unknown')
+  const type = asString(s.type, 'unknown')
   const action = asString(s.action, 'create')
 
   return {
-    type:            AI_SUGGESTION_TYPES.has(type) ? (type as GeminiSuggestion['type']) : 'unknown',
-    action:          AI_ACTIONS.has(action) ? (action as GeminiSuggestion['action']) : 'create',
-    confidence:      asNumber(s.confidence, 0.5),
-    title:           asString(s.title, 'Untitled'),
-    reason:          asString(s.reason, ''),
-    target:          asTarget(s.target),
-    data:            asObject(s.data),
+    type: AI_SUGGESTION_TYPES.has(type) ? (type as GeminiSuggestion['type']) : 'unknown',
+    action: AI_ACTIONS.has(action) ? (action as GeminiSuggestion['action']) : 'create',
+    confidence: asNumber(s.confidence, 0.5),
+    title: asString(s.title, 'Untitled'),
+    reason: asString(s.reason, ''),
+    target: asTarget(s.target),
+    data: asObject(s.data),
     proposedSection: asProposedSection(s.proposedSection),
   }
 }
@@ -130,7 +149,7 @@ function asTarget(v: unknown): GeminiSuggestion['target'] {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined
   const t = v as Record<string, unknown>
   return {
-    pageSlug:    typeof t.pageSlug === 'string'    ? t.pageSlug    : undefined,
+    pageSlug: typeof t.pageSlug === 'string' ? t.pageSlug : undefined,
     sectionType: typeof t.sectionType === 'string' ? t.sectionType : undefined,
   }
 }
@@ -144,8 +163,16 @@ function asProposedSection(v: unknown): GeminiSuggestion['proposedSection'] {
 
 function asBusinessType(v: unknown): GeminiResult['detectedBusinessType'] {
   const valid = new Set([
-    'car_rental','salon','plumber','restaurant','ecommerce',
-    'contractor','auto_shop','medical','fitness','unknown',
+    'car_rental',
+    'salon',
+    'plumber',
+    'restaurant',
+    'ecommerce',
+    'contractor',
+    'auto_shop',
+    'medical',
+    'fitness',
+    'unknown',
   ])
   const s = typeof v === 'string' ? v : ''
   return valid.has(s) ? (s as GeminiResult['detectedBusinessType']) : 'unknown'

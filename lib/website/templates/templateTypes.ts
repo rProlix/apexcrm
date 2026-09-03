@@ -34,15 +34,15 @@ export type TemplateCategory =
 /** A section slot definition inside a template blueprint */
 export interface TemplateSectionBlueprint {
   /** Slot identifier — matches section_type or a custom key */
-  slot:        string
+  slot: string
   /** DB section_type to use */
   sectionType: string
   /** Whether this slot is required */
-  required:    boolean
+  required: boolean
   /** Sort order within the template layout */
-  order:       number
+  order: number
   /** Design overrides for this slot */
-  design:      Partial<SectionDesign>
+  design: Partial<SectionDesign>
   /** Default content if no existing section maps to this slot */
   defaultContent?: Record<string, unknown>
   /** Layout variant name */
@@ -53,59 +53,59 @@ export interface TemplateSectionBlueprint {
 
 /** The full template definition (code-side) */
 export interface WebsiteTemplate {
-  key:            string
-  name:           string
-  description:    string
-  category:       TemplateCategory
-  layoutType:     TemplateLayoutType
+  key: string
+  name: string
+  description: string
+  category: TemplateCategory
+  layoutType: TemplateLayoutType
   animationLevel: TemplateAnimationLevel
-  tags:           string[]
+  tags: string[]
   /** Brief feature list */
-  features:       string[]
+  features: string[]
   /** Who this template is best for */
-  bestFor:        string[]
+  bestFor: string[]
   /** Design system for this template */
-  designSystem:   Partial<WebsiteDesignSystem>
+  designSystem: Partial<WebsiteDesignSystem>
   /** Ordered section blueprint */
   sectionBlueprints: TemplateSectionBlueprint[]
   /** Gradient used for thumbnail preview */
   previewGradient: string
   /** Emoji or icon for the template card */
-  icon:           string
+  icon: string
 }
 
 // ── Template application options ──────────────────────────────────────────────
 
 export interface TemplateApplyOptions {
-  tenantId:             string
-  templateKey:          string
-  preserveBrand:        boolean
-  preserveImages:       boolean
+  tenantId: string
+  templateKey: string
+  preserveBrand: boolean
+  preserveImages: boolean
   generateMissingImages: boolean
-  applyAnimations:      boolean
-  pageId?:              string | null
+  applyAnimations: boolean
+  pageId?: string | null
 }
 
 // ── Template render data ──────────────────────────────────────────────────────
 
 export interface TemplateRenderData {
-  templateKey:       string
-  layoutType:        TemplateLayoutType
-  designSystem:      WebsiteDesignSystem
+  templateKey: string
+  layoutType: TemplateLayoutType
+  designSystem: WebsiteDesignSystem
   activeTemplateKey: string | null
-  templateConfig:    Record<string, unknown>
+  templateConfig: Record<string, unknown>
 }
 
 // ── Section mapping result ────────────────────────────────────────────────────
 
 export interface MappedSection {
-  id:            string
-  section_type:  string
+  id: string
+  section_type: string
   template_slot: string
-  sort_order:    number
-  content:       Record<string, unknown>
-  style_config:  Record<string, unknown>
+  sort_order: number
+  content: Record<string, unknown>
+  style_config: Record<string, unknown>
   animation_config?: Record<string, unknown> | null
-  is_visible:    boolean
-  isNew:         boolean
+  is_visible: boolean
+  isNew: boolean
 }

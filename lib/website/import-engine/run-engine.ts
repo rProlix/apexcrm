@@ -27,7 +27,9 @@ import type {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DB = any
 
-export async function runDesignImportEngine(params: RunDesignImportParams): Promise<RunDesignImportResult> {
+export async function runDesignImportEngine(
+  params: RunDesignImportParams
+): Promise<RunDesignImportResult> {
   const started = Date.now()
   const db = getSupabaseServerClient() as DB
   const stagesCompleted: DesignImportStage[] = []
@@ -35,13 +37,19 @@ export async function runDesignImportEngine(params: RunDesignImportParams): Prom
   const warnings: string[] = []
   const maxAttempts = params.options?.maxAttempts ?? MAX_IMPORT_ATTEMPTS
 
-  const { data: site } = await db.from('websites').select('*')
-    .eq('id', params.websiteId).eq('tenant_id', params.tenantId).maybeSingle()
+  const { data: site } = await db
+    .from('websites')
+    .select('*')
+    .eq('id', params.websiteId)
+    .eq('tenant_id', params.tenantId)
+    .maybeSingle()
   if (!site) return { ok: false, error: 'Event website record not found.' }
 
   const eventSlug = params.options?.eventSlug ?? String(site.public_slug ?? '')
   const povEnabled = params.options?.povEnabled ?? Boolean(site.pov_enabled)
-  const animationLevel = String((site.draft_config as Record<string, unknown> | null)?.animationLevel ?? 'balanced')
+  const animationLevel = String(
+    (site.draft_config as Record<string, unknown> | null)?.animationLevel ?? 'balanced'
+  )
 
   let sourceType = detectSourceFromFile({
     url: params.input.url,
@@ -51,17 +59,36 @@ export async function runDesignImportEngine(params: RunDesignImportParams): Prom
   stagesCompleted.push('detect')
 
   try {
-    await db.from('website_canva_imports').update({
-      ai_conversion_status: 'analyzing',
-      status: 'importing',
-    }).eq('id', params.importId)
-  } catch { /* non-fatal */ }
+    await db
+      .from('website_canva_imports')
+      .update({
+        ai_conversion_status: 'analyzing',
+        status: 'importing',
+      })
+      .eq('id', params.importId)
+  } catch {
+    /* non-fatal */
+  }
 
   const extractResult = await runExtractPipeline({ ...params, sourceType })
   warnings.push(...extractResult.warnings)
   if (!extractResult.ok || !extractResult.extraction) {
-    await db.from('website_canva_imports').update({ ai_conversion_status: 'failed', status: 'failed' }).eq('id', params.importId)
-    return { ok: false, error: extractResult.error ?? 'Extraction failed.', diagnostics: buildPartialDiagnostics(extractResult.sourceType, stagesCompleted, warnings, errors, started, 0) }
+    await db
+      .from('website_canva_imports')
+      .update({ ai_conversion_status: 'failed', status: 'failed' })
+      .eq('id', params.importId)
+    return {
+      ok: false,
+      error: extractResult.error ?? 'Extraction failed.',
+      diagnostics: buildPartialDiagnostics(
+        extractResult.sourceType,
+        stagesCompleted,
+        warnings,
+        errors,
+        started,
+        0
+      ),
+    }
   }
   sourceType = extractResult.sourceType
   const extraction = extractResult.extraction
@@ -129,41 +156,62 @@ export async function runDesignImportEngine(params: RunDesignImportParams): Prom
       renderedPages: extraction.renderedPages.length,
       hasTheme: Object.keys(reconstructResult.reconstruction.theme ?? {}).length > 0,
       hasResponsiveHints: reconstructResult.reconstruction.pages.some((p) =>
-        p.sections.some((s) => s.responsive && Object.keys(s.responsive).length > 0),
+        p.sections.some((s) => s.responsive && Object.keys(s.responsive).length > 0)
       ),
     })
 
     stagesCompleted.push('validate')
 
-    if (confidence.overall > bestConfidence.overall ||
-        (needsRetry(bestConfidence, bestReconstruction ?? reconstructResult.reconstruction) &&
-         !needsRetry(confidence, reconstructResult.reconstruction))) {
+    if (
+      confidence.overall > bestConfidence.overall ||
+      (needsRetry(bestConfidence, bestReconstruction ?? reconstructResult.reconstruction) &&
+        !needsRetry(confidence, reconstructResult.reconstruction))
+    ) {
       bestReconstruction = reconstructResult.reconstruction
       bestConfidence = confidence
       bestReconstructResult = reconstructResult
     }
 
-    if (!needsRetry(confidence, reconstructResult.reconstruction) &&
-        confidence.overall >= CONFIDENCE_RETRY_THRESHOLD) {
+    if (
+      !needsRetry(confidence, reconstructResult.reconstruction) &&
+      confidence.overall >= CONFIDENCE_RETRY_THRESHOLD
+    ) {
       break
     }
   }
 
   if (!bestReconstruction || !bestReconstructResult) {
-    await db.from('website_canva_imports').update({ ai_conversion_status: 'failed', status: 'failed' }).eq('id', params.importId)
-    return { ok: false, error: 'Import reconstruction failed after all attempts.', diagnostics: buildPartialDiagnostics(sourceType, stagesCompleted, warnings, errors, started, attemptCount) }
+    await db
+      .from('website_canva_imports')
+      .update({ ai_conversion_status: 'failed', status: 'failed' })
+      .eq('id', params.importId)
+    return {
+      ok: false,
+      error: 'Import reconstruction failed after all attempts.',
+      diagnostics: buildPartialDiagnostics(
+        sourceType,
+        stagesCompleted,
+        warnings,
+        errors,
+        started,
+        attemptCount
+      ),
+    }
   }
 
   const diagnostics: DesignImportDiagnostics = {
     importType: sourceType,
     pages: extraction.pageCount,
-    imagesFound: extraction.assets.filter((a) => a.kind === 'image' || a.kind === 'background').length,
+    imagesFound: extraction.assets.filter((a) => a.kind === 'image' || a.kind === 'background')
+      .length,
     graphicsFound: extraction.assets.length,
     illustrationsFound: extraction.assets.filter((a) => a.kind === 'illustration').length,
     fontsDetected: extraction.fonts.length,
     buttonsFound: extraction.links.length,
     linksFound: bestReconstructResult.linkMapping.length,
-    backgroundsFound: extraction.assets.filter((a) => a.kind === 'background').length + extraction.renderedPages.length,
+    backgroundsFound:
+      extraction.assets.filter((a) => a.kind === 'background').length +
+      extraction.renderedPages.length,
     animationsCreated: countSections(bestReconstruction),
     sectionsCreated: countSections(bestReconstruction),
     responsiveLayout: bestReconstruction.pages.some((p) => p.sections.some((s) => s.responsive)),
@@ -194,7 +242,10 @@ export async function runDesignImportEngine(params: RunDesignImportParams): Prom
   })
 
   if (!saved.ok) {
-    await db.from('website_canva_imports').update({ ai_conversion_status: 'failed', status: 'failed' }).eq('id', params.importId)
+    await db
+      .from('website_canva_imports')
+      .update({ ai_conversion_status: 'failed', status: 'failed' })
+      .eq('id', params.importId)
     return { ok: false, error: saved.error, diagnostics }
   }
 
@@ -213,12 +264,16 @@ export async function runDesignImportEngine(params: RunDesignImportParams): Prom
 }
 
 function buildPartialDiagnostics(
-  importType: RunDesignImportResult['diagnostics'] extends infer D ? D extends { importType: infer T } ? T : never : never,
+  importType: RunDesignImportResult['diagnostics'] extends infer D
+    ? D extends { importType: infer T }
+      ? T
+      : never
+    : never,
   stages: DesignImportStage[],
   warnings: string[],
   errors: string[],
   started: number,
-  attemptCount: number,
+  attemptCount: number
 ): DesignImportDiagnostics {
   return {
     importType: importType as DesignImportDiagnostics['importType'],
@@ -234,8 +289,15 @@ function buildPartialDiagnostics(
     sectionsCreated: 0,
     responsiveLayout: false,
     confidence: {
-      visualMatch: 0, layoutMatch: 0, typographyMatch: 0, colorMatch: 0,
-      imagesMatch: 0, buttonsMatch: 0, animationsMatch: 0, responsiveMatch: 0, overall: 0,
+      visualMatch: 0,
+      layoutMatch: 0,
+      typographyMatch: 0,
+      colorMatch: 0,
+      imagesMatch: 0,
+      buttonsMatch: 0,
+      animationsMatch: 0,
+      responsiveMatch: 0,
+      overall: 0,
     },
     warnings,
     errors,
@@ -251,26 +313,37 @@ export async function runDesignImportFromCanvaImportRecord(params: {
   websiteId: string
   importId: string
   createdBy?: string | null
-}): Promise<RunDesignImportResult & {
-  sectionCount?: number
-  pageCount?: number
-  renderedPageCount?: number
-  linkMapping?: unknown[]
-}> {
+}): Promise<
+  RunDesignImportResult & {
+    sectionCount?: number
+    pageCount?: number
+    renderedPageCount?: number
+    linkMapping?: unknown[]
+  }
+> {
   const db = getSupabaseServerClient() as DB
-  const { data: imp } = await db.from('website_canva_imports').select('*')
-    .eq('id', params.importId).eq('tenant_id', params.tenantId).maybeSingle()
+  const { data: imp } = await db
+    .from('website_canva_imports')
+    .select('*')
+    .eq('id', params.importId)
+    .eq('tenant_id', params.tenantId)
+    .maybeSingle()
   if (!imp) return { ok: false, error: 'Canva import record not found.' }
   if (!imp.pdf_storage_path) return { ok: false, error: 'No uploaded PDF found for this import.' }
 
   const bucket = (imp.bucket as string) || 'document-assets'
   let pdfBuffer: Buffer
   try {
-    const { data: blob, error: dlErr } = await db.storage.from(bucket).download(imp.pdf_storage_path)
+    const { data: blob, error: dlErr } = await db.storage
+      .from(bucket)
+      .download(imp.pdf_storage_path)
     if (dlErr || !blob) throw new Error(dlErr?.message ?? 'download failed')
     pdfBuffer = Buffer.from(await blob.arrayBuffer())
   } catch (e) {
-    return { ok: false, error: `Failed to read the uploaded PDF: ${e instanceof Error ? e.message : 'storage error'}` }
+    return {
+      ok: false,
+      error: `Failed to read the uploaded PDF: ${e instanceof Error ? e.message : 'storage error'}`,
+    }
   }
 
   const summary = (imp.import_summary as Record<string, unknown>) ?? {}

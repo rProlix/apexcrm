@@ -13,21 +13,23 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from('pos_kitchen_tickets')
-    .select(`
+    .select(
+      `
       *,
       pos_orders(id, order_number, order_type, table_name, guest_count, notes, kitchen_notes,
         pos_order_items(id, name, quantity, notes, kitchen_notes, fulfillment_status,
           pos_order_item_modifiers(id, name, modifier_type, quantity, price_delta_cents)
         )
       )
-    `)
+    `
+    )
     .eq('tenant_id', user.tenant_id)
     .order('sent_at', { ascending: true })
 
   if (status) {
     query = query.in('status', status.split(','))
   } else {
-    query = query.in('status', ['new','accepted','preparing','ready'])
+    query = query.in('status', ['new', 'accepted', 'preparing', 'ready'])
   }
 
   const { data, error } = await query

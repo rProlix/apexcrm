@@ -21,15 +21,15 @@ export async function GET(req: NextRequest) {
   if (!data) {
     return NextResponse.json({
       settings: {
-        tenant_id:                  user.tenant_id,
-        low_stock_alerts_enabled:   true,
-        prediction_alerts_enabled:  true,
-        default_prediction_days:    14,
-        barcode_mode:               'camera',
-        auto_create_alerts:         true,
-        notify_email:               true,
-        notify_dashboard:           true,
-        settings:                   {},
+        tenant_id: user.tenant_id,
+        low_stock_alerts_enabled: true,
+        prediction_alerts_enabled: true,
+        default_prediction_days: 14,
+        barcode_mode: 'camera',
+        auto_create_alerts: true,
+        notify_email: true,
+        notify_dashboard: true,
+        settings: {},
       },
     })
   }
@@ -46,7 +46,9 @@ export async function PATCH(req: NextRequest) {
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 

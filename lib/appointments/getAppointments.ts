@@ -12,14 +12,14 @@ const APPOINTMENT_SELECT = `
 `
 
 interface GetAppointmentsOptions {
-  tenant_id:    string
+  tenant_id: string
   customer_id?: string
-  staff_id?:    string
-  status?:      string
-  from?:        string
-  to?:          string
-  limit?:       number
-  offset?:      number
+  staff_id?: string
+  status?: string
+  from?: string
+  to?: string
+  limit?: number
+  offset?: number
 }
 
 /**
@@ -33,7 +33,7 @@ export async function getAppointments({
   status,
   from,
   to,
-  limit  = 200,
+  limit = 200,
   offset = 0,
 }: GetAppointmentsOptions): Promise<Appointment[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,10 +47,10 @@ export async function getAppointments({
     .range(offset, offset + limit - 1)
 
   if (customer_id) query = query.eq('customer_id', customer_id)
-  if (staff_id)    query = query.eq('staff_id', staff_id)
-  if (status)      query = query.eq('status', status)
-  if (from)        query = query.gte('starts_at', from)
-  if (to)          query = query.lte('starts_at', to)
+  if (staff_id) query = query.eq('staff_id', staff_id)
+  if (status) query = query.eq('status', status)
+  if (from) query = query.gte('starts_at', from)
+  if (to) query = query.lte('starts_at', to)
 
   const { data, error } = await query
 

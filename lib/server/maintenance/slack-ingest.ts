@@ -3,7 +3,10 @@ import { sanitizeSlackEvent } from '@/lib/server/slack/events'
 import { persistSlackMaintenanceAttachments } from '@/lib/server/maintenance/attachments'
 import { getVanDamageServiceClient } from '@/lib/server/van-damage/supabase'
 import { slackTsToIso } from '@/lib/van-damage/history'
-import { extractVanNumber, normalizeVanNumber } from '@/workers/van-damage-worker/src/van-number-parser'
+import {
+  extractVanNumber,
+  normalizeVanNumber,
+} from '@/workers/van-damage-worker/src/van-number-parser'
 import { maintenanceTitle, triageMaintenanceReport } from '@/lib/maintenance/triage'
 import type { Json } from '@/lib/supabase/types'
 

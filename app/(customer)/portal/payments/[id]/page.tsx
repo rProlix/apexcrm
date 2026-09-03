@@ -15,7 +15,7 @@ export const metadata = { title: 'Invoice — Customer Portal' }
 export default async function CustomerInvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const host = (await headers()).get('host') ?? ''
-  const ctx  = await requireCustomerAuth(host)
+  const ctx = await requireCustomerAuth(host)
 
   const invoice = await getCustomerInvoiceById(ctx.tenant_id, ctx.customer_id, id)
 
@@ -67,7 +67,9 @@ export default async function CustomerInvoicePage({ params }: { params: Promise<
           <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
           <div>
             <p className="text-sm font-semibold text-emerald-400">Payment received</p>
-            <p className="text-xs text-white/40 mt-0.5">Thank you — this invoice has been paid in full</p>
+            <p className="text-xs text-white/40 mt-0.5">
+              Thank you — this invoice has been paid in full
+            </p>
           </div>
         </div>
       ) : invoice.status === 'pending' && !paymentLink ? (

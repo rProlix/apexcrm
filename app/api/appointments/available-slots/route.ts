@@ -22,10 +22,10 @@ function err(message: string, code: string, status: number) {
 }
 
 export async function GET(req: NextRequest) {
-  const params          = req.nextUrl.searchParams
-  const date            = params.get('date')
-  const staffId         = params.get('staffId')   || null
-  const durationParam   = params.get('durationMinutes')
+  const params = req.nextUrl.searchParams
+  const date = params.get('date')
+  const staffId = params.get('staffId') || null
+  const durationParam = params.get('durationMinutes')
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return err('date (YYYY-MM-DD) is required', 'VALIDATION_ERROR', 400)
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
   const slots = await getAvailableSlots({
     tenant_id,
     date,
-    staff_id:         staffId,
+    staff_id: staffId,
     duration_minutes: duration,
   })
 
@@ -64,6 +64,6 @@ export async function GET(req: NextRequest) {
     slots,
     date,
     staff_id: staffId,
-    count:    slots.length,
+    count: slots.length,
   })
 }

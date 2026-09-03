@@ -28,14 +28,14 @@ async function getSquareClient(config: AdapterConfig) {
   const envVal = process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'
 
   return new ClientCtor({
-    accessToken:      config.secretKey,
-    environment:      envVal,
+    accessToken: config.secretKey,
+    environment: envVal,
   })
 }
 
 function toSquareMoney(amount: number, currency: string) {
   return {
-    amount:   BigInt(Math.round(amount * 100)),
+    amount: BigInt(Math.round(amount * 100)),
     currency: currency.toUpperCase(),
   }
 }
@@ -45,12 +45,18 @@ function fromSquareAmount(amount: bigint | null | undefined): number {
   return Number(amount) / 100
 }
 
-function mapSquareStatus(status: string | undefined): 'pending' | 'succeeded' | 'failed' | 'canceled' | 'refunded' {
+function mapSquareStatus(
+  status: string | undefined
+): 'pending' | 'succeeded' | 'failed' | 'canceled' | 'refunded' {
   switch (status) {
-    case 'COMPLETED':  return 'succeeded'
-    case 'CANCELED':   return 'canceled'
-    case 'FAILED':     return 'failed'
-    default:           return 'pending'
+    case 'COMPLETED':
+      return 'succeeded'
+    case 'CANCELED':
+      return 'canceled'
+    case 'FAILED':
+      return 'failed'
+    default:
+      return 'pending'
   }
 }
 
@@ -74,7 +80,7 @@ export const squareAdapter: PaymentAdapter = {
         locationId: (config.accountId as string) ?? '',
         lineItems: [
           {
-            name:     params.title,
+            name: params.title,
             quantity: '1',
             basePriceMoney: toSquareMoney(params.amount, params.currency),
           },
@@ -93,24 +99,21 @@ export const squareAdapter: PaymentAdapter = {
 
     return {
       providerLinkId: link.id ?? '',
-      url:            link.url ?? '',
+      url: link.url ?? '',
     }
   },
 
   // ── createCharge ──────────────────────────────────────────────────────────
-  async createCharge(
-    params: ChargeParams,
-    config: AdapterConfig
-  ): Promise<ChargeResult> {
+  async createCharge(params: ChargeParams, config: AdapterConfig): Promise<ChargeResult> {
     const client = await getSquareClient(config)
 
     const response = await client.paymentsApi.createPayment({
-      idempotencyKey:  generateIdempotencyKey(),
-      sourceId:        params.source ?? 'CASH',
-      amountMoney:     toSquareMoney(params.amount, params.currency),
-      locationId:      (config.accountId as string) ?? '',
-      referenceId:     params.invoiceId,
-      note:            params.description,
+      idempotencyKey: generateIdempotencyKey(),
+      sourceId: params.source ?? 'CASH',
+      amountMoney: toSquareMoney(params.amount, params.currency),
+      locationId: (config.accountId as string) ?? '',
+      referenceId: params.invoiceId,
+      note: params.description,
     })
 
     const payment = response.result.payment
@@ -121,49 +124,43 @@ export const squareAdapter: PaymentAdapter = {
 
     return {
       providerTransactionId: payment.id ?? '',
-      status:                mapSquareStatus(payment.status) as ChargeResult['status'],
-      amount:                fromSquareAmount(payment.amountMoney?.amount),
-      currency:              payment.amountMoney?.currency ?? params.currency,
+      status: mapSquareStatus(payment.status) as ChargeResult['status'],
+      amount: fromSquareAmount(payment.amountMoney?.amount),
+      currency: payment.amountMoney?.currency ?? params.currency,
     }
   },
 
   // ── createInvoice ─────────────────────────────────────────────────────────
-  async createInvoice(
-    params: InvoiceParams,
-    config: AdapterConfig
-  ): Promise<InvoiceResult> {
+  async createInvoice(params: InvoiceParams, config: AdapterConfig): Promise<InvoiceResult> {
     // TODO: Full Square invoice flow requires customer + order creation first.
     // For now, create a payment link as a proxy for invoice workflow.
     const linkResult = await squareAdapter.createPaymentLink(
       {
-        title:     params.title,
-        amount:    params.amount,
-        currency:  params.currency,
-        tenantId:  params.tenantId,
-        metadata:  params.metadata,
+        title: params.title,
+        amount: params.amount,
+        currency: params.currency,
+        tenantId: params.tenantId,
+        metadata: params.metadata,
       },
       config
     )
 
     return {
       providerInvoiceId: linkResult.providerLinkId,
-      status:            'pending',
-      url:               linkResult.url,
+      status: 'pending',
+      url: linkResult.url,
     }
   },
 
   // ── refundPayment ─────────────────────────────────────────────────────────
-  async refundPayment(
-    params: RefundParams,
-    config: AdapterConfig
-  ): Promise<RefundResult> {
+  async refundPayment(params: RefundParams, config: AdapterConfig): Promise<RefundResult> {
     const client = await getSquareClient(config)
 
     const response = await client.refundsApi.refundPayment({
       idempotencyKey: generateIdempotencyKey(),
-      paymentId:      params.providerTransactionId,
-      amountMoney:    toSquareMoney(params.amount, params.currency),
-      reason:         params.reason,
+      paymentId: params.providerTransactionId,
+      amountMoney: toSquareMoney(params.amount, params.currency),
+      reason: params.reason,
     })
 
     const refund = response.result.refund
@@ -174,25 +171,27 @@ export const squareAdapter: PaymentAdapter = {
 
     return {
       providerRefundId: refund.id ?? '',
-      status:           refund.status === 'COMPLETED' ? 'succeeded' : refund.status === 'PENDING' ? 'pending' : 'failed',
-      amount:           fromSquareAmount(refund.amountMoney?.amount),
+      status:
+        refund.status === 'COMPLETED'
+          ? 'succeeded'
+          : refund.status === 'PENDING'
+            ? 'pending'
+            : 'failed',
+      amount: fromSquareAmount(refund.amountMoney?.amount),
     }
   },
 
   // ── cancelPayment ─────────────────────────────────────────────────────────
-  async cancelPayment(
-    params: CancelParams,
-    config: AdapterConfig
-  ): Promise<void> {
+  async cancelPayment(params: CancelParams, config: AdapterConfig): Promise<void> {
     const client = await getSquareClient(config)
     await client.paymentsApi.cancelPayment(params.providerTransactionId)
   },
 
   // ── handleWebhook ─────────────────────────────────────────────────────────
   async handleWebhook(
-    rawBody:   string,
+    rawBody: string,
     _signature: string,
-    _config:    AdapterConfig
+    _config: AdapterConfig
   ): Promise<WebhookEvent> {
     // Square webhook signature verification uses HMAC-SHA256
     // Full verification: compare X-Square-Hmacsha256-Signature with
@@ -207,15 +206,15 @@ export const squareAdapter: PaymentAdapter = {
     }
 
     const eventType = payload.type as string | undefined
-    const data      = payload.data as Record<string, unknown> | undefined
-    const obj       = data?.object as Record<string, unknown> | undefined
-    const payment   = obj?.payment as Record<string, unknown> | undefined
+    const data = payload.data as Record<string, unknown> | undefined
+    const obj = data?.object as Record<string, unknown> | undefined
+    const payment = obj?.payment as Record<string, unknown> | undefined
 
     return {
-      eventType:  eventType ?? 'unknown',
+      eventType: eventType ?? 'unknown',
       externalId: (payment?.id as string | undefined) ?? undefined,
-      status:     (payment?.status as string | undefined) ?? undefined,
-      amount:     payment?.amount_money
+      status: (payment?.status as string | undefined) ?? undefined,
+      amount: payment?.amount_money
         ? fromSquareAmount(BigInt((payment.amount_money as Record<string, number>).amount ?? 0))
         : undefined,
       currency: payment?.amount_money
@@ -233,11 +232,11 @@ export const squareAdapter: PaymentAdapter = {
     const client = await getSquareClient(config)
 
     const response = await client.paymentsApi.getPayment(providerTransactionId)
-    const payment  = response.result.payment
+    const payment = response.result.payment
 
     return {
-      status:   mapSquareStatus(payment?.status) as PaymentStatusResult['status'],
-      amount:   fromSquareAmount(payment?.amountMoney?.amount),
+      status: mapSquareStatus(payment?.status) as PaymentStatusResult['status'],
+      amount: fromSquareAmount(payment?.amountMoney?.amount),
       currency: payment?.amountMoney?.currency ?? 'USD',
     }
   },

@@ -6,26 +6,26 @@ import { vercelClient, isVercelConfigured } from './client'
 export type VercelSslState = 'pending' | 'active' | 'failed'
 
 export interface VercelDomainStatus {
-  domain:        string
-  verified:      boolean
-  sslStatus:     VercelSslState
-  configured:    boolean
-  error:         string | null
-  cname?:        string
-  aRecord?:      string
+  domain: string
+  verified: boolean
+  sslStatus: VercelSslState
+  configured: boolean
+  error: string | null
+  cname?: string
+  aRecord?: string
 }
 
 interface VercelDomainResponse {
-  name:            string
-  verified:        boolean
-  cname?:          string
-  apexName?:       string
-  projectId?:      string
-  redirect?:       string | null
-  gitBranch?:      string | null
-  updatedAt?:      number
-  createdAt?:      number
-  verification?:   Array<{ domain: string; reason: string; type: string; value: string }>
+  name: string
+  verified: boolean
+  cname?: string
+  apexName?: string
+  projectId?: string
+  redirect?: string | null
+  gitBranch?: string | null
+  updatedAt?: number
+  createdAt?: number
+  verification?: Array<{ domain: string; reason: string; type: string; value: string }>
 }
 
 /**
@@ -38,7 +38,7 @@ export async function getDomainStatusFromVercel(domain: string): Promise<VercelD
   }
 
   const { data, error } = await vercelClient.get<VercelDomainResponse>(
-    `/v9/projects/${vercelClient.projectId}/domains/${domain}`,
+    `/v9/projects/${vercelClient.projectId}/domains/${domain}`
   )
 
   if (error) {
@@ -50,9 +50,9 @@ export async function getDomainStatusFromVercel(domain: string): Promise<VercelD
   return {
     domain,
     verified,
-    sslStatus:  verified ? 'active' : 'pending',
+    sslStatus: verified ? 'active' : 'pending',
     configured: true,
-    error:      null,
-    cname:      data?.cname,
+    error: null,
+    cname: data?.cname,
   }
 }

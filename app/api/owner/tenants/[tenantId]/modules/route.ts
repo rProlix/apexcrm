@@ -8,11 +8,14 @@ type RouteContext = { params: Promise<{ tenantId: string }> }
 
 // ── Shared auth + owner guard ─────────────────────────────────────────────────
 async function verifyOwner(): Promise<
-  | { ok: true;  admin: ReturnType<typeof getSupabaseServerClient> }
+  | { ok: true; admin: ReturnType<typeof getSupabaseServerClient> }
   | { ok: false; response: NextResponse }
 > {
   const session = await createSessionServerClient()
-  const { data: { user }, error } = await session.auth.getUser()
+  const {
+    data: { user },
+    error,
+  } = await session.auth.getUser()
 
   if (error || !user) {
     return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
@@ -39,17 +42,13 @@ async function verifyOwner(): Promise<
 // ── Shared tenant existence check ─────────────────────────────────────────────
 async function verifyTenant(
   admin: ReturnType<typeof getSupabaseServerClient>,
-  tenantId: string,
+  tenantId: string
 ): Promise<NextResponse | null> {
   if (!tenantId || !/^[0-9a-f-]{36}$/i.test(tenantId)) {
     return NextResponse.json({ error: 'Invalid tenant ID format' }, { status: 400 })
   }
 
-  const { data: tenant } = await admin
-    .from('tenants')
-    .select('id')
-    .eq('id', tenantId)
-    .maybeSingle()
+  const { data: tenant } = await admin.from('tenants').select('id').eq('id', tenantId).maybeSingle()
 
   if (!tenant) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
@@ -114,8 +113,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   if (!(module_key in MODULE_REGISTRY)) {
     return NextResponse.json(
       {
-        error:            `Unknown module key: '${module_key}'`,
-        registered_keys:  Object.keys(MODULE_REGISTRY),
+        error: `Unknown module key: '${module_key}'`,
+        registered_keys: Object.keys(MODULE_REGISTRY),
       },
       { status: 400 }
     )
@@ -123,10 +122,10 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   // Upsert — eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
-    tenant_id:  (await params).tenantId,
+    tenant_id: (await params).tenantId,
     module_key,
-    enabled:    is_enabled,
-    config:     {},
+    enabled: is_enabled,
+    config: {},
     updated_at: new Date().toISOString(),
   }
 
@@ -140,8 +139,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 
   return NextResponse.json({
-    success:    true,
-    tenant_id:  (await params).tenantId,
+    success: true,
+    tenant_id: (await params).tenantId,
     module_key,
     is_enabled,
   })

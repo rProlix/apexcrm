@@ -8,28 +8,28 @@ import { ArrowLeft, CreditCard, FileText } from 'lucide-react'
 export const dynamic = 'force-dynamic'
 
 const TX_STATUS: Record<string, string> = {
-  pending:   'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
+  pending: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
   succeeded: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
-  failed:    'text-red-400 bg-red-400/10 border-red-400/20',
-  refunded:  'text-orange-400 bg-orange-400/10 border-orange-400/20',
-  canceled:  'text-white/30 bg-white/4 border-white/8',
+  failed: 'text-red-400 bg-red-400/10 border-red-400/20',
+  refunded: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
+  canceled: 'text-white/30 bg-white/4 border-white/8',
 }
 
 const INV_STATUS: Record<string, string> = {
   pending: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
-  paid:    'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+  paid: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
   overdue: 'text-red-400 bg-red-400/10 border-red-400/20',
-  draft:   'text-white/30 bg-white/4 border-white/8',
+  draft: 'text-white/30 bg-white/4 border-white/8',
 }
 
 export default async function CustomerPortalPaymentsPage() {
   const host = (await headers()).get('host') ?? ''
-  const ctx  = await requireCustomerAuth(host)
+  const ctx = await requireCustomerAuth(host)
 
   const { transactions, invoices } = await getCustomerPayments(ctx.tenant_id, ctx.customer_id, 100)
 
   const totalPaid = transactions
-    .filter(t => t.status === 'succeeded')
+    .filter((t) => t.status === 'succeeded')
     .reduce((sum, t) => sum + t.amount, 0)
 
   return (
@@ -59,14 +59,21 @@ export default async function CustomerPortalPaymentsPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {transactions.map(tx => (
-              <div key={tx.id} className="premium-panel premium-border rounded-xl flex items-center justify-between p-4">
+            {transactions.map((tx) => (
+              <div
+                key={tx.id}
+                className="premium-panel premium-border rounded-xl flex items-center justify-between p-4"
+              >
                 <div>
                   <p className="text-sm text-white/80 capitalize">{tx.transaction_type}</p>
-                  <p className="text-xs text-white/30">{new Date(tx.created_at).toLocaleString()}</p>
+                  <p className="text-xs text-white/30">
+                    {new Date(tx.created_at).toLocaleString()}
+                  </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${TX_STATUS[tx.status] ?? 'text-white/30 border-white/8 bg-white/4'}`}>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full border font-medium ${TX_STATUS[tx.status] ?? 'text-white/30 border-white/8 bg-white/4'}`}
+                  >
                     {tx.status}
                   </span>
                   <span className="text-sm font-bold text-white">${tx.amount.toFixed(2)}</span>
@@ -89,14 +96,21 @@ export default async function CustomerPortalPaymentsPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {invoices.map(inv => (
-              <div key={inv.id} className="premium-panel premium-border rounded-xl flex items-center justify-between p-4">
+            {invoices.map((inv) => (
+              <div
+                key={inv.id}
+                className="premium-panel premium-border rounded-xl flex items-center justify-between p-4"
+              >
                 <div>
                   <p className="text-sm text-white/80">{inv.title}</p>
-                  <p className="text-xs text-white/30">#{inv.invoice_number} · {new Date(inv.created_at).toLocaleDateString()}</p>
+                  <p className="text-xs text-white/30">
+                    #{inv.invoice_number} · {new Date(inv.created_at).toLocaleDateString()}
+                  </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${INV_STATUS[inv.status] ?? 'text-white/30 border-white/8 bg-white/4'}`}>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full border font-medium ${INV_STATUS[inv.status] ?? 'text-white/30 border-white/8 bg-white/4'}`}
+                  >
                     {inv.status}
                   </span>
                   <span className="text-sm font-bold text-white">${inv.amount.toFixed(2)}</span>

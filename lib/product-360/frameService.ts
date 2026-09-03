@@ -6,7 +6,7 @@ import type { P360Frame, P360Hotspot } from './types'
 
 const db = () => getSupabaseServerClient()
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const s  = (supabase: ReturnType<typeof db>) => supabase as any
+const s = (supabase: ReturnType<typeof db>) => supabase as any
 
 // ─── Frames ───────────────────────────────────────────────────────────────────
 
@@ -23,34 +23,37 @@ export async function listFrames(packageId: string): Promise<P360Frame[]> {
 }
 
 export async function upsertFrame(opts: {
-  packageId:    string
-  tenantId:     string
-  productId:    string
-  frameIndex:   number
+  packageId: string
+  tenantId: string
+  productId: string
+  frameIndex: number
   angleDegrees: number
-  imageUrl:     string
+  imageUrl: string
   storagePath?: string
-  width?:       number
-  height?:      number
-  fileSize?:    number
-  altText?:     string
+  width?: number
+  height?: number
+  fileSize?: number
+  altText?: string
 }): Promise<P360Frame> {
   const supabase = db()
   const { data, error } = await s(supabase)
     .from('product_360_frames')
-    .upsert({
-      package_id:    opts.packageId,
-      tenant_id:     opts.tenantId,
-      product_id:    opts.productId,
-      frame_index:   opts.frameIndex,
-      angle_degrees: opts.angleDegrees,
-      image_url:     opts.imageUrl,
-      storage_path:  opts.storagePath  ?? null,
-      width:         opts.width        ?? null,
-      height:        opts.height       ?? null,
-      file_size:     opts.fileSize     ?? null,
-      alt_text:      opts.altText      ?? null,
-    }, { onConflict: 'package_id,frame_index' })
+    .upsert(
+      {
+        package_id: opts.packageId,
+        tenant_id: opts.tenantId,
+        product_id: opts.productId,
+        frame_index: opts.frameIndex,
+        angle_degrees: opts.angleDegrees,
+        image_url: opts.imageUrl,
+        storage_path: opts.storagePath ?? null,
+        width: opts.width ?? null,
+        height: opts.height ?? null,
+        file_size: opts.fileSize ?? null,
+        alt_text: opts.altText ?? null,
+      },
+      { onConflict: 'package_id,frame_index' }
+    )
     .select('*')
     .single()
 
@@ -59,9 +62,9 @@ export async function upsertFrame(opts: {
 }
 
 export async function updateFrame(
-  frameId:  string,
+  frameId: string,
   tenantId: string,
-  updates:  Partial<Pick<P360Frame, 'alt_text' | 'frame_index' | 'metadata'>>,
+  updates: Partial<Pick<P360Frame, 'alt_text' | 'frame_index' | 'metadata'>>
 ): Promise<P360Frame> {
   const supabase = db()
   const { data, error } = await s(supabase)
@@ -102,15 +105,15 @@ export async function listHotspots(packageId: string): Promise<P360Hotspot[]> {
 }
 
 export async function createHotspot(opts: {
-  tenantId:    string
-  packageId:   string
-  productId:   string
+  tenantId: string
+  packageId: string
+  productId: string
   frameIndex?: number
-  label:       string
+  label: string
   description?: string
-  x:           number
-  y:           number
-  z?:          number
+  x: number
+  y: number
+  z?: number
   actionType?: string
   actionValue?: string
 }): Promise<P360Hotspot> {
@@ -118,16 +121,16 @@ export async function createHotspot(opts: {
   const { data, error } = await s(supabase)
     .from('product_360_hotspots')
     .insert({
-      tenant_id:    opts.tenantId,
-      package_id:   opts.packageId,
-      product_id:   opts.productId,
-      frame_index:  opts.frameIndex  ?? null,
-      label:        opts.label,
-      description:  opts.description ?? null,
-      x:            opts.x,
-      y:            opts.y,
-      z:            opts.z           ?? null,
-      action_type:  opts.actionType  ?? 'info',
+      tenant_id: opts.tenantId,
+      package_id: opts.packageId,
+      product_id: opts.productId,
+      frame_index: opts.frameIndex ?? null,
+      label: opts.label,
+      description: opts.description ?? null,
+      x: opts.x,
+      y: opts.y,
+      z: opts.z ?? null,
+      action_type: opts.actionType ?? 'info',
       action_value: opts.actionValue ?? null,
     })
     .select('*')
@@ -139,11 +142,21 @@ export async function createHotspot(opts: {
 
 export async function updateHotspot(
   hotspotId: string,
-  tenantId:  string,
-  updates:   Partial<Pick<P360Hotspot,
-    'label' | 'description' | 'x' | 'y' | 'z' | 'frame_index' |
-    'action_type' | 'action_value' | 'is_enabled'
-  >>,
+  tenantId: string,
+  updates: Partial<
+    Pick<
+      P360Hotspot,
+      | 'label'
+      | 'description'
+      | 'x'
+      | 'y'
+      | 'z'
+      | 'frame_index'
+      | 'action_type'
+      | 'action_value'
+      | 'is_enabled'
+    >
+  >
 ): Promise<P360Hotspot> {
   const supabase = db()
   const { data, error } = await s(supabase)
@@ -176,11 +189,11 @@ export async function deleteHotspot(hotspotId: string, tenantId: string): Promis
  * and sets status to 'ready' if frame_count >= target_frame_count.
  */
 export async function syncPackageAfterFrameUpload(opts: {
-  packageId:        string
-  tenantId:         string
+  packageId: string
+  tenantId: string
   targetFrameCount: number
-  newFrameIndex:    number
-  newImageUrl:      string
+  newFrameIndex: number
+  newImageUrl: string
 }): Promise<void> {
   const { packageId, tenantId, targetFrameCount, newFrameIndex, newImageUrl } = opts
   const supabase = db()
@@ -191,11 +204,11 @@ export async function syncPackageAfterFrameUpload(opts: {
     .select('id', { count: 'exact', head: true })
     .eq('package_id', packageId)
 
-  const framesDone  = count ?? 0
-  const isComplete  = framesDone >= targetFrameCount
+  const framesDone = count ?? 0
+  const isComplete = framesDone >= targetFrameCount
   const updateFields: Record<string, unknown> = {
     frame_count: framesDone,
-    updated_at:  new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   }
 
   if (isComplete) updateFields.status = 'ready'

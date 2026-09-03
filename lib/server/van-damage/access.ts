@@ -2,12 +2,18 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 type AccessResult =
-  | { ok: true; tenantId: string; businessId: string; userId: string; role: 'owner' | 'admin' | 'manager' | 'staff' }
+  | {
+      ok: true
+      tenantId: string
+      businessId: string
+      userId: string
+      role: 'owner' | 'admin' | 'manager' | 'staff'
+    }
   | { ok: false; status: 400 | 401 | 403 | 404; error: string }
 
 export async function resolveVanDamageAccess(
   requestedBusinessId: string | null | undefined,
-  options: { manage?: boolean } = {},
+  options: { manage?: boolean } = {}
 ): Promise<AccessResult> {
   const ctx = await getUserContext()
   if (!ctx) return { ok: false, status: 401, error: 'Unauthorized' }

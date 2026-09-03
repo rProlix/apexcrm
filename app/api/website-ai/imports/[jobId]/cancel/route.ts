@@ -23,7 +23,10 @@ export async function POST(_req: NextRequest, { params }: Params) {
   const { tenantId } = access
 
   if (!(await verifyJobAccess(jobId, tenantId))) {
-    return NextResponse.json({ error: 'This import does not belong to your business.' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'This import does not belong to your business.' },
+      { status: 403 }
+    )
   }
 
   const db = getSupabaseServerClient()

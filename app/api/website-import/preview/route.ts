@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   if (!jobId) return NextResponse.json({ error: 'job_id required' }, { status: 400 })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = getSupabaseServerClient() as any
+  const db = getSupabaseServerClient() as any
 
   // Load all results for the job
   const { data: results } = await db
@@ -42,9 +42,10 @@ const db = getSupabaseServerClient() as any
 
   for (const r of results) {
     const key = r.result_key as keyof NormalizedImportContent
-    if (key === 'confidenceMap') continue
+    if (key === 'confidenceMap')
+      continue
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(normalized as any)[key] = r.result_value
     if (normalized.confidenceMap) {
       normalized.confidenceMap[key] = r.confidence_score
@@ -53,28 +54,28 @@ const db = getSupabaseServerClient() as any
 
   // Fill in empty defaults for required fields
   const content: NormalizedImportContent = {
-    businessName:   null,
-    tagline:        null,
-    description:    null,
-    logoUrl:        null,
-    faviconUrl:     null,
-    phone:          null,
-    email:          null,
-    address:        null,
-    hours:          [],
-    socialLinks:    {},
-    services:       [],
-    testimonials:   [],
-    faqItems:       [],
-    images:         [],
-    brandColors:    null,
-    seoTitle:       null,
+    businessName: null,
+    tagline: null,
+    description: null,
+    logoUrl: null,
+    faviconUrl: null,
+    phone: null,
+    email: null,
+    address: null,
+    hours: [],
+    socialLinks: {},
+    services: [],
+    testimonials: [],
+    faqItems: [],
+    images: [],
+    brandColors: null,
+    seoTitle: null,
     seoDescription: null,
-    mapUrl:         null,
-    latitude:       null,
-    longitude:      null,
-    priceRange:     null,
-    confidenceMap:  {},
+    mapUrl: null,
+    latitude: null,
+    longitude: null,
+    priceRange: null,
+    confidenceMap: {},
     ...normalized,
   }
 
@@ -84,6 +85,6 @@ const db = getSupabaseServerClient() as any
     success: true,
     preview: draftConfig,
     approved_count: results.filter((r: Record<string, unknown>) => r.approved).length,
-    total_count:    results.length,
+    total_count: results.length,
   })
 }

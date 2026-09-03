@@ -9,7 +9,9 @@ import { resolvePublicEventWebsite } from '@/lib/website/canva/eventWebsite'
 import { EventRsvpForm } from '@/components/website/canva/EventRsvpForm'
 import { povDb } from '@/lib/pov/db'
 
-interface Props { params: Promise<{ eventSlug: string }> }
+interface Props {
+  params: Promise<{ eventSlug: string }>
+}
 
 export async function generateMetadata({ params }: Props) {
   const { eventSlug } = await params
@@ -31,18 +33,29 @@ export default async function EventRsvpPage({ params }: Props) {
   const povEventId = (cfg.povEventId as string) ?? site.pov_event_id
   if (site.pov_enabled && povEventId) {
     try {
-      const { data: ev } = await povDb().from('pov_events').select('slug').eq('id', povEventId).maybeSingle()
+      const { data: ev } = await povDb()
+        .from('pov_events')
+        .select('slug')
+        .eq('id', povEventId)
+        .maybeSingle()
       if (ev?.slug) {
         cameraHref = `/events/${ev.slug}/camera`
         galleryHref = `/events/${ev.slug}/gallery`
       }
-    } catch { /* non-fatal */ }
+    } catch {
+      /* non-fatal */
+    }
   }
 
   const theme = (cfg.theme as Record<string, unknown>) ?? {}
 
   return (
-    <main style={{ minHeight: '100vh', background: (theme.colors as Record<string, string>)?.background ?? '#0b0b0b' }}>
+    <main
+      style={{
+        minHeight: '100vh',
+        background: (theme.colors as Record<string, string>)?.background ?? '#0b0b0b',
+      }}
+    >
       <EventRsvpForm
         eventSlug={eventSlug}
         title={String(rsvp.pageTitle ?? 'RSVP')}

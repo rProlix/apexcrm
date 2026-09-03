@@ -26,15 +26,28 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const { tenantId } = access
 
   if (!(await verifyJobAccess(jobId, tenantId))) {
-    return NextResponse.json({ error: 'This import does not belong to your business.' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'This import does not belong to your business.' },
+      { status: 403 }
+    )
   }
 
   const db = getSupabaseServerClient()
 
   const [jobResult, suggestionsResult, changesResult] = await Promise.all([
     db.from('website_ai_import_jobs').select('*').eq('id', jobId).single(),
-    db.from('website_ai_suggestions').select('*').eq('job_id', jobId).eq('tenant_id', tenantId).order('created_at'),
-    db.from('website_ai_applied_changes').select('*').eq('job_id', jobId).eq('tenant_id', tenantId).order('created_at'),
+    db
+      .from('website_ai_suggestions')
+      .select('*')
+      .eq('job_id', jobId)
+      .eq('tenant_id', tenantId)
+      .order('created_at'),
+    db
+      .from('website_ai_applied_changes')
+      .select('*')
+      .eq('job_id', jobId)
+      .eq('tenant_id', tenantId)
+      .order('created_at'),
   ])
 
   if (jobResult.error || !jobResult.data) {
@@ -42,9 +55,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
   }
 
   return NextResponse.json({
-    job:         jobResult.data,
+    job: jobResult.data,
     suggestions: suggestionsResult.data ?? [],
-    changes:     changesResult.data ?? [],
+    changes: changesResult.data ?? [],
   })
 }
 
@@ -61,7 +74,10 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const { tenantId } = access
 
   if (!(await verifyJobAccess(jobId, tenantId))) {
-    return NextResponse.json({ error: 'This import does not belong to your business.' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'This import does not belong to your business.' },
+      { status: 403 }
+    )
   }
 
   const db = getSupabaseServerClient()

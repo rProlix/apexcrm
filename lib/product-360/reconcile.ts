@@ -8,14 +8,14 @@
 // SERVER-ONLY. Never import from client components.
 
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { finalizePackage }          from './finalize'
+import { finalizePackage } from './finalize'
 
 export interface ReconcileResult {
-  frameCount:   number
-  targetCount:  number
-  progressPct:  number
-  wasStuck:     boolean
-  finalized:    boolean
+  frameCount: number
+  targetCount: number
+  progressPct: number
+  wasStuck: boolean
+  finalized: boolean
   errorMessage?: string
 }
 
@@ -33,7 +33,7 @@ const STUCK_THRESHOLD_MS = 10 * 60 * 1000 // 10 minutes
  */
 export async function reconcilePackageProgress(
   packageId: string,
-  force = false,
+  force = false
 ): Promise<ReconcileResult> {
   const supabase = getSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,13 +49,20 @@ export async function reconcilePackageProgress(
     .maybeSingle()
 
   if (!pkg) {
-    return { frameCount: 0, targetCount: 0, progressPct: 0, wasStuck: false, finalized: false, errorMessage: 'Package not found' }
+    return {
+      frameCount: 0,
+      targetCount: 0,
+      progressPct: 0,
+      wasStuck: false,
+      finalized: false,
+      errorMessage: 'Package not found',
+    }
   }
 
-  const currentStatus  = pkg.status as string
-  const targetCount    = (pkg.target_frame_count as number) ?? 0
-  const updatedAt      = new Date(pkg.updated_at as string).getTime()
-  const msSinceUpdate  = Date.now() - updatedAt
+  const currentStatus = pkg.status as string
+  const targetCount = (pkg.target_frame_count as number) ?? 0
+  const updatedAt = new Date(pkg.updated_at as string).getTime()
+  const msSinceUpdate = Date.now() - updatedAt
 
   // ── Count actual frame rows ───────────────────────────────────────────────
   const { count: frameCount } = await db
@@ -63,31 +70,33 @@ export async function reconcilePackageProgress(
     .select('*', { count: 'exact', head: true })
     .eq('package_id', packageId)
 
-  const actualCount  = frameCount ?? 0
-  const progressPct  = targetCount > 0 ? Math.min(100, Math.round((actualCount / targetCount) * 100)) : 0
+  const actualCount = frameCount ?? 0
+  const progressPct =
+    targetCount > 0 ? Math.min(100, Math.round((actualCount / targetCount) * 100)) : 0
 
-  console.info(`${tag} status=${currentStatus} frames=${actualCount}/${targetCount} age=${Math.round(msSinceUpdate / 1000)}s`)
+  console.info(
+    `${tag} status=${currentStatus} frames=${actualCount}/${targetCount} age=${Math.round(msSinceUpdate / 1000)}s`
+  )
 
   // ── Update frames_done and progress_percent ───────────────────────────────
   const needsProgressUpdate =
-    (pkg.frames_done as number) !== actualCount ||
-    (pkg.progress_percent as number) !== progressPct
+    (pkg.frames_done as number) !== actualCount || (pkg.progress_percent as number) !== progressPct
 
   if (needsProgressUpdate) {
     await db
       .from('product_360_packages')
       .update({
-        frames_done:      actualCount,
+        frames_done: actualCount,
         progress_percent: progressPct,
-        updated_at:       new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .eq('id', packageId)
   }
 
   // ── Determine if this package is stuck ────────────────────────────────────
   const inProgressStatus = ['queued', 'generating', 'processing'].includes(currentStatus)
-  const isStale          = force || msSinceUpdate > STUCK_THRESHOLD_MS
-  const framesMatch      = targetCount > 0 && actualCount >= targetCount
+  const isStale = force || msSinceUpdate > STUCK_THRESHOLD_MS
+  const framesMatch = targetCount > 0 && actualCount >= targetCount
 
   if (!inProgressStatus) {
     // Already terminal — nothing to do beyond syncing counters
@@ -97,15 +106,17 @@ export async function reconcilePackageProgress(
   const wasStuck = isStale && (framesMatch || progressPct >= 100)
 
   if (wasStuck) {
-    console.warn(`${tag} package is stuck (${currentStatus}, ${actualCount}/${targetCount} frames, ${Math.round(msSinceUpdate / 1000)}s old) — finalizing`)
+    console.warn(
+      `${tag} package is stuck (${currentStatus}, ${actualCount}/${targetCount} frames, ${Math.round(msSinceUpdate / 1000)}s old) — finalizing`
+    )
     const fin = await finalizePackage(packageId)
     return {
-      frameCount:    fin.frameCount,
+      frameCount: fin.frameCount,
       targetCount,
-      progressPct:   100,
-      wasStuck:      true,
-      finalized:     fin.success,
-      errorMessage:  fin.errorMessage,
+      progressPct: 100,
+      wasStuck: true,
+      finalized: fin.success,
+      errorMessage: fin.errorMessage,
     }
   }
 
@@ -114,11 +125,11 @@ export async function reconcilePackageProgress(
     console.warn(`${tag} forced finalize: ${actualCount}/${targetCount} frames`)
     const fin = await finalizePackage(packageId)
     return {
-      frameCount:   fin.frameCount,
+      frameCount: fin.frameCount,
       targetCount,
-      progressPct:  100,
-      wasStuck:     true,
-      finalized:    fin.success,
+      progressPct: 100,
+      wasStuck: true,
+      finalized: fin.success,
       errorMessage: fin.errorMessage,
     }
   }
@@ -149,7 +160,7 @@ export async function recoverStuckPackages(tenantId: string): Promise<{
     .in('status', ['queued', 'generating', 'processing'])
     .lt('updated_at', cutoff)
 
-  const pkgs   = (stuckPkgs ?? []) as Array<{ id: string }>
+  const pkgs = (stuckPkgs ?? []) as Array<{ id: string }>
   const errors: string[] = []
   let recovered = 0
 

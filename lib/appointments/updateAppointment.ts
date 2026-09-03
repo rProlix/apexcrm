@@ -5,7 +5,7 @@ import type { Appointment, UpdateAppointmentInput } from './types'
 
 export interface UpdateResult {
   appointment?: Appointment
-  error?:       string
+  error?: string
 }
 
 const APPOINTMENT_SELECT = `
@@ -22,9 +22,9 @@ const APPOINTMENT_SELECT = `
  * If starts_at/ends_at/staff_id are changed, re-validates conflicts.
  */
 export async function updateAppointment(
-  id:        string,
+  id: string,
   tenant_id: string,
-  input:     UpdateAppointmentInput
+  input: UpdateAppointmentInput
 ): Promise<UpdateResult> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
@@ -46,12 +46,12 @@ export async function updateAppointment(
   }
 
   const starts_at = input.starts_at ?? current.starts_at
-  const ends_at   = input.ends_at   ?? current.ends_at
-  const staff_id  = input.staff_id !== undefined ? input.staff_id : current.staff_id
+  const ends_at = input.ends_at ?? current.ends_at
+  const staff_id = input.staff_id !== undefined ? input.staff_id : current.staff_id
 
   if (input.starts_at || input.ends_at || input.staff_id !== undefined) {
     const start = new Date(starts_at)
-    const end   = new Date(ends_at)
+    const end = new Date(ends_at)
 
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       return { error: 'Invalid start or end time' }
@@ -65,7 +65,7 @@ export async function updateAppointment(
       starts_at,
       ends_at,
       exclude_id: id,
-      staff_id:   staff_id ?? undefined,
+      staff_id: staff_id ?? undefined,
     })
     if (conflict) {
       return { error: 'This time slot is already booked or unavailable' }
@@ -74,16 +74,17 @@ export async function updateAppointment(
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
-  if (input.title       !== undefined) patch.title       = input.title?.trim()
+  if (input.title !== undefined) patch.title = input.title?.trim()
   if (input.description !== undefined) patch.description = input.description
-  if (input.status      !== undefined) patch.status      = input.status
-  if (input.starts_at   !== undefined) patch.starts_at   = input.starts_at
-  if (input.ends_at     !== undefined) patch.ends_at     = input.ends_at
-  if (input.location    !== undefined) patch.location    = input.location
-  if (input.notes       !== undefined) patch.notes       = input.notes
-  if (input.timezone    !== undefined) patch.timezone    = input.timezone
-  if (input.staff_id    !== undefined) patch.staff_id    = input.staff_id
-  if (input.appointment_block_id !== undefined) patch.appointment_block_id = input.appointment_block_id
+  if (input.status !== undefined) patch.status = input.status
+  if (input.starts_at !== undefined) patch.starts_at = input.starts_at
+  if (input.ends_at !== undefined) patch.ends_at = input.ends_at
+  if (input.location !== undefined) patch.location = input.location
+  if (input.notes !== undefined) patch.notes = input.notes
+  if (input.timezone !== undefined) patch.timezone = input.timezone
+  if (input.staff_id !== undefined) patch.staff_id = input.staff_id
+  if (input.appointment_block_id !== undefined)
+    patch.appointment_block_id = input.appointment_block_id
 
   const { data, error } = await supabase
     .from('appointments')

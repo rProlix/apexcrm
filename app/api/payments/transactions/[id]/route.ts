@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .maybeSingle()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    if (!data)  return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     if (dashUser.role !== 'owner' && data.tenant_id !== dashUser.tenant_id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!data)  return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   return NextResponse.json({ transaction: data })
 }

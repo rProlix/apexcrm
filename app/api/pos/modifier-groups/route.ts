@@ -21,12 +21,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await resolveStoreUser(req)
-  if (!user || !['admin','owner','manager'].includes(user.role)) {
+  if (!user || !['admin', 'owner', 'manager'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -36,15 +38,15 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('pos_modifier_groups')
     .insert({
-      tenant_id:              user.tenant_id,
-      name:                   body.name,
-      description:            body.description ?? null,
-      selection_type:         body.selection_type ?? 'multiple',
-      min_required:           body.min_required ?? 0,
-      max_allowed:            body.max_allowed ?? null,
-      is_required:            body.is_required ?? false,
+      tenant_id: user.tenant_id,
+      name: body.name,
+      description: body.description ?? null,
+      selection_type: body.selection_type ?? 'multiple',
+      min_required: body.min_required ?? 0,
+      max_allowed: body.max_allowed ?? null,
+      is_required: body.is_required ?? false,
       applies_to_all_products: body.applies_to_all_products ?? false,
-      sort_order:             body.sort_order ?? 0,
+      sort_order: body.sort_order ?? 0,
     })
     .select('*')
     .single()

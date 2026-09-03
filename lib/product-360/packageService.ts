@@ -3,7 +3,14 @@
 // SERVER-ONLY.
 
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import type { P360Package, P360PackageSummary, P360PackageWithFrames, P360Frame, P360Hotspot, P360Status } from './types'
+import type {
+  P360Package,
+  P360PackageSummary,
+  P360PackageWithFrames,
+  P360Frame,
+  P360Hotspot,
+  P360Status,
+} from './types'
 
 const db = () => getSupabaseServerClient()
 
@@ -13,7 +20,7 @@ type Supabase = ReturnType<typeof getSupabaseServerClient>
 const s = (supabase: Supabase) => supabase as any
 
 export async function listPackages(opts: {
-  tenantId:   string
+  tenantId: string
   productId?: string
   includeArchived?: boolean
 }): Promise<P360PackageSummary[]> {
@@ -31,7 +38,7 @@ export async function listPackages(opts: {
     .eq('tenant_id', opts.tenantId)
     .order('created_at', { ascending: false })
 
-  if (opts.productId)        q = q.eq('product_id', opts.productId)
+  if (opts.productId) q = q.eq('product_id', opts.productId)
   if (!opts.includeArchived) q = q.neq('status', 'archived')
 
   const { data, error } = await q
@@ -44,7 +51,7 @@ export async function listPackages(opts: {
   if (rows.length === 0) return []
 
   // Step 2 — batch-count frames per package (safe separate query, no aggregate syntax)
-  const pkgIds = rows.map(r => r.id as string)
+  const pkgIds = rows.map((r) => r.id as string)
   const { data: frameCounts } = await s(supabase)
     .from('product_360_frames')
     .select('package_id')
@@ -56,16 +63,16 @@ export async function listPackages(opts: {
     frameCountMap[pid] = (frameCountMap[pid] ?? 0) + 1
   }
 
-  return rows.map(r => ({
+  return rows.map((r) => ({
     ...(r as unknown as P360Package),
-    frames_done:  frameCountMap[r.id as string] ?? 0,
+    frames_done: frameCountMap[r.id as string] ?? 0,
     product_name: (r.product as { name: string } | null)?.name ?? null,
   }))
 }
 
 export async function getPackageWithFrames(
   packageId: string,
-  tenantId:  string,
+  tenantId: string
 ): Promise<P360PackageWithFrames | null> {
   const supabase = db()
 
@@ -98,63 +105,61 @@ export async function getPackageWithFrames(
 
   return {
     ...(pkg as unknown as P360Package),
-    frames:   (frames   ?? []) as P360Frame[],
+    frames: (frames ?? []) as P360Frame[],
     hotspots: (hotspots ?? []) as P360Hotspot[],
   } as P360PackageWithFrames
 }
 
 export interface CreatePackageOpts {
-  tenantId:             string
-  productId:            string
-  createdBy:            string | null
-  name:                 string
-  label?:               string | null
-  description?:         string
-  packageType?:         string
+  tenantId: string
+  productId: string
+  createdBy: string | null
+  name: string
+  label?: string | null
+  description?: string
+  packageType?: string
   /** Generic preset shorthand label (e.g. "standard", "premium") */
-  preset?:              string | null
-  generationPrompt?:    string
-  generationNotes?:     string
-  negativePrompt?:      string
-  targetFrameCount?:    number
-  settings?:            Record<string, unknown>
+  preset?: string | null
+  generationPrompt?: string
+  generationNotes?: string
+  negativePrompt?: string
+  targetFrameCount?: number
+  settings?: Record<string, unknown>
   /** Whether this is the primary package for the product (alias: is_default) */
-  isPrimary?:           boolean
+  isPrimary?: boolean
   /** Promo window start */
-  startsAt?:            string | null
+  startsAt?: string | null
   /** Promo window end */
-  endsAt?:              string | null
+  endsAt?: string | null
   // Presets
-  lightingPreset?:      string | null
-  backgroundPreset?:    string | null
-  categoryPreset?:      string | null
-  cameraPreset?:        string | null
-  cameraDistance?:      number | null
-  cameraHeight?:        number | null
-  fov?:                 number | null
-  zoom?:                number | null
-  shadowStrength?:      number | null
+  lightingPreset?: string | null
+  backgroundPreset?: string | null
+  categoryPreset?: string | null
+  cameraPreset?: string | null
+  cameraDistance?: number | null
+  cameraHeight?: number | null
+  fov?: number | null
+  zoom?: number | null
+  shadowStrength?: number | null
   reflectionIntensity?: number | null
-  turnDirection?:           'clockwise' | 'counter_clockwise'
-  outputWidth?:             number | null
-  outputHeight?:            number | null
-  promoTag?:                string | null
-  aiModel?:                 string
+  turnDirection?: 'clockwise' | 'counter_clockwise'
+  outputWidth?: number | null
+  outputHeight?: number | null
+  promoTag?: string | null
+  aiModel?: string
   /** AI provider: 'gemini' (default) or 'leonardo' */
-  generationProvider?:      'gemini' | 'leonardo'
-  generationMode?:          'text_to_image' | 'reference_image'
+  generationProvider?: 'gemini' | 'leonardo'
+  generationMode?: 'text_to_image' | 'reference_image'
   /** Whether generation requires a reference image to be uploaded first */
-  referenceImageRequired?:  boolean
+  referenceImageRequired?: boolean
   /** Consistency enforcement level */
-  consistencyMode?:         'standard' | 'strict' | 'ultra_strict'
+  consistencyMode?: 'standard' | 'strict' | 'ultra_strict'
   /** Angle strategy for computing orbit frames */
-  angleStrategy?:           string
+  angleStrategy?: string
 }
 
 export class P360ApiError extends Error {
-  constructor(
-    public readonly apiError: import('./validators').P360ApiError,
-  ) {
+  constructor(public readonly apiError: import('./validators').P360ApiError) {
     super(apiError.message)
     this.name = 'P360ApiError'
   }
@@ -167,58 +172,64 @@ export async function createPackage(opts: CreatePackageOpts): Promise<P360Packag
   if (!validation.ok) throw new P360ApiError(validation.error)
 
   const validated = validation.data
-  const supabase  = db()
-  const slug      = generateSlug(validated.name)
+  const supabase = db()
+  const slug = generateSlug(validated.name)
 
   const { data, error } = await s(supabase)
     .from('product_360_packages')
     .insert({
-      tenant_id:            validated.tenantId,
-      product_id:           validated.productId,
-      created_by:           validated.createdBy,
-      name:                 validated.name,
-      label:                opts.label ?? null,
+      tenant_id: validated.tenantId,
+      product_id: validated.productId,
+      created_by: validated.createdBy,
+      name: validated.name,
+      label: opts.label ?? null,
       slug,
-      description:          validated.description     ?? null,
-      package_type:         validated.packageType     ?? 'ai_generated',
-      generation_prompt:    validated.generationPrompt ?? null,
-      generation_notes:     validated.generationNotes  ?? null,
-      negative_prompt:      validated.negativePrompt   ?? null,
-      target_frame_count:   validated.targetFrameCount ?? 36,
-      settings:             validated.settings ?? {},
-      status:               'draft',
-      is_enabled:           false,
-      is_default:           validated.isPrimary            ?? false,
-      is_primary:           validated.isPrimary            ?? false,
-      preset:               validated.preset               ?? null,
-      starts_at:            validated.startsAt             ?? null,
-      ends_at:              validated.endsAt               ?? null,
-      promo_starts_at:      validated.startsAt             ?? null,
-      promo_ends_at:        validated.endsAt               ?? null,
-      generation_provider:       validated.generationProvider ?? 'gemini',
-      provider:                  validated.generationProvider ?? 'gemini',
-      generation_mode:           opts.generationMode ?? (validated.generationProvider === 'leonardo' ? 'reference_image' : 'text_to_image'),
-      blueprint_version_id:      validated.generationProvider === 'leonardo' ? (process.env.LEONARDO_360_BLUEPRINT_VERSION_ID ?? null) : null,
-      reference_image_required:  validated.referenceImageRequired ?? false,
-      consistency_mode:          validated.consistencyMode ?? 'ultra_strict',
-      angle_strategy:            validated.angleStrategy ?? 'orbit_locked',
-      ai_model:                  validated.aiModel ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
-      generation_model:     validated.aiModel ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
+      description: validated.description ?? null,
+      package_type: validated.packageType ?? 'ai_generated',
+      generation_prompt: validated.generationPrompt ?? null,
+      generation_notes: validated.generationNotes ?? null,
+      negative_prompt: validated.negativePrompt ?? null,
+      target_frame_count: validated.targetFrameCount ?? 36,
+      settings: validated.settings ?? {},
+      status: 'draft',
+      is_enabled: false,
+      is_default: validated.isPrimary ?? false,
+      is_primary: validated.isPrimary ?? false,
+      preset: validated.preset ?? null,
+      starts_at: validated.startsAt ?? null,
+      ends_at: validated.endsAt ?? null,
+      promo_starts_at: validated.startsAt ?? null,
+      promo_ends_at: validated.endsAt ?? null,
+      generation_provider: validated.generationProvider ?? 'gemini',
+      provider: validated.generationProvider ?? 'gemini',
+      generation_mode:
+        opts.generationMode ??
+        (validated.generationProvider === 'leonardo' ? 'reference_image' : 'text_to_image'),
+      blueprint_version_id:
+        validated.generationProvider === 'leonardo'
+          ? (process.env.LEONARDO_360_BLUEPRINT_VERSION_ID ?? null)
+          : null,
+      reference_image_required: validated.referenceImageRequired ?? false,
+      consistency_mode: validated.consistencyMode ?? 'ultra_strict',
+      angle_strategy: validated.angleStrategy ?? 'orbit_locked',
+      ai_model: validated.aiModel ?? process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite',
+      generation_model:
+        validated.aiModel ?? process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite',
       // Presets
-      lighting_preset:      validated.lightingPreset      ?? null,
-      background_preset:    validated.backgroundPreset     ?? null,
-      category_preset:      validated.categoryPreset       ?? null,
-      camera_preset:        validated.cameraPreset         ?? null,
-      camera_distance:      validated.cameraDistance       ?? null,
-      camera_height:        validated.cameraHeight         ?? null,
-      fov:                  validated.fov                  ?? null,
-      zoom:                 validated.zoom                 ?? null,
-      shadow_strength:      validated.shadowStrength       ?? null,
-      reflection_intensity: validated.reflectionIntensity  ?? null,
-      turn_direction:       validated.turnDirection        ?? 'clockwise',
-      output_width:         validated.outputWidth          ?? null,
-      output_height:        validated.outputHeight         ?? null,
-      promo_tag:            validated.promoTag             ?? null,
+      lighting_preset: validated.lightingPreset ?? null,
+      background_preset: validated.backgroundPreset ?? null,
+      category_preset: validated.categoryPreset ?? null,
+      camera_preset: validated.cameraPreset ?? null,
+      camera_distance: validated.cameraDistance ?? null,
+      camera_height: validated.cameraHeight ?? null,
+      fov: validated.fov ?? null,
+      zoom: validated.zoom ?? null,
+      shadow_strength: validated.shadowStrength ?? null,
+      reflection_intensity: validated.reflectionIntensity ?? null,
+      turn_direction: validated.turnDirection ?? 'clockwise',
+      output_width: validated.outputWidth ?? null,
+      output_height: validated.outputHeight ?? null,
+      promo_tag: validated.promoTag ?? null,
     })
     .select('*')
     .single()
@@ -232,20 +243,52 @@ export async function createPackage(opts: CreatePackageOpts): Promise<P360Packag
 
 export async function updatePackage(
   packageId: string,
-  tenantId:  string,
-  updates:   Partial<Pick<P360Package,
-    'name' | 'slug' | 'description' | 'status' | 'is_enabled' | 'is_default' |
-    'is_primary' | 'preset' |
-    'package_type' | 'promo_starts_at' | 'promo_ends_at' | 'starts_at' | 'ends_at' |
-    'generation_prompt' | 'generation_notes' | 'negative_prompt' |
-    'target_frame_count' | 'settings' |
-    'lighting_config' | 'camera_config' | 'hotspot_config' | 'cover_frame_url' |
-    'model_url' | 'ar_model_url' |
-    'lighting_preset' | 'background_preset' | 'category_preset' | 'camera_preset' |
-    'camera_distance' | 'camera_height' | 'fov' | 'zoom' | 'shadow_strength' |
-    'reflection_intensity' | 'turn_direction' | 'output_width' | 'output_height' |
-    'promo_tag' | 'ai_model' | 'generation_model'
-  >>,
+  tenantId: string,
+  updates: Partial<
+    Pick<
+      P360Package,
+      | 'name'
+      | 'slug'
+      | 'description'
+      | 'status'
+      | 'is_enabled'
+      | 'is_default'
+      | 'is_primary'
+      | 'preset'
+      | 'package_type'
+      | 'promo_starts_at'
+      | 'promo_ends_at'
+      | 'starts_at'
+      | 'ends_at'
+      | 'generation_prompt'
+      | 'generation_notes'
+      | 'negative_prompt'
+      | 'target_frame_count'
+      | 'settings'
+      | 'lighting_config'
+      | 'camera_config'
+      | 'hotspot_config'
+      | 'cover_frame_url'
+      | 'model_url'
+      | 'ar_model_url'
+      | 'lighting_preset'
+      | 'background_preset'
+      | 'category_preset'
+      | 'camera_preset'
+      | 'camera_distance'
+      | 'camera_height'
+      | 'fov'
+      | 'zoom'
+      | 'shadow_strength'
+      | 'reflection_intensity'
+      | 'turn_direction'
+      | 'output_width'
+      | 'output_height'
+      | 'promo_tag'
+      | 'ai_model'
+      | 'generation_model'
+    >
+  >
 ): Promise<P360Package> {
   const supabase = db()
 
@@ -297,10 +340,10 @@ export async function updatePackage(
 }
 
 export async function duplicatePackage(
-  packageId:  string,
-  tenantId:   string,
-  newName:    string,
-  createdBy:  string | null,
+  packageId: string,
+  tenantId: string,
+  newName: string,
+  createdBy: string | null
 ): Promise<P360Package> {
   const supabase = db()
   const { data: src } = await s(supabase)
@@ -316,42 +359,42 @@ export async function duplicatePackage(
   const { data, error } = await s(supabase)
     .from('product_360_packages')
     .insert({
-      tenant_id:            tenantId,
-      product_id:           src.product_id,
-      created_by:           createdBy,
-      name:                 newName,
+      tenant_id: tenantId,
+      product_id: src.product_id,
+      created_by: createdBy,
+      name: newName,
       slug,
-      description:          src.description,
-      package_type:         src.package_type,
-      generation_prompt:    src.generation_prompt,
-      generation_notes:     src.generation_notes,
-      negative_prompt:      src.negative_prompt,
-      target_frame_count:   src.target_frame_count,
-      settings:             src.settings ?? {},
-      status:               'draft',
-      is_enabled:           false,
-      is_default:           false,
-      is_primary:           false,
-      preset:               src.preset ?? null,
-      generation_provider:  'gemini',
-      ai_model:             src.ai_model ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
-      generation_model:     src.ai_model ?? (process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite'),
-      lighting_preset:      src.lighting_preset,
-      background_preset:    src.background_preset,
-      category_preset:      src.category_preset,
-      camera_preset:        src.camera_preset,
-      camera_distance:      src.camera_distance,
-      camera_height:        src.camera_height,
-      fov:                  src.fov,
-      zoom:                 src.zoom,
-      shadow_strength:      src.shadow_strength,
+      description: src.description,
+      package_type: src.package_type,
+      generation_prompt: src.generation_prompt,
+      generation_notes: src.generation_notes,
+      negative_prompt: src.negative_prompt,
+      target_frame_count: src.target_frame_count,
+      settings: src.settings ?? {},
+      status: 'draft',
+      is_enabled: false,
+      is_default: false,
+      is_primary: false,
+      preset: src.preset ?? null,
+      generation_provider: 'gemini',
+      ai_model: src.ai_model ?? process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite',
+      generation_model: src.ai_model ?? process.env.GEMINI_360_MODEL ?? 'gemini-2.5-flash-lite',
+      lighting_preset: src.lighting_preset,
+      background_preset: src.background_preset,
+      category_preset: src.category_preset,
+      camera_preset: src.camera_preset,
+      camera_distance: src.camera_distance,
+      camera_height: src.camera_height,
+      fov: src.fov,
+      zoom: src.zoom,
+      shadow_strength: src.shadow_strength,
       reflection_intensity: src.reflection_intensity,
-      turn_direction:       src.turn_direction ?? 'clockwise',
-      output_width:         src.output_width,
-      output_height:        src.output_height,
-      promo_tag:            src.promo_tag,
-      lighting_config:      src.lighting_config,
-      camera_config:        src.camera_config,
+      turn_direction: src.turn_direction ?? 'clockwise',
+      output_width: src.output_width,
+      output_height: src.output_height,
+      promo_tag: src.promo_tag,
+      lighting_config: src.lighting_config,
+      camera_config: src.camera_config,
     })
     .select('*')
     .single()
@@ -361,21 +404,21 @@ export async function duplicatePackage(
 }
 
 export async function archivePackage(
-  packageId:  string,
-  tenantId:   string,
-  _productId: string,  // kept for backwards-compat; storage is NO LONGER deleted on archive
-  opts?: { archivedBy?: string | null; archiveReason?: string | null },
+  packageId: string,
+  tenantId: string,
+  _productId: string, // kept for backwards-compat; storage is NO LONGER deleted on archive
+  opts?: { archivedBy?: string | null; archiveReason?: string | null }
 ): Promise<void> {
   const supabase = db()
   await s(supabase)
     .from('product_360_packages')
     .update({
-      status:         'archived',
-      is_enabled:     false,
-      archived_at:    new Date().toISOString(),
-      archived_by:    opts?.archivedBy    ?? null,
+      status: 'archived',
+      is_enabled: false,
+      archived_at: new Date().toISOString(),
+      archived_by: opts?.archivedBy ?? null,
       archive_reason: opts?.archiveReason ?? null,
-      updated_at:     new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
     .eq('id', packageId)
     .eq('tenant_id', tenantId)
@@ -393,22 +436,23 @@ export async function archivePackage(
  *  4. Some frames completed    → failed (partial, can be resumed)
  *  5. No frames                → draft
  */
-export async function unarchivePackage(
-  packageId: string,
-  tenantId:  string,
-): Promise<P360Package> {
+export async function unarchivePackage(packageId: string, tenantId: string): Promise<P360Package> {
   const supabase = db()
 
   const { data: pkg } = await s(supabase)
     .from('product_360_packages')
-    .select('id, status, cancel_requested, last_error_message, frames_done, target_frame_count, frame_count')
+    .select(
+      'id, status, cancel_requested, last_error_message, frames_done, target_frame_count, frame_count'
+    )
     .eq('id', packageId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
   if (!pkg) throw new Error('Package not found or access denied')
   if ((pkg as Record<string, unknown>).status !== 'archived') {
-    throw new Error(`Cannot unarchive — package status is "${(pkg as Record<string, unknown>).status}"`)
+    throw new Error(
+      `Cannot unarchive — package status is "${(pkg as Record<string, unknown>).status}"`
+    )
   }
 
   // Count actual completed frames (most accurate source of truth)
@@ -419,9 +463,10 @@ export async function unarchivePackage(
     .not('image_url', 'is', null)
 
   const completedCount = (frames ?? []).length
-  const targetCount    = ((pkg as Record<string, unknown>).target_frame_count as number)
-                      || ((pkg as Record<string, unknown>).frame_count        as number)
-                      || 0
+  const targetCount =
+    ((pkg as Record<string, unknown>).target_frame_count as number) ||
+    ((pkg as Record<string, unknown>).frame_count as number) ||
+    0
 
   let restoreStatus: P360Status = 'draft'
   if ((pkg as Record<string, unknown>).cancel_requested) {
@@ -437,11 +482,11 @@ export async function unarchivePackage(
   const { data, error } = await s(supabase)
     .from('product_360_packages')
     .update({
-      status:         restoreStatus,
-      archived_at:    null,
-      archived_by:    null,
+      status: restoreStatus,
+      archived_at: null,
+      archived_by: null,
       archive_reason: null,
-      updated_at:     new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
     .eq('id', packageId)
     .eq('tenant_id', tenantId)
@@ -457,10 +502,7 @@ export async function unarchivePackage(
  * product and clears the flag on all other packages for the same tenant+product.
  * Tenant-scoped — safe to call from owner and admin routes.
  */
-export async function setPrimaryPackage(
-  packageId: string,
-  tenantId:  string,
-): Promise<P360Package> {
+export async function setPrimaryPackage(packageId: string, tenantId: string): Promise<P360Package> {
   const supabase = db()
 
   // Find the package to get its product_id.
@@ -472,7 +514,7 @@ export async function setPrimaryPackage(
     .maybeSingle()
 
   if (fetchErr) throw new Error(`setPrimaryPackage fetch: ${fetchErr.message}`)
-  if (!pkg)     throw new Error('Package not found')
+  if (!pkg) throw new Error('Package not found')
 
   // Unset primary on all other packages for this tenant+product.
   if (pkg.product_id) {
@@ -507,13 +549,13 @@ import type { P360StoreProduct } from './types'
 
 export async function listStoreProducts(opts: {
   tenantId: string
-  search?:  string
-  page?:    number
-  limit?:   number
+  search?: string
+  page?: number
+  limit?: number
   activeOnly?: boolean
 }): Promise<{ products: P360StoreProduct[]; total: number }> {
-  const supabase   = db()
-  const pageSize   = opts.limit ?? 24
+  const supabase = db()
+  const pageSize = opts.limit ?? 24
   const pageOffset = ((opts.page ?? 1) - 1) * pageSize
 
   // Only select columns that actually exist in the products table (005_ecommerce.sql).
@@ -521,7 +563,10 @@ export async function listStoreProducts(opts: {
   // Querying non-existent columns causes a PostgREST 42703 error and a 500 response.
   let q = s(supabase)
     .from('products')
-    .select('id, tenant_id, name, description, price, currency, inventory_count, is_active, created_at', { count: 'exact' })
+    .select(
+      'id, tenant_id, name, description, price, currency, inventory_count, is_active, created_at',
+      { count: 'exact' }
+    )
     .eq('tenant_id', opts.tenantId)
     .order('name', { ascending: true })
     .range(pageOffset, pageOffset + pageSize - 1)
@@ -535,14 +580,16 @@ export async function listStoreProducts(opts: {
 
   const { data, error, count } = await q
   if (error) {
-    console.error('[listStoreProducts] products query error:', error.message, { tenantId: opts.tenantId })
+    console.error('[listStoreProducts] products query error:', error.message, {
+      tenantId: opts.tenantId,
+    })
     throw new Error(`listStoreProducts: ${error.message}`)
   }
 
   const rows = (data ?? []) as Record<string, unknown>[]
 
   // Batch load 360 package counts for these products
-  const productIds = rows.map(r => r.id as string)
+  const productIds = rows.map((r) => r.id as string)
   const pkgCounts: Record<string, { count: number; hasActive: boolean }> = {}
 
   if (productIds.length > 0) {
@@ -582,18 +629,18 @@ export async function listStoreProducts(opts: {
     }
   }
 
-  const products: P360StoreProduct[] = rows.map(r => ({
-    id:             r.id           as string,
-    tenant_id:      r.tenant_id    as string,
-    name:           r.name         as string,
-    description:    (r.description as string | null),
-    price:          (r.price       as number | null),
-    currency:       (r.currency    as string | null),
-    is_active:      (r.is_active   as boolean),
-    image_url:      imgMap[r.id as string] ?? null,
+  const products: P360StoreProduct[] = rows.map((r) => ({
+    id: r.id as string,
+    tenant_id: r.tenant_id as string,
+    name: r.name as string,
+    description: r.description as string | null,
+    price: r.price as number | null,
+    currency: r.currency as string | null,
+    is_active: r.is_active as boolean,
+    image_url: imgMap[r.id as string] ?? null,
     has_active_360: pkgCounts[r.id as string]?.hasActive ?? false,
-    package_count:  pkgCounts[r.id as string]?.count ?? 0,
-    created_at:     r.created_at   as string,
+    package_count: pkgCounts[r.id as string]?.count ?? 0,
+    created_at: r.created_at as string,
   }))
 
   return { products, total: count ?? 0 }
@@ -602,10 +649,11 @@ export async function listStoreProducts(opts: {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function generateSlug(name: string): string {
-  const base = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 50) || 'package'
+  const base =
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 50) || 'package'
   return `${base}-${Math.random().toString(36).slice(2, 6)}`
 }

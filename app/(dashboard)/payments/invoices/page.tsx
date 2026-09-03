@@ -13,7 +13,7 @@ export default async function InvoicesPage() {
   if (ctx.tenant_id) await guardModuleAccess(ctx.tenant_id, 'payments', ctx.role)
 
   const tenantId = ctx.tenant_id ?? ''
-  const supabase  = getSupabaseServerClient()
+  const supabase = getSupabaseServerClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any

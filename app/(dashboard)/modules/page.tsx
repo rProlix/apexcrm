@@ -14,7 +14,9 @@ export default async function ModulesPage() {
   // Fallback: resolve via authenticated user's tenant
   if (!tenant) {
     const sessionClient = await createSessionServerClient()
-    const { data: { user } } = await sessionClient.auth.getUser()
+    const {
+      data: { user },
+    } = await sessionClient.auth.getUser()
     if (user) {
       const admin = getSupabaseServerClient()
       const { data: userRecord } = await admin
@@ -41,7 +43,9 @@ export default async function ModulesPage() {
   // Only the platform owner can manage module access. Business admins can only
   // see modules that have already been enabled for their workspace.
   const sessionClient = await createSessionServerClient()
-  const { data: { user } } = await sessionClient.auth.getUser()
+  const {
+    data: { user },
+  } = await sessionClient.auth.getUser()
   const admin = getSupabaseServerClient()
   const { data: userRecord } = user
     ? await admin.from('users').select('role').eq('auth_user_id', user.id).maybeSingle()
@@ -78,9 +82,7 @@ export default async function ModulesPage() {
 
         <div className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl border border-gold-500/20 bg-gold-500/8">
           <span className="h-2 w-2 rounded-full bg-gold-400 animate-pulse" />
-          <span className="text-xs font-semibold text-gold-400">
-            {enabledCount} active
-          </span>
+          <span className="text-xs font-semibold text-gold-400">{enabledCount} active</span>
         </div>
       </div>
 
@@ -122,11 +124,7 @@ export default async function ModulesPage() {
 
                 {/* Toggle */}
                 {canToggle ? (
-                  <ModuleToggle
-                    tenantId={tenant!.id}
-                    moduleKey={mod.key}
-                    enabled={enabled}
-                  />
+                  <ModuleToggle tenantId={tenant!.id} moduleKey={mod.key} enabled={enabled} />
                 ) : (
                   <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-white/45">
                     Owner managed
@@ -140,7 +138,9 @@ export default async function ModulesPage() {
 
       {!visibleModules.length && (
         <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-5 py-8 text-center">
-          <p className="text-sm font-medium text-white/65">No modules are enabled for this business yet.</p>
+          <p className="text-sm font-medium text-white/65">
+            No modules are enabled for this business yet.
+          </p>
           <p className="mt-1 text-xs text-white/35">
             Module access is controlled by the platform owner.
           </p>

@@ -7,8 +7,15 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Settings, Clock, Ban, Plus, Trash2,
-  CalendarDays, Info, Users, LayoutGrid,
+  Settings,
+  Clock,
+  Ban,
+  Plus,
+  Trash2,
+  CalendarDays,
+  Info,
+  Users,
+  LayoutGrid,
 } from 'lucide-react'
 import { AvailabilityEditor } from '@/components/appointments/AvailabilityEditor'
 import { AvailabilityBlocksManager } from '@/components/appointments/AvailabilityBlocksManager'
@@ -17,29 +24,32 @@ import type { BlockedTime } from '@/lib/appointments/types'
 
 function fmtDT(iso: string) {
   return new Date(iso).toLocaleString([], {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   })
 }
 
 type Tab = 'schedule' | 'staff' | 'availability-blocks' | 'blocked'
 
 export default function AppointmentsSettingsPage() {
-  const [tab,     setTab]     = useState<Tab>('availability-blocks')
-  const [blocks,  setBlocks]  = useState<BlockedTime[]>([])
+  const [tab, setTab] = useState<Tab>('availability-blocks')
+  const [blocks, setBlocks] = useState<BlockedTime[]>([])
   const [loading, setLoading] = useState(false)
 
   // Block form
-  const [blockStart,  setBlockStart]  = useState('')
-  const [blockEnd,    setBlockEnd]    = useState('')
+  const [blockStart, setBlockStart] = useState('')
+  const [blockEnd, setBlockEnd] = useState('')
   const [blockReason, setBlockReason] = useState('')
-  const [saving,      setSaving]      = useState(false)
-  const [error,       setError]       = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function loadBlocks() {
     setLoading(true)
     try {
-      const res  = await fetch('/api/appointments/block')
+      const res = await fetch('/api/appointments/block')
       const data = await res.json()
       setBlocks(data.blocks ?? [])
     } finally {
@@ -52,23 +62,31 @@ export default function AppointmentsSettingsPage() {
   }, [tab])
 
   async function createBlock() {
-    if (!blockStart || !blockEnd) { setError('Start and end time required'); return }
-    if (new Date(blockStart) >= new Date(blockEnd)) { setError('Start must be before end'); return }
+    if (!blockStart || !blockEnd) {
+      setError('Start and end time required')
+      return
+    }
+    if (new Date(blockStart) >= new Date(blockEnd)) {
+      setError('Start must be before end')
+      return
+    }
     setError(null)
     setSaving(true)
     try {
       const res = await fetch('/api/appointments/block', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
+        body: JSON.stringify({
           start_time: new Date(blockStart).toISOString(),
-          end_time:   new Date(blockEnd).toISOString(),
-          reason:     blockReason || null,
+          end_time: new Date(blockEnd).toISOString(),
+          reason: blockReason || null,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed')
-      setBlockStart(''); setBlockEnd(''); setBlockReason('')
+      setBlockStart('')
+      setBlockEnd('')
+      setBlockReason('')
       await loadBlocks()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed')
@@ -83,22 +101,28 @@ export default function AppointmentsSettingsPage() {
   }
 
   const TABS: Array<{ id: Tab; label: string; icon: React.ElementType }> = [
-    { id: 'staff',               label: 'Professionals',      icon: Users        },
-    { id: 'availability-blocks', label: 'Availability Blocks', icon: LayoutGrid   },
-    { id: 'schedule',            label: 'Schedule Rules',      icon: CalendarDays },
-    { id: 'blocked',             label: 'Blocked Times',       icon: Ban          },
+    { id: 'staff', label: 'Professionals', icon: Users },
+    { id: 'availability-blocks', label: 'Availability Blocks', icon: LayoutGrid },
+    { id: 'schedule', label: 'Schedule Rules', icon: CalendarDays },
+    { id: 'blocked', label: 'Blocked Times', icon: Ban },
   ]
 
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Page header */}
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3">
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center gap-3"
+      >
         <div className="h-10 w-10 rounded-xl bg-gold-400/10 flex items-center justify-center">
           <Settings className="w-5 h-5 text-gold-400" />
         </div>
         <div>
           <h1 className="text-xl font-bold text-white">Appointment Settings</h1>
-          <p className="text-xs text-white/40">Manage professionals, availability blocks, and schedule controls</p>
+          <p className="text-xs text-white/40">
+            Manage professionals, availability blocks, and schedule controls
+          </p>
         </div>
       </motion.div>
 
@@ -121,27 +145,38 @@ export default function AppointmentsSettingsPage() {
       </div>
 
       <AnimatePresence mode="wait">
-
         {/* ── Tab: Professionals ── */}
         {tab === 'staff' && (
           <motion.div
             key="staff"
             initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0  }}
-            exit={{    opacity: 0, x: -8  }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
             className="space-y-4"
           >
             <div className="flex items-start gap-3 rounded-xl border border-gold-500/20 bg-gold-400/5 px-4 py-3">
               <Info className="w-4 h-4 text-gold-400 shrink-0 mt-0.5" />
               <div className="text-xs text-white/50 space-y-1">
-                <p>Add the <span className="text-white/70 font-medium">professionals, stylists, therapists, or employees</span> who perform services.</p>
-                <p>After adding them here, create <span className="text-white/70 font-medium">Availability Blocks</span> to define when each professional is available for bookings.</p>
+                <p>
+                  Add the{' '}
+                  <span className="text-white/70 font-medium">
+                    professionals, stylists, therapists, or employees
+                  </span>{' '}
+                  who perform services.
+                </p>
+                <p>
+                  After adding them here, create{' '}
+                  <span className="text-white/70 font-medium">Availability Blocks</span> to define
+                  when each professional is available for bookings.
+                </p>
               </div>
             </div>
             <div className="rounded-2xl border border-surface-border bg-graphite-800/40 p-5">
               <div className="mb-4">
                 <h2 className="text-sm font-semibold text-white">Professionals &amp; Employees</h2>
-                <p className="text-xs text-white/40 mt-0.5">These are the people customers can book with.</p>
+                <p className="text-xs text-white/40 mt-0.5">
+                  These are the people customers can book with.
+                </p>
               </div>
               <ProfessionalsManager />
             </div>
@@ -153,22 +188,33 @@ export default function AppointmentsSettingsPage() {
           <motion.div
             key="availability-blocks"
             initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0  }}
-            exit={{    opacity: 0, x: -8  }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
             className="space-y-4"
           >
             <div className="flex items-start gap-3 rounded-xl border border-gold-500/20 bg-gold-400/5 px-4 py-3">
               <Info className="w-4 h-4 text-gold-400 shrink-0 mt-0.5" />
               <div className="text-xs text-white/50 space-y-1">
-                <p><span className="text-white/70 font-medium">Recurring blocks</span> repeat every week on the selected day(s) and time window.</p>
-                <p><span className="text-white/70 font-medium">One-time blocks</span> define a specific date range when a professional is available.</p>
-                <p className="pt-0.5 text-white/35">Blocks can be assigned to a specific professional or apply to all staff. Slot duration controls how long each bookable time slot is.</p>
+                <p>
+                  <span className="text-white/70 font-medium">Recurring blocks</span> repeat every
+                  week on the selected day(s) and time window.
+                </p>
+                <p>
+                  <span className="text-white/70 font-medium">One-time blocks</span> define a
+                  specific date range when a professional is available.
+                </p>
+                <p className="pt-0.5 text-white/35">
+                  Blocks can be assigned to a specific professional or apply to all staff. Slot
+                  duration controls how long each bookable time slot is.
+                </p>
               </div>
             </div>
             <div className="rounded-2xl border border-surface-border bg-graphite-800/40 p-5">
               <div className="mb-4">
                 <h2 className="text-sm font-semibold text-white">Availability Blocks</h2>
-                <p className="text-xs text-white/40 mt-0.5">Define when your professionals are available for appointments.</p>
+                <p className="text-xs text-white/40 mt-0.5">
+                  Define when your professionals are available for appointments.
+                </p>
               </div>
               <AvailabilityBlocksManager />
             </div>
@@ -180,18 +226,36 @@ export default function AppointmentsSettingsPage() {
           <motion.div
             key="schedule"
             initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0  }}
-            exit={{    opacity: 0, x: -8  }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
             className="space-y-4"
           >
             <div className="flex items-start gap-3 rounded-xl border border-gold-500/20 bg-gold-400/5 px-4 py-3">
               <Info className="w-4 h-4 text-gold-400 shrink-0 mt-0.5" />
               <div className="text-xs text-white/50 space-y-1">
-                <p>These are <span className="text-white/70 font-medium">legacy business-wide schedule rules</span> without professional assignment.</p>
-                <p>For multi-professional scheduling, prefer the <span className="text-white/70 font-medium">Availability Blocks</span> tab above.</p>
-                <p><span className="text-white/70 font-medium">Weekly</span> — repeats on a single fixed weekday.</p>
-                <p><span className="text-white/70 font-medium">Daily</span> — applies every day of the week.</p>
-                <p><span className="text-white/70 font-medium">Custom</span> — choose any combination of days.</p>
+                <p>
+                  These are{' '}
+                  <span className="text-white/70 font-medium">
+                    legacy business-wide schedule rules
+                  </span>{' '}
+                  without professional assignment.
+                </p>
+                <p>
+                  For multi-professional scheduling, prefer the{' '}
+                  <span className="text-white/70 font-medium">Availability Blocks</span> tab above.
+                </p>
+                <p>
+                  <span className="text-white/70 font-medium">Weekly</span> — repeats on a single
+                  fixed weekday.
+                </p>
+                <p>
+                  <span className="text-white/70 font-medium">Daily</span> — applies every day of
+                  the week.
+                </p>
+                <p>
+                  <span className="text-white/70 font-medium">Custom</span> — choose any combination
+                  of days.
+                </p>
               </div>
             </div>
             <div className="rounded-2xl border border-surface-border bg-graphite-800/40 p-5">
@@ -205,7 +269,10 @@ export default function AppointmentsSettingsPage() {
             </div>
             <div className="flex items-center gap-2 text-xs text-white/25 px-1">
               <Clock className="w-3 h-3 shrink-0" />
-              <span>Changes take effect immediately — customers will see updated slots on their next refresh.</span>
+              <span>
+                Changes take effect immediately — customers will see updated slots on their next
+                refresh.
+              </span>
             </div>
           </motion.div>
         )}
@@ -214,9 +281,9 @@ export default function AppointmentsSettingsPage() {
         {tab === 'blocked' && (
           <motion.div
             key="blocked"
-            initial={{ opacity: 0, x: 8  }}
-            animate={{ opacity: 1, x: 0  }}
-            exit={{    opacity: 0, x: 8  }}
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 8 }}
             className="space-y-4"
           >
             {/* Add block form */}
@@ -224,7 +291,8 @@ export default function AppointmentsSettingsPage() {
               <div>
                 <h2 className="text-sm font-semibold text-white">Block a Time Range</h2>
                 <p className="text-xs text-white/40 mt-0.5">
-                  Blocked times prevent all bookings during that window, overriding your schedule rules.
+                  Blocked times prevent all bookings during that window, overriding your schedule
+                  rules.
                 </p>
               </div>
 
@@ -237,7 +305,8 @@ export default function AppointmentsSettingsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-white/50 mb-1.5">
-                    <Clock className="inline w-3 h-3 mr-1" />Start
+                    <Clock className="inline w-3 h-3 mr-1" />
+                    Start
                   </label>
                   <input
                     type="datetime-local"
@@ -248,7 +317,8 @@ export default function AppointmentsSettingsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-white/50 mb-1.5">
-                    <Clock className="inline w-3 h-3 mr-1" />End
+                    <Clock className="inline w-3 h-3 mr-1" />
+                    End
                   </label>
                   <input
                     type="datetime-local"
@@ -260,7 +330,9 @@ export default function AppointmentsSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-1.5">Reason (optional)</label>
+                <label className="block text-xs font-medium text-white/50 mb-1.5">
+                  Reason (optional)
+                </label>
                 <input
                   type="text"
                   value={blockReason}
@@ -292,7 +364,9 @@ export default function AppointmentsSettingsPage() {
               </div>
 
               {loading ? (
-                <div className="px-5 py-8 text-center text-white/30 text-sm animate-pulse">Loading…</div>
+                <div className="px-5 py-8 text-center text-white/30 text-sm animate-pulse">
+                  Loading…
+                </div>
               ) : blocks.length === 0 ? (
                 <div className="px-5 py-12 text-center">
                   <Ban className="w-7 h-7 text-white/10 mx-auto mb-2" />
@@ -306,7 +380,7 @@ export default function AppointmentsSettingsPage() {
                         key={block.id}
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
-                        exit={{    opacity: 0, height: 0 }}
+                        exit={{ opacity: 0, height: 0 }}
                         className="flex items-center gap-3 px-5 py-3 hover:bg-graphite-700/20 transition-colors"
                       >
                         <div className="h-7 w-7 rounded-lg bg-red-400/10 flex items-center justify-center shrink-0">
@@ -314,7 +388,8 @@ export default function AppointmentsSettingsPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-white/80">
-                            {fmtDT(block.start_time)} <span className="text-white/30">→</span> {fmtDT(block.end_time)}
+                            {fmtDT(block.start_time)} <span className="text-white/30">→</span>{' '}
+                            {fmtDT(block.end_time)}
                           </p>
                           {block.reason && (
                             <p className="text-xs text-white/40 mt-0.5 truncate">{block.reason}</p>

@@ -16,7 +16,10 @@ import type { CustomerContext } from './types'
  */
 export async function requireCustomerAuth(host: string): Promise<CustomerContext> {
   const sessionClient = await createSessionServerClient()
-  const { data: { user }, error } = await sessionClient.auth.getUser()
+  const {
+    data: { user },
+    error,
+  } = await sessionClient.auth.getUser()
 
   if (error || !user) {
     redirect('/login?next=/portal')
@@ -40,12 +43,12 @@ export async function requireCustomerAuth(host: string): Promise<CustomerContext
   }
 
   return {
-    id:          account.id,
-    auth_id:     user.id,
-    tenant_id:   tenant.id,
+    id: account.id,
+    auth_id: user.id,
+    tenant_id: tenant.id,
     customer_id: account.customer_id,
-    role:        'customer',
-    email:       account.email,
+    role: 'customer',
+    email: account.email,
   }
 }
 
@@ -55,7 +58,9 @@ export async function requireCustomerAuth(host: string): Promise<CustomerContext
  */
 export async function getCustomerContext(host: string): Promise<CustomerContext | null> {
   const sessionClient = await createSessionServerClient()
-  const { data: { user } } = await sessionClient.auth.getUser()
+  const {
+    data: { user },
+  } = await sessionClient.auth.getUser()
   if (!user) return null
 
   const tenant = await getTenantFromHost(host)
@@ -72,12 +77,12 @@ export async function getCustomerContext(host: string): Promise<CustomerContext 
   if (!account || account.status !== 'active') return null
 
   return {
-    id:          account.id,
-    auth_id:     user.id,
-    tenant_id:   tenant.id,
+    id: account.id,
+    auth_id: user.id,
+    tenant_id: tenant.id,
     customer_id: account.customer_id,
-    role:        'customer',
-    email:       account.email,
+    role: 'customer',
+    email: account.email,
   }
 }
 
@@ -109,11 +114,11 @@ export function assertCustomerOwns(
  *     .match(customerScope(ctx))
  */
 export function customerScope(ctx: CustomerContext): {
-  tenant_id:   string
+  tenant_id: string
   customer_id: string
 } {
   return {
-    tenant_id:   ctx.tenant_id,
+    tenant_id: ctx.tenant_id,
     customer_id: ctx.customer_id,
   }
 }

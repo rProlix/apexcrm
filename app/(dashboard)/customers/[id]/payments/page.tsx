@@ -9,7 +9,9 @@ import { ArrowLeft } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
-interface Props { params: Promise<{ id: string }> }
+interface Props {
+  params: Promise<{ id: string }>
+}
 
 export default async function CustomerPaymentsPage({ params }: Props) {
   const { id } = await params
@@ -37,7 +39,8 @@ export default async function CustomerPaymentsPage({ params }: Props) {
       <div>
         <h1 className="text-2xl font-bold text-white tracking-tight">Payment History</h1>
         <p className="text-sm text-white/40 mt-1">
-          {customer.name} · {payments.transactions.length} transactions · {payments.invoices.length} invoices
+          {customer.name} · {payments.transactions.length} transactions · {payments.invoices.length}{' '}
+          invoices
         </p>
       </div>
       <CustomerPaymentsList

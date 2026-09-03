@@ -2,9 +2,15 @@
 // PDF adapter — render pages + extract text/links for the universal import engine.
 
 import 'server-only'
-import { renderCanvaPdfPages, PDF_RENDER_ZERO_MESSAGE } from '@/lib/website/canva/pdf/render-canva-pdf-pages'
+import {
+  renderCanvaPdfPages,
+  PDF_RENDER_ZERO_MESSAGE,
+} from '@/lib/website/canva/pdf/render-canva-pdf-pages'
 import { extractCanvaPdfTextAndLinks } from '@/lib/website/canva/pdf/pdf-visual-extractor'
-import type { DesignImportExtraction, DesignImportSourceType } from '@/lib/website/import-engine/types'
+import type {
+  DesignImportExtraction,
+  DesignImportSourceType,
+} from '@/lib/website/import-engine/types'
 
 export interface PdfAdapterParams {
   pdfBuffer: Buffer
@@ -60,7 +66,7 @@ export async function extractFromPdf(params: PdfAdapterParams): Promise<PdfAdapt
       pageNumber: l.pageNumber,
       xPercent: l.x !== undefined && l.pageWidth ? (l.x / l.pageWidth) * 100 : undefined,
       yPercent: l.y !== undefined && l.pageHeight ? (l.y / l.pageHeight) * 100 : undefined,
-    })),
+    }))
   )
 
   const assets = renderResult.pages.map((p) => ({

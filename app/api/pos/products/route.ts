@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = req.nextUrl
   const category = searchParams.get('category')
-  const search   = searchParams.get('search')
+  const search = searchParams.get('search')
 
   const supabase = getPOSClient()
   let query = supabase
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     .order('name')
 
   if (category) query = query.eq('category', category)
-  if (search)   query = query.ilike('name', `%${search}%`)
+  if (search) query = query.ilike('name', `%${search}%`)
 
   const { data: products, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -39,12 +39,14 @@ export async function GET(req: NextRequest) {
         .eq('tenant_id', user.tenant_id),
       supabase
         .from('pos_modifier_groups')
-        .select(`id, name, selection_type, min_required, max_allowed, is_required, sort_order, pos_modifiers(id, name, modifier_type, price_delta_cents, is_default, sort_order, status)`)
+        .select(
+          `id, name, selection_type, min_required, max_allowed, is_required, sort_order, pos_modifiers(id, name, modifier_type, price_delta_cents, is_default, sort_order, status)`
+        )
         .eq('tenant_id', user.tenant_id)
         .eq('status', 'active'),
     ])
     modLinks = linksRes.data ?? []
-    groups   = groupsRes.data ?? []
+    groups = groupsRes.data ?? []
   }
 
   const groupsById = new Map(groups.map((g) => [g.id as string, g]))
@@ -55,7 +57,12 @@ export async function GET(req: NextRequest) {
       .filter((l) => l.product_id === p.id)
       .sort((a, b) => a.sort_order - b.sort_order)
     const productGroups = links.map((l) => groupsById.get(l.modifier_group_id)).filter(Boolean)
-    const allGroups = [...productGroups, ...globalGroups.filter((g) => !productGroups.some((pg) => pg && (pg as Record<string, unknown>).id === g.id))]
+    const allGroups = [
+      ...productGroups,
+      ...globalGroups.filter(
+        (g) => !productGroups.some((pg) => pg && (pg as Record<string, unknown>).id === g.id)
+      ),
+    ]
 
     return {
       ...p,

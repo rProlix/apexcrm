@@ -87,7 +87,9 @@ export default async function VehicleProfilePage({
     .eq('van_id', vehicleId)
     .order('created_at', { ascending: false })
     .limit(50)
-  const initialInspectionIds = (initialInspectionsResult.data ?? []).map((inspection) => inspection.id)
+  const initialInspectionIds = (initialInspectionsResult.data ?? []).map(
+    (inspection) => inspection.id
+  )
   const sessionScope = newTables
     .from('van_damage_upload_sessions')
     .select('*')
@@ -95,9 +97,13 @@ export default async function VehicleProfilePage({
     .eq('business_id', scope.businessId)
   const scopedSessions =
     initialInspectionIds.length > 0
-      ? sessionScope.or(`van_id.eq.${vehicleId},inspection_id.in.(${initialInspectionIds.join(',')})`)
+      ? sessionScope.or(
+          `van_id.eq.${vehicleId},inspection_id.in.(${initialInspectionIds.join(',')})`
+        )
       : sessionScope.eq('van_id', vehicleId)
-  const sessionsResult = await scopedSessions.order('upload_started_at', { ascending: false }).limit(50)
+  const sessionsResult = await scopedSessions
+    .order('upload_started_at', { ascending: false })
+    .limit(50)
   const sessions = (sessionsResult.data ?? []) as VanProfileSession[]
   const sessionInspectionIds = sessions
     .map((session) => session.inspection_id)
@@ -117,7 +123,9 @@ export default async function VehicleProfilePage({
             `van_id.eq.${vehicleId}`,
             `first_detected_inspection_id.in.(${inspectionIds.join(',')})`,
             `latest_observed_inspection_id.in.(${inspectionIds.join(',')})`,
-            ...(sessionIds.length > 0 ? [`first_upload_session_id.in.(${sessionIds.join(',')})`] : []),
+            ...(sessionIds.length > 0
+              ? [`first_upload_session_id.in.(${sessionIds.join(',')})`]
+              : []),
           ].join(',')
         )
       : caseScope.eq('van_id', vehicleId)
@@ -167,7 +175,9 @@ export default async function VehicleProfilePage({
           .eq('business_id', scope.businessId)
           .or(
             [
-              ...(inspectionIds.length > 0 ? [`inspection_id.in.(${inspectionIds.join(',')})`] : []),
+              ...(inspectionIds.length > 0
+                ? [`inspection_id.in.(${inspectionIds.join(',')})`]
+                : []),
               ...(sessionIds.length > 0 ? [`upload_session_id.in.(${sessionIds.join(',')})`] : []),
             ].join(',')
           )

@@ -10,9 +10,9 @@
 //   403 when caller is not authenticated as owner
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { NextResponse }         from 'next/server'
-import { getUserContext }       from '@/lib/auth/getUserContext'
-import { checkStorageHealth }   from '@/lib/storage/storageHealth'
+import { NextResponse } from 'next/server'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { checkStorageHealth } from '@/lib/storage/storageHealth'
 
 export async function GET() {
   // Owner-only gate

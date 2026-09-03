@@ -7,20 +7,26 @@ import type { TenantCustomerDetail } from '@/lib/customers/getTenantCustomerById
 import type { CustomerProfile, CustomerNote } from '@/lib/customers/getCustomerProfile'
 
 interface Props {
-  customer:  TenantCustomerDetail
-  profile:   CustomerProfile
-  tenantId:  string
+  customer: TenantCustomerDetail
+  profile: CustomerProfile
+  tenantId: string
   userEmail: string
-  isAdmin?:  boolean
+  isAdmin?: boolean
 }
 
-export function CustomerProfileEditor({ customer, profile: initialProfile, tenantId: _tenantId, userEmail: _userEmail, isAdmin }: Props) {
-  const [profile, setProfile]       = useState<CustomerProfile>(initialProfile)
-  const [noteText, setNoteText]     = useState('')
+export function CustomerProfileEditor({
+  customer,
+  profile: initialProfile,
+  tenantId: _tenantId,
+  userEmail: _userEmail,
+  isAdmin,
+}: Props) {
+  const [profile, setProfile] = useState<CustomerProfile>(initialProfile)
+  const [noteText, setNoteText] = useState('')
   const [marketingOpt, setMarketing] = useState(profile.marketing_opt_in)
   const [isPending, startTransition] = useTransition()
-  const [saveMsg, setSaveMsg]        = useState<string | null>(null)
-  const [error, setError]            = useState<string | null>(null)
+  const [saveMsg, setSaveMsg] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSavePreferences = () => {
     startTransition(async () => {
@@ -80,15 +86,19 @@ export function CustomerProfileEditor({ customer, profile: initialProfile, tenan
         <div className="flex items-center justify-between py-3 border-b border-white/6">
           <div>
             <p className="text-sm text-white/80">Marketing communications</p>
-            <p className="text-xs text-white/30 mt-0.5">Customer opted in to receive marketing emails</p>
+            <p className="text-xs text-white/30 mt-0.5">
+              Customer opted in to receive marketing emails
+            </p>
           </div>
           <button
             type="button"
-            onClick={() => setMarketing(v => !v)}
+            onClick={() => setMarketing((v) => !v)}
             className={`relative h-6 w-11 rounded-full transition-colors duration-200 ${marketingOpt ? 'bg-gold-500' : 'bg-white/10'}`}
             aria-label="Toggle marketing opt-in"
           >
-            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${marketingOpt ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${marketingOpt ? 'translate-x-5' : 'translate-x-0.5'}`}
+            />
           </button>
         </div>
 
@@ -101,7 +111,11 @@ export function CustomerProfileEditor({ customer, profile: initialProfile, tenan
           disabled={isPending}
           className="mt-4 inline-flex items-center gap-2 h-9 px-4 rounded-xl text-sm font-semibold bg-gold-gradient text-graphite-900 hover:shadow-glow-gold disabled:opacity-50 transition-all"
         >
-          {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+          {isPending ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Save className="w-3.5 h-3.5" />
+          )}
           Save preferences
         </button>
       </motion.div>
@@ -134,7 +148,11 @@ export function CustomerProfileEditor({ customer, profile: initialProfile, tenan
               disabled={isPending || !noteText.trim()}
               className="inline-flex items-center gap-2 h-9 px-4 rounded-xl text-sm font-semibold bg-gold-gradient text-graphite-900 hover:shadow-glow-gold disabled:opacity-40 transition-all"
             >
-              {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageSquarePlus className="w-3.5 h-3.5" />}
+              {isPending ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <MessageSquarePlus className="w-3.5 h-3.5" />
+              )}
               Add note
             </button>
           </div>
@@ -144,7 +162,7 @@ export function CustomerProfileEditor({ customer, profile: initialProfile, tenan
             <p className="text-xs text-white/30 text-center py-4">No notes yet</p>
           ) : (
             <div className="space-y-3">
-              {[...profile.notes].reverse().map(note => (
+              {[...profile.notes].reverse().map((note) => (
                 <NoteItem key={note.id} note={note} />
               ))}
             </div>

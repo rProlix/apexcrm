@@ -1,9 +1,9 @@
 // app/api/product-360/packages/[packageId]/frames/route.ts
-import { NextRequest, NextResponse }      from 'next/server'
-import { resolveP360ApiUser }             from '@/lib/product-360/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { resolveP360ApiUser } from '@/lib/product-360/auth'
 import { upsertFrame, syncPackageAfterFrameUpload } from '@/lib/product-360/frameService'
-import { uploadFrame }                    from '@/lib/product-360/storage'
-import { getSupabaseServerClient }        from '@/lib/supabase/server'
+import { uploadFrame } from '@/lib/product-360/storage'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +38,10 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     if (error) throw new Error(error.message)
     return NextResponse.json({ frames })
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed' }, { status: 500 })
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Failed' },
+      { status: 500 }
+    )
   }
 }
 
@@ -67,7 +70,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     .maybeSingle()
 
   if (!pkg) return NextResponse.json({ error: 'Package not found' }, { status: 404 })
-  const productId        = (pkg as Record<string, unknown>).product_id as string
+  const productId = (pkg as Record<string, unknown>).product_id as string
   const targetFrameCount = ((pkg as Record<string, unknown>).target_frame_count as number) || 36
 
   const contentType = req.headers.get('content-type') ?? ''
@@ -75,61 +78,89 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (contentType.includes('multipart/form-data')) {
     // ─── File upload ──────────────────────────────────────────────────────────
     let formData: FormData
-    try { formData = await req.formData() }
-    catch { return NextResponse.json({ error: 'Invalid form data' }, { status: 400 }) }
+    try {
+      formData = await req.formData()
+    } catch {
+      return NextResponse.json({ error: 'Invalid form data' }, { status: 400 })
+    }
 
-    const file       = formData.get('file') as File | null
-    const frameIndex = parseInt(formData.get('frameIndex') as string ?? '0', 10)
-    const angleDeg   = parseFloat(formData.get('angleDegrees') as string ?? String(Math.round((360 / targetFrameCount) * frameIndex)))
+    const file = formData.get('file') as File | null
+    const frameIndex = parseInt((formData.get('frameIndex') as string) ?? '0', 10)
+    const angleDeg = parseFloat(
+      (formData.get('angleDegrees') as string) ??
+        String(Math.round((360 / targetFrameCount) * frameIndex))
+    )
 
     if (!file) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
 
     const buffer = await file.arrayBuffer()
-    const ext    = file.type === 'image/webp' ? 'webp' : file.type === 'image/png' ? 'png' : 'jpg'
+    const ext = file.type === 'image/webp' ? 'webp' : file.type === 'image/png' ? 'png' : 'jpg'
 
     const { imageUrl, storagePath } = await uploadFrame({
-      tenantId, productId, packageId, frameIndex,
-      buffer, contentType: file.type, ext,
+      tenantId,
+      productId,
+      packageId,
+      frameIndex,
+      buffer,
+      contentType: file.type,
+      ext,
     })
 
     const frame = await upsertFrame({
-      packageId, tenantId, productId, frameIndex,
+      packageId,
+      tenantId,
+      productId,
+      frameIndex,
       angleDegrees: angleDeg,
-      imageUrl, storagePath,
+      imageUrl,
+      storagePath,
       fileSize: buffer.byteLength,
     })
 
     await syncPackageAfterFrameUpload({
-      packageId, tenantId, targetFrameCount,
-      newFrameIndex: frameIndex, newImageUrl: imageUrl,
+      packageId,
+      tenantId,
+      targetFrameCount,
+      newFrameIndex: frameIndex,
+      newImageUrl: imageUrl,
     })
 
     return NextResponse.json({ frame }, { status: 201 })
-
   } else {
     // ─── JSON image URL registration ──────────────────────────────────────────
     let body: Record<string, unknown>
-    try { body = await req.json() }
-    catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
 
-    const imageUrl   = body.imageUrl   as string | undefined
+    const imageUrl = body.imageUrl as string | undefined
     const frameIndex = body.frameIndex as number | undefined
-    const angleDeg   = (body.angleDegrees as number | undefined)
-      ?? Math.round((360 / targetFrameCount) * (frameIndex ?? 0))
+    const angleDeg =
+      (body.angleDegrees as number | undefined) ??
+      Math.round((360 / targetFrameCount) * (frameIndex ?? 0))
 
-    if (!imageUrl)                            return NextResponse.json({ error: 'imageUrl is required' }, { status: 400 })
-    if (frameIndex === undefined || frameIndex === null) return NextResponse.json({ error: 'frameIndex is required' }, { status: 400 })
+    if (!imageUrl) return NextResponse.json({ error: 'imageUrl is required' }, { status: 400 })
+    if (frameIndex === undefined || frameIndex === null)
+      return NextResponse.json({ error: 'frameIndex is required' }, { status: 400 })
 
     const frame = await upsertFrame({
-      packageId, tenantId, productId, frameIndex,
+      packageId,
+      tenantId,
+      productId,
+      frameIndex,
       angleDegrees: angleDeg,
       imageUrl,
       altText: body.altText as string | undefined,
     })
 
     await syncPackageAfterFrameUpload({
-      packageId, tenantId, targetFrameCount,
-      newFrameIndex: frameIndex, newImageUrl: imageUrl,
+      packageId,
+      tenantId,
+      targetFrameCount,
+      newFrameIndex: frameIndex,
+      newImageUrl: imageUrl,
     })
 
     return NextResponse.json({ frame }, { status: 201 })

@@ -19,17 +19,14 @@ import { isModuleEnabled } from '@/lib/modules/isModuleEnabled'
  * @param userRole  - Caller's role string — owner bypasses the check
  */
 export async function checkModuleAccess(
-  tenantId:  string | null | undefined,
+  tenantId: string | null | undefined,
   moduleKey: string,
-  userRole?: string,
+  userRole?: string
 ): Promise<NextResponse | null> {
   if (userRole === 'owner') return null
 
   if (!tenantId) {
-    return NextResponse.json(
-      { error: 'Tenant context required' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
   }
 
   const enabled = await isModuleEnabled(tenantId, moduleKey)

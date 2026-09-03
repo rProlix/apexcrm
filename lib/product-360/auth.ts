@@ -1,16 +1,16 @@
 // lib/product-360/auth.ts
 // Auth helpers for the product_360 module. SERVER-ONLY.
 
-import type { NextRequest }       from 'next/server'
-import { resolveStoreUser }       from '@/lib/auth/resolveStoreUser'
-import { getUserContext }          from '@/lib/auth/getUserContext'
-import type { UserContext }        from '@/lib/auth/types'
+import type { NextRequest } from 'next/server'
+import { resolveStoreUser } from '@/lib/auth/resolveStoreUser'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import type { UserContext } from '@/lib/auth/types'
 
 export interface P360ApiUser {
-  userId:   string
-  role:     string
+  userId: string
+  role: string
   tenantId: string
-  isOwner:  boolean
+  isOwner: boolean
 }
 
 /**
@@ -21,10 +21,10 @@ export async function resolveP360ApiUser(req: NextRequest): Promise<P360ApiUser 
   const user = await resolveStoreUser(req)
   if (!user) return null
   return {
-    userId:   user.id,
-    role:     user.role,
+    userId: user.id,
+    role: user.role,
     tenantId: user.tenant_id,
-    isOwner:  user.role === 'owner',
+    isOwner: user.role === 'owner',
   }
 }
 
@@ -35,7 +35,7 @@ export async function resolveP360ApiUser(req: NextRequest): Promise<P360ApiUser 
  */
 export function resolveTenantId(
   user: { role: string; tenantId: string },
-  requestedTenantId?: string | null,
+  requestedTenantId?: string | null
 ): string | null {
   if (!user.tenantId) return null
   if (user.role === 'owner') {
@@ -48,11 +48,9 @@ export function resolveTenantId(
  * Returns the user context for server components.
  * Redirects to /login or /dashboard?error=forbidden if not admin/owner.
  */
-export async function requireP360ManagerAccess(
-  tenantId?: string,
-): Promise<UserContext> {
+export async function requireP360ManagerAccess(tenantId?: string): Promise<UserContext> {
   const { redirect } = await import('next/navigation')
-  const ctx          = await getUserContext()
+  const ctx = await getUserContext()
 
   if (!ctx) redirect('/login')
   if (!ctx) throw new Error('unreachable')

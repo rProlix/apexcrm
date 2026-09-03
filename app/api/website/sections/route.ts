@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const url    = new URL(req.url)
+  const url = new URL(req.url)
   const pageId = url.searchParams.get('page_id')
   if (!pageId) return NextResponse.json({ error: 'page_id required' }, { status: 400 })
 
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const body   = await req.json()
+  const body = await req.json()
   const pageId = body.page_id
   if (!pageId) return NextResponse.json({ error: 'page_id required' }, { status: 400 })
 
@@ -63,13 +63,13 @@ export async function POST(req: NextRequest) {
   const { data, error } = await db
     .from('site_sections')
     .insert({
-      tenant_id:    page.tenant_id,
-      page_id:      pageId,
+      tenant_id: page.tenant_id,
+      page_id: pageId,
       section_type: section_type,
-      section_key:  section_key ?? null,
-      content:      content ?? {},
-      sort_order:   sort_order ?? 0,
-      is_visible:   is_visible ?? true,
+      section_key: section_key ?? null,
+      content: content ?? {},
+      sort_order: sort_order ?? 0,
+      is_visible: is_visible ?? true,
     })
     .select('*')
     .single()

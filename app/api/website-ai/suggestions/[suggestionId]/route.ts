@@ -10,8 +10,14 @@ import type { AiSuggestionAction, AiSuggestionStatus } from '@/lib/website-ai/ty
 
 type Params = { params: Promise<{ suggestionId: string }> }
 
-const VALID_STATUSES  = new Set<AiSuggestionStatus>(['pending', 'accepted', 'rejected', 'edited'])
-const VALID_ACTIONS   = new Set<AiSuggestionAction>(['create', 'update', 'append', 'replace', 'ignore'])
+const VALID_STATUSES = new Set<AiSuggestionStatus>(['pending', 'accepted', 'rejected', 'edited'])
+const VALID_ACTIONS = new Set<AiSuggestionAction>([
+  'create',
+  'update',
+  'append',
+  'replace',
+  'ignore',
+])
 
 export async function PATCH(req: NextRequest, { params }: Params) {
   const { suggestionId } = await params
@@ -42,7 +48,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   if (!suggestion) return NextResponse.json({ error: 'Suggestion not found' }, { status: 404 })
   if (suggestion.status === 'applied') {
-    return NextResponse.json({ error: 'Cannot edit an already-applied suggestion.' }, { status: 409 })
+    return NextResponse.json(
+      { error: 'Cannot edit an already-applied suggestion.' },
+      { status: 409 }
+    )
   }
 
   let body: Record<string, unknown>
@@ -54,10 +63,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const updates: Record<string, unknown> = {}
 
-  if (typeof body.title === 'string')       updates.title       = body.title.trim()
+  if (typeof body.title === 'string') updates.title = body.title.trim()
   if (typeof body.description === 'string') updates.description = body.description.trim()
   if (typeof body.admin_notes === 'string') updates.admin_notes = body.admin_notes.trim()
-  if (typeof body.reason === 'string')      updates.reason      = body.reason.trim()
+  if (typeof body.reason === 'string') updates.reason = body.reason.trim()
 
   if (body.status !== undefined) {
     const s = body.status as string

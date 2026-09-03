@@ -12,10 +12,10 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = req.nextUrl
-  const status  = searchParams.get('status') ?? ''
+  const status = searchParams.get('status') ?? ''
   const payment = searchParams.get('payment_status') ?? ''
-  const limit   = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 200)
-  const date    = searchParams.get('date') // 'today' | ISO date
+  const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 200)
+  const date = searchParams.get('date') // 'today' | ISO date
 
   const supabase = getPOSClient()
   let query = supabase
@@ -28,11 +28,14 @@ export async function GET(req: NextRequest) {
   if (status) query = query.eq('status', status)
   if (payment) query = query.eq('payment_status', payment)
   if (date === 'today') {
-    const d = new Date(); d.setHours(0,0,0,0)
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
     query = query.gte('created_at', d.toISOString())
   } else if (date) {
-    const d = new Date(date); d.setHours(0,0,0,0)
-    const e = new Date(date); e.setHours(23,59,59,999)
+    const d = new Date(date)
+    d.setHours(0, 0, 0, 0)
+    const e = new Date(date)
+    e.setHours(23, 59, 59, 999)
     query = query.gte('created_at', d.toISOString()).lte('created_at', e.toISOString())
   }
 
@@ -53,7 +56,9 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -61,21 +66,24 @@ export async function POST(req: NextRequest) {
   const supabase = getPOSClient()
 
   // Load settings
-  const { data: settings } = await supabase
+  const { data: settings } = (await supabase
     .from('pos_settings')
     .select('*')
     .eq('tenant_id', tenantId)
-    .maybeSingle() as { data: POSSettings | null }
+    .maybeSingle()) as { data: POSSettings | null }
 
   const safeSettings = settings ?? {
-    default_tax_rate: 0, service_fee_enabled: false,
-    service_fee_percent: 0, tips_enabled: true,
+    default_tax_rate: 0,
+    service_fee_enabled: false,
+    service_fee_percent: 0,
+    tips_enabled: true,
     inventory_deduction_timing: 'payment_completed',
   }
 
   const cartItems = (body.items as CartItem[] | undefined) ?? []
-  const discount  = (body.discount as { type: 'percent' | 'fixed_amount'; value: number } | null) ?? null
-  const tipCents  = typeof body.tip_cents === 'number' ? body.tip_cents : 0
+  const discount =
+    (body.discount as { type: 'percent' | 'fixed_amount'; value: number } | null) ?? null
+  const tipCents = typeof body.tip_cents === 'number' ? body.tip_cents : 0
 
   const calc = calculateOrder({
     items: cartItems,
@@ -85,36 +93,38 @@ export async function POST(req: NextRequest) {
   })
 
   // Generate order number
-  const { data: orderNum } = await supabase.rpc('pos_generate_order_number', { p_tenant_id: tenantId })
+  const { data: orderNum } = await supabase.rpc('pos_generate_order_number', {
+    p_tenant_id: tenantId,
+  })
   const orderNumber = orderNum ?? `POS-${Date.now()}`
 
   // Insert order
   const { data: order, error: orderErr } = await supabase
     .from('pos_orders')
     .insert({
-      tenant_id:          tenantId,
-      order_number:       orderNumber,
-      channel:            body.channel ?? 'pos',
-      order_type:         body.order_type ?? 'in_person',
-      status:             body.status ?? 'open',
-      customer_id:        body.customer_id ?? null,
+      tenant_id: tenantId,
+      order_number: orderNumber,
+      channel: body.channel ?? 'pos',
+      order_type: body.order_type ?? 'in_person',
+      status: body.status ?? 'open',
+      customer_id: body.customer_id ?? null,
       customer_account_id: body.customer_account_id ?? null,
-      register_id:        body.register_id ?? null,
-      shift_id:           body.shift_id ?? null,
-      table_name:         body.table_name ?? null,
-      guest_count:        body.guest_count ?? null,
-      cashier_user_id:    user.id,
-      notes:              body.notes ?? null,
-      kitchen_notes:      body.kitchen_notes ?? null,
-      subtotal_cents:     calc.subtotal_cents,
-      discount_cents:     calc.discount_cents,
-      tax_cents:          calc.tax_cents,
-      tip_cents:          calc.tip_cents,
-      service_fee_cents:  calc.service_fee_cents,
-      total_cents:        calc.total_cents,
-      balance_due_cents:  calc.balance_due_cents,
-      currency:           'USD',
-      created_by:         user.id,
+      register_id: body.register_id ?? null,
+      shift_id: body.shift_id ?? null,
+      table_name: body.table_name ?? null,
+      guest_count: body.guest_count ?? null,
+      cashier_user_id: user.id,
+      notes: body.notes ?? null,
+      kitchen_notes: body.kitchen_notes ?? null,
+      subtotal_cents: calc.subtotal_cents,
+      discount_cents: calc.discount_cents,
+      tax_cents: calc.tax_cents,
+      tip_cents: calc.tip_cents,
+      service_fee_cents: calc.service_fee_cents,
+      total_cents: calc.total_cents,
+      balance_due_cents: calc.balance_due_cents,
+      currency: 'USD',
+      created_by: user.id,
     })
     .select('id, order_number, total_cents, balance_due_cents')
     .single()
@@ -126,22 +136,22 @@ export async function POST(req: NextRequest) {
     const itemInserts = cartItems.map((item, idx) => {
       const itemCalc = calc.items[idx]
       return {
-        tenant_id:            tenantId,
-        order_id:             order.id,
-        product_id:           item.product_id ?? null,
-        name:                 item.name,
-        item_type:            item.item_type ?? 'product',
-        quantity:             item.quantity,
-        unit_price_cents:     item.unit_price_cents,
-        base_price_cents:     itemCalc.base_price_cents,
+        tenant_id: tenantId,
+        order_id: order.id,
+        product_id: item.product_id ?? null,
+        name: item.name,
+        item_type: item.item_type ?? 'product',
+        quantity: item.quantity,
+        unit_price_cents: item.unit_price_cents,
+        base_price_cents: itemCalc.base_price_cents,
         modifier_total_cents: itemCalc.modifier_total_cents,
-        tax_cents:            itemCalc.tax_cents,
-        total_cents:          itemCalc.total_cents,
-        taxable:              item.taxable ?? true,
-        tax_rate:             item.tax_rate ?? null,
-        notes:                item.notes || null,
-        kitchen_notes:        item.kitchen_notes || null,
-        sort_order:           idx,
+        tax_cents: itemCalc.tax_cents,
+        total_cents: itemCalc.total_cents,
+        taxable: item.taxable ?? true,
+        tax_rate: item.tax_rate ?? null,
+        notes: item.notes || null,
+        kitchen_notes: item.kitchen_notes || null,
+        sort_order: idx,
       }
     })
 
@@ -155,23 +165,25 @@ export async function POST(req: NextRequest) {
     }
 
     // Insert modifiers
-    const modifierInserts = (insertedItems ?? []).flatMap((insertedItem: { id: string }, idx: number) => {
-      const cartItem = cartItems[idx]
-      return (cartItem?.modifiers ?? []).map((mod) => ({
-        tenant_id:          tenantId,
-        order_item_id:      insertedItem.id,
-        modifier_group_id:  mod.modifier_group_id,
-        modifier_id:        mod.modifier_id,
-        name:               mod.name,
-        modifier_type:      mod.modifier_type,
-        quantity:           mod.quantity,
-        price_delta_cents:  mod.price_delta_cents,
-        total_cents:        Math.round(mod.price_delta_cents * mod.quantity),
-        inventory_item_id:  mod.inventory_item_id ?? null,
-        affects_inventory:  mod.affects_inventory ?? false,
-        quantity_delta:     mod.quantity_delta ?? 0,
-      }))
-    })
+    const modifierInserts = (insertedItems ?? []).flatMap(
+      (insertedItem: { id: string }, idx: number) => {
+        const cartItem = cartItems[idx]
+        return (cartItem?.modifiers ?? []).map((mod) => ({
+          tenant_id: tenantId,
+          order_item_id: insertedItem.id,
+          modifier_group_id: mod.modifier_group_id,
+          modifier_id: mod.modifier_id,
+          name: mod.name,
+          modifier_type: mod.modifier_type,
+          quantity: mod.quantity,
+          price_delta_cents: mod.price_delta_cents,
+          total_cents: Math.round(mod.price_delta_cents * mod.quantity),
+          inventory_item_id: mod.inventory_item_id ?? null,
+          affects_inventory: mod.affects_inventory ?? false,
+          quantity_delta: mod.quantity_delta ?? 0,
+        }))
+      }
+    )
 
     if (modifierInserts.length > 0) {
       await supabase.from('pos_order_item_modifiers').insert(modifierInserts)
@@ -180,13 +192,17 @@ export async function POST(req: NextRequest) {
 
   // Log event
   await supabase.from('pos_order_events').insert({
-    tenant_id: tenantId, order_id: order.id,
-    event_type: 'order_created', message: `Order ${orderNumber} created`,
+    tenant_id: tenantId,
+    order_id: order.id,
+    event_type: 'order_created',
+    message: `Order ${orderNumber} created`,
     created_by: user.id,
   })
 
   // Apply inventory if timing = order_created
-  applyPOSInventoryMovements({ orderId: order.id, tenantId, trigger: 'order_created' }).catch(console.warn)
+  applyPOSInventoryMovements({ orderId: order.id, tenantId, trigger: 'order_created' }).catch(
+    console.warn
+  )
 
   return NextResponse.json({ order }, { status: 201 })
 }

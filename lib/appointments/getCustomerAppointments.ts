@@ -7,12 +7,12 @@ import type { Appointment } from './types'
  * Enforces both tenant_id and customer_id scoping.
  */
 export async function getCustomerAppointments(
-  tenant_id:   string,
+  tenant_id: string,
   customer_id: string,
   options?: {
     upcoming?: boolean
-    past?:     boolean
-    limit?:    number
+    past?: boolean
+    limit?: number
   }
 ): Promise<Appointment[]> {
   const now = new Date().toISOString()
@@ -20,8 +20,8 @@ export async function getCustomerAppointments(
   return getAppointments({
     tenant_id,
     customer_id,
-    from:  options?.upcoming ? now   : undefined,
-    to:    options?.past     ? now   : undefined,
+    from: options?.upcoming ? now : undefined,
+    to: options?.past ? now : undefined,
     limit: options?.limit ?? 100,
   })
 }

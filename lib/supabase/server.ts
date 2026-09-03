@@ -47,27 +47,27 @@ export async function createSessionServerClient() {
   const { url, key: anon } = getSupabaseEnv()
   const [cookieStore, headersList] = await Promise.all([cookies(), headers()])
 
-  const hostname     = headersList.get('host')?.split(':')[0] ?? ''
+  const hostname = headersList.get('host')?.split(':')[0] ?? ''
   const cookieDomain = getCookieDomain(hostname)
 
   return createServerClient<Database>(url, anon, {
-    ...(cookieDomain ? {
-      cookieOptions: {
-        domain:   cookieDomain,
-        path:     '/',
-        sameSite: 'lax' as const,
-        secure:   true,
-      },
-    } : {}),
+    ...(cookieDomain
+      ? {
+          cookieOptions: {
+            domain: cookieDomain,
+            path: '/',
+            sameSite: 'lax' as const,
+            secure: true,
+          },
+        }
+      : {}),
     cookies: {
       getAll() {
         return cookieStore.getAll()
       },
       setAll(cookiesToSet) {
         try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
         } catch {
           // Server Components are read-only; writes are no-ops here.
           // Route handlers and server actions handle cookie writes correctly.

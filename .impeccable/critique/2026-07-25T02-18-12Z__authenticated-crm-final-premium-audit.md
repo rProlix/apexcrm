@@ -2,6 +2,7 @@
 timestamp: 2026-07-25T02-18-12Z
 slug: authenticated-crm-final-premium-audit
 ---
+
 ⚠️ DEGRADED: single-context (the project request did not authorize delegated sub-agents)
 
 # Final design audit

@@ -10,15 +10,12 @@ function forbidden() {
 // ── POST /api/website-import/jobs/[id]/cancel ─────────────────────────────────
 // Cancels a queued or running job.
 
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getUserContext()
   if (!ctx || ctx.role !== 'owner') return forbidden()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = getSupabaseServerClient() as any
+  const db = getSupabaseServerClient() as any
   const jobId = (await params).id
 
   const { data: job } = await db
@@ -36,7 +33,7 @@ const db = getSupabaseServerClient() as any
   const { error } = await db
     .from('website_import_jobs')
     .update({
-      status:       'canceled',
+      status: 'canceled',
       completed_at: new Date().toISOString(),
     })
     .eq('id', jobId)
@@ -45,9 +42,9 @@ const db = getSupabaseServerClient() as any
 
   await db.from('website_import_audit').insert({
     tenant_id: job.tenant_id,
-    job_id:    jobId,
-    action:    'job_canceled',
-    metadata:  {},
+    job_id: jobId,
+    action: 'job_canceled',
+    metadata: {},
   })
 
   return NextResponse.json({ success: true })

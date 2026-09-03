@@ -12,7 +12,7 @@ export const imagineMidjourneyProvider: P360Provider = {
   async generate() {
     throw new Error(
       'ImagineAPI / Midjourney provider has been removed. ' +
-      'Configure GEMINI_API_KEY and use the Gemini provider instead.',
+        'Configure GEMINI_API_KEY and use the Gemini provider instead.'
     )
   },
 }

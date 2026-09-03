@@ -1,6 +1,6 @@
 'use client'
 
-import { cn }             from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import {
   PLAN_CATALOG,
   formatPlanPrice,
@@ -9,30 +9,30 @@ import {
 } from '@/lib/plans/planCatalog'
 
 interface PlanCardData {
-  key:                         CRMPlanKey
-  name:                        string
-  description:                 string
-  price_monthly_cents:         number
-  price_yearly_cents:          number | null
-  is_custom:                   boolean
-  badge?:                      string
-  is_recommended:              boolean
-  included_modules:            CRMModuleKey[]
-  highlight_features:          string[]
-  limits:                      Record<string, number | null | undefined>
-  includes_custom_domain:      boolean
-  includes_white_label_email:  boolean
-  includes_ai_builder:         boolean
+  key: CRMPlanKey
+  name: string
+  description: string
+  price_monthly_cents: number
+  price_yearly_cents: number | null
+  is_custom: boolean
+  badge?: string
+  is_recommended: boolean
+  included_modules: CRMModuleKey[]
+  highlight_features: string[]
+  limits: Record<string, number | null | undefined>
+  includes_custom_domain: boolean
+  includes_white_label_email: boolean
+  includes_ai_builder: boolean
   includes_advanced_analytics: boolean
 }
 
 interface PlanComparisonCardsProps {
-  plans:             PlanCardData[]
-  selectedPlanKey?:  CRMPlanKey
-  onSelectPlan:      (key: CRMPlanKey) => void
-  billingInterval?:  'monthly' | 'yearly'
-  onToggleBilling?:  () => void
-  highlightKey?:     CRMPlanKey
+  plans: PlanCardData[]
+  selectedPlanKey?: CRMPlanKey
+  onSelectPlan: (key: CRMPlanKey) => void
+  billingInterval?: 'monthly' | 'yearly'
+  onToggleBilling?: () => void
+  highlightKey?: CRMPlanKey
 }
 
 export function PlanComparisonCards({
@@ -48,7 +48,12 @@ export function PlanComparisonCards({
       {/* Billing toggle */}
       {onToggleBilling && (
         <div className="flex items-center justify-center gap-3">
-          <span className={cn('text-sm', billingInterval === 'monthly' ? 'text-white' : 'text-white/40')}>
+          <span
+            className={cn(
+              'text-sm',
+              billingInterval === 'monthly' ? 'text-white' : 'text-white/40'
+            )}
+          >
             Monthly
           </span>
           <button
@@ -66,7 +71,9 @@ export function PlanComparisonCards({
               )}
             />
           </button>
-          <span className={cn('text-sm', billingInterval === 'yearly' ? 'text-white' : 'text-white/40')}>
+          <span
+            className={cn('text-sm', billingInterval === 'yearly' ? 'text-white' : 'text-white/40')}
+          >
             Yearly <span className="text-xs text-green-400 ml-1">Save 20%</span>
           </span>
         </div>
@@ -75,11 +82,12 @@ export function PlanComparisonCards({
       {/* Plan cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {plans.map((plan) => {
-          const isSelected    = selectedPlanKey === plan.key
+          const isSelected = selectedPlanKey === plan.key
           const isHighlighted = highlightKey === plan.key
-          const price         = billingInterval === 'yearly' && plan.price_yearly_cents
-            ? `$${Math.floor(plan.price_yearly_cents / 100 / 12)}`
-            : formatPlanPrice(plan.key, 'monthly')
+          const price =
+            billingInterval === 'yearly' && plan.price_yearly_cents
+              ? `$${Math.floor(plan.price_yearly_cents / 100 / 12)}`
+              : formatPlanPrice(plan.key, 'monthly')
 
           return (
             <button
@@ -92,18 +100,20 @@ export function PlanComparisonCards({
                   ? 'border-gold-500/70 bg-gold-500/10 shadow-glow-gold'
                   : isHighlighted
                     ? 'border-blue-500/50 bg-blue-500/5'
-                    : 'border-graphite-600 bg-graphite-800/50 hover:border-graphite-500 hover:bg-graphite-800',
+                    : 'border-graphite-600 bg-graphite-800/50 hover:border-graphite-500 hover:bg-graphite-800'
               )}
             >
               {/* Recommended / badge */}
               {(plan.is_recommended || plan.badge) && (
                 <div className="absolute -top-3 left-4">
-                  <span className={cn(
-                    'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                    plan.is_recommended
-                      ? 'bg-gold-gradient text-graphite-900'
-                      : 'bg-graphite-700 text-white/70 border border-graphite-600'
-                  )}>
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                      plan.is_recommended
+                        ? 'bg-gold-gradient text-graphite-900'
+                        : 'bg-graphite-700 text-white/70 border border-graphite-600'
+                    )}
+                  >
                     {plan.is_recommended ? '★ Recommended' : plan.badge}
                   </span>
                 </div>
@@ -113,7 +123,13 @@ export function PlanComparisonCards({
               {isSelected && (
                 <div className="absolute top-3 right-3">
                   <div className="h-5 w-5 rounded-full bg-gold-500 flex items-center justify-center">
-                    <svg className="h-3 w-3 text-graphite-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <svg
+                      className="h-3 w-3 text-graphite-900"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </div>

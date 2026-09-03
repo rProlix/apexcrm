@@ -11,22 +11,22 @@ import { CreditCard, Receipt, Clock, ArrowRight } from 'lucide-react'
 export const metadata = { title: 'Payments — Customer Portal' }
 
 const STATUS_STYLES: Record<string, string> = {
-  draft:    'text-white/40   bg-white/4          border-white/8',
-  pending:  'text-yellow-400 bg-yellow-400/10    border-yellow-400/20',
-  paid:     'text-emerald-400 bg-emerald-400/10  border-emerald-400/20',
-  failed:   'text-red-400    bg-red-400/10       border-red-400/20',
+  draft: 'text-white/40   bg-white/4          border-white/8',
+  pending: 'text-yellow-400 bg-yellow-400/10    border-yellow-400/20',
+  paid: 'text-emerald-400 bg-emerald-400/10  border-emerald-400/20',
+  failed: 'text-red-400    bg-red-400/10       border-red-400/20',
   canceled: 'text-white/25   bg-white/4          border-white/8',
   refunded: 'text-orange-400 bg-orange-400/10    border-orange-400/20',
 }
 
 export default async function CustomerPaymentsPage() {
   const host = (await headers()).get('host') ?? ''
-  const ctx  = await requireCustomerAuth(host)
+  const ctx = await requireCustomerAuth(host)
 
   const invoices = await getCustomerInvoices(ctx.tenant_id, ctx.customer_id)
 
   const pending = invoices.filter((i) => i.status === 'pending')
-  const paid    = invoices.filter((i) => i.status === 'paid')
+  const paid = invoices.filter((i) => i.status === 'paid')
 
   return (
     <div className="space-y-8">
@@ -44,11 +44,19 @@ export default async function CustomerPaymentsPage() {
       {/* Quick stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Pending', value: pending.length, color: 'text-yellow-400',  bg: 'bg-yellow-400/8'  },
-          { label: 'Paid',    value: paid.length,    color: 'text-emerald-400', bg: 'bg-emerald-400/8' },
-          { label: 'Total',   value: invoices.length, color: 'text-gold-400',   bg: 'bg-gold-400/8'    },
+          {
+            label: 'Pending',
+            value: pending.length,
+            color: 'text-yellow-400',
+            bg: 'bg-yellow-400/8',
+          },
+          { label: 'Paid', value: paid.length, color: 'text-emerald-400', bg: 'bg-emerald-400/8' },
+          { label: 'Total', value: invoices.length, color: 'text-gold-400', bg: 'bg-gold-400/8' },
         ].map((stat) => (
-          <div key={stat.label} className={`${stat.bg} border border-white/6 rounded-2xl p-4 text-center`}>
+          <div
+            key={stat.label}
+            className={`${stat.bg} border border-white/6 rounded-2xl p-4 text-center`}
+          >
             <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
             <p className="text-xs text-white/40 mt-1">{stat.label}</p>
           </div>
@@ -131,7 +139,9 @@ export default async function CustomerPaymentsPage() {
                   <p className="text-xs text-white/35 mt-0.5 truncate max-w-[200px]">{inv.title}</p>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <span className={`text-xs px-2 py-0.5 rounded-md border ${STATUS_STYLES[inv.status] ?? STATUS_STYLES.draft}`}>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-md border ${STATUS_STYLES[inv.status] ?? STATUS_STYLES.draft}`}
+                  >
                     {inv.status}
                   </span>
                   <span className="text-sm font-semibold text-gold-400">

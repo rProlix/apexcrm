@@ -19,23 +19,9 @@ const PERMISSION_MAP: Record<string, string[]> = {
     'manage_customers',
     'view_reports',
   ],
-  manager: [
-    'view_dashboard',
-    'use_modules',
-    'view_customers',
-    'manage_customers',
-    'view_reports',
-  ],
-  staff: [
-    'view_dashboard',
-    'use_modules',
-    'view_customers',
-  ],
-  customer: [
-    'view_own_data',
-    'create_orders',
-    'view_rewards',
-  ],
+  manager: ['view_dashboard', 'use_modules', 'view_customers', 'manage_customers', 'view_reports'],
+  staff: ['view_dashboard', 'use_modules', 'view_customers'],
+  customer: ['view_own_data', 'create_orders', 'view_rewards'],
 }
 
 /**

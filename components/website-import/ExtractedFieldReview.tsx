@@ -6,40 +6,44 @@ import { cn } from '@/lib/utils'
 import { ConfidenceMeter } from './ConfidenceMeter'
 
 export interface ReviewField {
-  id:              string
-  result_key:      string
-  mapped_section:  string | null
-  result_value:    unknown
+  id: string
+  result_key: string
+  mapped_section: string | null
+  result_value: unknown
   confidence_score: number
-  approved:        boolean
+  approved: boolean
 }
 
 interface Props {
-  fields:     ReviewField[]
-  onApprove:  (ids: string[], approved: boolean, overrides?: Record<string, unknown>) => Promise<void>
-  disabled?:  boolean
+  fields: ReviewField[]
+  onApprove: (
+    ids: string[],
+    approved: boolean,
+    overrides?: Record<string, unknown>
+  ) => Promise<void>
+  disabled?: boolean
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  businessName:   'Business Name',
-  description:    'About / Description',
-  logoUrl:        'Logo URL',
-  faviconUrl:     'Favicon URL',
-  phone:          'Phone Number',
-  email:          'Email Address',
-  address:        'Address',
-  hours:          'Hours of Operation',
-  socialLinks:    'Social Links',
-  services:       'Services',
-  testimonials:   'Testimonials',
-  faqItems:       'FAQ Items',
-  images:         'Images',
-  brandColors:    'Brand Colors',
-  seoTitle:       'SEO Title',
+  businessName: 'Business Name',
+  description: 'About / Description',
+  logoUrl: 'Logo URL',
+  faviconUrl: 'Favicon URL',
+  phone: 'Phone Number',
+  email: 'Email Address',
+  address: 'Address',
+  hours: 'Hours of Operation',
+  socialLinks: 'Social Links',
+  services: 'Services',
+  testimonials: 'Testimonials',
+  faqItems: 'FAQ Items',
+  images: 'Images',
+  brandColors: 'Brand Colors',
+  seoTitle: 'SEO Title',
   seoDescription: 'SEO Description',
-  mapUrl:         'Map URL',
-  latitude:       'Latitude',
-  longitude:      'Longitude',
+  mapUrl: 'Map URL',
+  latitude: 'Latitude',
+  longitude: 'Longitude',
 }
 
 function formatValue(value: unknown): string {
@@ -53,18 +57,24 @@ function formatValue(value: unknown): string {
   return String(value)
 }
 
-function isLowConfidence(score: number) { return score < 0.50 }
+function isLowConfidence(score: number) {
+  return score < 0.5
+}
 
 export function ExtractedFieldReview({ fields, onApprove, disabled }: Props) {
-  const [expanded,  setExpanded]  = useState<Set<string>>(new Set())
-  const [editing,   setEditing]   = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [editing, setEditing] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
-  const [pending,   setPending]   = useState<Set<string>>(new Set())
+  const [pending, setPending] = useState<Set<string>>(new Set())
 
   function toggleExpand(id: string) {
     setExpanded((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) { next.delete(id) } else { next.add(id) }
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
       return next
     })
   }
@@ -84,7 +94,13 @@ export function ExtractedFieldReview({ fields, onApprove, disabled }: Props) {
     if (ids.length === 0) return
     ids.forEach((id) => setPending((prev) => new Set([...prev, id])))
     await onApprove(ids, true)
-    ids.forEach((id) => setPending((prev) => { const n = new Set(prev); n.delete(id); return n }))
+    ids.forEach((id) =>
+      setPending((prev) => {
+        const n = new Set(prev)
+        n.delete(id)
+        return n
+      })
+    )
   }
 
   async function handleSaveEdit(field: ReviewField) {
@@ -99,7 +115,7 @@ export function ExtractedFieldReview({ fields, onApprove, disabled }: Props) {
   }
 
   const approvedCount = fields.filter((f) => f.approved).length
-  const lowConfCount  = fields.filter((f) => isLowConfidence(f.confidence_score)).length
+  const lowConfCount = fields.filter((f) => isLowConfidence(f.confidence_score)).length
 
   return (
     <div className="space-y-4">
@@ -128,11 +144,11 @@ export function ExtractedFieldReview({ fields, onApprove, disabled }: Props) {
       {/* Fields list */}
       <div className="space-y-2">
         {fields.map((field) => {
-          const isExpanded    = expanded.has(field.id)
+          const isExpanded = expanded.has(field.id)
           const isEditingThis = editing === field.id
-          const isPending     = pending.has(field.id)
-          const isLow         = isLowConfidence(field.confidence_score)
-          const label         = FIELD_LABELS[field.result_key] ?? field.result_key
+          const isPending = pending.has(field.id)
+          const isLow = isLowConfidence(field.confidence_score)
+          const label = FIELD_LABELS[field.result_key] ?? field.result_key
 
           return (
             <div
@@ -143,7 +159,7 @@ export function ExtractedFieldReview({ fields, onApprove, disabled }: Props) {
                   ? 'border-emerald-400/20 bg-emerald-400/[0.03]'
                   : isLow
                     ? 'border-amber-400/20 bg-amber-400/[0.03]'
-                    : 'border-white/8 bg-white/[0.02]',
+                    : 'border-white/8 bg-white/[0.02]'
               )}
             >
               {/* Row header */}
@@ -158,7 +174,7 @@ export function ExtractedFieldReview({ fields, onApprove, disabled }: Props) {
                       'w-6 h-6 rounded-md flex items-center justify-center transition-all',
                       field.approved
                         ? 'bg-emerald-400/20 text-emerald-300'
-                        : 'bg-white/5 text-white/20 hover:bg-emerald-400/10 hover:text-emerald-400/70',
+                        : 'bg-white/5 text-white/20 hover:bg-emerald-400/10 hover:text-emerald-400/70'
                     )}
                   >
                     <Check size={12} />
@@ -170,7 +186,7 @@ export function ExtractedFieldReview({ fields, onApprove, disabled }: Props) {
                     className={cn(
                       'w-6 h-6 rounded-md flex items-center justify-center transition-all',
                       !field.approved && 'opacity-0 pointer-events-none',
-                      'bg-white/5 text-white/20 hover:bg-red-400/10 hover:text-red-400/70',
+                      'bg-white/5 text-white/20 hover:bg-red-400/10 hover:text-red-400/70'
                     )}
                   >
                     <X size={12} />
@@ -203,11 +219,16 @@ export function ExtractedFieldReview({ fields, onApprove, disabled }: Props) {
                 {/* Edit button */}
                 <button
                   onClick={() => {
-                    if (isEditingThis) { setEditing(null); return }
+                    if (isEditingThis) {
+                      setEditing(null)
+                      return
+                    }
                     setEditing(field.id)
-                    setEditValue(typeof field.result_value === 'string'
-                      ? field.result_value
-                      : JSON.stringify(field.result_value, null, 2))
+                    setEditValue(
+                      typeof field.result_value === 'string'
+                        ? field.result_value
+                        : JSON.stringify(field.result_value, null, 2)
+                    )
                   }}
                   className="flex-shrink-0 p-1.5 text-white/20 hover:text-white/50 transition-colors"
                   title="Edit value"

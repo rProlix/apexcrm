@@ -7,7 +7,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveEvent } from '@/lib/pov/events'
 import { destroyGuestSession } from '@/lib/pov/guestSession'
 
-interface RouteCtx { params: Promise<{ eventRef: string }> }
+interface RouteCtx {
+  params: Promise<{ eventRef: string }>
+}
 
 export async function POST(_req: NextRequest, { params }: RouteCtx) {
   const { eventRef } = await params

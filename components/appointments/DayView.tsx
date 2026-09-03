@@ -5,8 +5,8 @@ import { motion } from 'framer-motion'
 import { AppointmentCard } from './AppointmentCard'
 import type { Appointment } from '@/lib/appointments/types'
 
-const HOURS  = Array.from({ length: 24 }, (_, i) => i)
-const HOUR_H = 72  // px per hour — more spacious in single-day view
+const HOURS = Array.from({ length: 24 }, (_, i) => i)
+const HOUR_H = 72 // px per hour — more spacious in single-day view
 
 function getTop(iso: string) {
   const d = new Date(iso)
@@ -17,22 +17,22 @@ function getHeight(starts: string, ends: string) {
   return Math.max((mins / 60) * HOUR_H, 32)
 }
 function fmtHour(h: number) {
-  if (h === 0)  return '12 AM'
+  if (h === 0) return '12 AM'
   if (h === 12) return '12 PM'
   return h < 12 ? `${h}:00 AM` : `${h - 12}:00 PM`
 }
 
 interface Props {
-  date:         Date
+  date: Date
   appointments: Appointment[]
-  onSelect:     (appt: Appointment) => void
+  onSelect: (appt: Appointment) => void
   onHourClick?: (iso: string) => void
 }
 
 export function DayView({ date, appointments, onSelect, onHourClick }: Props) {
   const isToday = date.toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10)
-  const now     = new Date()
-  const nowTop  = (now.getHours() + now.getMinutes() / 60) * HOUR_H
+  const now = new Date()
+  const nowTop = (now.getHours() + now.getMinutes() / 60) * HOUR_H
 
   const dayAppts = appointments.filter(
     (a) => a.starts_at.slice(0, 10) === date.toISOString().slice(0, 10)
@@ -48,7 +48,9 @@ export function DayView({ date, appointments, onSelect, onHourClick }: Props) {
             style={{ height: HOUR_H }}
             className="flex items-start justify-end pr-3 pt-1"
           >
-            <span className="text-xs text-white/25 tabular-nums whitespace-nowrap">{fmtHour(h)}</span>
+            <span className="text-xs text-white/25 tabular-nums whitespace-nowrap">
+              {fmtHour(h)}
+            </span>
           </div>
         ))}
       </div>
@@ -95,22 +97,18 @@ export function DayView({ date, appointments, onSelect, onHourClick }: Props) {
 
         {/* Appointments */}
         {dayAppts.map((appt) => {
-          const top    = getTop(appt.starts_at)
+          const top = getTop(appt.starts_at)
           const height = getHeight(appt.starts_at, appt.ends_at)
 
           return (
             <motion.div
               key={appt.id}
               initial={{ opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1   }}
+              animate={{ opacity: 1, scale: 1 }}
               style={{ top, height }}
               className="absolute left-2 right-2 z-20"
             >
-              <AppointmentCard
-                appointment={appt}
-                compact={height < 60}
-                onClick={onSelect}
-              />
+              <AppointmentCard appointment={appt} compact={height < 60} onClick={onSelect} />
             </motion.div>
           )
         })}

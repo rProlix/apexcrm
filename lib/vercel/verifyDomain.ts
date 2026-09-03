@@ -2,12 +2,12 @@
 // Triggers domain verification on Vercel and syncs the result back to the DB.
 
 import { vercelClient, isVercelConfigured } from './client'
-import { getSupabaseServerClient }           from '@/lib/supabase/server'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface VerifyDomainResult {
-  verified:   boolean
-  sslStatus:  'pending' | 'active' | 'failed'
-  error:      string | null
+  verified: boolean
+  sslStatus: 'pending' | 'active' | 'failed'
+  error: string | null
   configured: boolean
 }
 
@@ -19,8 +19,8 @@ export interface VerifyDomainResult {
  * and logs the DB update only.
  */
 export async function verifyDomainOnVercel(
-  domain:   string,
-  tenantId: string,
+  domain: string,
+  tenantId: string
 ): Promise<VerifyDomainResult> {
   if (!isVercelConfigured()) {
     return { verified: false, sslStatus: 'pending', error: null, configured: false }
@@ -28,10 +28,10 @@ export async function verifyDomainOnVercel(
 
   const { data, error } = await vercelClient.post<{ verified: boolean }>(
     `/v9/projects/${vercelClient.projectId}/domains/${domain}/verify`,
-    {},
+    {}
   )
 
-  const verified  = !error && (data?.verified ?? false)
+  const verified = !error && (data?.verified ?? false)
   const sslStatus: 'pending' | 'active' | 'failed' = error
     ? 'failed'
     : verified
@@ -43,9 +43,9 @@ export async function verifyDomainOnVercel(
   await db
     .from('tenant_domains')
     .update({
-      is_verified:      verified,
-      verified:         verified,
-      ssl_status:       sslStatus,
+      is_verified: verified,
+      verified: verified,
+      ssl_status: sslStatus,
       last_verified_at: new Date().toISOString(),
     })
     .eq('hostname', domain)
@@ -57,8 +57,8 @@ export async function verifyDomainOnVercel(
       .from('site_settings')
       .update({
         custom_domain: domain,
-        domain_type:   'custom',
-        domain_mode:   'custom',
+        domain_type: 'custom',
+        domain_mode: 'custom',
       })
       .eq('tenant_id', tenantId)
   }

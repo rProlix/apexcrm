@@ -2,10 +2,10 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface LinkCustomerAccountInput {
-  tenantId:   string
+  tenantId: string
   customerId: string
   authUserId: string
-  email:      string
+  email: string
 }
 
 /**
@@ -36,12 +36,12 @@ export async function linkCustomerAccount(
   const { data: account, error } = await supabase
     .from('customer_accounts')
     .insert({
-      tenant_id:   tenantId,
+      tenant_id: tenantId,
       customer_id: customerId,
       auth_user_id: authUserId,
       email,
       status: 'active',
-      role:   'customer',
+      role: 'customer',
     })
     .select('id')
     .single()
@@ -58,15 +58,8 @@ export async function linkCustomerAccount(
  * Unlinks an auth account from a tenant customer record.
  * Strictly scoped by tenant_id.
  */
-export async function unlinkCustomerAccount(
-  tenantId:  string,
-  accountId: string
-): Promise<void> {
+export async function unlinkCustomerAccount(tenantId: string, accountId: string): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
-  await supabase
-    .from('customer_accounts')
-    .delete()
-    .eq('id', accountId)
-    .eq('tenant_id', tenantId)
+  await supabase.from('customer_accounts').delete().eq('id', accountId).eq('tenant_id', tenantId)
 }

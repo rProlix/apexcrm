@@ -14,10 +14,7 @@ import type { WebsiteImagePlan } from '@/lib/ai/websiteImageTypes'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: planId } = await params
   const ctx = await getUserContext()
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -33,14 +30,11 @@ export async function POST(
     .eq('id', planId)
     .single()
 
-  if (planErr || !plan)
-    return NextResponse.json({ error: 'Plan not found.' }, { status: 404 })
+  if (planErr || !plan) return NextResponse.json({ error: 'Plan not found.' }, { status: 404 })
 
   const typedPlan = plan as WebsiteImagePlan
 
-  const access = await requireAiAutofillAccess(
-    ctx.role === 'owner' ? typedPlan.tenant_id : null,
-  )
+  const access = await requireAiAutofillAccess(ctx.role === 'owner' ? typedPlan.tenant_id : null)
   if (!access || access.tenantId !== typedPlan.tenant_id)
     return NextResponse.json({ error: 'Tenant access denied.' }, { status: 403 })
 
@@ -55,19 +49,22 @@ export async function POST(
 
   // ── Generate image ────────────────────────────────────────────────────────
   const result = await generateWebsiteImage({
-    plan:         typedPlan,
-    tenantId:     typedPlan.tenant_id,
+    plan: typedPlan,
+    tenantId: typedPlan.tenant_id,
     businessType: null,
-    createdBy:    getSafeCreatedBy(ctx.auth_id),
+    createdBy: getSafeCreatedBy(ctx.auth_id),
   })
 
   if (result.error) {
-    return NextResponse.json({
-      error:         result.error,
-      jobId:         result.jobId,
-      step:          'generate',
-      applied:       false,
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: result.error,
+        jobId: result.jobId,
+        step: 'generate',
+        applied: false,
+      },
+      { status: 500 }
+    )
   }
 
   // ── Apply to section ──────────────────────────────────────────────────────
@@ -80,15 +77,15 @@ export async function POST(
       .single()
 
     return NextResponse.json({
-      generated:   true,
-      applied:     false,
+      generated: true,
+      applied: false,
       applySkipped: true,
-      reason:      'No section linked to this plan. Image generated and saved.',
-      jobId:       result.jobId,
-      publicUrl:   result.publicUrl,
+      reason: 'No section linked to this plan. Image generated and saved.',
+      jobId: result.jobId,
+      publicUrl: result.publicUrl,
       storagePath: result.storagePath,
-      altText:     result.altText,
-      plan:        updatedPlan,
+      altText: result.altText,
+      plan: updatedPlan,
     })
   }
 
@@ -100,14 +97,17 @@ export async function POST(
     .single()
 
   if (sectionErr || !section) {
-    return NextResponse.json({
-      generated:   true,
-      applied:     false,
-      error:       `Section ${typedPlan.section_id} not found — image was generated but not applied.`,
-      jobId:       result.jobId,
-      publicUrl:   result.publicUrl,
-      storagePath: result.storagePath,
-    }, { status: 207 })
+    return NextResponse.json(
+      {
+        generated: true,
+        applied: false,
+        error: `Section ${typedPlan.section_id} not found — image was generated but not applied.`,
+        jobId: result.jobId,
+        publicUrl: result.publicUrl,
+        storagePath: result.storagePath,
+      },
+      { status: 207 }
+    )
   }
 
   const { contentPatch, placementDescription } = buildImageContentPatch(
@@ -115,12 +115,12 @@ export async function POST(
     typedPlan.image_role,
     result.publicUrl,
     result.altText,
-    planId,
+    planId
   )
 
   const mergedContent = mergeImageIntoContent(
     section.content as Record<string, unknown>,
-    contentPatch,
+    contentPatch
   )
 
   const { error: updateErr } = await supabase
@@ -130,21 +130,24 @@ export async function POST(
     .eq('tenant_id', typedPlan.tenant_id)
 
   if (updateErr) {
-    return NextResponse.json({
-      generated:   true,
-      applied:     false,
-      error:       `Section update failed: ${updateErr.message}`,
-      jobId:       result.jobId,
-      publicUrl:   result.publicUrl,
-      storagePath: result.storagePath,
-    }, { status: 207 })
+    return NextResponse.json(
+      {
+        generated: true,
+        applied: false,
+        error: `Section update failed: ${updateErr.message}`,
+        jobId: result.jobId,
+        publicUrl: result.publicUrl,
+        storagePath: result.storagePath,
+      },
+      { status: 207 }
+    )
   }
 
   // Mark plan as applied — stamp applied_at (migration 054 column)
   await supabase
     .from('website_image_plans')
     .update({
-      status:     'applied',
+      status: 'applied',
       applied_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     } as never)
@@ -158,25 +161,25 @@ export async function POST(
 
   console.log('[AI-IMAGE] generate-and-apply complete', {
     planId,
-    jobId:       result.jobId,
-    publicUrl:   result.publicUrl,
+    jobId: result.jobId,
+    publicUrl: result.publicUrl,
     storagePath: result.storagePath,
-    sectionId:   typedPlan.section_id,
+    sectionId: typedPlan.section_id,
     sectionType: section.section_type,
     placementDescription,
   })
 
   return NextResponse.json({
-    generated:           true,
-    applied:             true,
-    jobId:               result.jobId,
-    publicUrl:           result.publicUrl,
-    storagePath:         result.storagePath,
-    altText:             result.altText,
-    sectionId:           typedPlan.section_id,
-    sectionType:         section.section_type,
+    generated: true,
+    applied: true,
+    jobId: result.jobId,
+    publicUrl: result.publicUrl,
+    storagePath: result.storagePath,
+    altText: result.altText,
+    sectionId: typedPlan.section_id,
+    sectionType: section.section_type,
     placementDescription,
-    plan:                finalPlan,
+    plan: finalPlan,
     updatedSectionContent: mergedContent,
   })
 }

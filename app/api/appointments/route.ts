@@ -1,46 +1,51 @@
 // app/api/appointments/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveStoreUser, resolveStoreCustomer } from '@/lib/auth/resolveStoreUser'
-import { getAppointments }       from '@/lib/appointments/getAppointments'
-import { createAppointment }     from '@/lib/appointments/createAppointment'
-import { isTimeSlotAvailable }   from '@/lib/appointments/isTimeSlotAvailable'
-import { sendEmail }                         from '@/lib/email/sendEmail'
+import { getAppointments } from '@/lib/appointments/getAppointments'
+import { createAppointment } from '@/lib/appointments/createAppointment'
+import { isTimeSlotAvailable } from '@/lib/appointments/isTimeSlotAvailable'
+import { sendEmail } from '@/lib/email/sendEmail'
 import { buildAppointmentConfirmationEmail } from '@/lib/email/templates/appointmentConfirmation'
 
 // Sends a confirmation email after a successful appointment creation (fire-and-forget)
 async function sendAppointmentConfirmation(opts: {
-  tenantId:        string
-  tenantName:      string
-  customerEmail?:  string
-  customerName?:   string
-  starts_at:       string
-  ends_at:         string
-  title:           string
-  location?:       string | null
+  tenantId: string
+  tenantName: string
+  customerEmail?: string
+  customerName?: string
+  starts_at: string
+  ends_at: string
+  title: string
+  location?: string | null
 }) {
   if (!opts.customerEmail) return
   const start = new Date(opts.starts_at)
-  const end   = new Date(opts.ends_at)
+  const end = new Date(opts.ends_at)
 
   const tpl = buildAppointmentConfirmationEmail({
-    businessName:    opts.tenantName,
-    customerName:    opts.customerName,
-    appointmentDate: start.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+    businessName: opts.tenantName,
+    customerName: opts.customerName,
+    appointmentDate: start.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }),
     appointmentTime: `${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
-    serviceName:     opts.title,
-    location:        opts.location ?? undefined,
+    serviceName: opts.title,
+    location: opts.location ?? undefined,
   })
 
   await sendEmail({
-    to:       opts.customerEmail,
-    subject:  tpl.subject,
-    html:     tpl.html,
-    text:     tpl.text,
+    to: opts.customerEmail,
+    subject: tpl.subject,
+    html: tpl.html,
+    text: tpl.text,
     category: 'appointment',
     tenantId: opts.tenantId,
-    fromName: opts.tenantName,   // white-label: business name as From display name
+    fromName: opts.tenantName, // white-label: business name as From display name
     metadata: { appointmentStart: opts.starts_at },
-  }).catch(e => console.error('[appointments] confirmation email failed:', e))
+  }).catch((e) => console.error('[appointments] confirmation email failed:', e))
 }
 
 // ─── GET /api/appointments ────────────────────────────────────────────────────
@@ -50,19 +55,20 @@ export async function GET(req: NextRequest) {
   const staffUser = await resolveStoreUser(req)
 
   if (staffUser && (staffUser.role === 'admin' || staffUser.role === 'owner')) {
-    const tenant_id = staffUser.role === 'owner'
-      ? (params.get('tenant_id') ?? staffUser.tenant_id)
-      : staffUser.tenant_id
+    const tenant_id =
+      staffUser.role === 'owner'
+        ? (params.get('tenant_id') ?? staffUser.tenant_id)
+        : staffUser.tenant_id
 
     const appointments = await getAppointments({
       tenant_id,
       customer_id: params.get('customer_id') ?? undefined,
-      staff_id:    params.get('staff_id')    ?? undefined,
-      status:      params.get('status')      ?? undefined,
-      from:        params.get('from')        ?? undefined,
-      to:          params.get('to')          ?? undefined,
-      limit:       params.get('limit')  ? parseInt(params.get('limit')!)  : 200,
-      offset:      params.get('offset') ? parseInt(params.get('offset')!) : 0,
+      staff_id: params.get('staff_id') ?? undefined,
+      status: params.get('status') ?? undefined,
+      from: params.get('from') ?? undefined,
+      to: params.get('to') ?? undefined,
+      limit: params.get('limit') ? parseInt(params.get('limit')!) : 200,
+      offset: params.get('offset') ? parseInt(params.get('offset')!) : 0,
     })
 
     return NextResponse.json({ appointments })
@@ -72,11 +78,11 @@ export async function GET(req: NextRequest) {
 
   if (customerUser) {
     const appointments = await getAppointments({
-      tenant_id:   customerUser.tenant_id,
+      tenant_id: customerUser.tenant_id,
       customer_id: customerUser.customer_id,
-      status:      params.get('status') ?? undefined,
-      from:        params.get('from')   ?? undefined,
-      to:          params.get('to')     ?? undefined,
+      status: params.get('status') ?? undefined,
+      from: params.get('from') ?? undefined,
+      to: params.get('to') ?? undefined,
     })
     return NextResponse.json({ appointments })
   }
@@ -98,9 +104,16 @@ export async function POST(req: NextRequest) {
 
   if (staffUser && (staffUser.role === 'admin' || staffUser.role === 'owner')) {
     const {
-      customer_id, staff_id, appointment_block_id,
-      title, starts_at, ends_at,
-      description, location, notes, timezone,
+      customer_id,
+      staff_id,
+      appointment_block_id,
+      title,
+      starts_at,
+      ends_at,
+      description,
+      location,
+      notes,
+      timezone,
     } = body
 
     if (typeof title !== 'string' || !title.trim()) {
@@ -111,18 +124,21 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await createAppointment({
-      tenant_id:            staffUser.tenant_id,
-      customer_id:          typeof customer_id === 'string' && customer_id ? customer_id : null,
-      staff_id:             typeof staff_id    === 'string' && staff_id    ? staff_id    : null,
-      appointment_block_id: typeof appointment_block_id === 'string' && appointment_block_id ? appointment_block_id : null,
+      tenant_id: staffUser.tenant_id,
+      customer_id: typeof customer_id === 'string' && customer_id ? customer_id : null,
+      staff_id: typeof staff_id === 'string' && staff_id ? staff_id : null,
+      appointment_block_id:
+        typeof appointment_block_id === 'string' && appointment_block_id
+          ? appointment_block_id
+          : null,
       title,
       description: typeof description === 'string' ? description : null,
       starts_at,
       ends_at,
-      location:    typeof location === 'string' ? location : null,
-      notes:       typeof notes    === 'string' ? notes    : null,
-      timezone:    typeof timezone === 'string' ? timezone : 'UTC',
-      created_by:  staffUser.id,
+      location: typeof location === 'string' ? location : null,
+      notes: typeof notes === 'string' ? notes : null,
+      timezone: typeof timezone === 'string' ? timezone : 'UTC',
+      created_by: staffUser.id,
     })
 
     if (result.error) {
@@ -144,14 +160,14 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
       if (customer?.email) {
         void sendAppointmentConfirmation({
-          tenantId:       staffUser.tenant_id,
-          tenantName:     tenant?.name ?? 'Your appointment',
-          customerEmail:  customer.email,
-          customerName:   customer.name ?? undefined,
-          starts_at:      String(starts_at),
-          ends_at:        String(ends_at),
-          title:          String(title),
-          location:       typeof location === 'string' ? location : null,
+          tenantId: staffUser.tenant_id,
+          tenantName: tenant?.name ?? 'Your appointment',
+          customerEmail: customer.email,
+          customerName: customer.name ?? undefined,
+          starts_at: String(starts_at),
+          ends_at: String(ends_at),
+          title: String(title),
+          location: typeof location === 'string' ? location : null,
         })
       }
     }
@@ -164,9 +180,15 @@ export async function POST(req: NextRequest) {
 
   if (customerUser) {
     const {
-      title, starts_at, ends_at,
-      description, location, notes, timezone,
-      staff_id, appointment_block_id,
+      title,
+      starts_at,
+      ends_at,
+      description,
+      location,
+      notes,
+      timezone,
+      staff_id,
+      appointment_block_id,
     } = body
 
     if (typeof title !== 'string' || !title.trim()) {
@@ -192,17 +214,20 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await createAppointment({
-      tenant_id:            customerUser.tenant_id,
-      customer_id:          customerUser.customer_id,
-      staff_id:             typeof staff_id === 'string' && staff_id ? staff_id : null,
-      appointment_block_id: typeof appointment_block_id === 'string' && appointment_block_id ? appointment_block_id : null,
+      tenant_id: customerUser.tenant_id,
+      customer_id: customerUser.customer_id,
+      staff_id: typeof staff_id === 'string' && staff_id ? staff_id : null,
+      appointment_block_id:
+        typeof appointment_block_id === 'string' && appointment_block_id
+          ? appointment_block_id
+          : null,
       title,
       description: typeof description === 'string' ? description : null,
       starts_at,
       ends_at,
-      location:    typeof location === 'string' ? location : null,
-      notes:       typeof notes    === 'string' ? notes    : null,
-      timezone:    typeof timezone === 'string' ? timezone : 'UTC',
+      location: typeof location === 'string' ? location : null,
+      notes: typeof notes === 'string' ? notes : null,
+      timezone: typeof timezone === 'string' ? timezone : 'UTC',
     })
 
     if (result.error) {

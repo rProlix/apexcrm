@@ -33,15 +33,13 @@ export interface TenantContext {
 export async function getTenant(): Promise<TenantContext> {
   const h = await headers()
 
-  const slug       = h.get('x-tenant-slug')     ?? 'public'
-  const hostname   = h.get('x-hostname')         ?? 'localhost'
-  const isPlatform = h.get('x-is-platform')      === 'true'
-  const rawType    = h.get('x-domain-type')      ?? 'platform'
-  const authUid    = h.get('x-auth-uid')         ?? null
+  const slug = h.get('x-tenant-slug') ?? 'public'
+  const hostname = h.get('x-hostname') ?? 'localhost'
+  const isPlatform = h.get('x-is-platform') === 'true'
+  const rawType = h.get('x-domain-type') ?? 'platform'
+  const authUid = h.get('x-auth-uid') ?? null
 
-  const domainType = (rawType === 'subdomain' || rawType === 'custom')
-    ? rawType
-    : 'platform'
+  const domainType = rawType === 'subdomain' || rawType === 'custom' ? rawType : 'platform'
 
   return { slug, hostname, isPlatform, domainType, authUid }
 }

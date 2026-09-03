@@ -3,7 +3,7 @@ type SlackResponse = { ok: boolean; error?: string; response_metadata?: { next_c
 export async function callSlackApi<T extends SlackResponse>(
   method: string,
   token: string,
-  body: Record<string, string | number | boolean | undefined> = {},
+  body: Record<string, string | number | boolean | undefined> = {}
 ): Promise<T> {
   const response = await fetch(`https://slack.com/api/${method}`, {
     method: 'POST',
@@ -14,13 +14,14 @@ export async function callSlackApi<T extends SlackResponse>(
     body: new URLSearchParams(
       Object.entries(body)
         .filter((entry): entry is [string, string | number | boolean] => entry[1] !== undefined)
-        .map(([key, value]) => [key, String(value)]),
+        .map(([key, value]) => [key, String(value)])
     ),
     signal: AbortSignal.timeout(8_000),
   })
   if (!response.ok) throw new Error(`Slack API HTTP ${response.status}`)
-  const payload = await response.json() as T
-  if (!payload.ok) throw new Error(`Slack API ${method} failed: ${payload.error ?? 'unknown_error'}`)
+  const payload = (await response.json()) as T
+  if (!payload.ok)
+    throw new Error(`Slack API ${method} failed: ${payload.error ?? 'unknown_error'}`)
   return payload
 }
 
@@ -36,7 +37,7 @@ export async function getSlackChannelInfo(token: string, channelId: string) {
   const response = await callSlackApi<SlackResponse & { channel?: SlackChannel }>(
     'conversations.info',
     token,
-    { channel: channelId },
+    { channel: channelId }
   )
   return response.channel ?? null
 }
@@ -48,7 +49,12 @@ export async function listSlackChannels(token: string): Promise<SlackChannel[]> 
     const response = await callSlackApi<SlackResponse & { channels?: SlackChannel[] }>(
       'conversations.list',
       token,
-      { types: 'public_channel,private_channel', exclude_archived: false, limit: 200, cursor: cursor || undefined },
+      {
+        types: 'public_channel,private_channel',
+        exclude_archived: false,
+        limit: 200,
+        cursor: cursor || undefined,
+      }
     )
     channels.push(...(response.channels ?? []))
     cursor = response.response_metadata?.next_cursor?.trim() ?? ''
@@ -68,11 +74,14 @@ export type SlackUserProfile = {
   }
 }
 
-export async function getSlackUserInfo(token: string, userId: string): Promise<SlackUserProfile | null> {
+export async function getSlackUserInfo(
+  token: string,
+  userId: string
+): Promise<SlackUserProfile | null> {
   const response = await callSlackApi<SlackResponse & { user?: SlackUserProfile }>(
     'users.info',
     token,
-    { user: userId },
+    { user: userId }
   )
   return response.user ?? null
 }

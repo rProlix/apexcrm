@@ -240,18 +240,16 @@ export async function completeBusinessOnboarding(data: OnboardingData): Promise<
       })
       .maybeSingle()
 
-    await supabase
-      .from('site_settings')
-      .upsert(
-        {
-          tenant_id: tenant.id,
-          subdomain: finalSlug,
-          domain_type: 'subdomain',
-          domain_mode: 'subdomain',
-          is_published: false,
-        },
-        { onConflict: 'tenant_id' }
-      )
+    await supabase.from('site_settings').upsert(
+      {
+        tenant_id: tenant.id,
+        subdomain: finalSlug,
+        domain_type: 'subdomain',
+        domain_mode: 'subdomain',
+        is_published: false,
+      },
+      { onConflict: 'tenant_id' }
+    )
 
     tenantId = tenant.id
     userId = userRecord.id

@@ -1,8 +1,13 @@
 export const dynamic = 'force-dynamic'
 
-import { NextResponse }              from 'next/server'
+import { NextResponse } from 'next/server'
 import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supabase/server'
-import { MODULE_CATALOG, PLAN_CATALOG, type CRMModuleKey, type CRMPlanKey } from '@/lib/plans/planCatalog'
+import {
+  MODULE_CATALOG,
+  PLAN_CATALOG,
+  type CRMModuleKey,
+  type CRMPlanKey,
+} from '@/lib/plans/planCatalog'
 
 /**
  * GET /api/tenant/modules
@@ -13,7 +18,9 @@ import { MODULE_CATALOG, PLAN_CATALOG, type CRMModuleKey, type CRMPlanKey } from
 export async function GET() {
   try {
     const sessionClient = await createSessionServerClient()
-    const { data: { user } } = await sessionClient.auth.getUser()
+    const {
+      data: { user },
+    } = await sessionClient.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ success: false, error: 'Not authenticated.' }, { status: 401 })
@@ -37,44 +44,45 @@ export async function GET() {
       .select('module_key, enabled, is_locked, locked_reason, source, config')
       .eq('tenant_id', profile.tenant_id)
 
-    const modules = ((rows ?? []) as Array<{
-      module_key: string
-      enabled: boolean
-      is_locked: boolean
-      locked_reason: string | null
-      source: string
-      config: Record<string, unknown>
-    }>)
+    const modules = (
+      (rows ?? []) as Array<{
+        module_key: string
+        enabled: boolean
+        is_locked: boolean
+        locked_reason: string | null
+        source: string
+        config: Record<string, unknown>
+      }>
+    )
       .map((db) => {
         const catalog = MODULE_CATALOG[db.module_key as CRMModuleKey]
         if (!catalog) return null
         return {
           key: db.module_key as CRMModuleKey,
-          label:         catalog.label,
-          description:   catalog.description,
-          icon:          catalog.icon,
-          is_premium:    catalog.isPremium,
-          min_plan:      catalog.minPlan,
-          enabled:       db.enabled,
-          is_locked:     db.is_locked,
+          label: catalog.label,
+          description: catalog.description,
+          icon: catalog.icon,
+          is_premium: catalog.isPremium,
+          min_plan: catalog.minPlan,
+          enabled: db.enabled,
+          is_locked: db.is_locked,
           locked_reason: db.locked_reason,
-          source:        db.source,
-          config:        db.config ?? {},
+          source: db.source,
+          config: db.config ?? {},
         }
       })
       .filter((module): module is NonNullable<typeof module> => module !== null)
 
-    const visibleModules = profile.role === 'owner'
-      ? modules
-      : modules.filter((module) => module.enabled)
+    const visibleModules =
+      profile.role === 'owner' ? modules : modules.filter((module) => module.enabled)
 
     return NextResponse.json({
       success: true,
       tenantId: profile.tenant_id,
       userRole: profile.role,
       modules: visibleModules,
-      enabled:  visibleModules.filter((m) => m.enabled).map((m) => m.key),
-      locked:   visibleModules.filter((m) => m.is_locked).map((m) => m.key),
+      enabled: visibleModules.filter((m) => m.enabled).map((m) => m.key),
+      locked: visibleModules.filter((m) => m.is_locked).map((m) => m.key),
     })
   } catch (err) {
     console.error('[/api/tenant/modules GET] error:', err)
@@ -91,7 +99,9 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const sessionClient = await createSessionServerClient()
-    const { data: { user } } = await sessionClient.auth.getUser()
+    const {
+      data: { user },
+    } = await sessionClient.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ success: false, error: 'Not authenticated.' }, { status: 401 })
@@ -111,10 +121,13 @@ export async function PATCH(request: Request) {
     }
 
     if (profile.role !== 'owner') {
-      return NextResponse.json({ success: false, error: 'Only the platform owner can manage modules.' }, { status: 403 })
+      return NextResponse.json(
+        { success: false, error: 'Only the platform owner can manage modules.' },
+        { status: 403 }
+      )
     }
 
-    const body = await request.json() as { module_key: string; enabled: boolean }
+    const body = (await request.json()) as { module_key: string; enabled: boolean }
     const { module_key, enabled } = body
 
     if (!module_key || typeof enabled !== 'boolean') {
@@ -129,18 +142,26 @@ export async function PATCH(request: Request) {
       .maybeSingle()
 
     if (!mod) {
-      return NextResponse.json({
-        success: false,
-        error: 'This module is not enabled for the business.',
-      }, { status: 404 })
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'This module is not enabled for the business.',
+        },
+        { status: 404 }
+      )
     }
 
     if (mod?.is_locked && enabled) {
-      return NextResponse.json({
-        success: false,
-        error:   mod.locked_reason ?? 'This module is locked by your current plan. Please upgrade to enable it.',
-        locked:  true,
-      }, { status: 403 })
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            mod.locked_reason ??
+            'This module is locked by your current plan. Please upgrade to enable it.',
+          locked: true,
+        },
+        { status: 403 }
+      )
     }
 
     // Get tenant's subscription to check plan
@@ -156,11 +177,14 @@ export async function PATCH(request: Request) {
     if (enabled && !planModules.has(module_key as CRMModuleKey)) {
       const catalog = MODULE_CATALOG[module_key as CRMModuleKey]
       const minPlan = catalog?.minPlan ?? 'pro'
-      return NextResponse.json({
-        success: false,
-        error:   `${catalog?.label ?? module_key} requires the ${PLAN_CATALOG[minPlan]?.name ?? 'Pro'} plan. Please upgrade to enable it.`,
-        locked:  true,
-      }, { status: 403 })
+      return NextResponse.json(
+        {
+          success: false,
+          error: `${catalog?.label ?? module_key} requires the ${PLAN_CATALOG[minPlan]?.name ?? 'Pro'} plan. Please upgrade to enable it.`,
+          locked: true,
+        },
+        { status: 403 }
+      )
     }
 
     await admin

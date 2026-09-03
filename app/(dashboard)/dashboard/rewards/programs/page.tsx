@@ -32,13 +32,11 @@ export default async function RewardsProgramsPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-white tracking-tight">Rewards Programs</h1>
-        <p className="text-sm text-white/40 mt-1">Configure earning rules, points, and program settings.</p>
+        <p className="text-sm text-white/40 mt-1">
+          Configure earning rules, points, and program settings.
+        </p>
       </div>
-      <RewardsProgramForm
-        tenantId={tenantId}
-        programs={programs}
-        products={products}
-      />
+      <RewardsProgramForm tenantId={tenantId} programs={programs} products={products} />
     </div>
   )
 }

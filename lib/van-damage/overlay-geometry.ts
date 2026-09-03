@@ -23,8 +23,13 @@ export function resolveDamageOverlayGeometry(input: {
   confidence?: number | null
   minimumConfidence?: number
 }): OverlayGeometryResult {
-  if (input.findingImageId && input.findingImageId !== input.imageId) return { ok: false, reason: 'wrong_image' }
-  if (input.minimumConfidence != null && input.confidence != null && input.confidence < input.minimumConfidence) {
+  if (input.findingImageId && input.findingImageId !== input.imageId)
+    return { ok: false, reason: 'wrong_image' }
+  if (
+    input.minimumConfidence != null &&
+    input.confidence != null &&
+    input.confidence < input.minimumConfidence
+  ) {
     return { ok: false, reason: 'low_confidence' }
   }
   const box = readBox(input.box)
@@ -35,7 +40,14 @@ export function resolveDamageOverlayGeometry(input: {
   if (box.width <= 0 || box.height <= 0) return { ok: false, reason: 'invalid_dimensions' }
 
   const oriented = orientedSize(input.imageWidth, input.imageHeight, input.orientation)
-  const maxValue = Math.max(box.x, box.y, box.width, box.height, box.x + box.width, box.y + box.height)
+  const maxValue = Math.max(
+    box.x,
+    box.y,
+    box.width,
+    box.height,
+    box.x + box.width,
+    box.y + box.height
+  )
   let source: 'normalized' | 'percent' | 'pixel' = 'normalized'
   let normalized = box
 
@@ -107,7 +119,12 @@ function orientedSize(width?: number | null, height?: number | null, orientation
 function applyOrientation(box: NormalizedBox, orientation?: number | null): NormalizedBox {
   switch (orientation) {
     case 3:
-      return { x: 1 - box.x - box.width, y: 1 - box.y - box.height, width: box.width, height: box.height }
+      return {
+        x: 1 - box.x - box.width,
+        y: 1 - box.y - box.height,
+        width: box.width,
+        height: box.height,
+      }
     case 6:
       return { x: 1 - box.y - box.height, y: box.x, width: box.height, height: box.width }
     case 8:

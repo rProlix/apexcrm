@@ -19,7 +19,7 @@ function forbidden() {
 
 async function resolveOwnership(
   ctx: Awaited<ReturnType<typeof getUserContext>>,
-  sectionId: string,
+  sectionId: string
 ) {
   if (!ctx) return null
   const db = getSupabaseServerClient()
@@ -44,8 +44,16 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   const tenantId = await resolveOwnership(ctx, sectionId)
   if (!tenantId) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const body    = await req.json()
-  const allowed = ['content', 'sort_order', 'is_visible', 'section_type', 'section_key', 'style_config', 'animation_config']
+  const body = await req.json()
+  const allowed = [
+    'content',
+    'sort_order',
+    'is_visible',
+    'section_type',
+    'section_key',
+    'style_config',
+    'animation_config',
+  ]
   const patch: Record<string, unknown> = {}
   for (const key of allowed) {
     if (key in body) patch[key] = body[key]
@@ -61,13 +69,17 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     if (isPartialDesignUpdate) {
       const db2 = getSupabaseServerClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: existing } = await (db2.from('site_sections') as any)
+      const { data: existing } = (await (db2.from('site_sections') as any)
         .select('style_config')
         .eq('id', sectionId)
-        .maybeSingle() as { data: { style_config?: Record<string, unknown> } | null; error: unknown }
-      const existingSc = (existing?.style_config && typeof existing.style_config === 'object')
-        ? existing.style_config as Record<string, unknown>
-        : {}
+        .maybeSingle()) as {
+        data: { style_config?: Record<string, unknown> } | null
+        error: unknown
+      }
+      const existingSc =
+        existing?.style_config && typeof existing.style_config === 'object'
+          ? (existing.style_config as Record<string, unknown>)
+          : {}
       patch.style_config = { ...existingSc, ...incoming }
     }
   }
@@ -94,10 +106,7 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
   if (!tenantId) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const db = getSupabaseServerClient()
-  const { error } = await db
-    .from('site_sections')
-    .delete()
-    .eq('id', sectionId)
+  const { error } = await db.from('site_sections').delete().eq('id', sectionId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })

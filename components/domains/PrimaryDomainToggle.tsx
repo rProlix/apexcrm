@@ -1,16 +1,16 @@
 // components/domains/PrimaryDomainToggle.tsx
 'use client'
 
-import { useState }   from 'react'
-import { motion }     from 'framer-motion'
+import { useState } from 'react'
+import { motion } from 'framer-motion'
 import { Star, Loader2 } from 'lucide-react'
 
 interface PrimaryDomainToggleProps {
-  domainId:   string
-  isPrimary:  boolean
+  domainId: string
+  isPrimary: boolean
   isVerified: boolean
-  onChange?:  (isPrimary: boolean) => void
-  disabled?:  boolean
+  onChange?: (isPrimary: boolean) => void
+  disabled?: boolean
 }
 
 export function PrimaryDomainToggle({
@@ -30,9 +30,9 @@ export function PrimaryDomainToggle({
     setLoading(true)
     try {
       const res = await fetch(`/api/domains/${domainId}`, {
-        method:  'PATCH',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ is_primary: true }),
+        body: JSON.stringify({ is_primary: true }),
       })
       if (res.ok) {
         setPrimary(true)
@@ -59,10 +59,11 @@ export function PrimaryDomainToggle({
             : 'cursor-not-allowed bg-zinc-800/20 text-zinc-600'
       }`}
     >
-      {loading
-        ? <Loader2 className="h-3 w-3 animate-spin" />
-        : <Star className={`h-3 w-3 ${primary ? 'fill-current' : ''}`} />
-      }
+      {loading ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        <Star className={`h-3 w-3 ${primary ? 'fill-current' : ''}`} />
+      )}
       {primary ? 'Primary' : 'Set Primary'}
     </motion.button>
   )

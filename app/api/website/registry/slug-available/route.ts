@@ -14,7 +14,8 @@ export async function GET(req: NextRequest) {
   }
   const hint = sanitizeTenantId(req.nextUrl.searchParams.get('tenant_id'))
   const self = sanitizeTenantId(ctx.tenant_id)
-  const tenantId = ctx.role === 'owner' ? (hint ?? self) : (self && hint && self !== hint ? null : self ?? hint)
+  const tenantId =
+    ctx.role === 'owner' ? (hint ?? self) : self && hint && self !== hint ? null : (self ?? hint)
   if (!tenantId) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
 
   const slug = req.nextUrl.searchParams.get('slug') ?? ''

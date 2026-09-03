@@ -2,7 +2,11 @@
 
 // lib/builder/versionsApi.ts — Client-side API helpers for website versioning
 
-import type { WebsiteVersionSummary, WebsiteVersionSource, ClientPageSections } from '@/lib/website/versionTypes'
+import type {
+  WebsiteVersionSummary,
+  WebsiteVersionSource,
+  ClientPageSections,
+} from '@/lib/website/versionTypes'
 
 export async function fetchVersions(): Promise<WebsiteVersionSummary[]> {
   const res = await fetch('/api/website/versions')
@@ -20,10 +24,10 @@ export async function fetchVersions(): Promise<WebsiteVersionSummary[]> {
 export async function createVersionCheckpoint(
   label?: string,
   source: WebsiteVersionSource = 'manual',
-  clientPageSections?: ClientPageSections,
+  clientPageSections?: ClientPageSections
 ): Promise<WebsiteVersionSummary | null> {
   const body: Record<string, unknown> = {
-    label:  label ?? 'Manual checkpoint',
+    label: label ?? 'Manual checkpoint',
     source,
   }
   if (clientPageSections) {
@@ -31,9 +35,9 @@ export async function createVersionCheckpoint(
   }
 
   const res = await fetch('/api/website/versions', {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
+    body: JSON.stringify(body),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
@@ -60,9 +64,9 @@ export async function publishVersion(versionId: string): Promise<boolean> {
 
 export async function renameVersion(versionId: string, label: string): Promise<boolean> {
   const res = await fetch(`/api/website/versions/${versionId}`, {
-    method:  'PATCH',
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ label }),
+    body: JSON.stringify({ label }),
   })
   return res.ok
 }
@@ -74,12 +78,12 @@ export async function triggerAutosave(): Promise<boolean> {
 
 export async function moveSectionDirection(
   sectionId: string,
-  direction: 'up' | 'down',
+  direction: 'up' | 'down'
 ): Promise<boolean> {
   const res = await fetch('/api/website/sections/move', {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ sectionId, direction }),
+    body: JSON.stringify({ sectionId, direction }),
   })
   return res.ok
 }

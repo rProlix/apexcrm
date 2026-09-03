@@ -5,15 +5,18 @@
 import type { CartItem, CartModifierSelection, OrderCalculation, POSSettings } from './types'
 
 interface DiscountInput {
-  type:  'percent' | 'fixed_amount'
-  value: number  // percent (0-100) or cents
+  type: 'percent' | 'fixed_amount'
+  value: number // percent (0-100) or cents
 }
 
 interface CalculateOrderInput {
-  items:          CartItem[]
-  discount?:      DiscountInput | null
-  tip_cents?:     number
-  settings:       Pick<POSSettings, 'default_tax_rate' | 'service_fee_enabled' | 'service_fee_percent' | 'tips_enabled'>
+  items: CartItem[]
+  discount?: DiscountInput | null
+  tip_cents?: number
+  settings: Pick<
+    POSSettings,
+    'default_tax_rate' | 'service_fee_enabled' | 'service_fee_percent' | 'tips_enabled'
+  >
   amount_paid_cents?: number
 }
 
@@ -29,7 +32,7 @@ export function calcModifierTotal(modifiers: CartModifierSelection[]): number {
  * Calculates a single item's total (no tax yet).
  */
 export function calcItemSubtotal(item: CartItem): number {
-  const modTotal   = calcModifierTotal(item.modifiers)
+  const modTotal = calcModifierTotal(item.modifiers)
   const unitWithMod = item.unit_price_cents + modTotal
   return Math.round(unitWithMod * item.quantity)
 }
@@ -38,7 +41,10 @@ export function calcItemSubtotal(item: CartItem): number {
  * Apply a discount to a subtotal amount.
  * Returns discount in cents (never negative, never more than subtotal).
  */
-export function applyDiscount(subtotal: number, discount: DiscountInput | null | undefined): number {
+export function applyDiscount(
+  subtotal: number,
+  discount: DiscountInput | null | undefined
+): number {
   if (!discount) return 0
   let d = 0
   if (discount.type === 'percent') {
@@ -60,41 +66,43 @@ export function calculateOrder(input: CalculateOrderInput): OrderCalculation {
 
   // Per-item calculation
   const itemCalcs = items.map((item) => {
-    const modifierTotal   = calcModifierTotal(item.modifiers)
-    const unitWithMods    = item.unit_price_cents + modifierTotal
-    const subtotalCents   = Math.round(unitWithMods * item.quantity)
-    const discountCents   = 0  // item-level discounts handled separately
+    const modifierTotal = calcModifierTotal(item.modifiers)
+    const unitWithMods = item.unit_price_cents + modifierTotal
+    const subtotalCents = Math.round(unitWithMods * item.quantity)
+    const discountCents = 0 // item-level discounts handled separately
     const effectiveTaxRate = item.taxable
-      ? (item.tax_rate !== null && item.tax_rate !== undefined ? item.tax_rate / 100 : taxRate)
+      ? item.tax_rate !== null && item.tax_rate !== undefined
+        ? item.tax_rate / 100
+        : taxRate
       : 0
-    const taxableBasis  = subtotalCents - discountCents
-    const taxCents      = Math.round(taxableBasis * effectiveTaxRate)
-    const totalCents    = subtotalCents - discountCents + taxCents
+    const taxableBasis = subtotalCents - discountCents
+    const taxCents = Math.round(taxableBasis * effectiveTaxRate)
+    const totalCents = subtotalCents - discountCents + taxCents
 
     return {
-      cart_key:              item.cart_key,
-      base_price_cents:      item.unit_price_cents,
-      modifier_total_cents:  modifierTotal,
-      unit_price_with_mods:  unitWithMods,
-      subtotal_cents:        subtotalCents,
-      discount_cents:        discountCents,
-      tax_cents:             taxCents,
-      total_cents:           totalCents,
+      cart_key: item.cart_key,
+      base_price_cents: item.unit_price_cents,
+      modifier_total_cents: modifierTotal,
+      unit_price_with_mods: unitWithMods,
+      subtotal_cents: subtotalCents,
+      discount_cents: discountCents,
+      tax_cents: taxCents,
+      total_cents: totalCents,
     }
   })
 
-  const subtotalCents  = itemCalcs.reduce((s, i) => s + i.subtotal_cents, 0)
-  const itemTaxCents   = itemCalcs.reduce((s, i) => s + i.tax_cents, 0)
+  const subtotalCents = itemCalcs.reduce((s, i) => s + i.subtotal_cents, 0)
+  const itemTaxCents = itemCalcs.reduce((s, i) => s + i.tax_cents, 0)
 
   // Order-level discount applied to subtotal
-  const discountCents  = applyDiscount(subtotalCents, discount ?? null)
-  const taxedSubtotal  = subtotalCents - discountCents
+  const discountCents = applyDiscount(subtotalCents, discount ?? null)
+  const taxedSubtotal = subtotalCents - discountCents
 
   // If tax is on items, we already computed it. Recompute on discounted subtotal.
   // This handles order-level discount reducing tax base.
   const taxCents = items.every((i) => i.taxable)
     ? Math.round(taxedSubtotal * taxRate)
-    : itemTaxCents  // mixed taxable items — keep per-item tax
+    : itemTaxCents // mixed taxable items — keep per-item tax
 
   const serviceFee = settings.service_fee_enabled
     ? Math.round(taxedSubtotal * (settings.service_fee_percent / 100))
@@ -102,19 +110,19 @@ export function calculateOrder(input: CalculateOrderInput): OrderCalculation {
 
   const safeTip = settings.tips_enabled ? Math.max(0, Math.round(tip_cents)) : 0
 
-  const totalCents       = Math.max(0, taxedSubtotal + taxCents + serviceFee + safeTip)
-  const balanceDueCents  = Math.max(0, totalCents - Math.max(0, amount_paid_cents))
+  const totalCents = Math.max(0, taxedSubtotal + taxCents + serviceFee + safeTip)
+  const balanceDueCents = Math.max(0, totalCents - Math.max(0, amount_paid_cents))
 
   return {
-    items:              itemCalcs,
-    subtotal_cents:     subtotalCents,
-    discount_cents:     discountCents,
-    tax_cents:          taxCents,
-    tip_cents:          safeTip,
-    service_fee_cents:  serviceFee,
-    total_cents:        totalCents,
-    amount_paid_cents:  Math.max(0, amount_paid_cents),
-    balance_due_cents:  balanceDueCents,
+    items: itemCalcs,
+    subtotal_cents: subtotalCents,
+    discount_cents: discountCents,
+    tax_cents: taxCents,
+    tip_cents: safeTip,
+    service_fee_cents: serviceFee,
+    total_cents: totalCents,
+    amount_paid_cents: Math.max(0, amount_paid_cents),
+    balance_due_cents: balanceDueCents,
   }
 }
 

@@ -21,12 +21,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await resolveStoreUser(req)
-  if (!user || !['admin','owner','manager'].includes(user.role)) {
+  if (!user || !['admin', 'owner', 'manager'].includes(user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -36,13 +38,13 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('pos_registers')
     .insert({
-      tenant_id:             user.tenant_id,
-      name:                  body.name,
-      location_name:         body.location_name ?? null,
-      register_code:         body.register_code ?? null,
+      tenant_id: user.tenant_id,
+      name: body.name,
+      location_name: body.location_name ?? null,
+      register_code: body.register_code ?? null,
       cash_tracking_enabled: body.cash_tracking_enabled ?? false,
-      starting_cash_cents:   body.starting_cash_cents ?? 0,
-      created_by:            user.id,
+      starting_cash_cents: body.starting_cash_cents ?? 0,
+      created_by: user.id,
     })
     .select('*')
     .single()

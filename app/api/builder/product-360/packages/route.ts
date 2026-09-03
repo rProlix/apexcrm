@@ -2,9 +2,9 @@
 // Builder API: returns packages and products for the website builder editor.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { resolveP360ApiUser }        from '@/lib/product-360/auth'
-import { listPackages }              from '@/lib/product-360/packageService'
-import { getSupabaseServerClient }   from '@/lib/supabase/server'
+import { resolveP360ApiUser } from '@/lib/product-360/auth'
+import { listPackages } from '@/lib/product-360/packageService'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 

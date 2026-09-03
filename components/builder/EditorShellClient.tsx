@@ -22,26 +22,30 @@ const EditorShellDynamic = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div style={{
-        minHeight:      '100vh',
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        background:     'var(--color-bg, #0f0f13)',
-      }}>
-        <div style={{
-          padding:      '1rem 2rem',
-          borderRadius: '1rem',
-          border:       '1px solid rgba(255,255,255,0.08)',
-          background:   'rgba(0,0,0,0.4)',
-          color:        'rgba(255,255,255,0.6)',
-          fontSize:     '0.875rem',
-        }}>
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--color-bg, #0f0f13)',
+        }}
+      >
+        <div
+          style={{
+            padding: '1rem 2rem',
+            borderRadius: '1rem',
+            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(0,0,0,0.4)',
+            color: 'rgba(255,255,255,0.6)',
+            fontSize: '0.875rem',
+          }}
+        >
           Loading website editor…
         </div>
       </div>
     ),
-  },
+  }
 )
 
 interface Props {

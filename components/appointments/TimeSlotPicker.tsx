@@ -21,40 +21,34 @@ function groupByHour(slots: TimeSlot[]): Map<number, TimeSlot[]> {
 }
 
 function fmtHourLabel(h: number) {
-  if (h === 0)  return '12 AM'
+  if (h === 0) return '12 AM'
   if (h === 12) return '12 PM'
   return h < 12 ? `${h} AM` : `${h - 12} PM`
 }
 
 interface Props {
-  date:              string
+  date: string
   duration_minutes?: number
-  staffId?:          string
-  selected?:         string | null
-  onSelect:          (slot: TimeSlot) => void
-  onBooked?:         () => void
+  staffId?: string
+  selected?: string | null
+  onSelect: (slot: TimeSlot) => void
+  onBooked?: () => void
 }
 
 // Normalise both AvailableSlot ({starts_at, ends_at}) and TimeSlot ({start, end}) shapes
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normaliseSlot(s: any): TimeSlot {
   return {
-    start:     s.starts_at ?? s.start,
-    end:       s.ends_at   ?? s.end,
+    start: s.starts_at ?? s.start,
+    end: s.ends_at ?? s.end,
     available: s.available !== false,
   }
 }
 
-export function TimeSlotPicker({
-  date,
-  duration_minutes,
-  staffId,
-  selected,
-  onSelect,
-}: Props) {
-  const [slots,    setSlots]    = useState<TimeSlot[]>([])
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
+export function TimeSlotPicker({ date, duration_minutes, staffId, selected, onSelect }: Props) {
+  const [slots, setSlots] = useState<TimeSlot[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [fetchKey, setFetchKey] = useState(0)
 
   const fetchSlots = useCallback(async () => {
@@ -64,20 +58,20 @@ export function TimeSlotPicker({
 
     const params = new URLSearchParams({ date })
     if (duration_minutes) params.set('durationMinutes', String(duration_minutes))
-    if (staffId)          params.set('staffId', staffId)
+    if (staffId) params.set('staffId', staffId)
 
     // Use new available-slots endpoint (respects block_type including blackouts)
     // Fall back to legacy availability endpoint if new one fails
-    const newUrl    = `/api/appointments/available-slots?${params.toString()}`
+    const newUrl = `/api/appointments/available-slots?${params.toString()}`
     const legacyUrl = `/api/appointments/availability?${params.toString()}`
 
     try {
-      let res  = await fetch(newUrl, { cache: 'no-store' })
+      let res = await fetch(newUrl, { cache: 'no-store' })
       let data = await res.json()
 
       // If new endpoint fails or returns no data, try legacy
       if (!res.ok || (!data.slots?.length && staffId)) {
-        res  = await fetch(legacyUrl, { cache: 'no-store' })
+        res = await fetch(legacyUrl, { cache: 'no-store' })
         data = await res.json()
       }
 
@@ -92,7 +86,7 @@ export function TimeSlotPicker({
     } finally {
       setLoading(false)
     }
-  }, [date, duration_minutes, staffId, fetchKey])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [date, duration_minutes, staffId, fetchKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchSlots()
@@ -102,9 +96,9 @@ export function TimeSlotPicker({
     setFetchKey((k) => k + 1)
   }
 
-  const availableSlots = slots  // already filtered to available-only
-  const hourGroups     = groupByHour(availableSlots)
-  const sortedHours    = Array.from(hourGroups.keys()).sort((a, b) => a - b)
+  const availableSlots = slots // already filtered to available-only
+  const hourGroups = groupByHour(availableSlots)
+  const sortedHours = Array.from(hourGroups.keys()).sort((a, b) => a - b)
 
   return (
     <div className="space-y-3">
@@ -170,7 +164,7 @@ export function TimeSlotPicker({
             key={date + staffId + fetchKey}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{    opacity: 0 }}
+            exit={{ opacity: 0 }}
             className="space-y-3"
           >
             {sortedHours.map((hour) => {
@@ -183,7 +177,7 @@ export function TimeSlotPicker({
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
                     {hourSlots.map((slot, i) => {
                       const isSelected = selected === slot.start
-                      const isPast     = new Date(slot.start) <= new Date()
+                      const isPast = new Date(slot.start) <= new Date()
 
                       return (
                         <motion.button
@@ -196,11 +190,12 @@ export function TimeSlotPicker({
                           onClick={() => !isPast && onSelect(slot)}
                           className={`
                             relative h-10 rounded-xl text-xs font-semibold transition-all duration-150 overflow-hidden
-                            ${isPast
-                              ? 'bg-graphite-800/30 text-white/20 cursor-not-allowed border border-surface-border/30'
-                              : isSelected
-                              ? 'bg-gold-gradient text-graphite-900 shadow-glow-gold ring-2 ring-gold-400/40'
-                              : 'bg-graphite-700 border border-surface-border text-white/80 hover:border-gold-500/50 hover:text-gold-400 hover:bg-graphite-700/80 active:scale-95'
+                            ${
+                              isPast
+                                ? 'bg-graphite-800/30 text-white/20 cursor-not-allowed border border-surface-border/30'
+                                : isSelected
+                                  ? 'bg-gold-gradient text-graphite-900 shadow-glow-gold ring-2 ring-gold-400/40'
+                                  : 'bg-graphite-700 border border-surface-border text-white/80 hover:border-gold-500/50 hover:text-gold-400 hover:bg-graphite-700/80 active:scale-95'
                             }
                           `}
                         >
@@ -231,7 +226,7 @@ export function TimeSlotPicker({
           <motion.div
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{    opacity: 0, y: 4 }}
+            exit={{ opacity: 0, y: 4 }}
             className="flex items-center gap-2 rounded-xl border border-gold-500/30 bg-gold-400/8 px-3 py-2.5"
           >
             <Clock className="w-3.5 h-3.5 text-gold-400 shrink-0" />

@@ -7,21 +7,21 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { CalendarDays, Plus } from 'lucide-react'
-import { CalendarView }      from '@/components/appointments/CalendarView'
-import { AppointmentModal }  from '@/components/appointments/AppointmentModal'
-import type { Appointment }  from '@/lib/appointments/types'
+import { CalendarView } from '@/components/appointments/CalendarView'
+import { AppointmentModal } from '@/components/appointments/AppointmentModal'
+import type { Appointment } from '@/lib/appointments/types'
 
 export default function AppointmentsCalendarPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [loading,      setLoading]      = useState(true)
-  const [modalOpen,    setModalOpen]    = useState(false)
-  const [editing,      setEditing]      = useState<Appointment | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<Appointment | null>(null)
   const [defaultStart, setDefaultStart] = useState<string | undefined>()
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res  = await fetch('/api/appointments?limit=500')
+      const res = await fetch('/api/appointments?limit=500')
       const data = await res.json()
       setAppointments(data.appointments ?? [])
     } finally {
@@ -29,7 +29,9 @@ export default function AppointmentsCalendarPage() {
     }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   function openEdit(appt: Appointment) {
     setEditing(appt)
@@ -43,12 +45,12 @@ export default function AppointmentsCalendarPage() {
   }
 
   async function handleSave(data: Partial<Appointment> & { customer_id?: string }) {
-    const url    = editing ? `/api/appointments/${editing.id}` : '/api/appointments'
+    const url = editing ? `/api/appointments/${editing.id}` : '/api/appointments'
     const method = editing ? 'PATCH' : 'POST'
-    const res    = await fetch(url, {
+    const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(data),
+      body: JSON.stringify(data),
     })
     const json = await res.json()
     if (!res.ok) throw new Error(json.error ?? 'Failed to save')
@@ -91,12 +93,7 @@ export default function AppointmentsCalendarPage() {
         </div>
       ) : (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <CalendarView
-            appointments={appointments}
-            onSelect={openEdit}
-            onNew={openNew}
-            isAdmin
-          />
+          <CalendarView appointments={appointments} onSelect={openEdit} onNew={openNew} isAdmin />
         </motion.div>
       )}
 
@@ -105,7 +102,10 @@ export default function AppointmentsCalendarPage() {
         appointment={editing}
         defaultStart={defaultStart}
         isAdmin
-        onClose={() => { setModalOpen(false); setEditing(null) }}
+        onClose={() => {
+          setModalOpen(false)
+          setEditing(null)
+        }}
         onSave={handleSave}
         onDelete={handleDelete}
       />

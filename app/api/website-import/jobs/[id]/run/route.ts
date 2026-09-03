@@ -15,10 +15,7 @@ function forbidden() {
 // pipeline runs in the request context (suitable for Vercel functions ≤ 60s).
 // For very large jobs, consider offloading to a background worker.
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getUserContext()
   if (!ctx || ctx.role !== 'owner') return forbidden()
 
@@ -43,11 +40,11 @@ export async function POST(
     await db
       .from('website_import_jobs')
       .update({
-        status:        'queued',
-        progress:      0,
+        status: 'queued',
+        progress: 0,
         error_message: null,
-        started_at:    null,
-        completed_at:  null,
+        started_at: null,
+        completed_at: null,
       })
       .eq('id', jobId)
 
@@ -62,20 +59,19 @@ export async function POST(
   const result = await runImportJob(jobId, job.tenant_id)
 
   if (!result.success) {
-    return NextResponse.json(
-      { error: result.error ?? 'Import pipeline failed' },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: result.error ?? 'Import pipeline failed' }, { status: 500 })
   }
 
   // Return updated job state
   const { data: updatedJob } = await db
     .from('website_import_jobs')
-    .select(`
+    .select(
+      `
       *,
       website_import_sources(*),
       website_import_results(id, result_key, mapped_section, confidence_score, approved)
-    `)
+    `
+    )
     .eq('id', jobId)
     .single()
 

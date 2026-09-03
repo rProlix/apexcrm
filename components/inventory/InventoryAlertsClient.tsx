@@ -8,19 +8,19 @@ import { ALERT_SEVERITY_COLORS, ALERT_STATUS_COLORS } from '@/lib/inventory/type
 
 interface Props {
   initialAlerts: InventoryAlert[]
-  tenantId:      string
-  canEdit:       boolean
+  tenantId: string
+  canEdit: boolean
 }
 
-const STATUS_OPTIONS: AlertStatus[]   = ['open', 'acknowledged', 'resolved', 'dismissed']
+const STATUS_OPTIONS: AlertStatus[] = ['open', 'acknowledged', 'resolved', 'dismissed']
 const SEVERITY_OPTIONS: AlertSeverity[] = ['critical', 'high', 'medium', 'low']
 
 export function InventoryAlertsClient({ initialAlerts, tenantId, canEdit }: Props) {
-  const [alerts, setAlerts]           = useState<InventoryAlert[]>(initialAlerts)
-  const [filterStatus, setFilterStatus]     = useState<string>('open')
+  const [alerts, setAlerts] = useState<InventoryAlert[]>(initialAlerts)
+  const [filterStatus, setFilterStatus] = useState<string>('open')
   const [filterSeverity, setFilterSeverity] = useState<string>('')
-  const [recalculating, setRecalculating]   = useState(false)
-  const [recalcMsg, setRecalcMsg]           = useState<string | null>(null)
+  const [recalculating, setRecalculating] = useState(false)
+  const [recalcMsg, setRecalcMsg] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     return alerts.filter((a) => {
@@ -38,7 +38,7 @@ export function InventoryAlertsClient({ initialAlerts, tenantId, canEdit }: Prop
     })
     if (res.ok) {
       const data = await res.json()
-      setAlerts((prev) => prev.map((a) => a.id === alertId ? { ...a, ...data.alert } : a))
+      setAlerts((prev) => prev.map((a) => (a.id === alertId ? { ...a, ...data.alert } : a)))
     }
   }
 
@@ -60,9 +60,11 @@ export function InventoryAlertsClient({ initialAlerts, tenantId, canEdit }: Prop
     }
   }
 
-  const openCount    = alerts.filter((a) => a.status === 'open').length
-  const ackCount     = alerts.filter((a) => a.status === 'acknowledged').length
-  const critCount    = alerts.filter((a) => a.severity === 'critical' && a.status !== 'resolved' && a.status !== 'dismissed').length
+  const openCount = alerts.filter((a) => a.status === 'open').length
+  const ackCount = alerts.filter((a) => a.status === 'acknowledged').length
+  const critCount = alerts.filter(
+    (a) => a.severity === 'critical' && a.status !== 'resolved' && a.status !== 'dismissed'
+  ).length
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
@@ -91,7 +93,9 @@ export function InventoryAlertsClient({ initialAlerts, tenantId, canEdit }: Prop
       </div>
 
       {recalcMsg && (
-        <div className="rounded-xl border border-teal-400/30 bg-teal-400/10 px-4 py-3 text-sm text-teal-300">{recalcMsg}</div>
+        <div className="rounded-xl border border-teal-400/30 bg-teal-400/10 px-4 py-3 text-sm text-teal-300">
+          {recalcMsg}
+        </div>
       )}
 
       {/* Filters */}
@@ -145,21 +149,29 @@ export function InventoryAlertsClient({ initialAlerts, tenantId, canEdit }: Prop
             <div
               key={alert.id}
               className={`rounded-2xl border p-4 ${
-                alert.severity === 'critical' ? 'border-red-400/40 bg-red-400/5'
-                : alert.severity === 'high'   ? 'border-orange-400/30 bg-orange-400/5'
-                : 'border-surface-border bg-graphite-800/50'
+                alert.severity === 'critical'
+                  ? 'border-red-400/40 bg-red-400/5'
+                  : alert.severity === 'high'
+                    ? 'border-orange-400/30 bg-orange-400/5'
+                    : 'border-surface-border bg-graphite-800/50'
               }`}
             >
               <div className="flex items-start gap-3 flex-wrap">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ALERT_SEVERITY_COLORS[alert.severity]}`}>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${ALERT_SEVERITY_COLORS[alert.severity]}`}
+                    >
                       {alert.severity}
                     </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ALERT_STATUS_COLORS[alert.status]}`}>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${ALERT_STATUS_COLORS[alert.status]}`}
+                    >
                       {alert.status}
                     </span>
-                    <span className="text-xs text-zinc-500 capitalize">{alert.alert_type.replace('_', ' ')}</span>
+                    <span className="text-xs text-zinc-500 capitalize">
+                      {alert.alert_type.replace('_', ' ')}
+                    </span>
                   </div>
                   <p className="font-semibold text-white text-sm">{alert.title}</p>
                   {alert.message && <p className="text-xs text-zinc-400 mt-0.5">{alert.message}</p>}
@@ -173,12 +185,14 @@ export function InventoryAlertsClient({ initialAlerts, tenantId, canEdit }: Prop
                   )}
                   {alert.recommended_order_quantity && (
                     <p className="text-xs text-emerald-400 mt-1">
-                      Suggested order: {alert.recommended_order_quantity} {alert.item_unit ?? 'units'}
+                      Suggested order: {alert.recommended_order_quantity}{' '}
+                      {alert.item_unit ?? 'units'}
                     </p>
                   )}
                   {alert.predicted_stockout_at && (
                     <p className="text-xs text-orange-400 mt-1">
-                      Predicted stockout: {new Date(alert.predicted_stockout_at).toLocaleDateString()}
+                      Predicted stockout:{' '}
+                      {new Date(alert.predicted_stockout_at).toLocaleDateString()}
                     </p>
                   )}
                   <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1">

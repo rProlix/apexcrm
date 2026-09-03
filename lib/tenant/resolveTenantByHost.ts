@@ -12,12 +12,12 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
-const APP_URL     = process.env.NEXT_PUBLIC_APP_URL     ?? 'http://localhost:3000'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
 export interface ResolvedTenant {
-  id:     string
-  name:   string
-  slug:   string
+  id: string
+  name: string
+  slug: string
   status: string
 }
 
@@ -32,8 +32,8 @@ export interface ResolvedTenant {
  *  - `localhost`                     → returns null (platform root)
  */
 export async function resolveTenantByHost(
-  host:       string,
-  tenantSlug?: string | null,
+  host: string,
+  tenantSlug?: string | null
 ): Promise<ResolvedTenant | null> {
   const hostname = normalizeHost(host)
 
@@ -100,7 +100,7 @@ export async function resolveTenantBySlug(slug: string): Promise<ResolvedTenant 
 
 async function fetchTenantById(
   db: ReturnType<typeof getSupabaseServerClient>,
-  tenantId: string,
+  tenantId: string
 ): Promise<ResolvedTenant | null> {
   const { data } = await db
     .from('tenants')

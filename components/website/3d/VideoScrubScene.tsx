@@ -12,9 +12,9 @@ import type { Premium3DScrollHeroContent } from '@/lib/website/premium3d/types'
 import { useVideoScrub } from './useVideoScrub'
 
 interface Props {
-  content:     Premium3DScrollHeroContent
+  content: Premium3DScrollHeroContent
   progressRef: React.RefObject<number>
-  active:      boolean
+  active: boolean
 }
 
 export default function VideoScrubScene({ content, progressRef, active }: Props) {
@@ -29,7 +29,7 @@ export default function VideoScrubScene({ content, progressRef, active }: Props)
     active,
     smoothing: content.scrubSmoothing ?? content.videoScrub?.scrubSmoothing ?? 0.12,
     startTime: content.videoScrub?.startTime ?? undefined,
-    endTime:   content.videoScrub?.endTime ?? undefined,
+    endTime: content.videoScrub?.endTime ?? undefined,
   })
 
   if (errored) {
@@ -38,7 +38,11 @@ export default function VideoScrubScene({ content, progressRef, active }: Props)
       <div style={{ width: '100%', height: '100%' }}>
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={src} alt={content.headline} style={{ width: '100%', height: '100%', objectFit }} />
+          <img
+            src={src}
+            alt={content.headline}
+            style={{ width: '100%', height: '100%', objectFit }}
+          />
         ) : null}
       </div>
     )

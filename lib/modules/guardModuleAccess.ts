@@ -17,7 +17,7 @@ import type { AnyRole } from '@/lib/auth/types'
  * @param userRole  - Optional: the calling user's role for permission enforcement
  */
 export async function guardModuleAccess(
-  tenantId:  string,
+  tenantId: string,
   moduleKey: string,
   userRole?: string
 ): Promise<void> {
@@ -47,7 +47,7 @@ export async function guardModuleAccess(
  * Useful for conditional rendering decisions in layouts.
  */
 export async function isModuleEnabled(
-  tenantId:  string,
+  tenantId: string,
   moduleKey: string,
   userRole?: string
 ): Promise<boolean> {
@@ -61,9 +61,9 @@ export async function isModuleEnabled(
  * the module is enabled for the tenant.
  */
 export async function canAccessModule(
-  tenantId:  string,
+  tenantId: string,
   moduleKey: string,
-  userRole:  string
+  userRole: string
 ): Promise<boolean> {
   if (userRole === 'owner') return true
   if (!hasPermission(userRole as AnyRole, 'use_modules')) return false

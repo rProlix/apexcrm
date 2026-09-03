@@ -2,10 +2,10 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface SyncEventParams {
-  tenantId:    string
+  tenantId: string
   providerKey: string
-  eventType:   string
-  payload:     Record<string, unknown>
+  eventType: string
+  payload: Record<string, unknown>
   /** If provided, the event is idempotently de-duplicated by this key (stored in payload.idempotency_key) */
   idempotencyKey?: string
 }
@@ -45,11 +45,11 @@ export async function syncProviderEvent(params: SyncEventParams): Promise<string
   const { data, error } = await supabase
     .from('payment_events')
     .insert({
-      tenant_id:   params.tenantId,
+      tenant_id: params.tenantId,
       provider_key: params.providerKey,
-      event_type:  params.eventType,
+      event_type: params.eventType,
       payload,
-      processed:   false,
+      processed: false,
     })
     .select('id')
     .single()
@@ -68,8 +68,5 @@ export async function syncProviderEvent(params: SyncEventParams): Promise<string
 export async function markEventProcessed(eventId: string): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
-  await supabase
-    .from('payment_events')
-    .update({ processed: true })
-    .eq('id', eventId)
+  await supabase.from('payment_events').update({ processed: true }).eq('id', eventId)
 }

@@ -8,7 +8,10 @@ function forbidden() {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 }
 
-function resolveTenantId(ctx: Awaited<ReturnType<typeof getUserContext>>, override?: string | null): string | null {
+function resolveTenantId(
+  ctx: Awaited<ReturnType<typeof getUserContext>>,
+  override?: string | null
+): string | null {
   if (!ctx) return null
   const hint = sanitizeTenantId(override)
   const self = sanitizeTenantId(ctx.tenant_id)
@@ -21,7 +24,7 @@ export async function GET(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const url      = new URL(req.url)
+  const url = new URL(req.url)
   const override = url.searchParams.get('tenant_id') ?? undefined
   const tenantId = resolveTenantId(ctx, override)
   if (!tenantId) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
@@ -41,16 +44,25 @@ export async function PATCH(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const body     = await req.json()
+  const body = await req.json()
   const tenantId = resolveTenantId(ctx, body.tenant_id)
   if (!tenantId) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
 
   const allowed = [
-    'site_name', 'logo_url', 'favicon_url',
-    'brand_colors', 'fonts', 'theme',
-    'seo_defaults', 'header_config', 'footer_config',
-    'custom_domain', 'subdomain', 'website_type',
-    'pov_enabled', 'pov_event_id',
+    'site_name',
+    'logo_url',
+    'favicon_url',
+    'brand_colors',
+    'fonts',
+    'theme',
+    'seo_defaults',
+    'header_config',
+    'footer_config',
+    'custom_domain',
+    'subdomain',
+    'website_type',
+    'pov_enabled',
+    'pov_event_id',
   ]
   const WEBSITE_TYPES = ['business', 'creative', 'invitational', 'pov_event']
   const patch: Record<string, unknown> = {}

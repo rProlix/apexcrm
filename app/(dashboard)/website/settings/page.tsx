@@ -28,18 +28,14 @@ export default async function WebsiteSettingsPage() {
     <SettingsClient
       tenantId={tenantId}
       tenantSlug={tenantSlug}
-      initialSettings={(settingsResult.data ?? null) as import('@/lib/website/types').SiteSettings | null}
-      verifiedDomains={
-        (domainResult.data ?? [])
-          .filter((d) => d.verified)
-          .map((d) => d.hostname)
+      initialSettings={
+        (settingsResult.data ?? null) as import('@/lib/website/types').SiteSettings | null
       }
-      allDomains={
-        (domainResult.data ?? []).map((d) => ({
-          hostname: d.hostname,
-          verified: d.verified,
-        }))
-      }
+      verifiedDomains={(domainResult.data ?? []).filter((d) => d.verified).map((d) => d.hostname)}
+      allDomains={(domainResult.data ?? []).map((d) => ({
+        hostname: d.hostname,
+        verified: d.verified,
+      }))}
     />
   )
 }

@@ -38,9 +38,10 @@ export function extractCanvaEmbedSrc(input: string | null | undefined): string |
  */
 export function validateCanvaEmbedInput(
   input: string | null | undefined,
-  options?: { allowCustomDomains?: boolean },
+  options?: { allowCustomDomains?: boolean }
 ): CanvaUrlValidationResult {
-  if (!input || !input.trim()) return { ok: false, reason: 'Please paste a Canva URL or embed code.' }
+  if (!input || !input.trim())
+    return { ok: false, reason: 'Please paste a Canva URL or embed code.' }
   const wasEmbed = /<\s*iframe/i.test(input) || /src=["']/i.test(input)
   const candidate = extractCanvaEmbedSrc(input)
   if (!candidate) return { ok: false, reason: 'Could not find a Canva link in that embed code.' }
@@ -52,7 +53,7 @@ export function validateCanvaEmbedInput(
 /** Backwards-compatible boolean check (native + canva.site only by default). */
 export function isValidCanvaInput(
   input: string | null | undefined,
-  options?: { allowCustomDomains?: boolean },
+  options?: { allowCustomDomains?: boolean }
 ): boolean {
   return validateCanvaEmbedInput(input, options).ok
 }
@@ -60,7 +61,7 @@ export function isValidCanvaInput(
 /** Returns the safe, framing-ready iframe src for an input, or null. */
 export function resolveCanvaEmbedSrc(
   input: string | null | undefined,
-  options?: { allowCustomDomains?: boolean },
+  options?: { allowCustomDomains?: boolean }
 ): string | null {
   const source = parseCanvaEmbedSource({
     canvaUrl: input ?? null,
@@ -84,7 +85,11 @@ export function resolveCanvaEmbedSource(input: {
 }
 
 function escapeAttr(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }
 
 /**
@@ -93,7 +98,7 @@ function escapeAttr(s: string): string {
  */
 export function buildSafeCanvaIframe(
   input: string | null | undefined,
-  opts?: { aspectPercent?: number; allowCustomDomains?: boolean },
+  opts?: { aspectPercent?: number; allowCustomDomains?: boolean }
 ): string | null {
   const src = resolveCanvaEmbedSrc(input, { allowCustomDomains: opts?.allowCustomDomains })
   if (!src) return null

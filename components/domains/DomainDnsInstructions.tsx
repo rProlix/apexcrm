@@ -1,21 +1,21 @@
 // components/domains/DomainDnsInstructions.tsx
 'use client'
 
-import { useState }               from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Copy, Check, ChevronDown, Info } from 'lucide-react'
 
 interface DnsRecord {
-  type:  string
-  host:  string
+  type: string
+  host: string
   value: string
-  ttl:   string
+  ttl: string
 }
 
 interface DomainDnsInstructionsProps {
-  domain:             string
+  domain: string
   verificationToken?: string
-  expanded?:          boolean
+  expanded?: boolean
 }
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
@@ -34,10 +34,11 @@ function CopyButton({ text }: { text: string }) {
       onClick={copy}
       className="ml-2 flex-shrink-0 rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-700/50 hover:text-zinc-300"
     >
-      {copied
-        ? <Check className="h-3.5 w-3.5 text-emerald-400" />
-        : <Copy  className="h-3.5 w-3.5" />
-      }
+      {copied ? (
+        <Check className="h-3.5 w-3.5 text-emerald-400" />
+      ) : (
+        <Copy className="h-3.5 w-3.5" />
+      )}
     </button>
   )
 }
@@ -72,16 +73,18 @@ export function DomainDnsInstructions({
 
   const records: DnsRecord[] = [
     ...(verificationToken
-      ? [{
-          type:  'TXT',
-          host:  `_yourcrm-verify.${domain}`,
-          value: `yourcrm-verify=${verificationToken}`,
-          ttl:   '300',
-        }]
+      ? [
+          {
+            type: 'TXT',
+            host: `_yourcrm-verify.${domain}`,
+            value: `yourcrm-verify=${verificationToken}`,
+            ttl: '300',
+          },
+        ]
       : []),
     isApex
-      ? { type: 'A',     host: '@',         value: '76.76.21.21',     ttl: '300' }
-      : { type: 'CNAME', host: domain,       value: `cname.${ROOT_DOMAIN}`, ttl: '300' },
+      ? { type: 'A', host: '@', value: '76.76.21.21', ttl: '300' }
+      : { type: 'CNAME', host: domain, value: `cname.${ROOT_DOMAIN}`, ttl: '300' },
     { type: 'CNAME', host: `www.${domain}`, value: `cname.${ROOT_DOMAIN}`, ttl: '300' },
   ]
 
@@ -111,7 +114,8 @@ export function DomainDnsInstructions({
           >
             <div className="border-t border-zinc-800/50 px-4 pb-4 pt-3">
               <p className="mb-3 text-xs text-zinc-500">
-                Add the following DNS records at your domain registrar. Changes may take up to 48 hours to propagate.
+                Add the following DNS records at your domain registrar. Changes may take up to 48
+                hours to propagate.
               </p>
 
               {/* Header row */}
@@ -128,7 +132,8 @@ export function DomainDnsInstructions({
 
               <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
                 <p className="text-xs text-amber-400/80">
-                  After adding DNS records, click <strong>Verify Domain</strong> to confirm ownership. The TXT record is required for verification.
+                  After adding DNS records, click <strong>Verify Domain</strong> to confirm
+                  ownership. The TXT record is required for verification.
                 </p>
               </div>
             </div>

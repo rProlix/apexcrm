@@ -2,13 +2,13 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 import { parseState, type StatePayload } from './generateState'
 
-const STATE_SECRET  = process.env.OAUTH_STATE_SECRET ?? 'fallback-dev-secret-change-in-prod'
-const MAX_AGE_MS    = 10 * 60 * 1000 // 10 minutes
+const STATE_SECRET = process.env.OAUTH_STATE_SECRET ?? 'fallback-dev-secret-change-in-prod'
+const MAX_AGE_MS = 10 * 60 * 1000 // 10 minutes
 
 export interface VerifyResult {
-  valid:    boolean
+  valid: boolean
   payload?: StatePayload
-  error?:   string
+  error?: string
 }
 
 /**
@@ -22,9 +22,9 @@ export function verifyState(state: string): VerifyResult {
     return { valid: false, error: 'Malformed state token' }
   }
 
-  const dotIdx  = state.lastIndexOf('.')
+  const dotIdx = state.lastIndexOf('.')
   const encoded = state.slice(0, dotIdx)
-  const sig     = state.slice(dotIdx + 1)
+  const sig = state.slice(dotIdx + 1)
 
   if (!encoded || !sig) {
     return { valid: false, error: 'Malformed state token' }
@@ -34,10 +34,7 @@ export function verifyState(state: string): VerifyResult {
 
   let sigMatch: boolean
   try {
-    sigMatch = timingSafeEqual(
-      Buffer.from(sig,      'hex'),
-      Buffer.from(expected, 'hex')
-    )
+    sigMatch = timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'))
   } catch {
     return { valid: false, error: 'Invalid signature encoding' }
   }

@@ -16,18 +16,23 @@ function err(code: string, message: string, status = 400) {
   return NextResponse.json({ ok: false, code, error: message }, { status })
 }
 
-interface RouteContext { params: Promise<{ id: string }> }
+interface RouteContext {
+  params: Promise<{ id: string }>
+}
 
 // ─── PATCH /api/owner/business-users/[id] ────────────────────────────────────
 
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
   const { id } = await params
   const ctx = await getUserContext()
-  if (!ctx)               return err('UNAUTHORIZED', 'Authentication required.', 401)
-  if (ctx.role !== 'owner') return err('FORBIDDEN', 'Only the platform owner can update business users.', 403)
+  if (!ctx) return err('UNAUTHORIZED', 'Authentication required.', 401)
+  if (ctx.role !== 'owner')
+    return err('FORBIDDEN', 'Only the platform owner can update business users.', 403)
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return err('INVALID_JSON', 'Request body must be valid JSON.', 400)
   }
 
@@ -60,7 +65,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         .eq('status', 'active')
 
       if ((count ?? 0) <= 1) {
-        return err('LAST_OWNER', 'Cannot change role of the only active owner for this tenant.', 409)
+        return err(
+          'LAST_OWNER',
+          'Cannot change role of the only active owner for this tenant.',
+          409
+        )
       }
     }
     updates.role = newRole
@@ -81,7 +90,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         .eq('status', 'active')
 
       if ((count ?? 0) <= 1) {
-        return err('LAST_OWNER', 'Cannot suspend or disable the only active owner for this tenant.', 409)
+        return err(
+          'LAST_OWNER',
+          'Cannot suspend or disable the only active owner for this tenant.',
+          409
+        )
       }
     }
     updates.status = newStatus
@@ -102,10 +115,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   updates.updated_at = new Date().toISOString()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: updateError } = await (supabase as any)
-    .from('users')
-    .update(updates)
-    .eq('id', id)
+  const { error: updateError } = await (supabase as any).from('users').update(updates).eq('id', id)
 
   if (updateError) {
     console.error('[PATCH /api/owner/business-users/[id]]', updateError.message)
@@ -115,14 +125,14 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   // Sync app_metadata in Supabase Auth for role/status changes
   if (target.auth_user_id && (updates.role || updates.status || updates.approved !== undefined)) {
     const metaUpdates: Record<string, unknown> = {}
-    if (updates.role)    metaUpdates.role     = updates.role
-    if (updates.status)  metaUpdates.status   = updates.status
+    if (updates.role) metaUpdates.role = updates.role
+    if (updates.status) metaUpdates.status = updates.status
     if (updates.approved !== undefined) metaUpdates.approved = updates.approved
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase as any).auth.admin.updateUserById(target.auth_user_id, {
-        app_metadata:  metaUpdates,
+        app_metadata: metaUpdates,
         user_metadata: updates.role ? { role: updates.role } : undefined,
       })
     } catch (e) {
@@ -140,8 +150,9 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   const { id } = await params
   const ctx = await getUserContext()
-  if (!ctx)               return err('UNAUTHORIZED', 'Authentication required.', 401)
-  if (ctx.role !== 'owner') return err('FORBIDDEN', 'Only the platform owner can remove business users.', 403)
+  if (!ctx) return err('UNAUTHORIZED', 'Authentication required.', 401)
+  if (ctx.role !== 'owner')
+    return err('FORBIDDEN', 'Only the platform owner can remove business users.', 403)
 
   const supabase = getSupabaseServerClient()
 
@@ -187,7 +198,9 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
       await (supabase as any).auth.admin.updateUserById(target.auth_user_id, {
         app_metadata: { status: 'disabled', approved: false },
       })
-    } catch { /* non-fatal */ }
+    } catch {
+      /* non-fatal */
+    }
   }
 
   return NextResponse.json({ ok: true, id, status: 'disabled' })

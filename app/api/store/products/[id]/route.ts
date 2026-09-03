@@ -5,10 +5,7 @@ import { resolveStoreUser } from '@/lib/auth/resolveStoreUser'
 
 // ─── PATCH /api/store/products/[id] ──────────────────────────────────────────
 // admin/owner only — update a product that belongs to their tenant
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await resolveStoreUser(req)
 
   if (!user) {
@@ -44,9 +41,16 @@ export async function PATCH(
   }
 
   const allowed = [
-    'name', 'description', 'price', 'currency', 'inventory_count', 'is_active',
+    'name',
+    'description',
+    'price',
+    'currency',
+    'inventory_count',
+    'is_active',
     // Rewards configuration fields (added by 009_rewards.sql migration)
-    'rewards_points_earned', 'rewards_enabled', 'rewards_multiplier',
+    'rewards_points_earned',
+    'rewards_enabled',
+    'rewards_multiplier',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of allowed) {
@@ -74,10 +78,7 @@ export async function PATCH(
 
 // ─── DELETE /api/store/products/[id] ─────────────────────────────────────────
 // admin/owner only — delete a product that belongs to their tenant
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await resolveStoreUser(req)
 
   if (!user) {

@@ -7,26 +7,26 @@ import type { EmailPayload, EmailResult } from './types'
 import type { EmailConfig } from './types'
 
 interface LogEntry {
-  tenant_id?:    string | null
-  user_id?:      string | null
-  customer_id?:  string | null
-  provider:      string
-  category:      string
-  to_email:      string
-  subject:       string
-  status:        'sent' | 'failed' | 'blocked'
-  message_id?:   string | null
+  tenant_id?: string | null
+  user_id?: string | null
+  customer_id?: string | null
+  provider: string
+  category: string
+  to_email: string
+  subject: string
+  status: 'sent' | 'failed' | 'blocked'
+  message_id?: string | null
   error_message?: string | null
-  metadata?:     Record<string, unknown>
+  metadata?: Record<string, unknown>
 }
 
 export async function logEmailEvent(
   payload: EmailPayload,
-  result:  EmailResult,
-  cfg:     EmailConfig,
+  result: EmailResult,
+  cfg: EmailConfig
 ): Promise<void> {
   const isDebug = cfg.logLevel === 'debug'
-  const isInfo  = cfg.logLevel === 'info' || isDebug
+  const isInfo = cfg.logLevel === 'info' || isDebug
   const isSilent = cfg.logLevel === 'silent'
 
   const status: LogEntry['status'] = result.success ? 'sent' : 'failed'
@@ -36,27 +36,25 @@ export async function logEmailEvent(
     if (result.success && isInfo) {
       console.log(
         `[email] ✓ ${status} via ${result.provider} → ${to}`,
-        isDebug ? `(${payload.subject})` : '',
+        isDebug ? `(${payload.subject})` : ''
       )
     } else if (!result.success) {
-      console.error(
-        `[email] ✗ failed via ${result.provider} → ${to}: ${result.error}`,
-      )
+      console.error(`[email] ✗ failed via ${result.provider} → ${to}: ${result.error}`)
     }
   }
 
   const entry: LogEntry = {
-    tenant_id:    payload.tenantId    ?? null,
-    user_id:      payload.userId      ?? null,
-    customer_id:  payload.customerId  ?? null,
-    provider:     result.provider,
-    category:     payload.category,
-    to_email:     to,
-    subject:      payload.subject,
+    tenant_id: payload.tenantId ?? null,
+    user_id: payload.userId ?? null,
+    customer_id: payload.customerId ?? null,
+    provider: result.provider,
+    category: payload.category,
+    to_email: to,
+    subject: payload.subject,
     status,
-    message_id:   result.messageId   ?? null,
-    error_message: result.error       ?? null,
-    metadata:     { ...(payload.metadata ?? {}), tags: payload.tags },
+    message_id: result.messageId ?? null,
+    error_message: result.error ?? null,
+    metadata: { ...(payload.metadata ?? {}), tags: payload.tags },
   }
 
   // Attempt DB write — never throw

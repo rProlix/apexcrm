@@ -10,12 +10,13 @@ export async function GET(req: NextRequest) {
 
   const dashUser = await resolveStoreUser(req)
   if (dashUser && ['admin', 'owner'].includes(dashUser.role)) {
-    const tenantId = dashUser.role === 'owner'
-      ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
-      : dashUser.tenant_id
+    const tenantId =
+      dashUser.role === 'owner'
+        ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
+        : dashUser.tenant_id
 
     const statusFilter = req.nextUrl.searchParams.get('status')
-    const limit        = Math.min(Number(req.nextUrl.searchParams.get('limit') ?? '100'), 200)
+    const limit = Math.min(Number(req.nextUrl.searchParams.get('limit') ?? '100'), 200)
 
     let query = supabase
       .from('payment_transactions')

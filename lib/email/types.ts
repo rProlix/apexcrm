@@ -17,56 +17,56 @@ export type EmailCategory =
 
 export interface EmailPayload {
   /** One or more recipient addresses */
-  to:          string | string[]
-  subject:     string
-  html:        string
-  text?:       string
+  to: string | string[]
+  subject: string
+  html: string
+  text?: string
   /** Override sender name (falls back to config) */
-  fromName?:   string
+  fromName?: string
   /** Override sender address (falls back to config) */
   fromAddress?: string
   /** Override reply-to (falls back to config) */
-  replyTo?:    string
-  category:    EmailCategory
-  tenantId?:   string
-  userId?:     string
+  replyTo?: string
+  category: EmailCategory
+  tenantId?: string
+  userId?: string
   customerId?: string
-  metadata?:   Record<string, unknown>
+  metadata?: Record<string, unknown>
   /** Key-value tags forwarded to the provider for analytics */
-  tags?:       Record<string, string>
+  tags?: Record<string, string>
   /** Idempotency key — providers that support it will deduplicate */
   idempotencyKey?: string
 }
 
 export interface EmailResult {
-  success:    boolean
-  provider:   EmailProvider
+  success: boolean
+  provider: EmailProvider
   messageId?: string
-  error?:     string
+  error?: string
   /** Raw provider response (only logged server-side, never surfaced to client) */
-  raw?:       unknown
+  raw?: unknown
 }
 
 export interface TemplateResult {
   subject: string
-  html:    string
-  text:    string
+  html: string
+  text: string
 }
 
 export interface EmailConfig {
-  provider:              EmailProvider
-  fromName:              string
-  fromAddress:           string
-  replyTo:               string
-  transactionalEnabled:  boolean
-  marketingEnabled:      boolean
-  logLevel:              'silent' | 'error' | 'info' | 'debug'
+  provider: EmailProvider
+  fromName: string
+  fromAddress: string
+  replyTo: string
+  transactionalEnabled: boolean
+  marketingEnabled: boolean
+  logLevel: 'silent' | 'error' | 'info' | 'debug'
   // Resend
-  resendApiKey?:         string
+  resendApiKey?: string
   // SES
-  sesRegion?:            string
-  sesAccessKeyId?:       string
-  sesSecretAccessKey?:   string
-  sesConfigurationSet?:  string
-  sesFromArn?:           string
+  sesRegion?: string
+  sesAccessKeyId?: string
+  sesSecretAccessKey?: string
+  sesConfigurationSet?: string
+  sesFromArn?: string
 }

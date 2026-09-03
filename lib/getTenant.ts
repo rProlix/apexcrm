@@ -23,8 +23,8 @@ import type { TenantRecord } from '@/lib/tenant/getTenantFromHost'
  */
 export async function getTenant(): Promise<TenantRecord | null> {
   const headersList = await headers()
-  const tenantSlug  = headersList.get('x-tenant-slug') ?? ''
-  const admin       = getSupabaseServerClient()
+  const tenantSlug = headersList.get('x-tenant-slug') ?? ''
+  const admin = getSupabaseServerClient()
 
   // ── 1. Slug from middleware header ────────────────────────────────────────
   if (tenantSlug) {
@@ -41,7 +41,9 @@ export async function getTenant(): Promise<TenantRecord | null> {
   // ── 2. Authenticated user's own tenant ───────────────────────────────────
   try {
     const sessionClient = await createSessionServerClient()
-    const { data: { user } } = await sessionClient.auth.getUser()
+    const {
+      data: { user },
+    } = await sessionClient.auth.getUser()
 
     if (user) {
       const { data: userRecord } = await admin

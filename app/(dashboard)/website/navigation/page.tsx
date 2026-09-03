@@ -23,5 +23,10 @@ export default async function WebsiteNavigationPage() {
     .order('location')
     .order('sort_order', { ascending: true })
 
-  return <NavigationClient tenantId={tenantId} initialItems={(items ?? []) as import('@/lib/website/types').SiteNavigationItem[]} />
+  return (
+    <NavigationClient
+      tenantId={tenantId}
+      initialItems={(items ?? []) as import('@/lib/website/types').SiteNavigationItem[]}
+    />
+  )
 }

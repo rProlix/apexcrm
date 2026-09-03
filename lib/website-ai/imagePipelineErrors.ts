@@ -17,9 +17,11 @@
  *  - 'relation … does not exist' — PostgreSQL 42P01 error (table not found)
  *  - pg code 42P01      — PostgreSQL "undefined table" SQLSTATE
  */
-export function isSchemaCacheError(err: { message?: string; code?: string } | null | undefined): boolean {
+export function isSchemaCacheError(
+  err: { message?: string; code?: string } | null | undefined
+): boolean {
   if (!err) return false
-  const msg  = (err.message ?? '').toLowerCase()
+  const msg = (err.message ?? '').toLowerCase()
   const code = (err.code ?? '').toUpperCase()
   return (
     msg.includes('schema cache') ||
@@ -28,7 +30,7 @@ export function isSchemaCacheError(err: { message?: string; code?: string } | nu
     (msg.includes('relation') && msg.includes('does not exist')) ||
     code === 'PGRST200' ||
     code === 'PGRST205' ||
-    code === '42P01'    // PostgreSQL undefined_table SQLSTATE
+    code === '42P01' // PostgreSQL undefined_table SQLSTATE
   )
 }
 
@@ -36,7 +38,9 @@ export function isSchemaCacheError(err: { message?: string; code?: string } | nu
  * Extract the table name from a Postgres "relation X does not exist" error.
  * Returns null if the pattern is not found.
  */
-export function extractMissingTableName(err: { message?: string } | null | undefined): string | null {
+export function extractMissingTableName(
+  err: { message?: string } | null | undefined
+): string | null {
   if (!err?.message) return null
   const m = err.message.match(/relation\s+"?([^"]+)"?\s+does not exist/i)
   return m ? m[1] : null
@@ -97,9 +101,11 @@ export function isQuotaError(errText: string): boolean {
  * This happens when the code passes ctx.id (public.users.id) instead of
  * ctx.auth_id (auth.users.id) as created_by. The FK references auth.users(id).
  */
-export function isFkCreatedByError(err: { message?: string; code?: string } | null | undefined): boolean {
+export function isFkCreatedByError(
+  err: { message?: string; code?: string } | null | undefined
+): boolean {
   if (!err) return false
-  const msg  = (err.message ?? '').toLowerCase()
+  const msg = (err.message ?? '').toLowerCase()
   const code = err.code ?? ''
   return (
     code === '23503' ||

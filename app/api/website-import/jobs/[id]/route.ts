@@ -10,10 +10,7 @@ function forbidden() {
 // ── GET /api/website-import/jobs/[id] ────────────────────────────────────────
 // Returns full job details including sources and results.
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getUserContext()
   if (!ctx || ctx.role !== 'owner') return forbidden()
 
@@ -22,13 +19,15 @@ export async function GET(
 
   const { data: job, error } = await db
     .from('website_import_jobs')
-    .select(`
+    .select(
+      `
       *,
       website_import_sources(*),
       website_import_results(*),
       website_import_media(*),
       website_import_audit(id, action, metadata, created_at)
-    `)
+    `
+    )
     .eq('id', jobId)
     .single()
 
@@ -42,10 +41,7 @@ export async function GET(
 // ── DELETE /api/website-import/jobs/[id] ─────────────────────────────────────
 // Soft-delete / hard delete a job and its related data.
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getUserContext()
   if (!ctx || ctx.role !== 'owner') return forbidden()
 

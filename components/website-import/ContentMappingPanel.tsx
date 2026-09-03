@@ -6,66 +6,64 @@ import { cn } from '@/lib/utils'
 
 interface Props {
   results: Array<{
-    result_key:      string
-    mapped_section:  string | null
+    result_key: string
+    mapped_section: string | null
     confidence_score: number
-    approved:        boolean
+    approved: boolean
   }>
 }
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
-  hero:          Layout,
-  about:         Type,
-  feature_grid:  Layout,
-  contact:       Mail,
-  testimonials:  Star,
-  faq:           HelpCircle,
+  hero: Layout,
+  about: Type,
+  feature_grid: Layout,
+  contact: Mail,
+  testimonials: Star,
+  faq: HelpCircle,
   image_gallery: Image,
-  footer:        Globe,
+  footer: Globe,
   site_settings: Globe,
 }
 
 const SECTION_COLORS: Record<string, string> = {
   site_settings: 'text-amber-300/70  bg-amber-400/10',
-  hero:          'text-violet-300/70 bg-violet-400/10',
-  'hero/about':  'text-violet-300/70 bg-violet-400/10',
-  about:         'text-blue-300/70   bg-blue-400/10',
-  feature_grid:  'text-cyan-300/70   bg-cyan-400/10',
-  contact:       'text-emerald-300/70 bg-emerald-400/10',
-  testimonials:  'text-pink-300/70   bg-pink-400/10',
-  faq:           'text-orange-300/70 bg-orange-400/10',
-  gallery:       'text-rose-300/70   bg-rose-400/10',
-  'gallery/hero':'text-rose-300/70   bg-rose-400/10',
-  footer:        'text-slate-300/70  bg-slate-400/10',
-  page_meta:     'text-teal-300/70   bg-teal-400/10',
+  hero: 'text-violet-300/70 bg-violet-400/10',
+  'hero/about': 'text-violet-300/70 bg-violet-400/10',
+  about: 'text-blue-300/70   bg-blue-400/10',
+  feature_grid: 'text-cyan-300/70   bg-cyan-400/10',
+  contact: 'text-emerald-300/70 bg-emerald-400/10',
+  testimonials: 'text-pink-300/70   bg-pink-400/10',
+  faq: 'text-orange-300/70 bg-orange-400/10',
+  gallery: 'text-rose-300/70   bg-rose-400/10',
+  'gallery/hero': 'text-rose-300/70   bg-rose-400/10',
+  footer: 'text-slate-300/70  bg-slate-400/10',
+  page_meta: 'text-teal-300/70   bg-teal-400/10',
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  businessName:   'Business Name',
-  description:    'Description',
-  logoUrl:        'Logo',
-  faviconUrl:     'Favicon',
-  phone:          'Phone',
-  email:          'Email',
-  address:        'Address',
-  hours:          'Hours',
-  socialLinks:    'Social Links',
-  services:       'Services',
-  testimonials:   'Testimonials',
-  faqItems:       'FAQ',
-  images:         'Images',
-  brandColors:    'Brand Colors',
-  seoTitle:       'SEO Title',
+  businessName: 'Business Name',
+  description: 'Description',
+  logoUrl: 'Logo',
+  faviconUrl: 'Favicon',
+  phone: 'Phone',
+  email: 'Email',
+  address: 'Address',
+  hours: 'Hours',
+  socialLinks: 'Social Links',
+  services: 'Services',
+  testimonials: 'Testimonials',
+  faqItems: 'FAQ',
+  images: 'Images',
+  brandColors: 'Brand Colors',
+  seoTitle: 'SEO Title',
   seoDescription: 'SEO Description',
-  mapUrl:         'Map Embed',
-  latitude:       'Latitude',
-  longitude:      'Longitude',
+  mapUrl: 'Map Embed',
+  latitude: 'Latitude',
+  longitude: 'Longitude',
 }
 
 // Group fields by their mapped_section
-function groupBySection(
-  results: Props['results'],
-): Map<string, typeof results> {
+function groupBySection(results: Props['results']): Map<string, typeof results> {
   const map = new Map<string, typeof results>()
   for (const r of results) {
     const section = r.mapped_section ?? 'other'
@@ -86,7 +84,10 @@ export function ContentMappingPanel({ results }: Props) {
         const approvedCount = fields.filter((f) => f.approved).length
 
         return (
-          <div key={section} className="rounded-xl border border-white/8 bg-white/[0.02] overflow-hidden">
+          <div
+            key={section}
+            className="rounded-xl border border-white/8 bg-white/[0.02] overflow-hidden"
+          >
             {/* Section header */}
             <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/5">
               <span className={cn('p-1.5 rounded-md flex-shrink-0', colorClass)}>
@@ -104,10 +105,12 @@ export function ContentMappingPanel({ results }: Props) {
             <div className="divide-y divide-white/5">
               {fields.map((field) => (
                 <div key={field.result_key} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className={cn(
-                    'w-1.5 h-1.5 rounded-full flex-shrink-0',
-                    field.approved ? 'bg-emerald-400' : 'bg-white/20',
-                  )} />
+                  <span
+                    className={cn(
+                      'w-1.5 h-1.5 rounded-full flex-shrink-0',
+                      field.approved ? 'bg-emerald-400' : 'bg-white/20'
+                    )}
+                  />
                   <span className="text-sm text-white/50 flex-1 min-w-0 truncate">
                     {FIELD_LABELS[field.result_key] ?? field.result_key}
                   </span>

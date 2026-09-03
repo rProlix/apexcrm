@@ -4,14 +4,14 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface StaffMember {
-  id:         string
-  email:      string
-  full_name:  string | null
-  role:       'admin' | 'manager' | 'staff'
-  status:     string
-  approved:   boolean
+  id: string
+  email: string
+  full_name: string | null
+  role: 'admin' | 'manager' | 'staff'
+  status: string
+  approved: boolean
   created_at: string
-  metadata:   Record<string, unknown>
+  metadata: Record<string, unknown>
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,8 +33,8 @@ export async function getTenantStaff(tenantId: string): Promise<StaffMember[]> {
     .from('users')
     .select('id, email, full_name, role, status, approved, created_at, metadata')
     .eq('tenant_id', tenantId)
-    .neq('role', 'owner')               // primary owner filter
-    .in('role', STAFF_ROLES)            // secondary: only recognised staff roles
+    .neq('role', 'owner') // primary owner filter
+    .in('role', STAFF_ROLES) // secondary: only recognised staff roles
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -48,14 +48,14 @@ export async function getTenantStaff(tenantId: string): Promise<StaffMember[]> {
   return (data ?? [])
     .filter((u: any) => u.role !== 'owner')
     .map((u: any) => ({
-      id:         u.id,
-      email:      u.email,
-      full_name:  u.full_name ?? null,
-      role:       u.role as StaffMember['role'],
-      status:     u.status,
-      approved:   u.approved !== false,
+      id: u.id,
+      email: u.email,
+      full_name: u.full_name ?? null,
+      role: u.role as StaffMember['role'],
+      status: u.status,
+      approved: u.approved !== false,
       created_at: u.created_at,
-      metadata:   (u.metadata ?? {}) as Record<string, unknown>,
+      metadata: (u.metadata ?? {}) as Record<string, unknown>,
     }))
 }
 
@@ -65,7 +65,7 @@ export async function getTenantStaff(tenantId: string): Promise<StaffMember[]> {
  */
 export async function getStaffMember(
   tenantId: string,
-  userId:   string,
+  userId: string
 ): Promise<StaffMember | null> {
   if (!tenantId || !userId) return null
 
@@ -82,14 +82,14 @@ export async function getStaffMember(
 
   if (!data || data.role === 'owner') return null
   return {
-    id:         data.id,
-    email:      data.email,
-    full_name:  data.full_name ?? null,
-    role:       data.role as StaffMember['role'],
-    status:     data.status,
-    approved:   data.approved !== false,
+    id: data.id,
+    email: data.email,
+    full_name: data.full_name ?? null,
+    role: data.role as StaffMember['role'],
+    status: data.status,
+    approved: data.approved !== false,
     created_at: data.created_at,
-    metadata:   (data.metadata ?? {}) as Record<string, unknown>,
+    metadata: (data.metadata ?? {}) as Record<string, unknown>,
   }
 }
 

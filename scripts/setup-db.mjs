@@ -21,7 +21,7 @@ const { Client } = pg
 
 // ── Load env ──────────────────────────────────────────────
 const __dir = dirname(fileURLToPath(import.meta.url))
-const root  = join(__dir, '..')
+const root = join(__dir, '..')
 const envPath = join(root, '.env.local')
 
 let envContent

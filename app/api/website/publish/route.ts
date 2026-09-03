@@ -9,7 +9,9 @@ import { publishTenantSite, unpublishTenantSite } from '@/lib/website/publishSit
 import { syncRegistryAfterPublish } from '@/lib/website/registry'
 import type { ClientPageSections } from '@/lib/website/versionTypes'
 
-function forbidden() { return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 }) }
+function forbidden() {
+  return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 })
+}
 
 /**
  * POST /api/website/publish — publish (or unpublish) the tenant builder site.
@@ -21,7 +23,11 @@ export async function POST(req: NextRequest) {
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch { body = {} }
+  try {
+    body = await req.json()
+  } catch {
+    body = {}
+  }
 
   const isPublish = Boolean(body.publish)
 
@@ -34,7 +40,11 @@ export async function POST(req: NextRequest) {
     if (fromCtx && bodyTenantId && fromCtx !== bodyTenantId) return forbidden()
     tenantId = fromCtx ?? bodyTenantId
   }
-  if (!tenantId) return NextResponse.json({ ok: false, error: 'No tenant resolved', step: 'tenant' }, { status: 400 })
+  if (!tenantId)
+    return NextResponse.json(
+      { ok: false, error: 'No tenant resolved', step: 'tenant' },
+      { status: 400 }
+    )
 
   if (!isPublish) {
     const result = await unpublishTenantSite(tenantId)
@@ -51,12 +61,15 @@ export async function POST(req: NextRequest) {
   })
 
   if (!result.ok) {
-    const status = result.error === 'CHECKPOINT_SAVE_FAILED' ? 500 : (result.step === 'tenant' ? 400 : 500)
+    const status =
+      result.error === 'CHECKPOINT_SAVE_FAILED' ? 500 : result.step === 'tenant' ? 400 : 500
     return NextResponse.json(result, { status })
   }
 
   await syncRegistryAfterPublish(tenantId, {
-    published: true, publishedAt: result.publishedAt ?? null, versionId: result.versionId ?? null,
+    published: true,
+    publishedAt: result.publishedAt ?? null,
+    versionId: result.versionId ?? null,
   }).catch(() => null)
 
   return NextResponse.json(result)

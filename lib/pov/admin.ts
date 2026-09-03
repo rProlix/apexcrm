@@ -8,7 +8,7 @@ import type { UserContext } from '@/lib/auth/types'
 import type { PovEventRow } from '@/lib/pov/types'
 
 export interface AdminEventAuth {
-  ctx:   UserContext
+  ctx: UserContext
   event: PovEventRow
 }
 
@@ -22,9 +22,10 @@ export function canManageEvent(ctx: UserContext, event: Pick<PovEventRow, 'tenan
  * Resolves the authenticated admin/owner and the target event, verifying the
  * caller may manage it. Returns a discriminated result.
  */
-export async function authorizeEventAdmin(idOrSlug: string): Promise<
-  | { ok: true; ctx: UserContext; event: PovEventRow }
-  | { ok: false; status: number; error: string }
+export async function authorizeEventAdmin(
+  idOrSlug: string
+): Promise<
+  { ok: true; ctx: UserContext; event: PovEventRow } | { ok: false; status: number; error: string }
 > {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin', 'staff'].includes(ctx.role)) {

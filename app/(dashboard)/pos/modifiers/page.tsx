@@ -19,8 +19,19 @@ export default async function POSModifiersPage() {
   const tenantId = ctx.tenant_id ?? ''
 
   const [{ data: groups }, { data: products }] = await Promise.all([
-    supabase.from('pos_modifier_groups').select(`*, pos_modifiers(*)`).eq('tenant_id', tenantId).neq('status', 'archived').order('sort_order'),
-    supabase.from('products').select('id,name').eq('tenant_id', tenantId).eq('is_active', true).order('name').limit(200),
+    supabase
+      .from('pos_modifier_groups')
+      .select(`*, pos_modifiers(*)`)
+      .eq('tenant_id', tenantId)
+      .neq('status', 'archived')
+      .order('sort_order'),
+    supabase
+      .from('products')
+      .select('id,name')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .order('name')
+      .limit(200),
   ])
 
   return (

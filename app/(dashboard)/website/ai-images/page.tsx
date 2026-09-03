@@ -19,8 +19,8 @@ export default async function AiImagesPage() {
   const access = await requireAiAutofillAccess(null)
   if (!access) redirect('/dashboard')
 
-  const supabase  = getSupabaseServerClient()
-  const tenantId  = access.tenantId
+  const supabase = getSupabaseServerClient()
+  const tenantId = access.tenantId
 
   // Check website module enabled
   const { data: mod } = await supabase
@@ -58,8 +58,8 @@ export default async function AiImagesPage() {
           </div>
         </div>
         <p className="text-sm text-white/50 mt-3 max-w-xl">
-          AI analyzes your website structure, creates a visual plan, and then generates
-          premium, commercially-ready images for each section — hero banners, service cards, gallery covers,
+          AI analyzes your website structure, creates a visual plan, and then generates premium,
+          commercially-ready images for each section — hero banners, service cards, gallery covers,
           and more — automatically placed into your website draft.
         </p>
       </div>

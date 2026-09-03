@@ -31,7 +31,9 @@ test('van damage object keys are deterministic, tenant scoped, and sanitized', (
 })
 
 test('derivative profiles map to immutable webp object keys', () => {
-  for (const profile of Object.keys(DERIVATIVE_PROFILES) as Array<keyof typeof DERIVATIVE_PROFILES>) {
+  for (const profile of Object.keys(DERIVATIVE_PROFILES) as Array<
+    keyof typeof DERIVATIVE_PROFILES
+  >) {
     const key = buildVanDamageObjectKey({
       tenantId: 'tenant-1',
       vehicleId: 'van-44',
@@ -56,7 +58,10 @@ test('AI cache keys isolate tenant, image hash, prompt, task, model capability, 
   assert.equal(buildAiCacheKey(base), original)
   assert.notEqual(buildAiCacheKey({ ...base, tenantId: 'tenant-2' }), original)
   assert.notEqual(buildAiCacheKey({ ...base, promptVersion: 'van-damage-v4' }), original)
-  assert.notEqual(buildAiCacheKey({ ...base, modelCapabilityVersion: 'primary_vision_v2' }), original)
+  assert.notEqual(
+    buildAiCacheKey({ ...base, modelCapabilityVersion: 'primary_vision_v2' }),
+    original
+  )
   assert.notEqual(
     buildAiCacheKey({ ...base, configurationVersion: 'image-lifecycle-v2' }),
     original
@@ -77,7 +82,10 @@ test('retention resolver blocks deletion while legal hold is active', () => {
 
 test('database contract defines lifecycle tables, owner summary RPC, and RLS', async () => {
   const migration = await readFile(
-    new URL('../../../supabase/migrations/20260729120000_image_lifecycle_cache_cost_controls.sql', import.meta.url),
+    new URL(
+      '../../../supabase/migrations/20260729120000_image_lifecycle_cache_cost_controls.sql',
+      import.meta.url
+    ),
     'utf8'
   )
   for (const table of [

@@ -12,10 +12,7 @@ import {
   defaultPremium3DScrollHeroContent,
   type Premium3DScrollHeroContent,
 } from '@/lib/website/premium3d/types'
-import {
-  buildContentFromPreset,
-  INDUSTRY_PRESET_MAP,
-} from '@/lib/website/premium3d/presets'
+import { buildContentFromPreset, INDUSTRY_PRESET_MAP } from '@/lib/website/premium3d/presets'
 
 /** Map a detected business type / free-text industry to an industry preset key */
 export function presetKeyForBusiness(businessType: string | null | undefined): string {
@@ -27,16 +24,17 @@ export function presetKeyForBusiness(businessType: string | null | undefined): s
   if (/construct|contractor|build|roof|home build/.test(t)) return 'construction_build'
   if (/fitness|gym|train|wellness/.test(t)) return 'fitness_transformation'
   if (/law|legal|attorney|account|consult|finance|medical|clinic/.test(t)) return 'luxury_abstract'
-  if (/shoe|apparel|jewel|furniture|product|shop|store|ecommerce|retail/.test(t)) return 'product_spin'
+  if (/shoe|apparel|jewel|furniture|product|shop|store|ecommerce|retail/.test(t))
+    return 'product_spin'
   if (/character|mascot|game|entertain|kids/.test(t)) return 'mascot_intro'
   return 'product_spin'
 }
 
 export interface ScrollHeroRecommendation {
-  content:        Premium3DScrollHeroContent
+  content: Premium3DScrollHeroContent
   recommendedRenderMode: 'three_model' | 'video_scrub'
   suggestedAssetType: string
-  presetKey:      string
+  presetKey: string
 }
 
 /**
@@ -46,7 +44,7 @@ export interface ScrollHeroRecommendation {
  */
 export function recommendScrollHero(
   businessType: string | null | undefined,
-  overrides?: Partial<Premium3DScrollHeroContent>,
+  overrides?: Partial<Premium3DScrollHeroContent>
 ): ScrollHeroRecommendation {
   const presetKey = presetKeyForBusiness(businessType)
   const preset = INDUSTRY_PRESET_MAP.get(presetKey)
@@ -54,7 +52,7 @@ export function recommendScrollHero(
 
   // Drop undefined overrides so they never clobber preset/base values.
   const cleanOverrides = Object.fromEntries(
-    Object.entries(overrides ?? {}).filter(([, v]) => v !== undefined),
+    Object.entries(overrides ?? {}).filter(([, v]) => v !== undefined)
   ) as Partial<Premium3DScrollHeroContent>
 
   const content: Premium3DScrollHeroContent = {

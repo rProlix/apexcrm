@@ -6,7 +6,7 @@
 // No generation logic lives here — this is a thin adapter.
 // SERVER-ONLY. Never import from client components.
 
-import { getP360Provider }    from '@/lib/ai/360/provider'
+import { getP360Provider } from '@/lib/ai/360/provider'
 import type {
   Product360Provider,
   Generate360FrameInput,
@@ -18,16 +18,21 @@ function normalizeError(err: unknown): ProviderError {
   const msg = err instanceof Error ? err.message : String(err)
   const lower = msg.toLowerCase()
   if (lower.includes('429') || lower.includes('quota') || lower.includes('resource exhausted')) {
-    return { code: 'quota_exceeded', message: msg, isRetryable: true,  isQuotaError: true }
+    return { code: 'quota_exceeded', message: msg, isRetryable: true, isQuotaError: true }
   }
-  if (lower.includes('401') || lower.includes('403') || lower.includes('api key') || lower.includes('unauthorized')) {
-    return { code: 'auth_failed',    message: msg, isRetryable: false, isQuotaError: false }
+  if (
+    lower.includes('401') ||
+    lower.includes('403') ||
+    lower.includes('api key') ||
+    lower.includes('unauthorized')
+  ) {
+    return { code: 'auth_failed', message: msg, isRetryable: false, isQuotaError: false }
   }
   if (lower.includes('timeout') || lower.includes('aborted')) {
-    return { code: 'timeout',        message: msg, isRetryable: true,  isQuotaError: false }
+    return { code: 'timeout', message: msg, isRetryable: true, isQuotaError: false }
   }
   if (lower.includes('network') || lower.includes('fetch')) {
-    return { code: 'network',        message: msg, isRetryable: true,  isQuotaError: false }
+    return { code: 'network', message: msg, isRetryable: true, isQuotaError: false }
   }
   return { code: 'unknown', message: msg, isRetryable: true, isQuotaError: false }
 }
@@ -42,8 +47,8 @@ export class GeminiProduct360Provider implements Product360Provider {
 
   configErrors(): string[] {
     const errors: string[] = []
-    const hasGemini  = !!(process.env.GEMINI_API_KEY?.trim())
-    const hasGoogle  = !!(process.env.GOOGLE_API_KEY?.trim())
+    const hasGemini = !!process.env.GEMINI_API_KEY?.trim()
+    const hasGoogle = !!process.env.GOOGLE_API_KEY?.trim()
     if (!hasGemini && !hasGoogle) {
       errors.push('Missing GEMINI_API_KEY (or GOOGLE_API_KEY) for Gemini/Imagen provider')
     }
@@ -54,13 +59,14 @@ export class GeminiProduct360Provider implements Product360Provider {
     const inner = getP360Provider()
     if (!inner || !inner.isAvailable()) {
       return {
-        status:   'failed',
+        status: 'failed',
         mimeType: 'image/png',
         provider: 'gemini',
         error: {
-          code:         'provider_not_configured',
-          message:      'Gemini/Imagen provider is not configured. Set GEMINI_API_KEY or GOOGLE_API_KEY.',
-          isRetryable:  false,
+          code: 'provider_not_configured',
+          message:
+            'Gemini/Imagen provider is not configured. Set GEMINI_API_KEY or GOOGLE_API_KEY.',
+          isRetryable: false,
           isQuotaError: false,
         },
       }
@@ -68,27 +74,27 @@ export class GeminiProduct360Provider implements Product360Provider {
 
     try {
       const result = await inner.generateFrame({
-        prompt:                  input.prompt,
-        width:                   input.width,
-        height:                  input.height,
-        referenceImageBase64:    input.referenceImageBase64,
-        referenceImageMimeType:  input.referenceImageMimeType,
+        prompt: input.prompt,
+        width: input.width,
+        height: input.height,
+        referenceImageBase64: input.referenceImageBase64,
+        referenceImageMimeType: input.referenceImageMimeType,
       })
 
       return {
-        status:      'completed',
+        status: 'completed',
         imageBuffer: result.imageBuffer,
-        imageUrl:    result.imageUrl,
-        mimeType:    result.mimeType ?? 'image/png',
-        provider:    'gemini',
-        model:       result.model,
+        imageUrl: result.imageUrl,
+        mimeType: result.mimeType ?? 'image/png',
+        provider: 'gemini',
+        model: result.model,
       }
     } catch (err) {
       return {
-        status:   'failed',
+        status: 'failed',
         mimeType: 'image/png',
         provider: 'gemini',
-        error:    normalizeError(err),
+        error: normalizeError(err),
       }
     }
   }

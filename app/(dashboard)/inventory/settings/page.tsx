@@ -23,9 +23,6 @@ export default async function InventorySettingsPage() {
     .maybeSingle()
 
   return (
-    <InventorySettingsClient
-      tenantId={ctx.tenant_id ?? ''}
-      initialSettings={settings ?? null}
-    />
+    <InventorySettingsClient tenantId={ctx.tenant_id ?? ''} initialSettings={settings ?? null} />
   )
 }

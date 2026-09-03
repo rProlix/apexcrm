@@ -134,9 +134,7 @@ export async function PATCH(
     ]
     const { data: imageRows } = await looseDb
       .from('van_damage_images')
-      .select(
-        'id, upload_order, original_file_index, created_at, van_damage_inspections(van_id)'
-      )
+      .select('id, upload_order, original_file_index, created_at, van_damage_inspections(van_id)')
       .eq('tenant_id', access.tenantId)
       .eq('business_id', access.businessId)
       .or(filters.join(','))

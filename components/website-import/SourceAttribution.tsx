@@ -5,27 +5,27 @@ import { cn } from '@/lib/utils'
 import type { SourceType } from '@/lib/website-import/types'
 
 const SOURCE_ICONS: Record<SourceType, React.ElementType> = {
-  website:          Globe,
-  yelp:             Star,
+  website: Globe,
+  yelp: Star,
   business_profile: Building2,
-  manual:           FileText,
+  manual: FileText,
 }
 
 const SOURCE_LABELS: Record<SourceType, string> = {
-  website:          'Website',
-  yelp:             'Yelp',
+  website: 'Website',
+  yelp: 'Yelp',
   business_profile: 'Business Profile',
-  manual:           'Manual',
+  manual: 'Manual',
 }
 
 interface Props {
-  sourceUrl:  string
+  sourceUrl: string
   sourceType: SourceType
   className?: string
 }
 
 export function SourceAttribution({ sourceUrl, sourceType, className }: Props) {
-  const Icon  = SOURCE_ICONS[sourceType] ?? Globe
+  const Icon = SOURCE_ICONS[sourceType] ?? Globe
   const label = SOURCE_LABELS[sourceType] ?? sourceType
 
   let displayUrl: string

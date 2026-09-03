@@ -15,21 +15,32 @@ export default async function OwnerWebsiteImportPage() {
 
   const { data: jobs } = await db
     .from('website_import_jobs')
-    .select(`
+    .select(
+      `
       id, tenant_id, status, progress, source_urls,
       error_message, started_at, completed_at, created_at,
       website_import_sources(id, source_url, source_type, fetched_status, confidence_score)
-    `)
+    `
+    )
     .order('created_at', { ascending: false })
     .limit(100)
 
   type ImportJob = {
-    id: string; tenant_id: string; status: string; progress: number | null
-    source_urls: string[] | null; error_message: string | null
-    started_at: string | null; completed_at: string | null; created_at: string
+    id: string
+    tenant_id: string
+    status: string
+    progress: number | null
+    source_urls: string[] | null
+    error_message: string | null
+    started_at: string | null
+    completed_at: string | null
+    created_at: string
     website_import_sources: Array<{
-      id: string; source_url: string; source_type: string
-      fetched_status: string; confidence_score: number | null
+      id: string
+      source_url: string
+      source_type: string
+      fetched_status: string
+      confidence_score: number | null
     }> | null
   }
   const typedJobs = (jobs ?? []) as unknown as ImportJob[]
@@ -97,7 +108,11 @@ export default async function OwnerWebsiteImportPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <ImportStatusBadge status={job.status as 'queued' | 'running' | 'completed' | 'failed' | 'canceled'} />
+                      <ImportStatusBadge
+                        status={
+                          job.status as 'queued' | 'running' | 'completed' | 'failed' | 'canceled'
+                        }
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

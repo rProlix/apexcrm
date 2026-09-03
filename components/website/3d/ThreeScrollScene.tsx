@@ -27,9 +27,9 @@ import type { Premium3DScrollHeroContent } from '@/lib/website/premium3d/types'
 import { ScrollHeroErrorBoundary } from './ScrollHeroErrorBoundary'
 
 interface Props {
-  content:     Premium3DScrollHeroContent
+  content: Premium3DScrollHeroContent
   progressRef: React.RefObject<number>
-  active:      boolean
+  active: boolean
 }
 
 function lerp(a: number, b: number, t: number) {
@@ -38,7 +38,13 @@ function lerp(a: number, b: number, t: number) {
 
 // ── Camera rig ────────────────────────────────────────────────────────────────
 
-function CameraRig({ content, progressRef }: { content: Premium3DScrollHeroContent; progressRef: React.RefObject<number> }) {
+function CameraRig({
+  content,
+  progressRef,
+}: {
+  content: Premium3DScrollHeroContent
+  progressRef: React.RefObject<number>
+}) {
   const { camera } = useThree()
   const baseZ = 5 / (content.cameraZoom || 1)
 
@@ -89,14 +95,24 @@ function SceneLighting({ content }: { content: Premium3DScrollHeroContent }) {
         shadow-mapSize-height={1024}
       />
       <directionalLight position={[-5, 2, -2]} intensity={cfg.fill} color={cfg.keyColor} />
-      <directionalLight position={[0, 3, -6]} intensity={cfg.rim * (0.5 + shadow)} color={cfg.rimColor} />
+      <directionalLight
+        position={[0, 3, -6]}
+        intensity={cfg.rim * (0.5 + shadow)}
+        color={cfg.rimColor}
+      />
     </>
   )
 }
 
 // ── Loaded GLB/GLTF model ──────────────────────────────────────────────────────
 
-function Model({ content, progressRef }: { content: Premium3DScrollHeroContent; progressRef: React.RefObject<number> }) {
+function Model({
+  content,
+  progressRef,
+}: {
+  content: Premium3DScrollHeroContent
+  progressRef: React.RefObject<number>
+}) {
   const url = content.modelUrl as string
   const gltf = useGLTF(url)
   const root = useRef<THREE.Group>(null)
@@ -164,12 +180,22 @@ function Model({ content, progressRef }: { content: Premium3DScrollHeroContent; 
     }
   })
 
-  return <group ref={root}><primitive object={scene} /></group>
+  return (
+    <group ref={root}>
+      <primitive object={scene} />
+    </group>
+  )
 }
 
 // ── Premium demo object (fallback / no model) ──────────────────────────────────
 
-function DemoObject({ content, progressRef }: { content: Premium3DScrollHeroContent; progressRef: React.RefObject<number> }) {
+function DemoObject({
+  content,
+  progressRef,
+}: {
+  content: Premium3DScrollHeroContent
+  progressRef: React.RefObject<number>
+}) {
   const ref = useRef<THREE.Mesh>(null)
   const accent = content.palette?.accent ?? '#7c3aed'
   const glow = content.palette?.glow ?? '#a855f7'
@@ -232,7 +258,9 @@ export default function ThreeScrollScene({ content, progressRef, active }: Props
       <CameraRig content={content} progressRef={progressRef} />
       <Suspense fallback={<DemoObject content={content} progressRef={progressRef} />}>
         {hasModel ? (
-          <ScrollHeroErrorBoundary fallback={<DemoObject content={content} progressRef={progressRef} />}>
+          <ScrollHeroErrorBoundary
+            fallback={<DemoObject content={content} progressRef={progressRef} />}
+          >
             <Model content={content} progressRef={progressRef} />
           </ScrollHeroErrorBoundary>
         ) : (

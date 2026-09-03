@@ -30,11 +30,12 @@ export async function GET(
   const signed = await getCachedPrivateMediaSignedUrl({
     cacheKey: `${access.tenantId}:${access.businessId}:maintenance:${attachmentId}`,
     ttlSeconds: SIGNED_URL_TTL_SECONDS,
-    create: () => getSignedUrl(
-      new S3Client({ region, maxAttempts: 2 }),
-      new GetObjectCommand({ Bucket: data.s3_bucket!, Key: data.s3_key! }),
-      { expiresIn: SIGNED_URL_TTL_SECONDS }
-    ),
+    create: () =>
+      getSignedUrl(
+        new S3Client({ region, maxAttempts: 2 }),
+        new GetObjectCommand({ Bucket: data.s3_bucket!, Key: data.s3_key! }),
+        { expiresIn: SIGNED_URL_TTL_SECONDS }
+      ),
   })
   const headers = {
     'Cache-Control': `private, max-age=${SIGNED_URL_TTL_SECONDS - 30}, must-revalidate`,
@@ -43,9 +44,12 @@ export async function GET(
   if (request.nextUrl.searchParams.get('format') !== 'json') {
     return NextResponse.redirect(signed.url, { headers })
   }
-  return NextResponse.json({
-    url: signed.url,
-    expiresIn: Math.max(1, Math.floor((signed.expiresAt - now) / 1000)),
-    expiresAt: new Date(signed.expiresAt).toISOString(),
-  }, { headers })
+  return NextResponse.json(
+    {
+      url: signed.url,
+      expiresIn: Math.max(1, Math.floor((signed.expiresAt - now) / 1000)),
+      expiresAt: new Date(signed.expiresAt).toISOString(),
+    },
+    { headers }
+  )
 }

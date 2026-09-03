@@ -42,27 +42,40 @@ const LEONARDO_API_BASE = 'https://cloud.leonardo.ai/api/rest/v1'
 function getConfig() {
   const extraRaw = process.env.LEONARDO_360_EXTRA_TEXT_VARIABLE_NODE_IDS?.trim() ?? ''
   const extraNodeIds = extraRaw
-    ? extraRaw.split(',').map(s => s.trim()).filter(Boolean)
+    ? extraRaw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
     : []
 
   return {
-    apiKey:               process.env.LEONARDO_API_KEY?.trim()                     ?? '',
-    blueprintVersionId:   process.env.LEONARDO_360_BLUEPRINT_VERSION_ID?.trim()    ?? '',
+    apiKey: process.env.LEONARDO_API_KEY?.trim() ?? '',
+    blueprintVersionId: process.env.LEONARDO_360_BLUEPRINT_VERSION_ID?.trim() ?? '',
     referenceImageNodeId: process.env.LEONARDO_360_REFERENCE_IMAGE_NODE_ID?.trim() ?? '',
-    promptNodeId:         process.env.LEONARDO_360_PROMPT_NODE_ID?.trim()
-      ?? process.env.LEONARDO_360_TEXT_VARIABLES_NODE_ID?.trim()
-      ?? '',
-    angleNodeId:          process.env.LEONARDO_360_ANGLE_NODE_ID?.trim()           ?? '',
-    cameraNodeId:         process.env.LEONARDO_360_CAMERA_NODE_ID?.trim()          ?? '',
-    lightingNodeId:       process.env.LEONARDO_360_LIGHTING_NODE_ID?.trim()        ?? '',
-    backgroundNodeId:     process.env.LEONARDO_360_BACKGROUND_NODE_ID?.trim()      ?? '',
-    textVariablesNodeId:  process.env.LEONARDO_360_TEXT_VARIABLES_NODE_ID?.trim()  ?? '',
-    outputImageNodeId:    process.env.LEONARDO_360_OUTPUT_IMAGE_NODE_ID?.trim()    ?? '',
-    outputImageUrlPath:   process.env.LEONARDO_360_OUTPUT_IMAGE_URL_PATH?.trim()   ?? '',
-    textVariablesFormat:  (process.env.LEONARDO_360_TEXT_VARIABLES_FORMAT?.trim().toLowerCase() === 'json' ? 'json' : 'text') as 'json' | 'text',
+    promptNodeId:
+      process.env.LEONARDO_360_PROMPT_NODE_ID?.trim() ??
+      process.env.LEONARDO_360_TEXT_VARIABLES_NODE_ID?.trim() ??
+      '',
+    angleNodeId: process.env.LEONARDO_360_ANGLE_NODE_ID?.trim() ?? '',
+    cameraNodeId: process.env.LEONARDO_360_CAMERA_NODE_ID?.trim() ?? '',
+    lightingNodeId: process.env.LEONARDO_360_LIGHTING_NODE_ID?.trim() ?? '',
+    backgroundNodeId: process.env.LEONARDO_360_BACKGROUND_NODE_ID?.trim() ?? '',
+    textVariablesNodeId: process.env.LEONARDO_360_TEXT_VARIABLES_NODE_ID?.trim() ?? '',
+    outputImageNodeId: process.env.LEONARDO_360_OUTPUT_IMAGE_NODE_ID?.trim() ?? '',
+    outputImageUrlPath: process.env.LEONARDO_360_OUTPUT_IMAGE_URL_PATH?.trim() ?? '',
+    textVariablesFormat: (process.env.LEONARDO_360_TEXT_VARIABLES_FORMAT?.trim().toLowerCase() ===
+    'json'
+      ? 'json'
+      : 'text') as 'json' | 'text',
     extraTextVariableNodeIds: extraNodeIds,
-    maxPollMs:            parseInt(process.env.LEONARDO_360_MAX_POLL_MS ?? '120000', 10) || 120000,
-    pollDelayMs:          parseInt(process.env.LEONARDO_360_POLL_INTERVAL_MS ?? process.env.PRODUCT_360_PROVIDER_POLL_DELAY_MS ?? '2500', 10) || 2500,
+    maxPollMs: parseInt(process.env.LEONARDO_360_MAX_POLL_MS ?? '120000', 10) || 120000,
+    pollDelayMs:
+      parseInt(
+        process.env.LEONARDO_360_POLL_INTERVAL_MS ??
+          process.env.PRODUCT_360_PROVIDER_POLL_DELAY_MS ??
+          '2500',
+        10
+      ) || 2500,
   }
 }
 
@@ -103,26 +116,26 @@ export type GeneratedImageResult = {
 // ═════════════════════════════════════════════════════════════════════════════
 
 export type LeonardoNormalizedResponse = {
-  raw:           unknown
-  candidates:    unknown[]
-  imageUrl:      string | null
-  executionId:   string | null
-  status:        string | null
-  isPending:     boolean
-  isFailed:      boolean
+  raw: unknown
+  candidates: unknown[]
+  imageUrl: string | null
+  executionId: string | null
+  status: string | null
+  isPending: boolean
+  isFailed: boolean
   failureMessage: string | null
   debug: {
-    responseShape:        string
-    topLevelKeys:         string[]
-    candidateCount:       number
-    candidateKeys:        string[][]
-    candidateOutputKeys:  string[][]
-    hasImageUrl:          boolean
-    hasExecutionId:       boolean
-    extractedStatus:      string | null
-    hasApiError:          boolean
-    errorKeys:            string[][]    // candidate keys from error-shaped objects
-    errorMessagesPreview: string[]      // first 2 sanitized messages from errors
+    responseShape: string
+    topLevelKeys: string[]
+    candidateCount: number
+    candidateKeys: string[][]
+    candidateOutputKeys: string[][]
+    hasImageUrl: boolean
+    hasExecutionId: boolean
+    extractedStatus: string | null
+    hasApiError: boolean
+    errorKeys: string[][] // candidate keys from error-shaped objects
+    errorMessagesPreview: string[] // first 2 sanitized messages from errors
   }
 }
 
@@ -142,13 +155,11 @@ export function looksLikeLeonardoErrorObject(value: unknown): boolean {
   const keys = Object.keys(obj)
   return (
     typeof obj.message === 'string' &&
-    (
-      keys.includes('extensions') ||
+    (keys.includes('extensions') ||
       keys.includes('locations') ||
       keys.includes('path') ||
       keys.includes('errors') ||
-      keys.includes('error')
-    )
+      keys.includes('error'))
   )
 }
 
@@ -171,10 +182,12 @@ export function extractLeonardoErrorMessages(value: unknown): string[] {
     }
 
     const obj = input as Record<string, unknown>
-    if (typeof obj.message      === 'string' && obj.message.trim())      messages.push(obj.message.trim())
-    if (typeof obj.error        === 'string' && obj.error.trim())        messages.push(obj.error.trim())
-    if (typeof obj.errorMessage === 'string' && obj.errorMessage.trim()) messages.push(obj.errorMessage.trim())
-    if (typeof obj.failureMessage === 'string' && obj.failureMessage.trim()) messages.push(obj.failureMessage.trim())
+    if (typeof obj.message === 'string' && obj.message.trim()) messages.push(obj.message.trim())
+    if (typeof obj.error === 'string' && obj.error.trim()) messages.push(obj.error.trim())
+    if (typeof obj.errorMessage === 'string' && obj.errorMessage.trim())
+      messages.push(obj.errorMessage.trim())
+    if (typeof obj.failureMessage === 'string' && obj.failureMessage.trim())
+      messages.push(obj.failureMessage.trim())
 
     for (const key of ['errors', 'error', 'extensions', 'details', 'data', 'response', 'result']) {
       if (obj[key] !== undefined) visit(obj[key], depth + 1)
@@ -210,12 +223,27 @@ export function unwrapLeonardoCandidates(raw: unknown): unknown[] {
 
     // Visit well-known nested container keys
     const nestedKeys = [
-      'data', 'result', 'results', 'output', 'outputs', 'response',
-      'execution', 'blueprintExecution', 'blueprint_execution',
-      'blueprintExecutionJob', 'job',
-      'generation', 'generations', 'sdGenerationJob',
-      'generated_images', 'generatedImages', 'images', 'artifacts', 'items',
-      'blueprintExecutionGenerations', 'generations_by_pk',
+      'data',
+      'result',
+      'results',
+      'output',
+      'outputs',
+      'response',
+      'execution',
+      'blueprintExecution',
+      'blueprint_execution',
+      'blueprintExecutionJob',
+      'job',
+      'generation',
+      'generations',
+      'sdGenerationJob',
+      'generated_images',
+      'generatedImages',
+      'images',
+      'artifacts',
+      'items',
+      'blueprintExecutionGenerations',
+      'generations_by_pk',
     ]
     for (const key of nestedKeys) {
       if (obj[key] !== undefined) visit(obj[key], depth + 1)
@@ -257,8 +285,16 @@ export function extractUrlFromValue(value: unknown): string | null {
 
   const obj = value as Record<string, unknown>
   const direct = pickString(obj, [
-    'imageUrl', 'image_url', 'url', 'uri', 'src',
-    'publicUrl', 'public_url', 'signedUrl', 'signed_url', 'location',
+    'imageUrl',
+    'image_url',
+    'url',
+    'uri',
+    'src',
+    'publicUrl',
+    'public_url',
+    'signedUrl',
+    'signed_url',
+    'location',
   ])
   if (direct && /^https?:\/\//i.test(direct)) return direct
 
@@ -274,7 +310,7 @@ function getValueAtPath(value: unknown, path: string): unknown {
   const parts = path
     .replace(/\[(\d+)\]/g, '.$1')
     .split('.')
-    .map(part => part.trim())
+    .map((part) => part.trim())
     .filter(Boolean)
 
   let current = value
@@ -311,11 +347,15 @@ function extractUrlForOutputNode(value: unknown, outputNodeId: string): string |
 
     const obj = input as Record<string, unknown>
     const nodeId =
-      typeof obj.nodeId === 'string' ? obj.nodeId :
-      typeof obj.node_id === 'string' ? obj.node_id :
-      typeof obj.id === 'string' ? obj.id :
-      typeof obj.outputNodeId === 'string' ? obj.outputNodeId :
-      null
+      typeof obj.nodeId === 'string'
+        ? obj.nodeId
+        : typeof obj.node_id === 'string'
+          ? obj.node_id
+          : typeof obj.id === 'string'
+            ? obj.id
+            : typeof obj.outputNodeId === 'string'
+              ? obj.outputNodeId
+              : null
 
     if (nodeId === outputNodeId) {
       const direct = extractUrlFromValue(obj)
@@ -334,9 +374,16 @@ function extractUrlForOutputNode(value: unknown, outputNodeId: string): string |
 
 function extractIdFromCandidates(candidates: unknown[]): string | null {
   const idKeys = [
-    'id', 'executionId', 'execution_id',
-    'blueprintExecutionId', 'blueprint_execution_id', 'blueprintExecutionJobId',
-    'generationId', 'generation_id', 'jobId', 'job_id',
+    'id',
+    'executionId',
+    'execution_id',
+    'blueprintExecutionId',
+    'blueprint_execution_id',
+    'blueprintExecutionJobId',
+    'generationId',
+    'generation_id',
+    'jobId',
+    'job_id',
   ]
   for (const candidate of candidates) {
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue
@@ -350,8 +397,12 @@ function extractIdFromCandidates(candidates: unknown[]): string | null {
 
 function extractStatusFromCandidates(candidates: unknown[]): string | null {
   const statusKeys = [
-    'status', 'state', 'jobStatus', 'job_status',
-    'executionStatus', 'execution_status',
+    'status',
+    'state',
+    'jobStatus',
+    'job_status',
+    'executionStatus',
+    'execution_status',
   ]
   for (const candidate of candidates) {
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue
@@ -363,17 +414,38 @@ function extractStatusFromCandidates(candidates: unknown[]): string | null {
 }
 
 const PENDING_STATUSES = new Set([
-  'pending', 'queued', 'queue', 'processing', 'running', 'started',
-  'generating', 'in_progress', 'in-progress', 'created', 'submitted',
+  'pending',
+  'queued',
+  'queue',
+  'processing',
+  'running',
+  'started',
+  'generating',
+  'in_progress',
+  'in-progress',
+  'created',
+  'submitted',
 ])
 
 const FAILED_STATUSES = new Set([
-  'failed', 'error', 'errored', 'cancelled', 'canceled',
-  'rejected', 'timeout', 'timed_out',
+  'failed',
+  'error',
+  'errored',
+  'cancelled',
+  'canceled',
+  'rejected',
+  'timeout',
+  'timed_out',
 ])
 
 const COMPLETE_STATUSES = new Set([
-  'complete', 'completed', 'done', 'success', 'succeeded', 'ready', 'finished',
+  'complete',
+  'completed',
+  'done',
+  'success',
+  'succeeded',
+  'ready',
+  'finished',
 ])
 
 /**
@@ -389,19 +461,17 @@ const COMPLETE_STATUSES = new Set([
 export function normalizeLeonardoResponse(
   raw: unknown,
   outputImageNodeId = getConfig().outputImageNodeId,
-  outputImageUrlPath = getConfig().outputImageUrlPath,
+  outputImageUrlPath = getConfig().outputImageUrlPath
 ): LeonardoNormalizedResponse {
-  const candidates  = unwrapLeonardoCandidates(raw)
+  const candidates = unwrapLeonardoCandidates(raw)
 
   // ── GraphQL / API error detection ──────────────────────────────────────────
   // Leonardo returns errors as arrays of objects with keys like:
   //   { extensions, locations, message, path }
   // These must be detected BEFORE attempting to extract execution IDs or images.
   const errorCandidates = candidates.filter(looksLikeLeonardoErrorObject)
-  const hasApiError     = errorCandidates.length > 0
-  const errorKeys       = errorCandidates
-    .slice(0, 5)
-    .map(c => getObjectKeysSafe(c))
+  const hasApiError = errorCandidates.length > 0
+  const errorKeys = errorCandidates.slice(0, 5).map((c) => getObjectKeysSafe(c))
 
   let apiErrorMessages: string[] = []
   if (hasApiError) {
@@ -412,39 +482,39 @@ export function normalizeLeonardoResponse(
   const imageUrlFromPath = outputImageUrlPath
     ? extractUrlFromValue(getValueAtPath(raw, outputImageUrlPath))
     : null
-  const imageUrl    = imageUrlFromPath ?? extractUrlForOutputNode(raw, outputImageNodeId) ?? extractUrlFromValue(raw)
+  const imageUrl =
+    imageUrlFromPath ?? extractUrlForOutputNode(raw, outputImageNodeId) ?? extractUrlFromValue(raw)
   const executionId = hasApiError ? null : extractIdFromCandidates(candidates)
-  const status      = hasApiError ? 'failed' : extractStatusFromCandidates(candidates)
+  const status = hasApiError ? 'failed' : extractStatusFromCandidates(candidates)
 
   // ── Determine terminal state ───────────────────────────────────────────────
   let isPending: boolean
-  let isFailed:  boolean
+  let isFailed: boolean
   let failureMessage: string | null
 
   if (hasApiError) {
-    isPending      = false
-    isFailed       = true
-    failureMessage = apiErrorMessages.length > 0
-      ? apiErrorMessages.join(' | ')
-      : 'Leonardo rejected the request (API/GraphQL error)'
+    isPending = false
+    isFailed = true
+    failureMessage =
+      apiErrorMessages.length > 0
+        ? apiErrorMessages.join(' | ')
+        : 'Leonardo rejected the request (API/GraphQL error)'
   } else if (imageUrl) {
-    isPending      = false
-    isFailed       = false
+    isPending = false
+    isFailed = false
     failureMessage = null
   } else {
-    isPending = status
-      ? PENDING_STATUSES.has(status)
-      : Boolean(executionId)  // has ID but no image → still running
-    isFailed  = status ? FAILED_STATUSES.has(status) : false
+    isPending = status ? PENDING_STATUSES.has(status) : Boolean(executionId) // has ID but no image → still running
+    isFailed = status ? FAILED_STATUSES.has(status) : false
     failureMessage = isFailed
-      ? extractLeonardoErrorMessages(raw)[0] ?? 'Leonardo generation failed'
+      ? (extractLeonardoErrorMessages(raw)[0] ?? 'Leonardo generation failed')
       : null
   }
 
   const allCandidateKeys = candidates
-    .filter(c => c && typeof c === 'object' && !Array.isArray(c))
+    .filter((c) => c && typeof c === 'object' && !Array.isArray(c))
     .slice(0, 10)
-    .map(c => getObjectKeysSafe(c))
+    .map((c) => getObjectKeysSafe(c))
 
   return {
     raw,
@@ -456,16 +526,18 @@ export function normalizeLeonardoResponse(
     isFailed,
     failureMessage,
     debug: {
-      responseShape:        Array.isArray(raw) ? 'array'
-                            : raw && typeof raw === 'object' ? 'object'
-                            : typeof raw,
-      topLevelKeys:         getObjectKeysSafe(raw),
-      candidateCount:       candidates.length,
-      candidateKeys:        allCandidateKeys,
-      candidateOutputKeys:   allCandidateKeys,
-      hasImageUrl:          Boolean(imageUrl),
-      hasExecutionId:       Boolean(executionId),
-      extractedStatus:      status,
+      responseShape: Array.isArray(raw)
+        ? 'array'
+        : raw && typeof raw === 'object'
+          ? 'object'
+          : typeof raw,
+      topLevelKeys: getObjectKeysSafe(raw),
+      candidateCount: candidates.length,
+      candidateKeys: allCandidateKeys,
+      candidateOutputKeys: allCandidateKeys,
+      hasImageUrl: Boolean(imageUrl),
+      hasExecutionId: Boolean(executionId),
+      extractedStatus: status,
       hasApiError,
       errorKeys,
       errorMessagesPreview: apiErrorMessages.slice(0, 2),
@@ -480,16 +552,16 @@ export function normalizeLeonardoResponse(
 export function buildLeonardoDiagnostic(
   raw: unknown,
   stage: string,
-  extra?: Record<string, unknown>,
+  extra?: Record<string, unknown>
 ): Record<string, unknown> {
   const n = normalizeLeonardoResponse(raw)
   return {
-    provider:        'leonardo',
+    provider: 'leonardo',
     stage,
     ...n.debug,
-    isPending:       n.isPending,
-    isFailed:        n.isFailed,
-    failureMessage:  n.failureMessage,
+    isPending: n.isPending,
+    isFailed: n.isFailed,
+    failureMessage: n.failureMessage,
     ...extra,
   }
 }
@@ -497,53 +569,67 @@ export function buildLeonardoDiagnostic(
 // ─── Request payload debug (no secrets) ──────────────────────────────────────
 
 function buildRequestDebug(
-  cfg:            ReturnType<typeof getConfig>,
+  cfg: ReturnType<typeof getConfig>,
   referenceImageUrl: string | null,
-  textVariables:  string,
+  textVariables: string,
   nodeInputCount: number,
-  settingNames:   string[],
+  settingNames: string[]
 ) {
   return {
-    blueprintVersionIdPresent:   Boolean(cfg.blueprintVersionId),
+    blueprintVersionIdPresent: Boolean(cfg.blueprintVersionId),
     referenceImageNodeIdPresent: Boolean(cfg.referenceImageNodeId),
-    promptNodeIdPresent:         Boolean(cfg.promptNodeId),
-    angleNodeIdPresent:          Boolean(cfg.angleNodeId),
-    cameraNodeIdPresent:         Boolean(cfg.cameraNodeId),
-    lightingNodeIdPresent:       Boolean(cfg.lightingNodeId),
-    backgroundNodeIdPresent:     Boolean(cfg.backgroundNodeId),
+    promptNodeIdPresent: Boolean(cfg.promptNodeId),
+    angleNodeIdPresent: Boolean(cfg.angleNodeId),
+    cameraNodeIdPresent: Boolean(cfg.cameraNodeId),
+    lightingNodeIdPresent: Boolean(cfg.lightingNodeId),
+    backgroundNodeIdPresent: Boolean(cfg.backgroundNodeId),
     legacyTextVariablesNodeIdPresent: Boolean(cfg.textVariablesNodeId),
-    outputImageUrlPathPresent:   Boolean(cfg.outputImageUrlPath),
-    extraNodeCount:              cfg.extraTextVariableNodeIds.length,
+    outputImageUrlPathPresent: Boolean(cfg.outputImageUrlPath),
+    extraNodeCount: cfg.extraTextVariableNodeIds.length,
     nodeInputCount,
     settingNames,
-    hasReferenceImageUrl:        Boolean(referenceImageUrl),
-    textVariablesLength:         textVariables.length,
+    hasReferenceImageUrl: Boolean(referenceImageUrl),
+    textVariablesLength: textVariables.length,
   }
 }
 
 // ─── Error normalizer ─────────────────────────────────────────────────────────
 
 function normalizeError(err: unknown, httpStatus?: number): ProviderError {
-  const msg   = err instanceof Error ? err.message : String(err)
+  const msg = err instanceof Error ? err.message : String(err)
   const lower = msg.toLowerCase()
 
-  if (httpStatus === 401 || httpStatus === 403 || lower.includes('unauthorized') || lower.includes('invalid api key')) {
-    return { code: 'auth_failed',       message: msg, isRetryable: false, isQuotaError: false }
+  if (
+    httpStatus === 401 ||
+    httpStatus === 403 ||
+    lower.includes('unauthorized') ||
+    lower.includes('invalid api key')
+  ) {
+    return { code: 'auth_failed', message: msg, isRetryable: false, isQuotaError: false }
   }
-  if (httpStatus === 429 || lower.includes('429') || lower.includes('quota') || lower.includes('rate limit')) {
-    return { code: 'quota_exceeded',    message: msg, isRetryable: true,  isQuotaError: true }
+  if (
+    httpStatus === 429 ||
+    lower.includes('429') ||
+    lower.includes('quota') ||
+    lower.includes('rate limit')
+  ) {
+    return { code: 'quota_exceeded', message: msg, isRetryable: true, isQuotaError: true }
   }
   if (lower.includes('moderat') || lower.includes('nsfw') || lower.includes('content policy')) {
-    return { code: 'moderation',        message: msg, isRetryable: false, isQuotaError: false }
+    return { code: 'moderation', message: msg, isRetryable: false, isQuotaError: false }
   }
-  if (lower.includes('blueprint') || (lower.includes('invalid') && httpStatus === 400) || httpStatus === 400) {
+  if (
+    lower.includes('blueprint') ||
+    (lower.includes('invalid') && httpStatus === 400) ||
+    httpStatus === 400
+  ) {
     return { code: 'invalid_blueprint', message: msg, isRetryable: false, isQuotaError: false }
   }
   if (lower.includes('timeout') || lower.includes('aborted')) {
-    return { code: 'timeout',           message: msg, isRetryable: true,  isQuotaError: false }
+    return { code: 'timeout', message: msg, isRetryable: true, isQuotaError: false }
   }
   if (lower.includes('network') || lower.includes('econnrefused') || lower.includes('fetch')) {
-    return { code: 'network',           message: msg, isRetryable: true,  isQuotaError: false }
+    return { code: 'network', message: msg, isRetryable: true, isQuotaError: false }
   }
   return { code: 'unknown', message: msg, isRetryable: true, isQuotaError: false }
 }
@@ -551,29 +637,56 @@ function normalizeError(err: unknown, httpStatus?: number): ProviderError {
 // ─── POST /blueprint-executions ──────────────────────────────────────────────
 
 type CreateExecutionResult =
-  | { kind: 'pending';   executionId: string; normalized: LeonardoNormalizedResponse; requestDebug: Record<string, unknown> }
-  | { kind: 'immediate'; imageUrl:    string;  normalized: LeonardoNormalizedResponse; requestDebug: Record<string, unknown> }
-  | { kind: 'failed';    error: ProviderError; normalized: LeonardoNormalizedResponse; requestDebug: Record<string, unknown> }
+  | {
+      kind: 'pending'
+      executionId: string
+      normalized: LeonardoNormalizedResponse
+      requestDebug: Record<string, unknown>
+    }
+  | {
+      kind: 'immediate'
+      imageUrl: string
+      normalized: LeonardoNormalizedResponse
+      requestDebug: Record<string, unknown>
+    }
+  | {
+      kind: 'failed'
+      error: ProviderError
+      normalized: LeonardoNormalizedResponse
+      requestDebug: Record<string, unknown>
+    }
 
 async function createBlueprintExecution(
-  cfg:               ReturnType<typeof getConfig>,
+  cfg: ReturnType<typeof getConfig>,
   referenceImageUrl: string | null,
-  textVariables:     string,
+  textVariables: string,
   frame: {
     angleDegrees: number
     prompt: string
-  },
+  }
 ): Promise<CreateExecutionResult> {
   const nodeInputs: Array<{ nodeId: string; value: string; settingName: string }> = []
 
   if (cfg.referenceImageNodeId && referenceImageUrl) {
-    nodeInputs.push({ nodeId: cfg.referenceImageNodeId, value: referenceImageUrl, settingName: 'imageUrl' })
+    nodeInputs.push({
+      nodeId: cfg.referenceImageNodeId,
+      value: referenceImageUrl,
+      settingName: 'imageUrl',
+    })
   }
   if (cfg.promptNodeId && textVariables) {
-    nodeInputs.push({ nodeId: cfg.promptNodeId, value: textVariables, settingName: cfg.textVariablesNodeId ? 'textVariables' : 'prompt' })
+    nodeInputs.push({
+      nodeId: cfg.promptNodeId,
+      value: textVariables,
+      settingName: cfg.textVariablesNodeId ? 'textVariables' : 'prompt',
+    })
   }
   if (cfg.angleNodeId) {
-    nodeInputs.push({ nodeId: cfg.angleNodeId, value: String(frame.angleDegrees), settingName: 'angleDegrees' })
+    nodeInputs.push({
+      nodeId: cfg.angleNodeId,
+      value: String(frame.angleDegrees),
+      settingName: 'angleDegrees',
+    })
   }
   if (cfg.cameraNodeId) {
     nodeInputs.push({
@@ -585,14 +698,16 @@ async function createBlueprintExecution(
   if (cfg.lightingNodeId) {
     nodeInputs.push({
       nodeId: cfg.lightingNodeId,
-      value: 'Preserve the exact lighting direction, softness, intensity, shadow style, highlights, and atmosphere from the reference image.',
+      value:
+        'Preserve the exact lighting direction, softness, intensity, shadow style, highlights, and atmosphere from the reference image.',
       settingName: 'lighting',
     })
   }
   if (cfg.backgroundNodeId) {
     nodeInputs.push({
       nodeId: cfg.backgroundNodeId,
-      value: 'Preserve the exact background, wall/backdrop, table surface, props, and object arrangement from the reference image.',
+      value:
+        'Preserve the exact background, wall/backdrop, table surface, props, and object arrangement from the reference image.',
       settingName: 'background',
     })
   }
@@ -602,36 +717,50 @@ async function createBlueprintExecution(
   }
 
   const body = { blueprintVersionId: cfg.blueprintVersionId, input: { nodeInputs, public: true } }
-  const settingNames = nodeInputs.map(n => n.settingName)
-  const reqDebug = buildRequestDebug(cfg, referenceImageUrl, textVariables, nodeInputs.length, settingNames)
+  const settingNames = nodeInputs.map((n) => n.settingName)
+  const reqDebug = buildRequestDebug(
+    cfg,
+    referenceImageUrl,
+    textVariables,
+    nodeInputs.length,
+    settingNames
+  )
 
   const res = await fetch(`${LEONARDO_API_BASE}/blueprint-executions`, {
-    method:  'POST',
+    method: 'POST',
     headers: {
-      accept:         'application/json',
-      authorization:  `Bearer ${cfg.apiKey}`,
+      accept: 'application/json',
+      authorization: `Bearer ${cfg.apiKey}`,
       'content-type': 'application/json',
     },
     body: JSON.stringify(body),
   })
 
   let raw: unknown = null
-  try { raw = await res.json() } catch { raw = null }
+  try {
+    raw = await res.json()
+  } catch {
+    raw = null
+  }
 
   const normalized = normalizeLeonardoResponse(raw)
 
   if (process.env.NODE_ENV !== 'production') {
     console.info('[leonardoProvider] create-execution HTTP', res.status)
-    console.info('[leonardoProvider] create-execution debug:', JSON.stringify({ ...normalized.debug, reqDebug }))
+    console.info(
+      '[leonardoProvider] create-execution debug:',
+      JSON.stringify({ ...normalized.debug, reqDebug })
+    )
   }
 
   // HTTP-level failure (4xx/5xx) — combine with response body parsing
   if (!res.ok) {
-    const errMsg = normalized.failureMessage
-      ?? normalized.debug.errorMessagesPreview[0]
-      ?? `Leonardo blueprint-executions HTTP ${res.status}`
+    const errMsg =
+      normalized.failureMessage ??
+      normalized.debug.errorMessagesPreview[0] ??
+      `Leonardo blueprint-executions HTTP ${res.status}`
     return {
-      kind:  'failed',
+      kind: 'failed',
       error: normalizeError(new Error(errMsg), res.status),
       normalized,
       requestDebug: { ...reqDebug, httpStatus: res.status },
@@ -647,22 +776,30 @@ async function createBlueprintExecution(
     let hint = ''
     const lower = errMsg.toLowerCase()
     if (lower.includes('imageurl') || lower.includes('image_url') || lower.includes('required')) {
-      hint = ' Make sure LEONARDO_360_REFERENCE_IMAGE_NODE_ID is correct and a reference image URL is provided.'
-    } else if (lower.includes('textvariables') || lower.includes('text_variables') || lower.includes('prompt')) {
-      hint = ' Make sure LEONARDO_360_PROMPT_NODE_ID is correct and prompt/text variables are provided.'
+      hint =
+        ' Make sure LEONARDO_360_REFERENCE_IMAGE_NODE_ID is correct and a reference image URL is provided.'
+    } else if (
+      lower.includes('textvariables') ||
+      lower.includes('text_variables') ||
+      lower.includes('prompt')
+    ) {
+      hint =
+        ' Make sure LEONARDO_360_PROMPT_NODE_ID is correct and prompt/text variables are provided.'
     } else if (lower.includes('blueprintversion') || lower.includes('blueprint')) {
-      hint = ' Make sure LEONARDO_360_BLUEPRINT_VERSION_ID matches a published blueprint you have access to.'
+      hint =
+        ' Make sure LEONARDO_360_BLUEPRINT_VERSION_ID matches a published blueprint you have access to.'
     } else if (lower.includes('node') || lower.includes('nodeid') || lower.includes('node_id')) {
-      hint = ' Make sure LEONARDO_360_REFERENCE_IMAGE_NODE_ID, LEONARDO_360_PROMPT_NODE_ID, LEONARDO_360_ANGLE_NODE_ID, LEONARDO_360_CAMERA_NODE_ID, LEONARDO_360_LIGHTING_NODE_ID, and LEONARDO_360_BACKGROUND_NODE_ID match the node IDs in your blueprint.'
+      hint =
+        ' Make sure LEONARDO_360_REFERENCE_IMAGE_NODE_ID, LEONARDO_360_PROMPT_NODE_ID, LEONARDO_360_ANGLE_NODE_ID, LEONARDO_360_CAMERA_NODE_ID, LEONARDO_360_LIGHTING_NODE_ID, and LEONARDO_360_BACKGROUND_NODE_ID match the node IDs in your blueprint.'
     }
 
     return {
-      kind:  'failed',
+      kind: 'failed',
       error: {
-        code:         'invalid_blueprint',
-        message:      errMsg + hint,
-        details:      JSON.stringify({ ...normalized.debug, ...reqDebug }),
-        isRetryable:  false,
+        code: 'invalid_blueprint',
+        message: errMsg + hint,
+        details: JSON.stringify({ ...normalized.debug, ...reqDebug }),
+        isRetryable: false,
         isQuotaError: false,
       },
       normalized,
@@ -677,19 +814,25 @@ async function createBlueprintExecution(
 
   // Async path — have an execution ID to poll
   if (normalized.executionId) {
-    return { kind: 'pending', executionId: normalized.executionId, normalized, requestDebug: reqDebug }
+    return {
+      kind: 'pending',
+      executionId: normalized.executionId,
+      normalized,
+      requestDebug: reqDebug,
+    }
   }
 
   // Pending response but no execution ID
   if (normalized.isPending) {
     return {
-      kind:  'failed',
+      kind: 'failed',
       error: {
-        code:         'invalid_blueprint',
-        message:      'Leonardo accepted the request but returned no execution id. ' +
-                      'Check LEONARDO_360_BLUEPRINT_VERSION_ID and blueprint output configuration.',
-        details:      JSON.stringify({ ...normalized.debug, ...reqDebug }),
-        isRetryable:  false,
+        code: 'invalid_blueprint',
+        message:
+          'Leonardo accepted the request but returned no execution id. ' +
+          'Check LEONARDO_360_BLUEPRINT_VERSION_ID and blueprint output configuration.',
+        details: JSON.stringify({ ...normalized.debug, ...reqDebug }),
+        isRetryable: false,
         isQuotaError: false,
       },
       normalized,
@@ -699,15 +842,16 @@ async function createBlueprintExecution(
 
   // Unknown shape
   return {
-    kind:  'failed',
+    kind: 'failed',
     error: {
-      code:         'unknown',
-      message:      'Leonardo did not return an image URL or execution id. ' +
-                    `Response shape: ${normalized.debug.responseShape}, ` +
-                    `keys: [${normalized.debug.topLevelKeys.join(', ')}]. ` +
-                    'Check blueprint output configuration and node IDs.',
-      details:      JSON.stringify({ ...normalized.debug, ...reqDebug }),
-      isRetryable:  false,
+      code: 'unknown',
+      message:
+        'Leonardo did not return an image URL or execution id. ' +
+        `Response shape: ${normalized.debug.responseShape}, ` +
+        `keys: [${normalized.debug.topLevelKeys.join(', ')}]. ` +
+        'Check blueprint output configuration and node IDs.',
+      details: JSON.stringify({ ...normalized.debug, ...reqDebug }),
+      isRetryable: false,
       isQuotaError: false,
     },
     normalized,
@@ -718,22 +862,33 @@ async function createBlueprintExecution(
 // ─── GET /blueprint-executions/{id} ──────────────────────────────────────────
 
 async function pollBlueprintExecution(
-  apiKey:      string,
-  executionId: string,
+  apiKey: string,
+  executionId: string
 ): Promise<{ normalized: LeonardoNormalizedResponse }> {
   const res = await fetch(
     `${LEONARDO_API_BASE}/blueprint-executions/${encodeURIComponent(executionId)}`,
-    { method: 'GET', headers: { accept: 'application/json', authorization: `Bearer ${apiKey}` } },
+    { method: 'GET', headers: { accept: 'application/json', authorization: `Bearer ${apiKey}` } }
   )
 
   let raw: unknown = null
-  try { raw = await res.json() } catch { raw = null }
+  try {
+    raw = await res.json()
+  } catch {
+    raw = null
+  }
 
   if (!res.ok) {
     if (res.status === 404) {
       throw Object.assign(
         new Error(`Leonardo execution ${executionId} not found (404). The job may have expired.`),
-        { providerError: { code: 'invalid_blueprint', message: 'Execution not found', isRetryable: false, isQuotaError: false } as ProviderError },
+        {
+          providerError: {
+            code: 'invalid_blueprint',
+            message: 'Execution not found',
+            isRetryable: false,
+            isQuotaError: false,
+          } as ProviderError,
+        }
       )
     }
     const n = normalizeLeonardoResponse(raw)
@@ -743,18 +898,27 @@ async function pollBlueprintExecution(
   let normalized = normalizeLeonardoResponse(raw)
 
   // Try /generations suffix as fallback when primary has no image and is not failed
-  if (!normalized.imageUrl && !normalized.isFailed && !COMPLETE_STATUSES.has(normalized.status ?? '')) {
+  if (
+    !normalized.imageUrl &&
+    !normalized.isFailed &&
+    !COMPLETE_STATUSES.has(normalized.status ?? '')
+  ) {
     try {
       const altRes = await fetch(
         `${LEONARDO_API_BASE}/blueprint-executions/${encodeURIComponent(executionId)}/generations`,
-        { method: 'GET', headers: { accept: 'application/json', authorization: `Bearer ${apiKey}` } },
+        {
+          method: 'GET',
+          headers: { accept: 'application/json', authorization: `Bearer ${apiKey}` },
+        }
       )
       if (altRes.ok) {
         const altRaw = await altRes.json()
         const altNorm = normalizeLeonardoResponse(altRaw)
         if (altNorm.imageUrl) normalized = { ...normalized, imageUrl: altNorm.imageUrl }
       }
-    } catch { /* Silently ignore fallback errors */ }
+    } catch {
+      /* Silently ignore fallback errors */
+    }
   }
 
   return { normalized }
@@ -765,42 +929,56 @@ async function pollBlueprintExecution(
 export class LeonardoProduct360Provider implements Product360Provider {
   readonly name = 'leonardo' as const
 
-  isAvailable(): boolean { return this.configErrors().length === 0 }
+  isAvailable(): boolean {
+    return this.configErrors().length === 0
+  }
 
   configErrors(): string[] {
-    const cfg = getConfig(); const errors: string[] = []
-    if (!cfg.apiKey)               errors.push('Missing LEONARDO_API_KEY')
-    if (!cfg.blueprintVersionId)   errors.push('Missing LEONARDO_360_BLUEPRINT_VERSION_ID')
+    const cfg = getConfig()
+    const errors: string[] = []
+    if (!cfg.apiKey) errors.push('Missing LEONARDO_API_KEY')
+    if (!cfg.blueprintVersionId) errors.push('Missing LEONARDO_360_BLUEPRINT_VERSION_ID')
     if (!cfg.referenceImageNodeId) errors.push('Missing LEONARDO_360_REFERENCE_IMAGE_NODE_ID')
-    if (!cfg.promptNodeId)         errors.push('Missing LEONARDO_360_PROMPT_NODE_ID')
-    if (!cfg.angleNodeId)          errors.push('Missing LEONARDO_360_ANGLE_NODE_ID')
-    if (!cfg.cameraNodeId)         errors.push('Missing LEONARDO_360_CAMERA_NODE_ID')
-    if (!cfg.lightingNodeId)       errors.push('Missing LEONARDO_360_LIGHTING_NODE_ID')
-    if (!cfg.backgroundNodeId)     errors.push('Missing LEONARDO_360_BACKGROUND_NODE_ID')
+    if (!cfg.promptNodeId) errors.push('Missing LEONARDO_360_PROMPT_NODE_ID')
+    if (!cfg.angleNodeId) errors.push('Missing LEONARDO_360_ANGLE_NODE_ID')
+    if (!cfg.cameraNodeId) errors.push('Missing LEONARDO_360_CAMERA_NODE_ID')
+    if (!cfg.lightingNodeId) errors.push('Missing LEONARDO_360_LIGHTING_NODE_ID')
+    if (!cfg.backgroundNodeId) errors.push('Missing LEONARDO_360_BACKGROUND_NODE_ID')
     return errors
   }
 
   async generateFrame(input: Generate360FrameInput): Promise<Generate360FrameResult> {
-    const cfg    = getConfig()
+    const cfg = getConfig()
     const errors = this.configErrors()
     if (errors.length > 0) {
-      return { status: 'failed', mimeType: 'image/png', provider: 'leonardo',
-        error: { code: 'missing_env_vars', message: errors.join('; '), isRetryable: false, isQuotaError: false } }
+      return {
+        status: 'failed',
+        mimeType: 'image/png',
+        provider: 'leonardo',
+        error: {
+          code: 'missing_env_vars',
+          message: errors.join('; '),
+          isRetryable: false,
+          isQuotaError: false,
+        },
+      }
     }
 
-    const refImageUrl   = input.referenceImageUrl ?? null
+    const refImageUrl = input.referenceImageUrl ?? null
     const textVariables = input.textVariables ?? input.prompt
 
     if (!refImageUrl && process.env.NODE_ENV !== 'production') {
-      console.warn(`[leonardoProvider] frame=${input.frameIndex}: No reference image URL. Upload a reference image for best results.`)
+      console.warn(
+        `[leonardoProvider] frame=${input.frameIndex}: No reference image URL. Upload a reference image for best results.`
+      )
     }
 
     if (process.env.NODE_ENV !== 'production') {
       console.info(
         `[leonardoProvider] Creating blueprint execution ` +
-        `frame=${input.frameIndex} angle=${input.angleDegrees}° ` +
-        `blueprintVersionId=${cfg.blueprintVersionId.slice(0, 8)}… ` +
-        `hasReferenceImage=${Boolean(refImageUrl)}`,
+          `frame=${input.frameIndex} angle=${input.angleDegrees}° ` +
+          `blueprintVersionId=${cfg.blueprintVersionId.slice(0, 8)}… ` +
+          `hasReferenceImage=${Boolean(refImageUrl)}`
       )
     }
 
@@ -811,24 +989,53 @@ export class LeonardoProduct360Provider implements Product360Provider {
       })
 
       if (createResult.kind === 'immediate') {
-        console.info(`[leonardoProvider] Blueprint returned immediate image frame=${input.frameIndex}`)
-        return { status: 'completed', imageUrl: createResult.imageUrl, mimeType: 'image/png', provider: 'leonardo' }
+        console.info(
+          `[leonardoProvider] Blueprint returned immediate image frame=${input.frameIndex}`
+        )
+        return {
+          status: 'completed',
+          imageUrl: createResult.imageUrl,
+          mimeType: 'image/png',
+          provider: 'leonardo',
+        }
       }
 
       if (createResult.kind === 'pending') {
-        console.info(`[leonardoProvider] Execution accepted frame=${input.frameIndex} executionId=${createResult.executionId}`)
-        return { status: 'pending', mimeType: 'image/png', provider: 'leonardo', pendingExecutionId: createResult.executionId }
+        console.info(
+          `[leonardoProvider] Execution accepted frame=${input.frameIndex} executionId=${createResult.executionId}`
+        )
+        return {
+          status: 'pending',
+          mimeType: 'image/png',
+          provider: 'leonardo',
+          pendingExecutionId: createResult.executionId,
+        }
       }
 
       // Failed — build diagnostic from the normalized response (no secrets)
-      const diag = buildLeonardoDiagnostic(createResult.normalized.raw, 'create-execution', createResult.requestDebug)
-      console.error(`[leonardoProvider] create-execution failed frame=${input.frameIndex}: ${createResult.error.message}`)
+      const diag = buildLeonardoDiagnostic(
+        createResult.normalized.raw,
+        'create-execution',
+        createResult.requestDebug
+      )
+      console.error(
+        `[leonardoProvider] create-execution failed frame=${input.frameIndex}: ${createResult.error.message}`
+      )
 
-      return { status: 'failed', mimeType: 'image/png', provider: 'leonardo', error: createResult.error, rawResponse: diag }
-
+      return {
+        status: 'failed',
+        mimeType: 'image/png',
+        provider: 'leonardo',
+        error: createResult.error,
+        rawResponse: diag,
+      }
     } catch (err) {
-      const provErr = (err as { providerError?: ProviderError }).providerError ?? normalizeError(err)
-      console.error(`[leonardoProvider] generateFrame threw frame=${input.frameIndex}:`, provErr.message)
+      const provErr =
+        (err as { providerError?: ProviderError }).providerError ?? normalizeError(err)
+      console.error(
+        `[leonardoProvider] generateFrame threw frame=${input.frameIndex}:`,
+        provErr.message
+      )
       return { status: 'failed', mimeType: 'image/png', provider: 'leonardo', error: provErr }
     }
   }
@@ -836,8 +1043,15 @@ export class LeonardoProduct360Provider implements Product360Provider {
   async pollExecution(input: PollExecutionInput): Promise<PollExecutionResult> {
     const cfg = getConfig()
     if (!cfg.apiKey) {
-      return { status: 'failed',
-        error: { code: 'missing_env_vars', message: 'LEONARDO_API_KEY is not set', isRetryable: false, isQuotaError: false } }
+      return {
+        status: 'failed',
+        error: {
+          code: 'missing_env_vars',
+          message: 'LEONARDO_API_KEY is not set',
+          isRetryable: false,
+          isQuotaError: false,
+        },
+      }
     }
 
     const { maxPollMs, pollDelayMs } = cfg
@@ -845,7 +1059,9 @@ export class LeonardoProduct360Provider implements Product360Provider {
     const maxPollAttempts = Math.max(1, Math.ceil(maxPollMs / pollDelayMs))
 
     if (process.env.NODE_ENV !== 'production') {
-      console.info(`[leonardoProvider] pollExecution start executionId=${executionId} maxMs=${maxPollMs} maxAttempts=${maxPollAttempts} delayMs=${pollDelayMs}`)
+      console.info(
+        `[leonardoProvider] pollExecution start executionId=${executionId} maxMs=${maxPollMs} maxAttempts=${maxPollAttempts} delayMs=${pollDelayMs}`
+      )
     }
 
     for (let attempt = 1; attempt <= maxPollAttempts; attempt++) {
@@ -855,9 +1071,9 @@ export class LeonardoProduct360Provider implements Product360Provider {
         if (process.env.NODE_ENV !== 'production') {
           console.info(
             `[leonardoProvider] poll attempt=${attempt}/${maxPollAttempts} ` +
-            `status=${normalized.status} isPending=${normalized.isPending} ` +
-            `isFailed=${normalized.isFailed} hasImageUrl=${Boolean(normalized.imageUrl)} ` +
-            `hasApiError=${normalized.debug.hasApiError}`,
+              `status=${normalized.status} isPending=${normalized.isPending} ` +
+              `isFailed=${normalized.isFailed} hasImageUrl=${Boolean(normalized.imageUrl)} ` +
+              `hasApiError=${normalized.debug.hasApiError}`
           )
         }
 
@@ -865,10 +1081,10 @@ export class LeonardoProduct360Provider implements Product360Provider {
           return {
             status: 'failed',
             error: {
-              code:         'unknown',
-              message:      normalized.failureMessage ?? `Leonardo execution failed`,
-              details:      JSON.stringify(normalized.debug),
-              isRetryable:  false,
+              code: 'unknown',
+              message: normalized.failureMessage ?? `Leonardo execution failed`,
+              details: JSON.stringify(normalized.debug),
+              isRetryable: false,
               isQuotaError: false,
             },
           }
@@ -883,46 +1099,62 @@ export class LeonardoProduct360Provider implements Product360Provider {
               const contentType = imgRes.headers.get('content-type') ?? ''
               if (contentType.toLowerCase().startsWith('image/')) {
                 imageBuffer = Buffer.from(await imgRes.arrayBuffer())
-                mimeType    = contentType
+                mimeType = contentType
               } else {
-                console.warn(`[leonardoProvider] Image download returned non-image content-type "${contentType}" — using URL directly`)
+                console.warn(
+                  `[leonardoProvider] Image download returned non-image content-type "${contentType}" — using URL directly`
+                )
               }
             } else {
-              console.warn(`[leonardoProvider] Image download HTTP ${imgRes.status} — using URL directly`)
+              console.warn(
+                `[leonardoProvider] Image download HTTP ${imgRes.status} — using URL directly`
+              )
             }
           } catch (dlErr) {
-            console.warn(`[leonardoProvider] Image download failed: ${dlErr instanceof Error ? dlErr.message : dlErr}`)
+            console.warn(
+              `[leonardoProvider] Image download failed: ${dlErr instanceof Error ? dlErr.message : dlErr}`
+            )
           }
 
-          console.info(`[leonardoProvider] Execution ${executionId} complete after ${attempt} poll(s)`)
-          return { status: 'completed', imageBuffer, imageUrl: imageBuffer ? undefined : normalized.imageUrl, mimeType }
+          console.info(
+            `[leonardoProvider] Execution ${executionId} complete after ${attempt} poll(s)`
+          )
+          return {
+            status: 'completed',
+            imageBuffer,
+            imageUrl: imageBuffer ? undefined : normalized.imageUrl,
+            mimeType,
+          }
         }
 
         if (normalized.isPending || !normalized.status) {
-          if (attempt < maxPollAttempts) await new Promise(r => setTimeout(r, pollDelayMs))
+          if (attempt < maxPollAttempts) await new Promise((r) => setTimeout(r, pollDelayMs))
           continue
         }
 
         // Unknown non-pending, non-failed state — keep waiting
-        console.warn(`[leonardoProvider] Unknown execution state "${normalized.status}" attempt=${attempt}, waiting`)
-        if (attempt < maxPollAttempts) await new Promise(r => setTimeout(r, pollDelayMs))
-
+        console.warn(
+          `[leonardoProvider] Unknown execution state "${normalized.status}" attempt=${attempt}, waiting`
+        )
+        if (attempt < maxPollAttempts) await new Promise((r) => setTimeout(r, pollDelayMs))
       } catch (err) {
         const provErr = normalizeError(err)
         if (!provErr.isRetryable) return { status: 'failed', error: provErr }
         console.warn(`[leonardoProvider] Retryable poll error attempt=${attempt}:`, provErr.message)
-        if (attempt < maxPollAttempts) await new Promise(r => setTimeout(r, pollDelayMs))
+        if (attempt < maxPollAttempts) await new Promise((r) => setTimeout(r, pollDelayMs))
       }
     }
 
     const maxWaitSec = Math.round((maxPollAttempts * pollDelayMs) / 1000)
-    console.warn(`[leonardoProvider] Execution ${executionId} still pending after ${maxPollAttempts} attempts (${maxWaitSec}s)`)
+    console.warn(
+      `[leonardoProvider] Execution ${executionId} still pending after ${maxPollAttempts} attempts (${maxWaitSec}s)`
+    )
     return {
       status: 'pending',
       error: {
-        code:         'timeout',
-        message:      `Leonardo generation is still processing after ${maxWaitSec}s. Pump this package again to resume.`,
-        isRetryable:  true,
+        code: 'timeout',
+        message: `Leonardo generation is still processing after ${maxWaitSec}s. Pump this package again to resume.`,
+        isRetryable: true,
         isQuotaError: false,
       },
     }
@@ -973,15 +1205,19 @@ function buildStandaloneTextVariables(input: Leonardo360FrameInput): string {
     variables.orbitInstruction,
     '',
     'Consistency rules:',
-    ...variables.consistencyRules.map(rule => `- ${rule}`),
+    ...variables.consistencyRules.map((rule) => `- ${rule}`),
   ].join('\n')
 }
 
-export async function generateLeonardo360Frame(input: Leonardo360FrameInput): Promise<GeneratedImageResult> {
+export async function generateLeonardo360Frame(
+  input: Leonardo360FrameInput
+): Promise<GeneratedImageResult> {
   const provider = getLeonardoProvider()
   const errors = provider.configErrors()
   if (errors.length > 0) {
-    throw new Error(`Missing Leonardo environment variables: ${errors.map(e => e.replace(/^Missing /, '')).join(', ')}. Add them to your server environment and restart the app.`)
+    throw new Error(
+      `Missing Leonardo environment variables: ${errors.map((e) => e.replace(/^Missing /, '')).join(', ')}. Add them to your server environment and restart the app.`
+    )
   }
   if (!input.referenceImageUrl) {
     throw new Error('Leonardo generation requires a reference image URL.')
@@ -1000,8 +1236,15 @@ export async function generateLeonardo360Frame(input: Leonardo360FrameInput): Pr
   })
 
   if (result.status === 'completed') {
-    if (!result.imageUrl && !result.imageBuffer) throw new Error('Leonardo returned completed without an image URL or image buffer.')
-    return { provider: 'leonardo', imageUrl: result.imageUrl, imageBuffer: result.imageBuffer, mimeType: result.mimeType, raw: result.rawResponse }
+    if (!result.imageUrl && !result.imageBuffer)
+      throw new Error('Leonardo returned completed without an image URL or image buffer.')
+    return {
+      provider: 'leonardo',
+      imageUrl: result.imageUrl,
+      imageBuffer: result.imageBuffer,
+      mimeType: result.mimeType,
+      raw: result.rawResponse,
+    }
   }
 
   if (result.status === 'pending' && result.pendingExecutionId && provider.pollExecution) {
@@ -1015,10 +1258,15 @@ export async function generateLeonardo360Frame(input: Leonardo360FrameInput): Pr
         executionId: result.pendingExecutionId,
       }
     }
-    throw new Error(poll.error?.message ?? `Leonardo execution ${result.pendingExecutionId} did not complete with an image.`)
+    throw new Error(
+      poll.error?.message ??
+        `Leonardo execution ${result.pendingExecutionId} did not complete with an image.`
+    )
   }
 
-  throw new Error(result.error?.message ?? 'Leonardo did not return an image URL, image buffer, or execution id.')
+  throw new Error(
+    result.error?.message ?? 'Leonardo did not return an image URL, image buffer, or execution id.'
+  )
 }
 
 // ─── Legacy compat exports ────────────────────────────────────────────────────
@@ -1062,10 +1310,21 @@ export function getLeonardoFailureMessage(raw: unknown): string {
 //   node -e "require('./leonardoProvider').runNormalizerSelfTest()"
 
 export function runNormalizerSelfTest(): void {
-  const tests: Array<{ label: string; input: unknown; expect: Partial<LeonardoNormalizedResponse> }> = [
+  const tests: Array<{
+    label: string
+    input: unknown
+    expect: Partial<LeonardoNormalizedResponse>
+  }> = [
     {
       label: 'GraphQL error array',
-      input: [{ extensions: { code: 'BAD_USER_INPUT' }, locations: [{ line: 1 }], message: 'Variable imageUrl is required.', path: ['blueprintExecutions'] }],
+      input: [
+        {
+          extensions: { code: 'BAD_USER_INPUT' },
+          locations: [{ line: 1 }],
+          message: 'Variable imageUrl is required.',
+          path: ['blueprintExecutions'],
+        },
+      ],
       expect: { isFailed: true, isPending: false, executionId: null, imageUrl: null },
     },
     {
@@ -1095,7 +1354,8 @@ export function runNormalizerSelfTest(): void {
     },
   ]
 
-  let passed = 0; let failed = 0
+  let passed = 0
+  let failed = 0
   for (const t of tests) {
     const result = normalizeLeonardoResponse(t.input)
     const ok = Object.entries(t.expect).every(([k, v]) => {
@@ -1108,7 +1368,16 @@ export function runNormalizerSelfTest(): void {
     } else {
       console.error(`  ✗  ${t.label}`)
       console.error('     expected:', t.expect)
-      console.error('     got executionId:', result.executionId, 'imageUrl:', result.imageUrl, 'isFailed:', result.isFailed, 'isPending:', result.isPending)
+      console.error(
+        '     got executionId:',
+        result.executionId,
+        'imageUrl:',
+        result.imageUrl,
+        'isFailed:',
+        result.isFailed,
+        'isPending:',
+        result.isPending
+      )
       failed++
     }
   }

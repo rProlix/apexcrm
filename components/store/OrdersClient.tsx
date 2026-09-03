@@ -13,34 +13,40 @@ type OrderStatus =
   | 'refunded'
 
 interface OrderItem {
-  id:         string
+  id: string
   product_id: string
-  quantity:   number
-  price:      number
+  quantity: number
+  price: number
 }
 
 interface Order {
-  id:           string
-  tenant_id:    string
-  customer_id:  string
-  status:       OrderStatus
+  id: string
+  tenant_id: string
+  customer_id: string
+  status: OrderStatus
   total_amount: number | null
-  created_at:   string
-  order_items:  OrderItem[]
+  created_at: string
+  order_items: OrderItem[]
 }
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
-  pending:    'text-amber-400    bg-amber-400/10    border-amber-400/20',
-  confirmed:  'text-blue-400     bg-blue-400/10     border-blue-400/20',
+  pending: 'text-amber-400    bg-amber-400/10    border-amber-400/20',
+  confirmed: 'text-blue-400     bg-blue-400/10     border-blue-400/20',
   processing: 'text-purple-400   bg-purple-400/10   border-purple-400/20',
-  shipped:    'text-cyan-400     bg-cyan-400/10     border-cyan-400/20',
-  delivered:  'text-emerald-400  bg-emerald-400/10  border-emerald-400/20',
-  cancelled:  'text-white/30     bg-white/4         border-white/8',
-  refunded:   'text-red-400      bg-red-500/10      border-red-500/20',
+  shipped: 'text-cyan-400     bg-cyan-400/10     border-cyan-400/20',
+  delivered: 'text-emerald-400  bg-emerald-400/10  border-emerald-400/20',
+  cancelled: 'text-white/30     bg-white/4         border-white/8',
+  refunded: 'text-red-400      bg-red-500/10      border-red-500/20',
 }
 
 const VALID_STATUSES: OrderStatus[] = [
-  'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded',
+  'pending',
+  'confirmed',
+  'processing',
+  'shipped',
+  'delivered',
+  'cancelled',
+  'refunded',
 ]
 
 interface Props {
@@ -48,14 +54,12 @@ interface Props {
 }
 
 export function OrdersClient({ initialOrders }: Props) {
-  const [orders,    setOrders]    = useState<Order[]>(initialOrders)
-  const [expanded,  setExpanded]  = useState<string | null>(null)
-  const [updating,  setUpdating]  = useState<string | null>(null)
+  const [orders, setOrders] = useState<Order[]>(initialOrders)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [updating, setUpdating] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
 
-  const filtered = statusFilter === 'all'
-    ? orders
-    : orders.filter((o) => o.status === statusFilter)
+  const filtered = statusFilter === 'all' ? orders : orders.filter((o) => o.status === statusFilter)
 
   const totalRevenue = orders
     .filter((o) => o.status !== 'cancelled' && o.status !== 'refunded')
@@ -65,9 +69,9 @@ export function OrdersClient({ initialOrders }: Props) {
     setUpdating(orderId)
     try {
       const res = await fetch(`/api/store/orders/${orderId}`, {
-        method:  'PATCH',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ status }),
+        body: JSON.stringify({ status }),
       })
       if (res.ok) {
         const { order } = await res.json()
@@ -137,10 +141,10 @@ export function OrdersClient({ initialOrders }: Props) {
 // ─── Order Row ────────────────────────────────────────────────────────────────
 
 interface RowProps {
-  order:          Order
-  isExpanded:     boolean
-  isUpdating:     boolean
-  onToggle:       () => void
+  order: Order
+  isExpanded: boolean
+  isUpdating: boolean
+  onToggle: () => void
   onStatusChange: (status: OrderStatus) => void
 }
 
@@ -164,8 +168,11 @@ function OrderRow({ order, isExpanded, isUpdating, onToggle, onStatusChange }: R
           </p>
           <p className="text-xs text-white/40">
             {new Date(order.created_at).toLocaleDateString('en-US', {
-              month: 'short', day: 'numeric', year: 'numeric',
-              hour: '2-digit', minute: '2-digit',
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
             })}
           </p>
         </div>
@@ -179,14 +186,17 @@ function OrderRow({ order, isExpanded, isUpdating, onToggle, onStatusChange }: R
           </p>
         </div>
 
-        <span className={`text-xs font-medium px-2.5 py-1 rounded-lg border capitalize shrink-0 ${style}`}>
+        <span
+          className={`text-xs font-medium px-2.5 py-1 rounded-lg border capitalize shrink-0 ${style}`}
+        >
           {order.status}
         </span>
 
-        {isExpanded
-          ? <ChevronUp   className="h-4 w-4 text-white/30 shrink-0" />
-          : <ChevronDown className="h-4 w-4 text-white/30 shrink-0" />
-        }
+        {isExpanded ? (
+          <ChevronUp className="h-4 w-4 text-white/30 shrink-0" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-white/30 shrink-0" />
+        )}
       </button>
 
       {/* Expanded detail */}
@@ -252,9 +262,7 @@ function EmptyState() {
         <ShoppingCart className="h-8 w-8 text-amber-400/60" strokeWidth={1.5} />
       </div>
       <h3 className="text-base font-semibold text-white mb-1">No orders yet</h3>
-      <p className="text-sm text-white/40 max-w-xs">
-        Orders placed by customers will appear here.
-      </p>
+      <p className="text-sm text-white/40 max-w-xs">Orders placed by customers will appear here.</p>
     </div>
   )
 }

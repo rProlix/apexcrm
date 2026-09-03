@@ -19,7 +19,9 @@ export default async function CustomerInvitePage({ searchParams }: Props) {
   let currentUserEmail: string | null = null
   try {
     const sessionClient = await createSessionServerClient()
-    const { data: { user } } = await sessionClient.auth.getUser()
+    const {
+      data: { user },
+    } = await sessionClient.auth.getUser()
     currentUserEmail = user?.email ?? null
   } catch {
     // No session — that's fine for this public page
@@ -38,22 +40,18 @@ export default async function CustomerInvitePage({ searchParams }: Props) {
               <div>
                 <h1 className="text-lg font-bold text-white mb-2">Invalid link</h1>
                 <p className="text-sm text-white/50">
-                  This invite link is missing required information. Please use the full link from your email.
+                  This invite link is missing required information. Please use the full link from
+                  your email.
                 </p>
               </div>
             </div>
           ) : (
-            <InviteAcceptClient
-              token={token}
-              currentUserEmail={currentUserEmail}
-            />
+            <InviteAcceptClient token={token} currentUserEmail={currentUserEmail} />
           )}
         </div>
 
         {/* Footer */}
-        <p className="text-center text-xs text-white/20 mt-6">
-          Powered by ApexCRM · Nexora
-        </p>
+        <p className="text-center text-xs text-white/20 mt-6">Powered by ApexCRM · Nexora</p>
       </div>
     </div>
   )

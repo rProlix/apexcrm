@@ -3,9 +3,9 @@
 // A package is "stuck" if it has been in queued/generating/processing for > 10 min.
 // Owner / admin only.
 
-import { NextRequest, NextResponse }  from 'next/server'
-import { resolveP360ApiUser }         from '@/lib/product-360/auth'
-import { recoverStuckPackages }       from '@/lib/product-360/reconcile'
+import { NextRequest, NextResponse } from 'next/server'
+import { resolveP360ApiUser } from '@/lib/product-360/auth'
+import { recoverStuckPackages } from '@/lib/product-360/reconcile'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,10 +17,14 @@ export async function POST(req: NextRequest) {
   }
 
   let body: Record<string, unknown> = {}
-  try { body = await req.json() } catch { /* ok */ }
+  try {
+    body = await req.json()
+  } catch {
+    /* ok */
+  }
 
   const tenantId = user.isOwner
-    ? (body.tenantId as string | undefined) ?? user.tenantId
+    ? ((body.tenantId as string | undefined) ?? user.tenantId)
     : user.tenantId
 
   if (!tenantId) return NextResponse.json({ error: 'Could not resolve tenant' }, { status: 400 })

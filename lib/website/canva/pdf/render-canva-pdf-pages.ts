@@ -52,7 +52,10 @@ async function loadCanvas() {
   return mod.createCanvas
 }
 
-function canvasToImageBuffer(canvas: { toBuffer: (fmt: string) => Buffer }): { buffer: Buffer; mimeType: 'image/webp' | 'image/png' } {
+function canvasToImageBuffer(canvas: { toBuffer: (fmt: string) => Buffer }): {
+  buffer: Buffer
+  mimeType: 'image/webp' | 'image/png'
+} {
   try {
     return { buffer: canvas.toBuffer('image/webp'), mimeType: 'image/webp' }
   } catch {
@@ -61,7 +64,9 @@ function canvasToImageBuffer(canvas: { toBuffer: (fmt: string) => Buffer }): { b
 }
 
 /** Renders all PDF pages to stored web images. Throws nothing — returns ok:false on total failure. */
-export async function renderCanvaPdfPages(params: RenderParams): Promise<RenderCanvaPdfPagesResult> {
+export async function renderCanvaPdfPages(
+  params: RenderParams
+): Promise<RenderCanvaPdfPagesResult> {
   const warnings: string[] = []
   const pages: RenderedCanvaPdfPage[] = []
 
@@ -112,15 +117,26 @@ export async function renderCanvaPdfPages(params: RenderParams): Promise<RenderC
       const ctx = canvas.getContext('2d')
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
-      await page.render({ canvasContext: ctx as unknown as CanvasRenderingContext2D, viewport: renderVp }).promise
+      await page.render({
+        canvasContext: ctx as unknown as CanvasRenderingContext2D,
+        viewport: renderVp,
+      }).promise
 
-      const { buffer, mimeType } = canvasToImageBuffer(canvas as { toBuffer: (fmt: string) => Buffer })
+      const { buffer, mimeType } = canvasToImageBuffer(
+        canvas as { toBuffer: (fmt: string) => Buffer }
+      )
       const ext = mimeType === 'image/webp' ? 'webp' : 'png'
 
       const pageUpload = await uploadFile({
         bucket: STORAGE_BUCKETS.WEBSITE_ASSETS,
         tenantId: params.tenantId,
-        pathParts: ['website-builder', 'canva-pdf-imports', params.websiteId, params.importId, 'rendered-pages'],
+        pathParts: [
+          'website-builder',
+          'canva-pdf-imports',
+          params.websiteId,
+          params.importId,
+          'rendered-pages',
+        ],
         fileName: `page-${pageNumber}.${ext}`,
         buffer,
         mimeType,
@@ -135,12 +151,21 @@ export async function renderCanvaPdfPages(params: RenderParams): Promise<RenderC
         const thumbCtx = thumbCanvas.getContext('2d')
         thumbCtx.fillStyle = '#ffffff'
         thumbCtx.fillRect(0, 0, thumbCanvas.width, thumbCanvas.height)
-        await page.render({ canvasContext: thumbCtx as unknown as CanvasRenderingContext2D, viewport: thumbVp }).promise
+        await page.render({
+          canvasContext: thumbCtx as unknown as CanvasRenderingContext2D,
+          viewport: thumbVp,
+        }).promise
         const thumbImg = canvasToImageBuffer(thumbCanvas as { toBuffer: (fmt: string) => Buffer })
         const thumbUpload = await uploadFile({
           bucket: STORAGE_BUCKETS.WEBSITE_ASSETS,
           tenantId: params.tenantId,
-          pathParts: ['website-builder', 'canva-pdf-imports', params.websiteId, params.importId, 'thumbnails'],
+          pathParts: [
+            'website-builder',
+            'canva-pdf-imports',
+            params.websiteId,
+            params.importId,
+            'thumbnails',
+          ],
           fileName: `page-${pageNumber}.${ext}`,
           buffer: thumbImg.buffer,
           mimeType: thumbImg.mimeType,
@@ -182,7 +207,9 @@ export async function renderCanvaPdfPages(params: RenderParams): Promise<RenderC
   }
 
   if (renderFailures > 0) {
-    warnings.push(`${renderFailures} page(s) could not be rendered; imported site uses ${renderedPageCount} visual page(s).`)
+    warnings.push(
+      `${renderFailures} page(s) could not be rendered; imported site uses ${renderedPageCount} visual page(s).`
+    )
   }
 
   return { ok: true, pages, pageCount, renderedPageCount, warnings }

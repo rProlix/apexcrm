@@ -4,11 +4,20 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { applyCanvaImportWithRun } from '@/lib/website/canva/runs'
-import { DEFAULT_CANVA_IMPORT_SETTINGS, type CanvaImportRow, type CanvaImportSettings } from '@/lib/website/canva/types'
+import {
+  DEFAULT_CANVA_IMPORT_SETTINGS,
+  type CanvaImportRow,
+  type CanvaImportSettings,
+} from '@/lib/website/canva/types'
 
-function forbidden() { return NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+function forbidden() {
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+}
 
-function resolveTenantId(ctx: Awaited<ReturnType<typeof getUserContext>>, override?: string | null): string | null {
+function resolveTenantId(
+  ctx: Awaited<ReturnType<typeof getUserContext>>,
+  override?: string | null
+): string | null {
   if (!ctx) return null
   const hint = sanitizeTenantId(override)
   const self = sanitizeTenantId(ctx.tenant_id)
@@ -17,7 +26,10 @@ function resolveTenantId(ctx: Awaited<ReturnType<typeof getUserContext>>, overri
   return self ?? hint
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ importId: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ importId: string }> }
+) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
@@ -28,8 +40,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ imp
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getSupabaseServerClient() as any
-  const { data: row } = await db.from('website_canva_imports').select('*').eq('id', importId).maybeSingle()
-  if (!row || row.tenant_id !== tenantId) return NextResponse.json({ error: 'Import not found' }, { status: 404 })
+  const { data: row } = await db
+    .from('website_canva_imports')
+    .select('*')
+    .eq('id', importId)
+    .maybeSingle()
+  if (!row || row.tenant_id !== tenantId)
+    return NextResponse.json({ error: 'Import not found' }, { status: 404 })
 
   const settings: CanvaImportSettings = {
     ...DEFAULT_CANVA_IMPORT_SETTINGS,

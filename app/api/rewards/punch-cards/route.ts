@@ -10,9 +10,10 @@ export async function GET(req: NextRequest) {
 
   const dashUser = await resolveStoreUser(req)
   if (dashUser && (dashUser.role === 'admin' || dashUser.role === 'owner')) {
-    const tenantId = dashUser.role === 'owner'
-      ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
-      : dashUser.tenant_id
+    const tenantId =
+      dashUser.role === 'owner'
+        ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
+        : dashUser.tenant_id
 
     const { data, error } = await supabase
       .from('reward_punch_cards')

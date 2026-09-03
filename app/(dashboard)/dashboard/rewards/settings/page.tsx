@@ -30,16 +30,9 @@ export default async function RewardsSettingsPage() {
         </p>
       </div>
 
-      <PointsRuleBuilder
-        tenantId={tenantId}
-        program={program}
-        products={products}
-      />
+      <PointsRuleBuilder tenantId={tenantId} program={program} products={products} />
 
-      <ProductRewardsSelector
-        tenantId={tenantId}
-        products={products}
-      />
+      <ProductRewardsSelector tenantId={tenantId} products={products} />
     </div>
   )
 }

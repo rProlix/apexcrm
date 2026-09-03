@@ -11,32 +11,30 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 //   staffId    optional professional/employee filter
 //   tenant_id  optional override for owner role
 export async function GET(req: NextRequest) {
-  const params  = req.nextUrl.searchParams
-  const date    = params.get('date')
+  const params = req.nextUrl.searchParams
+  const date = params.get('date')
   const staffId = params.get('staffId') ?? undefined
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return NextResponse.json(
-      { error: 'date param is required (YYYY-MM-DD)' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'date param is required (YYYY-MM-DD)' }, { status: 400 })
   }
 
   const requestedDate = new Date(date + 'T12:00:00Z')
-  const maxDate       = new Date()
+  const maxDate = new Date()
   maxDate.setFullYear(maxDate.getFullYear() + 1)
   if (requestedDate > maxDate) {
     return NextResponse.json({ error: 'Date too far in the future' }, { status: 400 })
   }
 
   let tenant_id: string | null = null
-  let isAdmin                  = false
+  let isAdmin = false
 
   const staffUser = await resolveStoreUser(req)
   if (staffUser && (staffUser.role === 'admin' || staffUser.role === 'owner')) {
-    tenant_id = staffUser.role === 'owner'
-      ? (params.get('tenant_id') ?? staffUser.tenant_id)
-      : staffUser.tenant_id
+    tenant_id =
+      staffUser.role === 'owner'
+        ? (params.get('tenant_id') ?? staffUser.tenant_id)
+        : staffUser.tenant_id
     isAdmin = true
   }
 
@@ -56,14 +54,12 @@ export async function GET(req: NextRequest) {
     ? await generateTimeSlotsForStaff({ tenant_id, date, staff_id: staffId })
     : await generateTimeSlots({ tenant_id, date })
 
-  const slots = isAdmin
-    ? allSlots
-    : allSlots.filter((s) => s.available)
+  const slots = isAdmin ? allSlots : allSlots.filter((s) => s.available)
 
   return NextResponse.json({
     slots,
     date,
-    total:     allSlots.length,
+    total: allSlots.length,
     available: slots.filter((s) => s.available).length,
   })
 }
@@ -89,28 +85,28 @@ export async function POST(req: NextRequest) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase  = getSupabaseServerClient() as any
+  const supabase = getSupabaseServerClient() as any
   const tenant_id = staffUser.tenant_id
 
   const upserts = rules.map((rule: Record<string, unknown>) => {
-    const repeatType  = ['daily', 'weekly', 'custom'].includes(rule.repeat_type as string)
+    const repeatType = ['daily', 'weekly', 'custom'].includes(rule.repeat_type as string)
       ? rule.repeat_type
       : 'weekly'
-    const repeatDays  = Array.isArray(rule.repeat_days) ? rule.repeat_days : null
+    const repeatDays = Array.isArray(rule.repeat_days) ? rule.repeat_days : null
     const intervalMin = Number(rule.slot_interval_minutes ?? rule.slot_duration_minutes ?? 30)
 
     return {
       tenant_id,
-      day_of_week:           Number(rule.day_of_week ?? 0),
-      start_time:            rule.start_time ?? '09:00',
-      end_time:              rule.end_time   ?? '17:00',
+      day_of_week: Number(rule.day_of_week ?? 0),
+      start_time: rule.start_time ?? '09:00',
+      end_time: rule.end_time ?? '17:00',
       slot_interval_minutes: intervalMin,
       slot_duration_minutes: intervalMin,
-      repeat_type:           repeatType,
-      repeat_days:           repeatDays,
-      is_active:             rule.is_active !== false,
-      is_available:          rule.is_active !== false,
-      updated_at:            new Date().toISOString(),
+      repeat_type: repeatType,
+      repeat_days: repeatDays,
+      is_active: rule.is_active !== false,
+      is_available: rule.is_active !== false,
+      updated_at: new Date().toISOString(),
     }
   })
 

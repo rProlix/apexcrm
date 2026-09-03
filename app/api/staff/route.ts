@@ -23,7 +23,7 @@ function forbidden(msg = 'Forbidden') {
 export async function GET() {
   const ctx = await getUserContext()
 
-  if (!ctx)                                   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!['owner', 'admin'].includes(ctx.role)) return forbidden()
 
   // Owner without a tenant_id means they're not scoped to any tenant
@@ -47,14 +47,16 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
 
-  if (!ctx)                                   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!['owner', 'admin'].includes(ctx.role)) return forbidden()
 
   const tenantId = ctx.tenant_id
   if (!tenantId) return NextResponse.json({ error: 'No tenant context' }, { status: 400 })
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
@@ -95,10 +97,10 @@ export async function POST(req: NextRequest) {
   const { data, error } = await (db.from('users') as any)
     .insert({
       tenant_id: tenantId,
-      email:     cleanEmail,
+      email: cleanEmail,
       role,
-      status:    'invited',
-      metadata:  {
+      status: 'invited',
+      metadata: {
         invited_by: ctx.id,
         invited_at: new Date().toISOString(),
       },

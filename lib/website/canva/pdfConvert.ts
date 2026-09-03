@@ -60,7 +60,12 @@ export async function convertCanvaPdfToDraft(params: {
 }): Promise<PdfConversionResult> {
   const result = await runDesignImportFromCanvaImportRecord(params)
   if (!result.ok) {
-    return { ok: false, error: result.error, warnings: result.diagnostics?.warnings, diagnostics: result.diagnostics as unknown as Record<string, unknown> }
+    return {
+      ok: false,
+      error: result.error,
+      warnings: result.diagnostics?.warnings,
+      diagnostics: result.diagnostics as unknown as Record<string, unknown>,
+    }
   }
 
   const diagnostics = result.diagnostics

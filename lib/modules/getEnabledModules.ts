@@ -29,9 +29,7 @@ export async function getEnabledModules(tenantId: string): Promise<ModuleDefinit
     console.error('[getEnabledModules] DB error:', error.message)
   }
 
-  const dbMap = new Map(
-    (data ?? []).map((r) => [r.module_key, r.enabled as boolean])
-  )
+  const dbMap = new Map((data ?? []).map((r) => [r.module_key, r.enabled as boolean]))
 
   return (Object.keys(MODULE_REGISTRY) as ModuleKey[])
     .filter((key) => {
@@ -50,8 +48,8 @@ export async function getEnabledModules(tenantId: string): Promise<ModuleDefinit
  * @param moduleKey - Module key to check
  */
 export async function isModuleEnabledForTenant(
-  tenantId:  string,
-  moduleKey: string,
+  tenantId: string,
+  moduleKey: string
 ): Promise<boolean> {
   const supabase = getSupabaseServerClient()
 

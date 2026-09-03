@@ -11,9 +11,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const tenantId = user.role === 'owner'
-    ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
-    : user.tenant_id
+  const tenantId =
+    user.role === 'owner'
+      ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
+      : user.tenant_id
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseServerClient() as any
@@ -35,12 +36,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const tenantId = user.role === 'owner'
-    ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
-    : user.tenant_id
+  const tenantId =
+    user.role === 'owner'
+      ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
+      : user.tenant_id
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -59,9 +63,9 @@ export async function POST(req: NextRequest) {
     const link = await createPaymentLink({
       tenantId,
       title,
-      amount:      parsedAmount,
-      currency:    currency    as string | undefined,
-      invoiceId:   invoice_id  as string | undefined,
+      amount: parsedAmount,
+      currency: currency as string | undefined,
+      invoiceId: invoice_id as string | undefined,
       providerKey: provider_key as string | undefined,
     })
     return NextResponse.json({ link }, { status: 201 })

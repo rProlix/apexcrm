@@ -16,7 +16,10 @@ import {
   extractMissingTableName,
   MISSING_API_KEY_MESSAGE,
 } from '@/lib/website-ai/imagePipelineErrors'
-import { isCheckConstraintError, ASPECT_RATIO_CONSTRAINT_NAME } from '@/lib/website-ai/planConstraintErrors'
+import {
+  isCheckConstraintError,
+  ASPECT_RATIO_CONSTRAINT_NAME,
+} from '@/lib/website-ai/planConstraintErrors'
 import { normalizeImagenAspectRatio } from '@/lib/website-ai/imagenAspectRatios'
 import { getSafeCreatedBy } from '@/lib/auth/getSafeCreatedBy'
 import type { ImagePlannerContext } from '@/lib/ai/websiteImageTypes'
@@ -30,21 +33,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
   const access = await requireAiAutofillAccess(
-    ctx.role === 'owner' ? (body.tenantId as string | null) : null,
+    ctx.role === 'owner' ? (body.tenantId as string | null) : null
   )
-  if (!access)
-    return NextResponse.json({ error: 'Tenant access denied.' }, { status: 403 })
+  if (!access) return NextResponse.json({ error: 'Tenant access denied.' }, { status: 403 })
 
   const tenantId = access.tenantId
 
   // Check API key before calling the planner
   if (!process.env.GEMINI_API_KEY) {
-    return NextResponse.json({ error: MISSING_API_KEY_MESSAGE, code: 'MISSING_API_KEY' }, { status: 503 })
+    return NextResponse.json(
+      { error: MISSING_API_KEY_MESSAGE, code: 'MISSING_API_KEY' },
+      { status: 503 }
+    )
   }
 
   // ── Build rich context (pulls business description, services, products,
@@ -53,39 +60,39 @@ export async function POST(req: NextRequest) {
 
   if (!richCtx.sectionDetails.length && !richCtx.pages.length) {
     return NextResponse.json({
-      plans:   [],
+      plans: [],
       warnings: ['No pages or sections found. Run AI Autofill first to generate website content.'],
       planGroupId: null,
-      count:   0,
+      count: 0,
     })
   }
 
   // Convert to ImagePlannerContext (extends it with rich fields)
   const plannerCtx: ImagePlannerContext = {
-    tenantId:            richCtx.tenantId,
-    tenantName:          richCtx.tenantName,
-    businessType:        richCtx.autofillBusinessType ?? richCtx.businessCategory,
-    businessCategory:    richCtx.businessCategory,
+    tenantId: richCtx.tenantId,
+    tenantName: richCtx.tenantName,
+    businessType: richCtx.autofillBusinessType ?? richCtx.businessCategory,
+    businessCategory: richCtx.businessCategory,
     autofillBusinessType: richCtx.autofillBusinessType,
-    autofillSummary:     richCtx.autofillSummary,
+    autofillSummary: richCtx.autofillSummary,
     businessDescription: richCtx.businessDescription,
-    hasStore:            richCtx.hasStore,
-    pages:               richCtx.pages,
+    hasStore: richCtx.hasStore,
+    pages: richCtx.pages,
     // Provide both legacy sections shape AND rich sectionDetails
-    sections:            richCtx.sectionDetails.map(s => ({
-      id:           s.id,
-      page_id:      s.page_id,
+    sections: richCtx.sectionDetails.map((s) => ({
+      id: s.id,
+      page_id: s.page_id,
       section_type: s.section_type,
-      content:      s.content,
+      content: s.content,
     })),
-    sectionDetails:      richCtx.sectionDetails,
-    services:            richCtx.services,
-    topProducts:         richCtx.topProducts,
-    reviews:             richCtx.reviews,
-    existingImageUrls:   richCtx.existingImageUrls,
-    productCount:        richCtx.productCount,
-    siteTagline:         richCtx.siteTagline,
-    colorPalette:        richCtx.colorPalette,
+    sectionDetails: richCtx.sectionDetails,
+    services: richCtx.services,
+    topProducts: richCtx.topProducts,
+    reviews: richCtx.reviews,
+    existingImageUrls: richCtx.existingImageUrls,
+    productCount: richCtx.productCount,
+    siteTagline: richCtx.siteTagline,
+    colorPalette: richCtx.colorPalette,
   }
 
   const { result, error } = await planWebsiteImages(plannerCtx)
@@ -94,10 +101,10 @@ export async function POST(req: NextRequest) {
 
   if (!result.plans.length) {
     return NextResponse.json({
-      plans:       [],
-      warnings:    result.warnings,
+      plans: [],
+      warnings: result.warnings,
       planGroupId: result.plan_group_id,
-      message:     'No images are needed for the current website structure.',
+      message: 'No images are needed for the current website structure.',
     })
   }
 
@@ -112,32 +119,32 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const rows = result.plans.map(p => {
-    const matched    = sectionsByType.get(p.section_type ?? '') ?? null
+  const rows = result.plans.map((p) => {
+    const matched = sectionsByType.get(p.section_type ?? '') ?? null
     // Defensive normalization: even though parsePlannerResult normalizes, enforce here too
     // so that any other caller of this route cannot inject a bad ratio.
-    const safeRatio  = normalizeImagenAspectRatio(p.aspect_ratio, p.section_type ?? null)
+    const safeRatio = normalizeImagenAspectRatio(p.aspect_ratio, p.section_type ?? null)
     return {
-      tenant_id:             tenantId,
-      plan_group_id:         planGroupId,
-      section_id:            matched?.id ?? null,
-      page_id:               matched?.page_id ?? null,
-      placement_key:         p.placement_key,
-      section_type:          p.section_type,
-      image_role:            p.image_role,
-      title:                 p.title,
-      reason:                p.reason,
-      business_goal:         p.business_goal,
-      image_description:     p.image_description,
-      visual_style:          p.visual_style,
-      prompt:                p.prompt,
-      negative_prompt:       p.negative_prompt,
-      aspect_ratio:          safeRatio,
+      tenant_id: tenantId,
+      plan_group_id: planGroupId,
+      section_id: matched?.id ?? null,
+      page_id: matched?.page_id ?? null,
+      placement_key: p.placement_key,
+      section_type: p.section_type,
+      image_role: p.image_role,
+      title: p.title,
+      reason: p.reason,
+      business_goal: p.business_goal,
+      image_description: p.image_description,
+      visual_style: p.visual_style,
+      prompt: p.prompt,
+      negative_prompt: p.negative_prompt,
+      aspect_ratio: safeRatio,
       requested_aspect_ratio: p.aspect_ratio !== safeRatio ? p.aspect_ratio : null,
-      priority:              p.priority,
+      priority: p.priority,
       use_existing_if_avail: p.use_existing_if_avail,
-      status:                'planned' as const,
-      created_by:            getSafeCreatedBy(ctx.auth_id),
+      status: 'planned' as const,
+      created_by: getSafeCreatedBy(ctx.auth_id),
     }
   })
 
@@ -151,50 +158,67 @@ export async function POST(req: NextRequest) {
     if (isSchemaCacheError(insertErr)) {
       const tbl = extractMissingTableName(insertErr)
       console.error('[AI-IMAGE][plan] Schema/table error on insert:', insertErr.message)
-      return NextResponse.json({
-        error:        buildTableMissingMessage(tbl ?? 'website_image_plans'),
-        code:         'MISSING_TABLE',
-        missingTable: tbl ?? 'website_image_plans',
-        detail:       insertErr.message,
-        diagnostics:  '/api/owner/diagnostics/website-images',
-      }, { status: 503 })
+      return NextResponse.json(
+        {
+          error: buildTableMissingMessage(tbl ?? 'website_image_plans'),
+          code: 'MISSING_TABLE',
+          missingTable: tbl ?? 'website_image_plans',
+          detail: insertErr.message,
+          diagnostics: '/api/owner/diagnostics/website-images',
+        },
+        { status: 503 }
+      )
     }
     if (isCheckConstraintError(insertErr, ASPECT_RATIO_CONSTRAINT_NAME)) {
-      const attempted = rows.map(r => r.aspect_ratio).join(', ')
-      console.error('[AI-IMAGE][plan] Aspect ratio check constraint violation:', insertErr.message, { attempted })
-      return NextResponse.json({
-        error:    `Invalid aspect ratio in plan data. Supported: 1:1, 9:16, 16:9, 4:3, 3:4. Attempted: ${attempted}. This is a bug — report it.`,
-        code:     'INVALID_ASPECT_RATIO',
-        detail:   insertErr.message,
-        attempted,
-      }, { status: 500 })
+      const attempted = rows.map((r) => r.aspect_ratio).join(', ')
+      console.error(
+        '[AI-IMAGE][plan] Aspect ratio check constraint violation:',
+        insertErr.message,
+        { attempted }
+      )
+      return NextResponse.json(
+        {
+          error: `Invalid aspect ratio in plan data. Supported: 1:1, 9:16, 16:9, 4:3, 3:4. Attempted: ${attempted}. This is a bug — report it.`,
+          code: 'INVALID_ASPECT_RATIO',
+          detail: insertErr.message,
+          attempted,
+        },
+        { status: 500 }
+      )
     }
     if (isFkCreatedByError(insertErr)) {
       console.error('[AI-IMAGE][plan] FK created_by violation:', insertErr.message)
-      return NextResponse.json({
-        error:  'Image plan insert failed: created_by foreign key violation. Re-run migration 054 to make created_by nullable.',
-        code:   'FK_CREATED_BY',
-        detail: insertErr.message,
-      }, { status: 500 })
+      return NextResponse.json(
+        {
+          error:
+            'Image plan insert failed: created_by foreign key violation. Re-run migration 054 to make created_by nullable.',
+          code: 'FK_CREATED_BY',
+          detail: insertErr.message,
+        },
+        { status: 500 }
+      )
     }
     console.error('[AI-IMAGE][plan] Insert error:', insertErr.message)
-    return NextResponse.json({ error: insertErr.message, detail: insertErr.message }, { status: 500 })
+    return NextResponse.json(
+      { error: insertErr.message, detail: insertErr.message },
+      { status: 500 }
+    )
   }
 
   console.log('[AI-IMAGE][plan] Created plans', {
     tenantId,
-    count:        created?.length ?? 0,
+    count: created?.length ?? 0,
     planGroupId,
     businessType: plannerCtx.businessType,
     servicesCount: richCtx.services.length,
-    reviewsCount:  richCtx.reviews.length,
+    reviewsCount: richCtx.reviews.length,
   })
 
   return NextResponse.json({
     planGroupId,
-    plans:    created,
+    plans: created,
     warnings: result.warnings,
-    count:    created?.length ?? 0,
+    count: created?.length ?? 0,
   })
 }
 
@@ -206,14 +230,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { searchParams } = new URL(req.url)
-  const tenantIdParam   = searchParams.get('tenantId')
-  const groupId         = searchParams.get('groupId')
+  const tenantIdParam = searchParams.get('tenantId')
+  const groupId = searchParams.get('groupId')
 
-  const access = await requireAiAutofillAccess(
-    ctx.role === 'owner' ? tenantIdParam : null,
-  )
-  if (!access)
-    return NextResponse.json({ error: 'Tenant access denied.' }, { status: 403 })
+  const access = await requireAiAutofillAccess(ctx.role === 'owner' ? tenantIdParam : null)
+  if (!access) return NextResponse.json({ error: 'Tenant access denied.' }, { status: 403 })
 
   const supabase = getSupabaseServerClient()
   let query = supabase
@@ -231,14 +252,17 @@ export async function GET(req: NextRequest) {
     if (isSchemaCacheError(error)) {
       const tbl = extractMissingTableName(error)
       console.error('[AI-IMAGE][plan GET] Schema/table error:', error.message)
-      return NextResponse.json({
-        error:        buildTableMissingMessage(tbl ?? 'website_image_plans'),
-        code:         'MISSING_TABLE',
-        missingTable: tbl ?? 'website_image_plans',
-        detail:       error.message,
-        diagnostics:  '/api/owner/diagnostics/website-images',
-        plans:        [],
-      }, { status: 503 })
+      return NextResponse.json(
+        {
+          error: buildTableMissingMessage(tbl ?? 'website_image_plans'),
+          code: 'MISSING_TABLE',
+          missingTable: tbl ?? 'website_image_plans',
+          detail: error.message,
+          diagnostics: '/api/owner/diagnostics/website-images',
+          plans: [],
+        },
+        { status: 503 }
+      )
     }
     console.error('[AI-IMAGE][plan GET] Query error:', error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })

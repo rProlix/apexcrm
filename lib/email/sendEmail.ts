@@ -16,7 +16,7 @@
 
 import { getEmailConfig, assertProviderConfigured } from './config'
 import { sendViaResend } from './providers/resendProvider'
-import { sendViaSES }    from './providers/sesProvider'
+import { sendViaSES } from './providers/sesProvider'
 import { logEmailEvent } from './emailLog'
 import type { EmailPayload, EmailResult } from './types'
 
@@ -56,9 +56,9 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
 
   if (payload.category === 'marketing' && !cfg.marketingEnabled) {
     const result: EmailResult = {
-      success:  false,
+      success: false,
       provider: cfg.provider,
-      error:    'Email blocked because marketing emails are disabled (EMAIL_MARKETING_ENABLED=false).',
+      error: 'Email blocked because marketing emails are disabled (EMAIL_MARKETING_ENABLED=false).',
     }
     await logEmailEvent(payload, result, cfg)
     return result
@@ -66,9 +66,10 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
 
   if (!cfg.transactionalEnabled && !CRITICAL_CATEGORIES.has(payload.category)) {
     const result: EmailResult = {
-      success:  false,
+      success: false,
       provider: cfg.provider,
-      error:    'Email blocked because transactional emails are disabled (EMAIL_TRANSACTIONAL_ENABLED=false).',
+      error:
+        'Email blocked because transactional emails are disabled (EMAIL_TRANSACTIONAL_ENABLED=false).',
     }
     await logEmailEvent(payload, result, cfg)
     return result

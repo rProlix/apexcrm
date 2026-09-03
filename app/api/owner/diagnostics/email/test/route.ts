@@ -18,53 +18,69 @@ import { validateEmailConfig } from '@/lib/email/config'
 
 export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
-  if (!ctx)                                   return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
-  if (!['owner', 'admin'].includes(ctx.role)) return NextResponse.json({ ok: false, error: 'Owner or admin access required.' }, { status: 403 })
+  if (!ctx) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  if (!['owner', 'admin'].includes(ctx.role))
+    return NextResponse.json(
+      { ok: false, error: 'Owner or admin access required.' },
+      { status: 403 }
+    )
 
   let body: { to?: string; tenantId?: string } = {}
-  try { body = await req.json() } catch { /* empty body fine */ }
+  try {
+    body = await req.json()
+  } catch {
+    /* empty body fine */
+  }
 
-  const to       = typeof body.to === 'string' ? body.to.trim() : (ctx.email ?? '')
+  const to = typeof body.to === 'string' ? body.to.trim() : (ctx.email ?? '')
   const tenantId = typeof body.tenantId === 'string' ? body.tenantId : (ctx.tenant_id ?? undefined)
 
   if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
-    return NextResponse.json({
-      ok:    false,
-      error: 'Provide a valid recipient email in the body: { "to": "you@example.com" }',
-    }, { status: 400 })
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'Provide a valid recipient email in the body: { "to": "you@example.com" }',
+      },
+      { status: 400 }
+    )
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://nexoranow.com'
 
   const tpl = buildAccountConfirmationEmail({
-    email:           to,
+    email: to,
     confirmationUrl: `${appUrl}/login`,
-    businessName:    'Nexora (email test)',
+    businessName: 'Nexora (email test)',
   })
 
   const result = await sendEmail({
     to,
-    subject:  `[Nexora email test] ${tpl.subject}`,
-    html:     tpl.html,
-    text:     tpl.text,
+    subject: `[Nexora email test] ${tpl.subject}`,
+    html: tpl.html,
+    text: tpl.text,
     category: 'auth',
     tenantId,
-    userId:   ctx.auth_id,
+    userId: ctx.auth_id,
     metadata: { diagnostic: true, triggeredBy: ctx.id, testRecipient: to },
   })
 
   const validation = validateEmailConfig()
 
-  return NextResponse.json({
-    ok:        result.success,
-    provider:  result.provider,
-    messageId: result.messageId ?? null,
-    to,
-    error:     result.success ? null : result.error,
-    hints:     result.success ? null : {
-      missing:  validation.missing,
-      warnings: validation.warnings,
-      fix:      'See GET /api/owner/diagnostics/email for detailed config status.',
+  return NextResponse.json(
+    {
+      ok: result.success,
+      provider: result.provider,
+      messageId: result.messageId ?? null,
+      to,
+      error: result.success ? null : result.error,
+      hints: result.success
+        ? null
+        : {
+            missing: validation.missing,
+            warnings: validation.warnings,
+            fix: 'See GET /api/owner/diagnostics/email for detailed config status.',
+          },
     },
-  }, { status: result.success ? 200 : 500 })
+    { status: result.success ? 200 : 500 }
+  )
 }

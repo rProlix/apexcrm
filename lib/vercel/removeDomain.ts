@@ -4,8 +4,8 @@
 import { vercelClient, isVercelConfigured } from './client'
 
 export interface VercelRemoveDomainResult {
-  ok:         boolean
-  error:      string | null
+  ok: boolean
+  error: string | null
   configured: boolean
 }
 
@@ -19,7 +19,7 @@ export async function removeDomainFromVercel(domain: string): Promise<VercelRemo
   }
 
   const { error } = await vercelClient.delete(
-    `/v9/projects/${vercelClient.projectId}/domains/${domain}`,
+    `/v9/projects/${vercelClient.projectId}/domains/${domain}`
   )
 
   if (error) {

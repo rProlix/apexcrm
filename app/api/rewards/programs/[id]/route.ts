@@ -36,8 +36,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() }
-  catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   const supabase = getSupabaseServerClient()
 

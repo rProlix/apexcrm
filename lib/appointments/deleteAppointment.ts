@@ -3,7 +3,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface DeleteResult {
   success: boolean
-  error?:  string
+  error?: string
 }
 
 /**
@@ -11,10 +11,7 @@ export interface DeleteResult {
  * Hard delete is only used when the appointment is already canceled.
  * Always scoped to tenant_id.
  */
-export async function deleteAppointment(
-  id:        string,
-  tenant_id: string
-): Promise<DeleteResult> {
+export async function deleteAppointment(id: string, tenant_id: string): Promise<DeleteResult> {
   const supabase = getSupabaseServerClient() as any
 
   const { data: current, error: fetchErr } = await supabase

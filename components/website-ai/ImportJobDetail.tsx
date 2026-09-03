@@ -13,23 +13,23 @@ import { ApplySuggestionsBar } from './ApplySuggestionsBar'
 import type { AiImportJob, AiSuggestion } from '@/lib/website-ai/types'
 
 interface Props {
-  jobId:  string
+  jobId: string
   onDone: () => void
 }
 
 export function ImportJobDetail({ jobId, onDone }: Props) {
-  const [job,          setJob]         = useState<AiImportJob | null>(null)
-  const [suggestions,  setSuggestions] = useState<AiSuggestion[]>([])
-  const [selected,     setSelected]    = useState<Set<string>>(new Set())
-  const [applying,     setApplying]    = useState(false)
-  const [error,        setError]       = useState<string | null>(null)
-  const [toast,        setToast]       = useState<string | null>(null)
-  const [loading,      setLoading]     = useState(true)
+  const [job, setJob] = useState<AiImportJob | null>(null)
+  const [suggestions, setSuggestions] = useState<AiSuggestion[]>([])
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [applying, setApplying] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res  = await fetch(`/api/website-ai/imports/${jobId}`)
+      const res = await fetch(`/api/website-ai/imports/${jobId}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Failed to load job')
       setJob(json.job)
@@ -46,7 +46,9 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
     }
   }, [jobId])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   function toggleSelection(id: string) {
     setSelected((prev) => {
@@ -58,19 +60,23 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
   }
 
   async function handleUpdate(id: string, updates: Record<string, string>) {
-    const res  = await fetch(`/api/website-ai/suggestions/${id}`, {
-      method:  'PATCH',
+    const res = await fetch(`/api/website-ai/suggestions/${id}`, {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(updates),
+      body: JSON.stringify(updates),
     })
     const json = await res.json()
     if (!res.ok) throw new Error(json.error ?? 'Update failed')
-    setSuggestions((prev) => prev.map((s) => s.id === id ? { ...s, ...json.suggestion } : s))
+    setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, ...json.suggestion } : s)))
   }
 
   async function handleReject(id: string) {
     await handleUpdate(id, { status: 'rejected' })
-    setSelected((prev) => { const n = new Set(prev); n.delete(id); return n })
+    setSelected((prev) => {
+      const n = new Set(prev)
+      n.delete(id)
+      return n
+    })
   }
 
   async function handleApply(publishMode: 'draft_only' | 'publish_now') {
@@ -78,10 +84,10 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
     setApplying(true)
     setError(null)
     try {
-      const res  = await fetch(`/api/website-ai/imports/${jobId}/apply`, {
-        method:  'POST',
+      const res = await fetch(`/api/website-ai/imports/${jobId}/apply`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ suggestionIds: Array.from(selected), publishMode }),
+        body: JSON.stringify({ suggestionIds: Array.from(selected), publishMode }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Apply failed')
@@ -99,7 +105,7 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
   if (loading) {
     return (
       <div className="space-y-3 animate-pulse">
-        {[1,2,3].map((i) => (
+        {[1, 2, 3].map((i) => (
           <div key={i} className="h-20 rounded-2xl bg-graphite-800/50 border border-white/5" />
         ))}
       </div>
@@ -107,15 +113,14 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
   }
 
   if (!job) {
-    return (
-      <div className="text-center py-12 text-white/40 text-sm">Job not found.</div>
-    )
+    return <div className="text-center py-12 text-white/40 text-sm">Job not found.</div>
   }
 
-  const warnings: string[]    = (job.metadata as Record<string, unknown>)?.warnings as string[] ?? []
-  const questions: string[]   = (job.metadata as Record<string, unknown>)?.missingInfoQuestions as string[] ?? []
-  const activeSuggestions     = suggestions.filter((s) => s.status !== 'rejected')
-  const selectedCount         = Array.from(selected).filter((id) => {
+  const warnings: string[] = ((job.metadata as Record<string, unknown>)?.warnings as string[]) ?? []
+  const questions: string[] =
+    ((job.metadata as Record<string, unknown>)?.missingInfoQuestions as string[]) ?? []
+  const activeSuggestions = suggestions.filter((s) => s.status !== 'rejected')
+  const selectedCount = Array.from(selected).filter((id) => {
     const s = suggestions.find((sg) => sg.id === id)
     return s && s.status !== 'rejected' && s.status !== 'applied'
   }).length
@@ -126,7 +131,9 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
       {toast && (
         <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 flex items-center justify-between">
           <p className="text-sm text-emerald-400">{toast}</p>
-          <button onClick={() => setToast(null)}><X className="h-4 w-4 text-emerald-400/50" /></button>
+          <button onClick={() => setToast(null)}>
+            <X className="h-4 w-4 text-emerald-400/50" />
+          </button>
         </div>
       )}
 
@@ -140,16 +147,16 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
       <div className="rounded-2xl bg-graphite-800/60 border border-surface-border p-5 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-white mb-0.5">{job.summary ?? 'Analysis complete'}</p>
+            <p className="text-sm font-semibold text-white mb-0.5">
+              {job.summary ?? 'Analysis complete'}
+            </p>
             <p className="text-xs text-white/40">
               {job.detected_business_type && job.detected_business_type !== 'unknown'
                 ? `Detected: ${job.detected_business_type.replace(/_/g, ' ')}`
                 : 'Business type: unknown'}
             </p>
           </div>
-          {job.confidence !== null && (
-            <ConfidenceBadge confidence={job.confidence} size="md" />
-          )}
+          {job.confidence !== null && <ConfidenceBadge confidence={job.confidence} size="md" />}
         </div>
         {job.detected_content_types?.length > 0 && (
           <DetectedContentChips types={job.detected_content_types} />
@@ -164,7 +171,9 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
             <p className="text-xs font-semibold text-gold-400">Warnings</p>
           </div>
           {warnings.map((w, i) => (
-            <p key={i} className="text-xs text-gold-400/70">• {w}</p>
+            <p key={i} className="text-xs text-gold-400/70">
+              • {w}
+            </p>
           ))}
         </div>
       )}
@@ -177,7 +186,9 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
             <p className="text-xs font-semibold text-blue-400">Consider adding</p>
           </div>
           {questions.map((q, i) => (
-            <p key={i} className="text-xs text-blue-400/70">• {q}</p>
+            <p key={i} className="text-xs text-blue-400/70">
+              • {q}
+            </p>
           ))}
         </div>
       )}
@@ -197,7 +208,9 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
             }}
             className="text-xs text-gold-400 hover:text-gold-300 transition-colors"
           >
-            {activeSuggestions.filter((s) => s.status !== 'applied').every((s) => selected.has(s.id))
+            {activeSuggestions
+              .filter((s) => s.status !== 'applied')
+              .every((s) => selected.has(s.id))
               ? 'Deselect all'
               : 'Select all'}
           </button>
@@ -234,8 +247,8 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
       <ApplySuggestionsBar
         selectedCount={selectedCount}
         applying={applying}
-        onApplyDraft={()   => handleApply('draft_only')}
-        onApplyPublish={()  => handleApply('publish_now')}
+        onApplyDraft={() => handleApply('draft_only')}
+        onApplyPublish={() => handleApply('publish_now')}
         onCancel={() => setSelected(new Set())}
       />
     </div>

@@ -25,9 +25,9 @@ export default async function PunchCardsAdminPage() {
     getAllPunchCards(tenantId),
   ])
 
-  const configuredRules  = program?.punch_card_rules ?? []
-  const _activeRules     = configuredRules.filter((r) => r.enabled)
-  const activeCustomers  = customerCards.filter((c) => c.status === 'active')
+  const configuredRules = program?.punch_card_rules ?? []
+  const _activeRules = configuredRules.filter((r) => r.enabled)
+  const activeCustomers = customerCards.filter((c) => c.status === 'active')
   const completedCustomers = customerCards.filter((c) => c.status === 'completed')
 
   return (
@@ -36,23 +36,17 @@ export default async function PunchCardsAdminPage() {
       <div>
         <h1 className="text-2xl font-bold text-white tracking-tight">Punch Cards</h1>
         <p className="text-sm text-white/40 mt-1">
-          Configure buy-X-get-Y style rewards. Progress is tracked automatically when customers place orders.
+          Configure buy-X-get-Y style rewards. Progress is tracked automatically when customers
+          place orders.
         </p>
       </div>
 
       {/* ── Step 1: Configure rules ─────────────────────────────────────── */}
-      <PunchCardForm
-        tenantId={tenantId}
-        program={program}
-        products={products}
-      />
+      <PunchCardForm tenantId={tenantId} program={program} products={products} />
 
       {/* ── Step 2: Configured rules summary (read-only confirmation) ────── */}
       {configuredRules.length > 0 && (
-        <ConfiguredRulesPanel
-          rules={configuredRules}
-          products={products}
-        />
+        <ConfiguredRulesPanel rules={configuredRules} products={products} />
       )}
 
       {/* No rules configured yet */}
@@ -61,8 +55,8 @@ export default async function PunchCardsAdminPage() {
           <Zap className="h-8 w-8 text-white/20 mx-auto mb-3" strokeWidth={1.5} />
           <p className="text-sm text-white/50 mb-1">No punch cards configured yet</p>
           <p className="text-xs text-white/30">
-            Use the form above to add punch card rules, then click Save.
-            Once saved they will appear here and begin tracking customer progress.
+            Use the form above to add punch card rules, then click Save. Once saved they will appear
+            here and begin tracking customer progress.
           </p>
         </div>
       )}
@@ -74,9 +68,7 @@ export default async function PunchCardsAdminPage() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Users className="h-4 w-4 text-amber-400" strokeWidth={1.75} />
-              <h2 className="text-base font-semibold text-white">
-                Customer Progress
-              </h2>
+              <h2 className="text-base font-semibold text-white">Customer Progress</h2>
               <span className="text-xs text-white/30 ml-1">({activeCustomers.length} active)</span>
             </div>
 

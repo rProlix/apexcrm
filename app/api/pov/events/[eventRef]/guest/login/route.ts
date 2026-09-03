@@ -10,7 +10,9 @@ import { normalizePhone, isValidPin, verifyPin } from '@/lib/pov/crypto'
 import { createGuestSession } from '@/lib/pov/guestSession'
 import type { PovGuestRow } from '@/lib/pov/types'
 
-interface RouteCtx { params: Promise<{ eventRef: string }> }
+interface RouteCtx {
+  params: Promise<{ eventRef: string }>
+}
 
 export async function POST(req: NextRequest, { params }: RouteCtx) {
   const { eventRef } = await params
@@ -20,10 +22,13 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: 'This event is not currently active.' }, { status: 403 })
   }
   if (!event.allow_guest_login) {
-    return NextResponse.json({ error: 'Guest login is turned off for this event.' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'Guest login is turned off for this event.' },
+      { status: 403 }
+    )
   }
 
-  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const phoneRaw = String(body.phone_number ?? '')
   const pin = String(body.pin ?? '')
 
@@ -47,7 +52,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
   if (!guestRow) {
     return NextResponse.json(
       { error: 'No account found. Create a guest account first.', code: 'not_found' },
-      { status: 404 },
+      { status: 404 }
     )
   }
 

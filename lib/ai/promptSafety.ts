@@ -25,11 +25,11 @@
  *   //    Do not include text, watermarks, logos, distorted objects, ..."
  */
 export function mergeNegativePromptIntoPrompt(
-  prompt:          string,
-  negativePrompt?: string | null,
+  prompt: string,
+  negativePrompt?: string | null
 ): string {
-  const cleanPrompt   = String(prompt          ?? '').trim()
-  const cleanNegative = String(negativePrompt  ?? '').trim()
+  const cleanPrompt = String(prompt ?? '').trim()
+  const cleanNegative = String(negativePrompt ?? '').trim()
 
   if (!cleanNegative) return cleanPrompt
 
@@ -39,8 +39,8 @@ export function mergeNegativePromptIntoPrompt(
     'Quality and accuracy constraints:',
     `Avoid the following by describing the scene cleanly instead: ${cleanNegative}.`,
     'Do not include text, watermarks, logos, distorted objects, duplicate products, ' +
-    'extra hands, extra props, warped geometry, blurry details, or inconsistent ' +
-    'lighting unless explicitly requested.',
+      'extra hands, extra props, warped geometry, blurry details, or inconsistent ' +
+      'lighting unless explicitly requested.',
   ].join('\n')
 }
 
@@ -60,7 +60,7 @@ export function stripUnsupportedImagenFields(value: unknown): unknown {
     const cleaned: Record<string, unknown> = {}
     for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
       if (
-        key === 'negativePrompt'  ||
+        key === 'negativePrompt' ||
         key === 'negative_prompt' ||
         key === 'negativePrompts' ||
         key === 'negative_prompts'
@@ -80,9 +80,9 @@ export function stripUnsupportedImagenFields(value: unknown): unknown {
 export interface ImagenRequestPayload {
   instances: Array<{ prompt: string }>
   parameters?: {
-    sampleCount?:     number
-    aspectRatio?:     string
-    outputOptions?:   { mimeType?: 'image/png' | 'image/jpeg' }
+    sampleCount?: number
+    aspectRatio?: string
+    outputOptions?: { mimeType?: 'image/png' | 'image/jpeg' }
     personGeneration?: string
   }
 }

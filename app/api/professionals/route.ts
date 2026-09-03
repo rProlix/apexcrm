@@ -16,7 +16,7 @@ function err(message: string, code: string, status: number, details?: unknown) {
 // Admin/owner: returns all professionals for their tenant.
 // Customers: returns active professionals only (for booking UI).
 export async function GET(req: NextRequest) {
-  const params     = req.nextUrl.searchParams
+  const params = req.nextUrl.searchParams
   const activeOnly = params.get('active') !== 'false'
 
   let tenant_id: string | null = null
@@ -41,7 +41,9 @@ export async function GET(req: NextRequest) {
   const supabase = getSupabaseServerClient() as any
   let query = supabase
     .from('professionals')
-    .select('id, tenant_id, name, email, phone, role, avatar_url, is_active, created_at, updated_at')
+    .select(
+      'id, tenant_id, name, email, phone, role, avatar_url, is_active, created_at, updated_at'
+    )
     .eq('tenant_id', tenant_id)
     .order('name', { ascending: true })
 
@@ -66,7 +68,9 @@ export async function POST(req: NextRequest) {
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return err('Invalid JSON body', 'INVALID_JSON', 400)
   }
 
@@ -81,15 +85,17 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('professionals')
     .insert({
-      tenant_id:  staffUser.tenant_id,
-      name:       name.trim(),
-      email:      typeof email      === 'string' ? email.trim()  : null,
-      phone:      typeof phone      === 'string' ? phone.trim()  : null,
-      role:       typeof role       === 'string' ? role.trim()   : 'staff',
-      avatar_url: typeof avatar_url === 'string' ? avatar_url    : null,
-      is_active:  is_active !== false,
+      tenant_id: staffUser.tenant_id,
+      name: name.trim(),
+      email: typeof email === 'string' ? email.trim() : null,
+      phone: typeof phone === 'string' ? phone.trim() : null,
+      role: typeof role === 'string' ? role.trim() : 'staff',
+      avatar_url: typeof avatar_url === 'string' ? avatar_url : null,
+      is_active: is_active !== false,
     })
-    .select('id, tenant_id, name, email, phone, role, avatar_url, is_active, created_at, updated_at')
+    .select(
+      'id, tenant_id, name, email, phone, role, avatar_url, is_active, created_at, updated_at'
+    )
     .single()
 
   if (error) {

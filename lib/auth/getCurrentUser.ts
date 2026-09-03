@@ -2,10 +2,10 @@ import { createSessionServerClient, getSupabaseServerClient } from '@/lib/supaba
 
 export interface CurrentUser {
   authUserId: string
-  userId:     string
-  tenantId:   string
-  role:       string
-  email:      string
+  userId: string
+  tenantId: string
+  role: string
+  email: string
 }
 
 /**
@@ -16,7 +16,10 @@ export interface CurrentUser {
  */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   const sessionClient = await createSessionServerClient()
-  const { data: { user }, error } = await sessionClient.auth.getUser()
+  const {
+    data: { user },
+    error,
+  } = await sessionClient.auth.getUser()
 
   if (error || !user) return null
 
@@ -32,9 +35,9 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   return {
     authUserId: user.id,
-    userId:     userRecord.id,
-    tenantId:   userRecord.tenant_id ?? '',
-    role:       userRecord.role,
-    email:      userRecord.email,
+    userId: userRecord.id,
+    tenantId: userRecord.tenant_id ?? '',
+    role: userRecord.role,
+    email: userRecord.email,
   }
 }

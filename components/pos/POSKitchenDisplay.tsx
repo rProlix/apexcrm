@@ -4,45 +4,65 @@ import { useState, useEffect, useCallback } from 'react'
 import { Utensils, Clock, CheckCircle, ChefHat } from 'lucide-react'
 
 interface KitchenTicket {
-  id:        string
-  status:    string
-  sent_at:   string
-  station?:  string | null
-  notes?:    string | null
+  id: string
+  status: string
+  sent_at: string
+  station?: string | null
+  notes?: string | null
   pos_orders: {
     order_number: string
-    order_type:   string
-    table_name?:  string | null
+    order_type: string
+    table_name?: string | null
     guest_count?: number | null
-    notes?:       string | null
+    notes?: string | null
     kitchen_notes?: string | null
     pos_order_items: Array<{
-      id:               string
-      name:             string
-      quantity:         number
-      notes?:           string | null
-      kitchen_notes?:   string | null
+      id: string
+      name: string
+      quantity: number
+      notes?: string | null
+      kitchen_notes?: string | null
       fulfillment_status: string
       pos_order_item_modifiers: Array<{
-        id:            string
-        name:          string
+        id: string
+        name: string
         modifier_type: string
-        quantity:      number
+        quantity: number
       }>
     }>
   }
 }
 
 interface Props {
-  tenantId:       string
+  tenantId: string
   initialTickets: KitchenTicket[]
 }
 
 const STATUS_CONFIG = {
-  new:       { label: 'New',       color: 'border-red-500 bg-red-500/5',    dot: 'bg-red-500',    textColor: 'text-red-400' },
-  accepted:  { label: 'Accepted',  color: 'border-blue-500 bg-blue-500/5',  dot: 'bg-blue-500',   textColor: 'text-blue-400' },
-  preparing: { label: 'Preparing', color: 'border-yellow-500 bg-yellow-500/5', dot: 'bg-yellow-400', textColor: 'text-yellow-400' },
-  ready:     { label: 'Ready',     color: 'border-green-500 bg-green-500/5', dot: 'bg-green-500',  textColor: 'text-green-400' },
+  new: {
+    label: 'New',
+    color: 'border-red-500 bg-red-500/5',
+    dot: 'bg-red-500',
+    textColor: 'text-red-400',
+  },
+  accepted: {
+    label: 'Accepted',
+    color: 'border-blue-500 bg-blue-500/5',
+    dot: 'bg-blue-500',
+    textColor: 'text-blue-400',
+  },
+  preparing: {
+    label: 'Preparing',
+    color: 'border-yellow-500 bg-yellow-500/5',
+    dot: 'bg-yellow-400',
+    textColor: 'text-yellow-400',
+  },
+  ready: {
+    label: 'Ready',
+    color: 'border-green-500 bg-green-500/5',
+    dot: 'bg-green-500',
+    textColor: 'text-green-400',
+  },
 }
 
 function elapsed(sentAt: string) {
@@ -53,7 +73,7 @@ function elapsed(sentAt: string) {
 
 export function POSKitchenDisplay({ tenantId, initialTickets }: Props) {
   const [tickets, setTickets] = useState<KitchenTicket[]>(initialTickets)
-  const [now, setNow]         = useState(new Date())
+  const [now, setNow] = useState(new Date())
   const [updating, setUpdating] = useState<string | null>(null)
 
   // Refresh timer for elapsed times
@@ -69,7 +89,9 @@ export function POSKitchenDisplay({ tenantId, initialTickets }: Props) {
         const res = await fetch('/api/pos/kitchen')
         const data = await res.json()
         if (data.tickets) setTickets(data.tickets)
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     }, 15000)
     return () => clearInterval(t)
   }, [])
@@ -83,10 +105,15 @@ export function POSKitchenDisplay({ tenantId, initialTickets }: Props) {
         body: JSON.stringify({ status: newStatus }),
       })
       setTickets((prev) =>
-        prev.map((t) => t.id === ticketId ? { ...t, status: newStatus } : t)
+        prev
+          .map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t))
           .filter((t) => !['completed', 'cancelled'].includes(t.status))
       )
-    } catch { /* silent */ } finally { setUpdating(null) }
+    } catch {
+      /* silent */
+    } finally {
+      setUpdating(null)
+    }
   }, [])
 
   const columns = ['new', 'preparing', 'ready'] as const
@@ -101,21 +128,25 @@ export function POSKitchenDisplay({ tenantId, initialTickets }: Props) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {columns.map((col) => {
-          const colTickets = tickets.filter((t) => t.status === col || (col === 'new' && t.status === 'accepted'))
+          const colTickets = tickets.filter(
+            (t) => t.status === col || (col === 'new' && t.status === 'accepted')
+          )
           const cfg = STATUS_CONFIG[col]
 
           return (
             <div key={col}>
               <div className="flex items-center gap-2 mb-3">
                 <div className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
-                <h2 className={`text-sm font-bold uppercase tracking-wider ${cfg.textColor}`}>{cfg.label}</h2>
+                <h2 className={`text-sm font-bold uppercase tracking-wider ${cfg.textColor}`}>
+                  {cfg.label}
+                </h2>
                 <span className="text-xs text-zinc-600 ml-auto">{colTickets.length}</span>
               </div>
 
               <div className="space-y-3">
                 {colTickets.map((ticket) => {
                   const order = ticket.pos_orders
-                  const mins  = Math.floor((Date.now() - new Date(ticket.sent_at).getTime()) / 60000)
+                  const mins = Math.floor((Date.now() - new Date(ticket.sent_at).getTime()) / 60000)
                   const urgent = mins >= 15
 
                   return (
@@ -126,14 +157,24 @@ export function POSKitchenDisplay({ tenantId, initialTickets }: Props) {
                       {/* Ticket header */}
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <p className="text-base font-bold text-zinc-100 font-mono">#{order.order_number}</p>
+                          <p className="text-base font-bold text-zinc-100 font-mono">
+                            #{order.order_number}
+                          </p>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            <span className="text-xs text-zinc-400 capitalize">{order.order_type.replace(/_/g, ' ')}</span>
-                            {order.table_name && <span className="text-xs text-zinc-400">🪑 {order.table_name}</span>}
-                            {order.guest_count && <span className="text-xs text-zinc-400">👥 {order.guest_count}</span>}
+                            <span className="text-xs text-zinc-400 capitalize">
+                              {order.order_type.replace(/_/g, ' ')}
+                            </span>
+                            {order.table_name && (
+                              <span className="text-xs text-zinc-400">🪑 {order.table_name}</span>
+                            )}
+                            {order.guest_count && (
+                              <span className="text-xs text-zinc-400">👥 {order.guest_count}</span>
+                            )}
                           </div>
                         </div>
-                        <div className={`flex items-center gap-1 text-xs font-bold ${urgent ? 'text-red-400' : 'text-zinc-500'}`}>
+                        <div
+                          className={`flex items-center gap-1 text-xs font-bold ${urgent ? 'text-red-400' : 'text-zinc-500'}`}
+                        >
                           <Clock className="w-3 h-3" />
                           {mins < 1 ? '<1m' : `${mins}m`}
                         </div>
@@ -150,22 +191,40 @@ export function POSKitchenDisplay({ tenantId, initialTickets }: Props) {
                             {item.pos_order_item_modifiers.length > 0 && (
                               <div className="mt-1.5 space-y-0.5 ml-5">
                                 {item.pos_order_item_modifiers.map((m) => (
-                                  <p key={m.id} className={`text-sm ${m.modifier_type === 'removal' ? 'text-red-400' : m.modifier_type === 'instruction' ? 'text-blue-400' : 'text-green-400'}`}>
-                                    {m.modifier_type === 'removal' ? '✗' : m.modifier_type === 'instruction' ? '→' : '+'} {m.name}
+                                  <p
+                                    key={m.id}
+                                    className={`text-sm ${m.modifier_type === 'removal' ? 'text-red-400' : m.modifier_type === 'instruction' ? 'text-blue-400' : 'text-green-400'}`}
+                                  >
+                                    {m.modifier_type === 'removal'
+                                      ? '✗'
+                                      : m.modifier_type === 'instruction'
+                                        ? '→'
+                                        : '+'}{' '}
+                                    {m.name}
                                     {m.quantity > 1 && ` ×${m.quantity}`}
                                   </p>
                                 ))}
                               </div>
                             )}
-                            {item.kitchen_notes && <p className="text-sm text-yellow-400 mt-1 ml-5 italic">⚡ {item.kitchen_notes}</p>}
-                            {item.notes && <p className="text-sm text-zinc-500 mt-0.5 ml-5 italic">{item.notes}</p>}
+                            {item.kitchen_notes && (
+                              <p className="text-sm text-yellow-400 mt-1 ml-5 italic">
+                                ⚡ {item.kitchen_notes}
+                              </p>
+                            )}
+                            {item.notes && (
+                              <p className="text-sm text-zinc-500 mt-0.5 ml-5 italic">
+                                {item.notes}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>
 
                       {(order.kitchen_notes || order.notes) && (
                         <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2 mb-3">
-                          <p className="text-sm text-yellow-400">{order.kitchen_notes || order.notes}</p>
+                          <p className="text-sm text-yellow-400">
+                            {order.kitchen_notes || order.notes}
+                          </p>
                         </div>
                       )}
 

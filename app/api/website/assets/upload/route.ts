@@ -3,11 +3,11 @@
 // Used by section editors (hero background, about image, etc.)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserContext }            from '@/lib/auth/getUserContext'
-import { getSupabaseServerClient }  from '@/lib/supabase/server'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { STORAGE_BUCKETS, MAX_FILE_SIZE_BYTES } from '@/lib/storage/buckets'
 
-const BUCKET     = STORAGE_BUCKETS.WEBSITE_ASSETS
+const BUCKET = STORAGE_BUCKETS.WEBSITE_ASSETS
 const MAX_SIZE_MB = MAX_FILE_SIZE_BYTES[BUCKET] / 1024 / 1024
 
 function forbidden() {
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const tenantId = (ctx.tenant_id ?? req.nextUrl.searchParams.get('tenant_id') ?? '')
+  const tenantId = ctx.tenant_id ?? req.nextUrl.searchParams.get('tenant_id') ?? ''
   if (!tenantId) return NextResponse.json({ error: 'tenant_id required' }, { status: 400 })
 
   const form = await req.formData()
@@ -29,21 +29,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `File exceeds ${MAX_SIZE_MB}MB limit` }, { status: 413 })
   }
 
-  const ext      = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
   const filename = `${tenantId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
   const db = getSupabaseServerClient()
 
-  const { error: uploadError } = await db.storage
-    .from(BUCKET)
-    .upload(filename, file, {
-      contentType:  file.type,
-      upsert:       false,
-    })
+  const { error: uploadError } = await db.storage.from(BUCKET).upload(filename, file, {
+    contentType: file.type,
+    upsert: false,
+  })
 
   if (uploadError) {
     // Bucket may not exist yet — create it and retry once
-    if (uploadError.message.includes('not found') || uploadError.message.includes('Bucket not found')) {
+    if (
+      uploadError.message.includes('not found') ||
+      uploadError.message.includes('Bucket not found')
+    ) {
       await db.storage.createBucket(BUCKET, { public: true })
       const { error: retryErr } = await db.storage
         .from(BUCKET)
@@ -61,10 +62,10 @@ export async function POST(req: NextRequest) {
 
   // Record in site_assets table
   await db.from('site_assets').insert({
-    tenant_id:  tenantId,
+    tenant_id: tenantId,
     asset_type: 'image',
-    url:        publicUrl,
-    metadata:   { filename: file.name, size: file.size, type: file.type },
+    url: publicUrl,
+    metadata: { filename: file.name, size: file.size, type: file.type },
   })
 
   return NextResponse.json({ url: publicUrl, filename })

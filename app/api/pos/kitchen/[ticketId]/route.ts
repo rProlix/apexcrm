@@ -11,21 +11,23 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const { ticketId } = await params
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
   const newStatus = body.status as string
-  const validStatuses = ['accepted','preparing','ready','completed','cancelled']
+  const validStatuses = ['accepted', 'preparing', 'ready', 'completed', 'cancelled']
   if (!validStatuses.includes(newStatus)) {
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
   }
 
   const now = new Date().toISOString()
   const update: Record<string, unknown> = { status: newStatus }
-  if (newStatus === 'accepted')   update.accepted_at  = now
-  if (newStatus === 'ready')      update.ready_at     = now
-  if (newStatus === 'completed')  update.completed_at = now
+  if (newStatus === 'accepted') update.accepted_at = now
+  if (newStatus === 'ready') update.ready_at = now
+  if (newStatus === 'completed') update.completed_at = now
 
   const supabase = getPOSClient()
   const { data, error } = await supabase
@@ -40,11 +42,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   // When kitchen marks ready, update order status
   if (newStatus === 'ready') {
-    await supabase.from('pos_orders')
+    await supabase
+      .from('pos_orders')
       .update({ status: 'ready', fulfillment_status: 'ready' })
       .eq('id', data.order_id)
       .eq('tenant_id', user.tenant_id)
-      .in('status', ['sent_to_kitchen','preparing'])
+      .in('status', ['sent_to_kitchen', 'preparing'])
   }
 
   return NextResponse.json({ ticket: data })

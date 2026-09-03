@@ -8,7 +8,9 @@ import { createSessionServerClient } from '@/lib/supabase/server'
  */
 export async function protectRoute() {
   const supabase = await createSessionServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (!user) {
     redirect('/login')

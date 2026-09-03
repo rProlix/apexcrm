@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 
 interface AuthCardProps {
-  children:   React.ReactNode
+  children: React.ReactNode
   className?: string
 }
 
@@ -12,9 +12,7 @@ interface AuthCardProps {
 export function AuthCard({ children, className }: AuthCardProps) {
   return (
     <main className="min-h-dvh bg-graphite-950 flex items-center justify-center px-4 py-12">
-      <div className={cn('w-full max-w-md animate-fade-in', className)}>
-        {children}
-      </div>
+      <div className={cn('w-full max-w-md animate-fade-in', className)}>{children}</div>
     </main>
   )
 }

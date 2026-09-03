@@ -4,9 +4,9 @@
 
 export const VERCEL_API = 'https://api.vercel.com'
 
-const VERCEL_TOKEN      = process.env.VERCEL_TOKEN
+const VERCEL_TOKEN = process.env.VERCEL_TOKEN
 const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID
-const VERCEL_TEAM_ID    = process.env.VERCEL_TEAM_ID
+const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID
 
 export function isVercelConfigured(): boolean {
   return Boolean(VERCEL_TOKEN && VERCEL_PROJECT_ID)
@@ -19,11 +19,14 @@ function buildUrl(path: string): string {
 }
 
 async function vercelFetch<T>(
-  path:    string,
-  options: RequestInit = {},
+  path: string,
+  options: RequestInit = {}
 ): Promise<{ data: T | null; error: string | null }> {
   if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID) {
-    return { data: null, error: 'Vercel is not configured (missing VERCEL_TOKEN or VERCEL_PROJECT_ID)' }
+    return {
+      data: null,
+      error: 'Vercel is not configured (missing VERCEL_TOKEN or VERCEL_PROJECT_ID)',
+    }
   }
 
   try {
@@ -31,7 +34,7 @@ async function vercelFetch<T>(
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        Authorization:  `Bearer ${VERCEL_TOKEN}`,
+        Authorization: `Bearer ${VERCEL_TOKEN}`,
         ...options.headers,
       },
     })
@@ -39,8 +42,9 @@ async function vercelFetch<T>(
     const json = await res.json().catch(() => ({}))
 
     if (!res.ok) {
-      const msg = (json as { error?: { message?: string } }).error?.message
-        ?? `Vercel API error ${res.status}`
+      const msg =
+        (json as { error?: { message?: string } }).error?.message ??
+        `Vercel API error ${res.status}`
       return { data: null, error: msg }
     }
 
@@ -51,9 +55,11 @@ async function vercelFetch<T>(
 }
 
 export const vercelClient = {
-  get:    <T>(path: string)                       => vercelFetch<T>(path, { method: 'GET' }),
-  post:   <T>(path: string, body: unknown)        => vercelFetch<T>(path, { method: 'POST',   body: JSON.stringify(body) }),
-  delete: <T>(path: string)                       => vercelFetch<T>(path, { method: 'DELETE' }),
-  patch:  <T>(path: string, body: unknown)        => vercelFetch<T>(path, { method: 'PATCH',  body: JSON.stringify(body) }),
+  get: <T>(path: string) => vercelFetch<T>(path, { method: 'GET' }),
+  post: <T>(path: string, body: unknown) =>
+    vercelFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  delete: <T>(path: string) => vercelFetch<T>(path, { method: 'DELETE' }),
+  patch: <T>(path: string, body: unknown) =>
+    vercelFetch<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   projectId: VERCEL_PROJECT_ID,
 }

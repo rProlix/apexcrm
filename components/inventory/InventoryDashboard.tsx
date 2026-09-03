@@ -5,16 +5,25 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Package, AlertTriangle, TrendingDown, ShieldAlert,
-  DollarSign, Plus, Scan, RefreshCw, BarChart2, ArrowRight,
-  CheckCircle, Clock,
+  Package,
+  AlertTriangle,
+  TrendingDown,
+  ShieldAlert,
+  DollarSign,
+  Plus,
+  Scan,
+  RefreshCw,
+  BarChart2,
+  ArrowRight,
+  CheckCircle,
+  Clock,
 } from 'lucide-react'
 import type { InventoryDashboardStats } from '@/lib/inventory/types'
 import { ALERT_SEVERITY_COLORS } from '@/lib/inventory/types'
 
 interface Props {
-  tenantId:     string
-  stats:        Record<string, unknown> | null
+  tenantId: string
+  stats: Record<string, unknown> | null
   recentAlerts: Array<{
     id: string
     alert_type: string
@@ -26,9 +35,17 @@ interface Props {
 }
 
 function StatCard({
-  label, value, icon: Icon, color, href,
+  label,
+  value,
+  icon: Icon,
+  color,
+  href,
 }: {
-  label: string; value: number | string; icon: React.ElementType; color: string; href?: string
+  label: string
+  value: number | string
+  icon: React.ElementType
+  color: string
+  href?: string
 }) {
   const inner = (
     <div className="rounded-2xl border border-surface-border bg-graphite-800/50 p-5 flex items-center gap-4 hover:bg-graphite-700/50 transition-colors">
@@ -46,19 +63,19 @@ function StatCard({
 }
 
 export function InventoryDashboard({ tenantId, stats, recentAlerts }: Props) {
-  const router   = useRouter()
+  const router = useRouter()
   const [recalculating, setRecalculating] = useState(false)
-  const [recalcMsg, setRecalcMsg]         = useState<string | null>(null)
+  const [recalcMsg, setRecalcMsg] = useState<string | null>(null)
 
   const s = stats as InventoryDashboardStats | null
 
-  const totalItems    = s?.total_items ?? 0
-  const lowStock      = s?.low_stock_count ?? 0
-  const outOfStock    = s?.out_of_stock_count ?? 0
-  const openAlerts    = s?.open_alerts_count ?? 0
-  const estValue      = s?.estimated_inventory_value ?? 0
-  const topConsumed   = s?.top_consumed_items ?? []
-  const recentMoves   = s?.recent_movements ?? []
+  const totalItems = s?.total_items ?? 0
+  const lowStock = s?.low_stock_count ?? 0
+  const outOfStock = s?.out_of_stock_count ?? 0
+  const openAlerts = s?.open_alerts_count ?? 0
+  const estValue = s?.estimated_inventory_value ?? 0
+  const topConsumed = s?.top_consumed_items ?? []
+  const recentMoves = s?.recent_movements ?? []
 
   async function handleRecalculate() {
     setRecalculating(true)
@@ -84,7 +101,9 @@ export function InventoryDashboard({ tenantId, stats, recentAlerts }: Props) {
             <Package className="w-6 h-6 text-teal-400" />
             Inventory
           </h1>
-          <p className="text-sm text-zinc-400 mt-1">Track stock levels, movements, and predictive restocking</p>
+          <p className="text-sm text-zinc-400 mt-1">
+            Track stock levels, movements, and predictive restocking
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
@@ -143,7 +162,9 @@ export function InventoryDashboard({ tenantId, stats, recentAlerts }: Props) {
           label="Open Alerts"
           value={openAlerts}
           icon={ShieldAlert}
-          color={openAlerts > 0 ? 'bg-yellow-400/10 text-yellow-400' : 'bg-zinc-400/10 text-zinc-400'}
+          color={
+            openAlerts > 0 ? 'bg-yellow-400/10 text-yellow-400' : 'bg-zinc-400/10 text-zinc-400'
+          }
           href="/inventory/alerts"
         />
         <StatCard
@@ -157,9 +178,19 @@ export function InventoryDashboard({ tenantId, stats, recentAlerts }: Props) {
       {/* Quick links */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'View Alerts', href: '/inventory/alerts', icon: ShieldAlert, color: 'text-yellow-400' },
+          {
+            label: 'View Alerts',
+            href: '/inventory/alerts',
+            icon: ShieldAlert,
+            color: 'text-yellow-400',
+          },
           { label: 'Scan Barcode', href: '/inventory/scanner', icon: Scan, color: 'text-teal-400' },
-          { label: 'Trends & Predictions', href: '/inventory/trends', icon: BarChart2, color: 'text-purple-400' },
+          {
+            label: 'Trends & Predictions',
+            href: '/inventory/trends',
+            icon: BarChart2,
+            color: 'text-purple-400',
+          },
           { label: 'Settings', href: '/inventory/settings', icon: Package, color: 'text-zinc-400' },
         ].map((item) => (
           <Link
@@ -194,8 +225,13 @@ export function InventoryDashboard({ tenantId, stats, recentAlerts }: Props) {
           ) : (
             <div className="space-y-2">
               {recentAlerts.map((alert) => (
-                <div key={alert.id} className="flex items-center gap-3 py-2 border-b border-surface-border/50 last:border-0">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ALERT_SEVERITY_COLORS[alert.severity as keyof typeof ALERT_SEVERITY_COLORS] ?? 'text-zinc-400 bg-zinc-400/10'}`}>
+                <div
+                  key={alert.id}
+                  className="flex items-center gap-3 py-2 border-b border-surface-border/50 last:border-0"
+                >
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${ALERT_SEVERITY_COLORS[alert.severity as keyof typeof ALERT_SEVERITY_COLORS] ?? 'text-zinc-400 bg-zinc-400/10'}`}
+                  >
                     {alert.severity}
                   </span>
                   <span className="text-sm text-zinc-200 flex-1 truncate">{alert.title}</span>
@@ -221,7 +257,10 @@ export function InventoryDashboard({ tenantId, stats, recentAlerts }: Props) {
           ) : (
             <div className="space-y-2">
               {topConsumed.map((item, i) => (
-                <div key={item.id} className="flex items-center gap-3 py-2 border-b border-surface-border/50 last:border-0">
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 py-2 border-b border-surface-border/50 last:border-0"
+                >
                   <span className="text-xs text-zinc-500 w-5">{i + 1}.</span>
                   <span className="text-sm text-zinc-200 flex-1 truncate">{item.name}</span>
                   <span className="text-xs text-orange-400 font-medium">
@@ -254,14 +293,19 @@ export function InventoryDashboard({ tenantId, stats, recentAlerts }: Props) {
               <tbody>
                 {recentMoves.map((m) => (
                   <tr key={m.id} className="border-b border-surface-border/30 last:border-0">
-                    <td className="py-2 pr-4 text-zinc-200 truncate max-w-[160px]">{m.item_name}</td>
+                    <td className="py-2 pr-4 text-zinc-200 truncate max-w-[160px]">
+                      {m.item_name}
+                    </td>
                     <td className="py-2 pr-4">
                       <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300 capitalize">
                         {m.movement_type.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className={`py-2 pr-4 text-right font-mono text-xs font-medium ${m.quantity_delta > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {m.quantity_delta > 0 ? '+' : ''}{m.quantity_delta}
+                    <td
+                      className={`py-2 pr-4 text-right font-mono text-xs font-medium ${m.quantity_delta > 0 ? 'text-green-400' : 'text-red-400'}`}
+                    >
+                      {m.quantity_delta > 0 ? '+' : ''}
+                      {m.quantity_delta}
                     </td>
                     <td className="py-2 text-right text-zinc-400 font-mono text-xs">
                       {m.quantity_after ?? '—'} {m.unit}

@@ -7,14 +7,14 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveEvent } from '@/lib/pov/events'
 import { povDb } from '@/lib/pov/db'
-import {
-  normalizePhone, isValidPin, hashPin, verifyPin, generatePinSalt,
-} from '@/lib/pov/crypto'
+import { normalizePhone, isValidPin, hashPin, verifyPin, generatePinSalt } from '@/lib/pov/crypto'
 import { createGuestSession } from '@/lib/pov/guestSession'
 import { randomBytes } from 'crypto'
 import type { PovGuestRow } from '@/lib/pov/types'
 
-interface RouteCtx { params: Promise<{ eventRef: string }> }
+interface RouteCtx {
+  params: Promise<{ eventRef: string }>
+}
 
 export async function POST(req: NextRequest, { params }: RouteCtx) {
   const { eventRef } = await params
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: 'This event is not currently active.' }, { status: 403 })
   }
 
-  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const phoneRaw = String(body.phone_number ?? '')
   const pin = String(body.pin ?? '')
   const displayName = body.display_name ? String(body.display_name).trim().slice(0, 80) : null
@@ -53,10 +53,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     if (event.require_pin) {
       const ok = verifyPin(pin, existing.pin_salt ?? '', existing.pin_hash ?? '')
       if (!ok) {
-        return NextResponse.json(
-          { error: 'Incorrect PIN for this phone number.' },
-          { status: 401 },
-        )
+        return NextResponse.json({ error: 'Incorrect PIN for this phone number.' }, { status: 401 })
       }
     }
     const { data: updated } = await db
@@ -77,14 +74,14 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     const { data: created, error: insErr } = await db
       .from('pov_guests')
       .insert({
-        tenant_id:        event.tenant_id,
-        event_id:         event.id,
-        phone_number:     phoneRaw.trim().slice(0, 32),
+        tenant_id: event.tenant_id,
+        event_id: event.id,
+        phone_number: phoneRaw.trim().slice(0, 32),
         phone_normalized: phoneNormalized,
-        display_name:     displayName,
-        pin_hash:         hashPin(pinToHash, salt),
-        pin_salt:         salt,
-        last_login_at:    new Date().toISOString(),
+        display_name: displayName,
+        pin_hash: hashPin(pinToHash, salt),
+        pin_salt: salt,
+        last_login_at: new Date().toISOString(),
       })
       .select('*')
       .single()
@@ -92,7 +89,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     if (insErr || !created) {
       return NextResponse.json(
         { error: insErr?.message ?? 'Could not register guest.' },
-        { status: 500 },
+        { status: 500 }
       )
     }
     guest = created as PovGuestRow

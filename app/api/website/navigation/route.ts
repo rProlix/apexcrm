@@ -9,12 +9,12 @@ function forbidden() {
 }
 
 function resolveTenantId(
-  ctx:   Awaited<ReturnType<typeof getUserContext>>,
-  hint?: string | null,
+  ctx: Awaited<ReturnType<typeof getUserContext>>,
+  hint?: string | null
 ): string | null {
   if (!ctx) return null
   const hintClean = sanitizeTenantId(hint)
-  const self      = sanitizeTenantId(ctx.tenant_id)
+  const self = sanitizeTenantId(ctx.tenant_id)
   if (ctx.role === 'owner') return hintClean ?? self
   if (self && hintClean && self !== hintClean) return null
   return self ?? hintClean
@@ -45,20 +45,21 @@ export async function POST(req: NextRequest) {
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
   const body = await req.json()
-  const tid  = resolveTenantId(ctx, body.tenant_id)
+  const tid = resolveTenantId(ctx, body.tenant_id)
   if (!tid) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
 
   const { label, href, location, sort_order, is_visible } = body
-  if (!label || !href) return NextResponse.json({ error: 'label and href required' }, { status: 422 })
+  if (!label || !href)
+    return NextResponse.json({ error: 'label and href required' }, { status: 422 })
 
   const db = getSupabaseServerClient()
   const { data, error } = await db
     .from('site_navigation_items')
     .insert({
-      tenant_id:  tid,
-      label:      label.trim(),
-      href:       href.trim(),
-      location:   location ?? 'header',
+      tenant_id: tid,
+      label: label.trim(),
+      href: href.trim(),
+      location: location ?? 'header',
       sort_order: sort_order ?? 0,
       is_visible: is_visible ?? true,
     })
@@ -87,7 +88,8 @@ export async function PATCH(req: NextRequest) {
     .maybeSingle()
 
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (ctx.role !== 'owner' && ctx.tenant_id && ctx.tenant_id !== existing.tenant_id) return forbidden()
+  if (ctx.role !== 'owner' && ctx.tenant_id && ctx.tenant_id !== existing.tenant_id)
+    return forbidden()
 
   const allowed = ['label', 'href', 'location', 'sort_order', 'is_visible']
   const patch: Record<string, unknown> = {}
@@ -111,7 +113,7 @@ export async function DELETE(req: NextRequest) {
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
   const url = new URL(req.url)
-  const id  = url.searchParams.get('id')
+  const id = url.searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
   const db = getSupabaseServerClient()
@@ -123,7 +125,8 @@ export async function DELETE(req: NextRequest) {
     .maybeSingle()
 
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (ctx.role !== 'owner' && ctx.tenant_id && ctx.tenant_id !== existing.tenant_id) return forbidden()
+  if (ctx.role !== 'owner' && ctx.tenant_id && ctx.tenant_id !== existing.tenant_id)
+    return forbidden()
 
   const { error } = await db.from('site_navigation_items').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

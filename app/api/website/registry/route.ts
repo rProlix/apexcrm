@@ -8,9 +8,14 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { listWebsites, createBuilderWebsite, type WebsiteType } from '@/lib/website/registry'
 
-function forbidden() { return NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+function forbidden() {
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+}
 
-function resolveTenantId(ctx: Awaited<ReturnType<typeof getUserContext>>, override?: string | null): string | null {
+function resolveTenantId(
+  ctx: Awaited<ReturnType<typeof getUserContext>>,
+  override?: string | null
+): string | null {
   if (!ctx) return null
   const hint = sanitizeTenantId(override)
   const self = sanitizeTenantId(ctx.tenant_id)
@@ -25,19 +30,22 @@ export async function GET(req: NextRequest) {
   const tenantId = resolveTenantId(ctx, req.nextUrl.searchParams.get('tenant_id'))
   if (!tenantId) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
 
-  const websites = await listWebsites(tenantId, { includeArchived: req.nextUrl.searchParams.get('archived') === '1' })
+  const websites = await listWebsites(tenantId, {
+    includeArchived: req.nextUrl.searchParams.get('archived') === '1',
+  })
   return NextResponse.json({ websites })
 }
 
 export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
-  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const tenantId = resolveTenantId(ctx, body.tenant_id as string | undefined)
   if (!tenantId) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
 
-  const websiteType = (['business', 'creative'].includes(body.website_type as string)
-    ? body.website_type : 'business') as WebsiteType
+  const websiteType = (
+    ['business', 'creative'].includes(body.website_type as string) ? body.website_type : 'business'
+  ) as WebsiteType
 
   const result = await createBuilderWebsite({
     tenantId,

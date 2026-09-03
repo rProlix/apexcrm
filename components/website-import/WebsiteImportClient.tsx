@@ -13,17 +13,17 @@ import { ImportJobList, type JobListItem } from './ImportJobList'
 import { ImportStatusBadge } from './ImportStatusBadge'
 
 interface Props {
-  tenantId:    string
+  tenantId: string
   initialJobs: JobListItem[]
 }
 
 const POLL_INTERVAL_MS = 2_500
 
 export function WebsiteImportClient({ tenantId, initialJobs }: Props) {
-  const [jobs,       setJobs]       = useState<JobListItem[]>(initialJobs)
-  const [activeJob,  setActiveJob]  = useState<JobListItem | null>(null)
-  const [running,    setRunning]    = useState(false)
-  const [runError,   setRunError]   = useState<string | null>(null)
+  const [jobs, setJobs] = useState<JobListItem[]>(initialJobs)
+  const [activeJob, setActiveJob] = useState<JobListItem | null>(null)
+  const [running, setRunning] = useState(false)
+  const [runError, setRunError] = useState<string | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ── Polling for running jobs ────────────────────────────────────────────
@@ -63,7 +63,7 @@ export function WebsiteImportClient({ tenantId, initialJobs }: Props) {
 
   async function handleJobCreated(job: { id: string }) {
     await refreshJobs()
-    const created = jobs.find((j) => j.id === job.id) ?? { id: job.id } as JobListItem
+    const created = jobs.find((j) => j.id === job.id) ?? ({ id: job.id } as JobListItem)
     setActiveJob(created as JobListItem)
 
     // Auto-run the job
@@ -172,7 +172,9 @@ export function WebsiteImportClient({ tenantId, initialJobs }: Props) {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-semibold text-white/70">Current Import</h2>
-                  <p className="text-xs text-white/30 mt-0.5 font-mono">{activeJob.id.slice(0, 12)}…</p>
+                  <p className="text-xs text-white/30 mt-0.5 font-mono">
+                    {activeJob.id.slice(0, 12)}…
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <ImportStatusBadge status={activeJob.status} />
@@ -217,7 +219,7 @@ export function WebsiteImportClient({ tenantId, initialJobs }: Props) {
                   className={cn(
                     'block w-full text-center rounded-xl py-2.5 text-sm font-semibold transition-all duration-200',
                     'bg-gradient-to-r from-amber-500 to-amber-400 text-black',
-                    'hover:from-amber-400 hover:to-amber-300 hover:shadow-lg hover:shadow-amber-400/20',
+                    'hover:from-amber-400 hover:to-amber-300 hover:shadow-lg hover:shadow-amber-400/20'
                   )}
                 >
                   Review &amp; Approve Imported Content →
@@ -240,11 +242,7 @@ export function WebsiteImportClient({ tenantId, initialJobs }: Props) {
             </button>
           </div>
 
-          <ImportJobList
-            jobs={jobs}
-            activeJobId={activeJob?.id}
-            onSelect={setActiveJob}
-          />
+          <ImportJobList jobs={jobs} activeJobId={activeJob?.id} onSelect={setActiveJob} />
         </div>
       </div>
     </div>

@@ -12,9 +12,10 @@ export async function GET(req: NextRequest) {
 
   const dashUser = await resolveStoreUser(req)
   if (dashUser && ['admin', 'owner'].includes(dashUser.role)) {
-    const tenantId = dashUser.role === 'owner'
-      ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
-      : dashUser.tenant_id
+    const tenantId =
+      dashUser.role === 'owner'
+        ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
+        : dashUser.tenant_id
 
     const statusFilter = req.nextUrl.searchParams.get('status')
 
@@ -53,12 +54,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized — admin required' }, { status: 401 })
   }
 
-  const tenantId = user.role === 'owner'
-    ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
-    : user.tenant_id
+  const tenantId =
+    user.role === 'owner'
+      ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
+      : user.tenant_id
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -81,42 +85,45 @@ export async function POST(req: NextRequest) {
   }
 
   if (!Array.isArray(items) || items.length === 0) {
-    return NextResponse.json({ error: 'items array is required and must not be empty' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'items array is required and must not be empty' },
+      { status: 400 }
+    )
   }
 
   const parsedItems: InvoiceItemInput[] = (items as Record<string, unknown>[]).map((item, idx) => {
     if (!item.name || typeof item.name !== 'string') {
       throw new Error(`Item ${idx}: name is required`)
     }
-    const qty   = Number(item.quantity) || 1
+    const qty = Number(item.quantity) || 1
     const price = Number(item.unit_price)
     if (isNaN(price) || price < 0) {
       throw new Error(`Item ${idx}: unit_price must be a non-negative number`)
     }
     return {
-      name:        item.name,
+      name: item.name,
       description: item.description as string | undefined,
-      quantity:    Math.max(1, Math.floor(qty)),
-      unit_price:  price,
+      quantity: Math.max(1, Math.floor(qty)),
+      unit_price: price,
       source_type: item.source_type as InvoiceSourceType | undefined,
-      source_id:   item.source_id   as string | undefined,
+      source_id: item.source_id as string | undefined,
     }
   })
 
   try {
     const invoice = await createInvoice({
       tenantId,
-      customerId:    customer_id    as string | undefined,
-      contactId:     contact_id    as string | undefined,
-      orderId:       order_id      as string | undefined,
+      customerId: customer_id as string | undefined,
+      contactId: contact_id as string | undefined,
+      orderId: order_id as string | undefined,
       appointmentId: appointment_id as string | undefined,
       title,
-      description:  description   as string | undefined,
-      currency:     currency      as string | undefined,
-      dueDate:      due_date      as string | undefined,
-      providerKey:  provider_key  as string | undefined,
-      items:        parsedItems,
-      metadata:     metadata      as Record<string, unknown> | undefined,
+      description: description as string | undefined,
+      currency: currency as string | undefined,
+      dueDate: due_date as string | undefined,
+      providerKey: provider_key as string | undefined,
+      items: parsedItems,
+      metadata: metadata as Record<string, unknown> | undefined,
     })
 
     return NextResponse.json({ invoice }, { status: 201 })

@@ -41,27 +41,27 @@ export async function getTenantModulesWithDefaults(
       r.module_key as string,
       {
         enabled: r.enabled as boolean,
-        config:  (r.config ?? {}) as Record<string, unknown>,
+        config: (r.config ?? {}) as Record<string, unknown>,
       },
     ])
   )
 
   return (Object.keys(MODULE_REGISTRY) as ModuleKey[])
     .map((key) => {
-      const mod           = MODULE_REGISTRY[key]
-      const db            = dbMap.get(key)
+      const mod = MODULE_REGISTRY[key]
+      const db = dbMap.get(key)
       const is_from_default = db === undefined
 
       return {
         key,
-        label:           mod.label,
-        description:     mod.description,
-        href:            mod.href,
-        color:           mod.color,
-        bgColor:         mod.bgColor,
-        order:           mod.order,
-        is_enabled:      is_from_default ? getDefaultModuleState(key) : db!.enabled,
-        config:          is_from_default ? {} : db!.config,
+        label: mod.label,
+        description: mod.description,
+        href: mod.href,
+        color: mod.color,
+        bgColor: mod.bgColor,
+        order: mod.order,
+        is_enabled: is_from_default ? getDefaultModuleState(key) : db!.enabled,
+        config: is_from_default ? {} : db!.config,
         is_from_default,
       }
     })

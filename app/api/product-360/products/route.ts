@@ -2,9 +2,9 @@
 // Returns store products scoped to the resolved tenant, for use in 360 Studio.
 // Supports search, pagination, active filter.
 // Owner can pass ?tenantId= to inspect any tenant.
-import { NextRequest, NextResponse }           from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { resolveP360ApiUser, resolveTenantId } from '@/lib/product-360/auth'
-import { listStoreProducts }                   from '@/lib/product-360/packageService'
+import { listStoreProducts } from '@/lib/product-360/packageService'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,9 +31,9 @@ export async function GET(req: NextRequest) {
   }
 
   const search = searchParams.get('search') ?? undefined
-  const page   = parseInt(searchParams.get('page')  ?? '1',  10)
-  const limit  = Math.min(parseInt(searchParams.get('limit') ?? '24', 10), 100)
-  const all    = searchParams.get('all') === 'true'
+  const page = parseInt(searchParams.get('page') ?? '1', 10)
+  const limit = Math.min(parseInt(searchParams.get('limit') ?? '24', 10), 100)
+  const all = searchParams.get('all') === 'true'
 
   try {
     const { products, total } = await listStoreProducts({

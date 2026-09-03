@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = getSupabaseServerClient()
-  const params   = req.nextUrl.searchParams
-  const from     = params.get('from')
-  const to       = params.get('to')
+  const params = req.nextUrl.searchParams
+  const from = params.get('from')
+  const to = params.get('to')
 
   let query = supabase
     .from('blocked_times')
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     .order('start_time', { ascending: true })
 
   if (from) query = query.gte('start_time', from)
-  if (to)   query = query.lte('end_time', to)
+  if (to) query = query.lte('end_time', to)
 
   const { data, error } = await query
 
@@ -64,10 +64,10 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('blocked_times')
     .insert({
-      tenant_id:  staffUser.tenant_id,
+      tenant_id: staffUser.tenant_id,
       start_time,
       end_time,
-      reason:     typeof reason === 'string' ? reason.trim() || null : null,
+      reason: typeof reason === 'string' ? reason.trim() || null : null,
       created_by: staffUser.id,
     })
     .select()

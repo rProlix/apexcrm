@@ -69,18 +69,18 @@ export type TenantUserContext = {
  */
 export async function getCurrentTenantUser(tenantId: string): Promise<TenantUserContext> {
   const guest: TenantUserContext = {
-    user:                  null,
+    user: null,
     tenantId,
-    tenantSlug:            null,
-    isAuthenticated:       false,
-    isCustomer:            false,
-    isBusinessUser:        false,
-    role:                  'guest',
-    customerAccountId:     null,
-    customerId:            null,
-    businessUserId:        null,
-    email:                 null,
-    canEditWebsite:        false,
+    tenantSlug: null,
+    isAuthenticated: false,
+    isCustomer: false,
+    isBusinessUser: false,
+    role: 'guest',
+    customerAccountId: null,
+    customerId: null,
+    businessUserId: null,
+    email: null,
+    canEditWebsite: false,
     canViewCustomerPortal: false,
   }
 
@@ -114,16 +114,16 @@ export async function getCurrentTenantUser(tenantId: string): Promise<TenantUser
       return {
         user,
         tenantId,
-        tenantSlug:            null,
-        isAuthenticated:       true,
-        isCustomer:            false,
-        isBusinessUser:        true,
-        role:                  'owner',
-        customerAccountId:     null,
-        customerId:            null,
-        businessUserId:        businessRecord.id,
-        email:                 businessRecord.email ?? user.email ?? null,
-        canEditWebsite:        true,
+        tenantSlug: null,
+        isAuthenticated: true,
+        isCustomer: false,
+        isBusinessUser: true,
+        role: 'owner',
+        customerAccountId: null,
+        customerId: null,
+        businessUserId: businessRecord.id,
+        email: businessRecord.email ?? user.email ?? null,
+        canEditWebsite: true,
         canViewCustomerPortal: true,
       }
     }
@@ -134,16 +134,16 @@ export async function getCurrentTenantUser(tenantId: string): Promise<TenantUser
       return {
         user,
         tenantId,
-        tenantSlug:            null,
-        isAuthenticated:       true,
-        isCustomer:            false,
-        isBusinessUser:        true,
-        role:                  belongsToTenant ? (role as TenantUserRole) : 'guest',
-        customerAccountId:     null,
-        customerId:            null,
-        businessUserId:        businessRecord.id,
-        email:                 businessRecord.email ?? user.email ?? null,
-        canEditWebsite:        belongsToTenant && role !== 'employee',
+        tenantSlug: null,
+        isAuthenticated: true,
+        isCustomer: false,
+        isBusinessUser: true,
+        role: belongsToTenant ? (role as TenantUserRole) : 'guest',
+        customerAccountId: null,
+        customerId: null,
+        businessUserId: businessRecord.id,
+        email: businessRecord.email ?? user.email ?? null,
+        canEditWebsite: belongsToTenant && role !== 'employee',
         canViewCustomerPortal: false,
       }
     }
@@ -157,20 +157,24 @@ export async function getCurrentTenantUser(tenantId: string): Promise<TenantUser
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
-  if (customerAccount && customerAccount.status !== 'inactive' && customerAccount.status !== 'suspended') {
+  if (
+    customerAccount &&
+    customerAccount.status !== 'inactive' &&
+    customerAccount.status !== 'suspended'
+  ) {
     return {
       user,
       tenantId,
-      tenantSlug:            null,
-      isAuthenticated:       true,
-      isCustomer:            true,
-      isBusinessUser:        false,
-      role:                  'customer',
-      customerAccountId:     customerAccount.id,
-      customerId:            customerAccount.customer_id,
-      businessUserId:        null,
-      email:                 user.email ?? null,
-      canEditWebsite:        false,
+      tenantSlug: null,
+      isAuthenticated: true,
+      isCustomer: true,
+      isBusinessUser: false,
+      role: 'customer',
+      customerAccountId: customerAccount.id,
+      customerId: customerAccount.customer_id,
+      businessUserId: null,
+      email: user.email ?? null,
+      canEditWebsite: false,
       canViewCustomerPortal: true,
     }
   }
@@ -181,16 +185,16 @@ export async function getCurrentTenantUser(tenantId: string): Promise<TenantUser
   return {
     user,
     tenantId,
-    tenantSlug:            null,
-    isAuthenticated:       true,
-    isCustomer:            false,
-    isBusinessUser:        false,
-    role:                  'guest',
-    customerAccountId:     null,
-    customerId:            null,
-    businessUserId:        null,
-    email:                 user.email ?? null,
-    canEditWebsite:        false,
+    tenantSlug: null,
+    isAuthenticated: true,
+    isCustomer: false,
+    isBusinessUser: false,
+    role: 'guest',
+    customerAccountId: null,
+    customerId: null,
+    businessUserId: null,
+    email: user.email ?? null,
+    canEditWebsite: false,
     canViewCustomerPortal: false,
   }
 }

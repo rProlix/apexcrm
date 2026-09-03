@@ -7,27 +7,27 @@ import Link from 'next/link'
 import { formatCurrency } from '@/lib/payments/formatCurrency'
 
 interface Transaction {
-  id:                      string
-  invoice_id:              string | null
-  customer_id:             string | null
-  provider_key:            string
+  id: string
+  invoice_id: string | null
+  customer_id: string | null
+  provider_key: string
   provider_transaction_id: string | null
-  amount:                  number
-  currency:                string
-  status:                  string
-  transaction_type:        string
-  created_at:              string
+  amount: number
+  currency: string
+  status: string
+  transaction_type: string
+  created_at: string
 }
 
 interface Props {
   initialTransactions: Transaction[]
-  tenantId:            string
+  tenantId: string
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  pending:  'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
+  pending: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
   succeeded: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
-  failed:   'text-red-400 bg-red-400/10 border-red-400/20',
+  failed: 'text-red-400 bg-red-400/10 border-red-400/20',
   refunded: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
   canceled: 'text-white/30 bg-white/4 border-white/8',
 }
@@ -37,12 +37,13 @@ const STATUS_OPTIONS = ['all', 'pending', 'succeeded', 'failed', 'refunded', 'ca
 
 export function TransactionList({ initialTransactions, tenantId: _tenantId }: Props) {
   const [transactions] = useState<Transaction[]>(initialTransactions)
-  const [search, setSearch]   = useState('')
-  const [filter, setFilter]   = useState('all')
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('all')
 
   const filtered = transactions.filter((tx) => {
     const matchStatus = filter === 'all' || tx.status === filter
-    const matchSearch = !search.trim() ||
+    const matchSearch =
+      !search.trim() ||
       (tx.provider_transaction_id ?? '').toLowerCase().includes(search.toLowerCase()) ||
       tx.provider_key.toLowerCase().includes(search.toLowerCase())
     return matchStatus && matchSearch
@@ -103,7 +104,9 @@ export function TransactionList({ initialTransactions, tenantId: _tenantId }: Pr
           </div>
           <h3 className="text-base font-semibold text-white mb-1">No transactions found</h3>
           <p className="text-sm text-white/35">
-            {search || filter !== 'all' ? 'Try adjusting your filters' : 'Transactions will appear here after payments are processed'}
+            {search || filter !== 'all'
+              ? 'Try adjusting your filters'
+              : 'Transactions will appear here after payments are processed'}
           </p>
         </div>
       ) : (
@@ -112,7 +115,9 @@ export function TransactionList({ initialTransactions, tenantId: _tenantId }: Pr
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/6">
-                  <th className="text-left text-xs font-medium text-white/30 px-4 py-3">Provider</th>
+                  <th className="text-left text-xs font-medium text-white/30 px-4 py-3">
+                    Provider
+                  </th>
                   <th className="text-left text-xs font-medium text-white/30 px-4 py-3">Type</th>
                   <th className="text-left text-xs font-medium text-white/30 px-4 py-3">Amount</th>
                   <th className="text-left text-xs font-medium text-white/30 px-4 py-3">Status</th>
@@ -141,7 +146,9 @@ export function TransactionList({ initialTransactions, tenantId: _tenantId }: Pr
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-xs text-white/50 capitalize">{tx.transaction_type}</span>
+                      <span className="text-xs text-white/50 capitalize">
+                        {tx.transaction_type}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-sm font-semibold text-gold-400">
@@ -149,7 +156,9 @@ export function TransactionList({ initialTransactions, tenantId: _tenantId }: Pr
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-md border ${STATUS_STYLES[tx.status] ?? STATUS_STYLES.canceled}`}>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-md border ${STATUS_STYLES[tx.status] ?? STATUS_STYLES.canceled}`}
+                      >
                         {tx.status}
                       </span>
                     </td>

@@ -21,13 +21,13 @@ export async function GET(req: NextRequest) {
   const runTest = searchParams.get('test') === 'true'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db        = getSupabaseServerClient() as any
-  const tenantId  = ctx.tenant_id
+  const db = getSupabaseServerClient() as any
+  const tenantId = ctx.tenant_id
   const warnings: string[] = []
 
-  const tables:  Record<string, unknown> = {}
+  const tables: Record<string, unknown> = {}
   const versions: Record<string, unknown> = {}
-  const draft:   Record<string, unknown> = {}
+  const draft: Record<string, unknown> = {}
   const sections: Record<string, unknown> = {}
 
   // ── site_versions ────────────────────────────────────────────────────────
@@ -45,14 +45,13 @@ export async function GET(req: NextRequest) {
     } else {
       const rows = (data ?? []) as Record<string, unknown>[]
       const published = rows.find((v) => v.status === 'published')
-      const latest    = rows[0]
-      const hasNewColumns = rows.length > 0
-        ? 'version_number' in rows[0] && 'source' in rows[0]
-        : null
+      const latest = rows[0]
+      const hasNewColumns =
+        rows.length > 0 ? 'version_number' in rows[0] && 'source' in rows[0] : null
 
       tables.site_versions = {
-        exists:      true,
-        count:       rows.length,
+        exists: true,
+        count: rows.length,
         has_migration_068_columns: hasNewColumns,
       }
 
@@ -69,25 +68,27 @@ export async function GET(req: NextRequest) {
       }
 
       if (latest) {
-        const snap  = latest.snapshot as WebsiteSnapshot | null
+        const snap = latest.snapshot as WebsiteSnapshot | null
         const spages = snap?.pages?.length ?? 0
-        const ssec   = snap?.pages?.reduce((s, p) => s + (p.sections?.length ?? 0), 0) ?? 0
+        const ssec = snap?.pages?.reduce((s, p) => s + (p.sections?.length ?? 0), 0) ?? 0
 
         versions.latest = {
-          id:                     latest.id,
-          version_number:         latest.version_number,
-          label:                  latest.label,
-          source:                 latest.source,
-          status:                 latest.status,
-          stored_page_count:      latest.page_count,
-          stored_section_count:   latest.section_count,
-          snapshot_page_count:    spages,
+          id: latest.id,
+          version_number: latest.version_number,
+          label: latest.label,
+          source: latest.source,
+          status: latest.status,
+          stored_page_count: latest.page_count,
+          stored_section_count: latest.section_count,
+          snapshot_page_count: spages,
           snapshot_section_count: ssec,
-          created_at:             latest.created_at,
+          created_at: latest.created_at,
         }
 
         if (ssec === 0 && (latest.section_count as number) > 0) {
-          warnings.push(`Latest v${latest.version_number}: stored section_count=${latest.section_count} but snapshot has 0 sections`)
+          warnings.push(
+            `Latest v${latest.version_number}: stored section_count=${latest.section_count} but snapshot has 0 sections`
+          )
         }
         if (spages === 0) warnings.push(`Latest v${latest.version_number}: snapshot has no pages`)
       } else {
@@ -133,12 +134,16 @@ export async function GET(req: NextRequest) {
       if (data) {
         const snap = data.draft_snapshot as WebsiteSnapshot | null
         const dp = snap?.pages?.length ?? 0
-        const ds = snap?.pages?.reduce((s: number, p: { sections: unknown[] }) => s + p.sections.length, 0) ?? 0
-        draft.exists        = true
-        draft.dirty         = data.dirty
-        draft.page_count    = dp
+        const ds =
+          snap?.pages?.reduce(
+            (s: number, p: { sections: unknown[] }) => s + p.sections.length,
+            0
+          ) ?? 0
+        draft.exists = true
+        draft.dirty = data.dirty
+        draft.page_count = dp
         draft.section_count = ds
-        draft.updated_at    = data.updated_at
+        draft.updated_at = data.updated_at
         draft.last_autosaved_at = data.last_autosaved_at
         if (ds === 0) warnings.push('Draft snapshot has 0 sections')
       } else {
@@ -158,9 +163,9 @@ export async function GET(req: NextRequest) {
       .select('id,sort_order,is_visible')
       .eq('tenant_id', tenantId)
     const secs = (secData ?? []) as Record<string, unknown>[]
-    sections.total           = secs.length
+    sections.total = secs.length
     sections.null_sort_order = secs.filter((s) => s.sort_order === null).length
-    sections.hidden          = secs.filter((s) => s.is_visible === false).length
+    sections.hidden = secs.filter((s) => s.is_visible === false).length
     if ((sections.null_sort_order as number) > 0) {
       warnings.push(`${sections.null_sort_order} sections have null sort_order — run repair-counts`)
     }
@@ -174,34 +179,34 @@ export async function GET(req: NextRequest) {
   if (runTest) {
     const snapResult = await createWebsiteSnapshotForTenant({
       tenantId,
-      userId:  ctx.id,
-      source:  'manual',
+      userId: ctx.id,
+      source: 'manual',
     })
     if (snapResult.ok) {
       snapshotTest = {
-        ok:           true,
-        pageCount:    snapResult.pageCount,
+        ok: true,
+        pageCount: snapResult.pageCount,
         sectionCount: snapResult.sectionCount,
-        estimatedKb:  Math.round(snapResult.estimatedKb * 10) / 10,
-        fromClient:   snapResult.fromClient,
-        warnings:     snapResult.warnings,
-        message:      'Snapshot would be valid for checkpoint insertion',
+        estimatedKb: Math.round(snapResult.estimatedKb * 10) / 10,
+        fromClient: snapResult.fromClient,
+        warnings: snapResult.warnings,
+        message: 'Snapshot would be valid for checkpoint insertion',
       }
     } else {
       snapshotTest = {
-        ok:      false,
-        error:   snapResult.error,
+        ok: false,
+        error: snapResult.error,
         details: snapResult.details,
-        step:    snapResult.step,
+        step: snapResult.step,
       }
       warnings.push(`Snapshot test failed at step "${snapResult.step}": ${snapResult.error}`)
     }
   }
 
   return NextResponse.json({
-    ok:          warnings.length === 0,
-    tenant_id:   tenantId,
-    user_role:   ctx.role,
+    ok: warnings.length === 0,
+    tenant_id: tenantId,
+    user_role: ctx.role,
     tables,
     versions,
     draft,

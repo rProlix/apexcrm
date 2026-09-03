@@ -190,10 +190,7 @@ test('vehicle profile image precedence never chooses an unrelated random inspect
 test('fleet profiles hydrate history through the canonical inspection vehicle link', async () => {
   const [profilePage, fleetPage, profileSyncMigration] = await Promise.all([
     readFile(
-      path.join(
-        process.cwd(),
-        'app/(dashboard)/dashboard/vehicles/[vehicleId]/page.tsx'
-      ),
+      path.join(process.cwd(), 'app/(dashboard)/dashboard/vehicles/[vehicleId]/page.tsx'),
       'utf8'
     ),
     readFile(path.join(process.cwd(), 'app/(dashboard)/dashboard/vehicles/page.tsx'), 'utf8'),
@@ -206,10 +203,13 @@ test('fleet profiles hydrate history through the canonical inspection vehicle li
     ),
   ])
 
-  assert.match(profilePage, /const initialInspectionIds = \(initialInspectionsResult\.data \?\? \[\]\)/)
   assert.match(
     profilePage,
-    /sessionScope\.or\(`van_id\.eq\.\$\{vehicleId\},inspection_id\.in\.\(\$\{initialInspectionIds\.join\(','\)\}\)`\)/
+    /const initialInspectionIds = \(initialInspectionsResult\.data \?\? \[\]\)/
+  )
+  assert.match(
+    profilePage,
+    /sessionScope\s*\.or\(\s*`van_id\.eq\.\$\{vehicleId\},inspection_id\.in\.\(\$\{initialInspectionIds\.join\(','\)\}\)`\s*\)/
   )
   assert.match(profilePage, /\.in\('id', inspectionIds\)/)
   assert.match(
@@ -231,14 +231,8 @@ test('fleet profiles hydrate history through the canonical inspection vehicle li
     profilePage,
     /latest_observed_inspection_id\.in\.\(\$\{inspectionIds\.join\(','\)\}\)/
   )
-  assert.match(
-    profilePage,
-    /upload_session_id\.in\.\(\$\{sessionIds\.join\(','\)\}\)/
-  )
-  assert.match(
-    profilePage,
-    /related_damage_case_id\.in\.\(\$\{damageCaseIds\.join\(','\)\}\)/
-  )
+  assert.match(profilePage, /upload_session_id\.in\.\(\$\{sessionIds\.join\(','\)\}\)/)
+  assert.match(profilePage, /related_damage_case_id\.in\.\(\$\{damageCaseIds\.join\(','\)\}\)/)
   assert.match(
     profilePage,
     /\['uploaded', 'processing', 'analyzed', 'needs_review', 'failed'\]\.includes\(image\.status\)/
@@ -250,10 +244,7 @@ test('fleet profiles hydrate history through the canonical inspection vehicle li
   )
   assert.match(fleetPage, /sessionById\.get\(rawImage\.upload_session_id\)/)
   assert.match(fleetPage, /inspection\.van_id \?\? sessionVanId/)
-  assert.match(
-    profileSyncMigration,
-    /CREATE TRIGGER van_damage_inspections_sync_terminal_profile/
-  )
+  assert.match(profileSyncMigration, /CREATE TRIGGER van_damage_inspections_sync_terminal_profile/)
   assert.match(
     profileSyncMigration,
     /PERFORM public\.van_damage_reconcile_cases_for_inspection\(NEW\.id\)/

@@ -14,8 +14,8 @@
 // SERVER-ONLY.
 
 import type { P360ImageProvider } from './types'
-import { imagenProvider }         from './imagenProvider'
-import { geminiProvider }         from './gemini'
+import { imagenProvider } from './imagenProvider'
+import { geminiProvider } from './gemini'
 
 type ProviderName = 'imagen' | 'gemini'
 
@@ -36,14 +36,14 @@ function getProviderName(): ProviderName {
  */
 export function getP360Provider(): P360ImageProvider | null {
   try {
-    const name     = getProviderName()
-    const factory  = PROVIDERS[name]
+    const name = getProviderName()
+    const factory = PROVIDERS[name]
     const provider = factory ? factory() : imagenProvider
 
     if (!provider.isAvailable()) {
       console.warn(
         `[p360:provider] Provider "${provider.name}" is not available. ` +
-        `Ensure GEMINI_API_KEY (or GOOGLE_API_KEY) is set in your environment variables.`,
+          `Ensure GEMINI_API_KEY (or GOOGLE_API_KEY) is set in your environment variables.`
       )
       return null
     }
@@ -62,8 +62,8 @@ export function requireP360Provider(): P360ImageProvider {
   if (!p) {
     throw new Error(
       'No AI image generation provider is available. ' +
-      'Set GEMINI_API_KEY or GOOGLE_API_KEY in your Vercel environment variables ' +
-      'to enable Imagen image generation.',
+        'Set GEMINI_API_KEY or GOOGLE_API_KEY in your Vercel environment variables ' +
+        'to enable Imagen image generation.'
     )
   }
   return p

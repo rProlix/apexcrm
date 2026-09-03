@@ -11,38 +11,43 @@ const MAX_HISTORY = 25
 
 interface BuilderState {
   // ── Mode ──────────────────────────────────────────────────────────────────
-  editMode:     boolean
-  setEditMode:  (v: boolean) => void
+  editMode: boolean
+  setEditMode: (v: boolean) => void
 
   // ── Selection ─────────────────────────────────────────────────────────────
   selectedSectionId: string | null
-  selectSection:     (id: string | null) => void
+  selectSection: (id: string | null) => void
 
   // ── Sections data ─────────────────────────────────────────────────────────
-  sections:        BuilderSection[]
-  setSections:     (sections: BuilderSection[]) => void
+  sections: BuilderSection[]
+  setSections: (sections: BuilderSection[]) => void
   /** Optimistically update a section's content; triggers auto-save */
   updateSectionContent: (id: string, content: Record<string, unknown>) => void
   /** Toggle visibility of a section */
   toggleSectionVisibility: (id: string) => void
-  addSection:      (section: BuilderSection) => void
-  removeSection:   (id: string) => void
+  addSection: (section: BuilderSection) => void
+  removeSection: (id: string) => void
   /** Reorder using a new ordered array of sections */
   reorderSections: (sections: BuilderSection[]) => void
 
   // ── Save status ───────────────────────────────────────────────────────────
-  saveStatus:    SaveStatus
+  saveStatus: SaveStatus
   setSaveStatus: (s: SaveStatus) => void
 
   // ── Context (set once by EditorShell on mount) ────────────────────────────
-  tenantId:  string
-  pageId:    string
-  pageName:  string
-  pageSlug:  string
-  pageType:  string
+  tenantId: string
+  pageId: string
+  pageName: string
+  pageSlug: string
+  pageType: string
   isPublished: boolean
   setContext: (ctx: {
-    tenantId: string; pageId: string; pageName: string; pageSlug: string; pageType?: string; isPublished: boolean
+    tenantId: string
+    pageId: string
+    pageName: string
+    pageSlug: string
+    pageType?: string
+    isPublished: boolean
   }) => void
   setPublished: (v: boolean) => void
   /** Registers an immediate flush callback from EditorShell's debounced save */
@@ -53,47 +58,43 @@ interface BuilderState {
   _flushFn: (() => Promise<void>) | null
 
   // ── Undo / redo ───────────────────────────────────────────────────────────
-  history:     BuilderSection[][]
-  future:      BuilderSection[][]
+  history: BuilderSection[][]
+  future: BuilderSection[][]
   pushHistory: () => void
-  undo:        () => void
-  redo:        () => void
+  undo: () => void
+  redo: () => void
 
   // ── Premium Design floating drawer (EditBar button) ─────────────────────
-  showPremiumDrawer:    boolean
-  setPremiumDrawer:     (v: boolean) => void
+  showPremiumDrawer: boolean
+  setPremiumDrawer: (v: boolean) => void
 
   // ── AI Restyle drawer (EditBar button) ───────────────────────────────────
-  showRestyleDrawer:    boolean
-  setRestyleDrawer:     (v: boolean) => void
+  showRestyleDrawer: boolean
+  setRestyleDrawer: (v: boolean) => void
 }
 
 export const useBuilderStore = create<BuilderState>((set, get) => ({
   // ── Mode ──────────────────────────────────────────────────────────────────
-  editMode:    false,
+  editMode: false,
   setEditMode: (v) => set({ editMode: v }),
 
   // ── Selection ─────────────────────────────────────────────────────────────
   selectedSectionId: null,
-  selectSection:     (id) => set({ selectedSectionId: id }),
+  selectSection: (id) => set({ selectedSectionId: id }),
 
   // ── Sections ──────────────────────────────────────────────────────────────
-  sections:    [],
+  sections: [],
   setSections: (sections) => set({ sections }),
 
   updateSectionContent: (id, content) => {
     set({
-      sections: get().sections.map((s) =>
-        s.id === id ? { ...s, content } : s,
-      ),
+      sections: get().sections.map((s) => (s.id === id ? { ...s, content } : s)),
     })
   },
 
   toggleSectionVisibility: (id) => {
     set({
-      sections: get().sections.map((s) =>
-        s.id === id ? { ...s, is_visible: !s.is_visible } : s,
-      ),
+      sections: get().sections.map((s) => (s.id === id ? { ...s, is_visible: !s.is_visible } : s)),
     })
   },
 
@@ -103,7 +104,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 
   removeSection: (id) => {
     set({
-      sections:          get().sections.filter((s) => s.id !== id),
+      sections: get().sections.filter((s) => s.id !== id),
       selectedSectionId: get().selectedSectionId === id ? null : get().selectedSectionId,
     })
   },
@@ -113,15 +114,15 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
   },
 
   // ── Save status ───────────────────────────────────────────────────────────
-  saveStatus:    'idle',
+  saveStatus: 'idle',
   setSaveStatus: (s) => set({ saveStatus: s }),
 
   // ── Context ───────────────────────────────────────────────────────────────
-  tenantId:  '',
-  pageId:    '',
-  pageName:  '',
-  pageSlug:  '',
-  pageType:  'page',
+  tenantId: '',
+  pageId: '',
+  pageName: '',
+  pageSlug: '',
+  pageType: 'page',
   isPublished: false,
   setContext: (ctx) => set({ ...ctx, pageType: ctx.pageType ?? 'page' }),
   setPublished: (v) => set({ isPublished: v }),
@@ -136,13 +137,13 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 
   // ── Undo / redo ───────────────────────────────────────────────────────────
   history: [],
-  future:  [],
+  future: [],
 
   pushHistory: () => {
     const { sections, history } = get()
     set({
       history: [...history.slice(-MAX_HISTORY), [...sections]],
-      future:  [],
+      future: [],
     })
   },
 
@@ -152,8 +153,8 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
     const prev = history[history.length - 1]
     set({
       sections: prev,
-      history:  history.slice(0, -1),
-      future:   [...future.slice(-MAX_HISTORY), [...sections]],
+      history: history.slice(0, -1),
+      future: [...future.slice(-MAX_HISTORY), [...sections]],
     })
   },
 
@@ -163,16 +164,16 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
     const next = future[future.length - 1]
     set({
       sections: next,
-      history:  [...history.slice(-MAX_HISTORY), [...sections]],
-      future:   future.slice(0, -1),
+      history: [...history.slice(-MAX_HISTORY), [...sections]],
+      future: future.slice(0, -1),
     })
   },
 
   // ── Premium Design floating drawer (EditBar button) ─────────────────────
-  showPremiumDrawer:    false,
-  setPremiumDrawer:     (v) => set({ showPremiumDrawer: v }),
+  showPremiumDrawer: false,
+  setPremiumDrawer: (v) => set({ showPremiumDrawer: v }),
 
   // ── AI Restyle drawer (EditBar button) ───────────────────────────────────
-  showRestyleDrawer:    false,
-  setRestyleDrawer:     (v) => set({ showRestyleDrawer: v }),
+  showRestyleDrawer: false,
+  setRestyleDrawer: (v) => set({ showRestyleDrawer: v }),
 }))

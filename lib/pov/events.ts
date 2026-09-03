@@ -19,18 +19,16 @@ export async function resolveEvent(idOrSlug: string): Promise<PovEventRow | null
 
   const db = povDb()
   const column = UUID_RE.test(ref) ? 'id' : 'slug'
-  const { data } = await db
-    .from('pov_events')
-    .select('*')
-    .eq(column, ref)
-    .limit(1)
-    .maybeSingle()
+  const { data } = await db.from('pov_events').select('*').eq(column, ref).limit(1).maybeSingle()
 
   return (data as PovEventRow | null) ?? null
 }
 
 /** True once the gallery reveal time has passed. */
-export function isGalleryUnlocked(event: Pick<PovEventRow, 'gallery_reveal_at'>, now: Date = new Date()): boolean {
+export function isGalleryUnlocked(
+  event: Pick<PovEventRow, 'gallery_reveal_at'>,
+  now: Date = new Date()
+): boolean {
   const reveal = new Date(event.gallery_reveal_at).getTime()
   if (Number.isNaN(reveal)) return false
   return now.getTime() >= reveal
@@ -45,9 +43,9 @@ export function isGalleryUnlocked(event: Pick<PovEventRow, 'gallery_reveal_at'>,
  * local to the event's timezone, then converts back to a UTC instant.
  */
 export function defaultRevealAt(opts: {
-  eventDate?: string | null   // 'YYYY-MM-DD'
+  eventDate?: string | null // 'YYYY-MM-DD'
   timezone?: string | null
-  hour?: number               // local hour, default 9
+  hour?: number // local hour, default 9
 }): string {
   const tz = opts.timezone || 'America/Los_Angeles'
   const hour = opts.hour ?? 9
@@ -56,10 +54,15 @@ export function defaultRevealAt(opts: {
   let baseY: number, baseM: number, baseD: number
   if (opts.eventDate && /^\d{4}-\d{2}-\d{2}$/.test(opts.eventDate)) {
     const [y, m, d] = opts.eventDate.split('-').map(Number)
-    baseY = y; baseM = m; baseD = d
+    baseY = y
+    baseM = m
+    baseD = d
   } else {
     const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
     }).formatToParts(new Date())
     baseY = Number(parts.find((p) => p.type === 'year')?.value)
     baseM = Number(parts.find((p) => p.type === 'month')?.value)
@@ -84,9 +87,14 @@ export function defaultRevealAt(opts: {
 /** Returns the timezone offset (minutes) for a given instant in a tz. */
 function tzOffsetMinutes(timeZone: string, date: Date): number {
   const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone, hour12: false,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
   })
   const parts = dtf.formatToParts(date)
   const map: Record<string, number> = {}

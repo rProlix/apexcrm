@@ -16,7 +16,12 @@ export type AnalysisTaskType =
   | 'repair_verification'
   | 'overlay_generation'
 
-export type RetentionPlan = 'standard' | 'extended_3_year' | 'extended_5_year' | 'extended_7_year' | 'custom'
+export type RetentionPlan =
+  | 'standard'
+  | 'extended_3_year'
+  | 'extended_5_year'
+  | 'extended_7_year'
+  | 'custom'
 
 export type RetentionInput = {
   plan?: RetentionPlan | null
@@ -72,7 +77,11 @@ export function extensionForMime(mimeType: string, fallbackFileName = 'image'): 
   const normalized = mimeType.toLowerCase().split(';')[0].trim()
   if (EXTENSION_BY_MIME[normalized]) return EXTENSION_BY_MIME[normalized]
   const candidate = fallbackFileName.split('.').pop()?.toLowerCase() ?? ''
-  return ['jpg', 'jpeg', 'png', 'webp'].includes(candidate) ? (candidate === 'jpeg' ? 'jpg' : candidate) : 'bin'
+  return ['jpg', 'jpeg', 'png', 'webp'].includes(candidate)
+    ? candidate === 'jpeg'
+      ? 'jpg'
+      : candidate
+    : 'bin'
 }
 
 export function buildVanDamageObjectKey(input: {
@@ -114,7 +123,8 @@ export function buildVanDamageObjectKey(input: {
 export function assertTenantScopedObjectKey(key: string, tenantId: string): void {
   const expectedPrefix = `tenants/${sanitizeObjectPathSegment(tenantId)}/`
   if (!key.startsWith(expectedPrefix)) throw new Error('Object key is outside the tenant scope.')
-  if (key.includes('..') || key.includes('//')) throw new Error('Object key contains an unsafe path segment.')
+  if (key.includes('..') || key.includes('//'))
+    throw new Error('Object key contains an unsafe path segment.')
 }
 
 export function buildAiCacheKey(input: {
@@ -143,7 +153,8 @@ export function buildAiCacheKey(input: {
 }
 
 export function resolveImageRetentionPolicy(input: RetentionInput): RetentionResolution {
-  const uploadedAt = input.uploadedAt instanceof Date ? input.uploadedAt : new Date(input.uploadedAt)
+  const uploadedAt =
+    input.uploadedAt instanceof Date ? input.uploadedAt : new Date(input.uploadedAt)
   const graceDays = input.deletionGraceDays ?? 30
   if (input.legalHold) {
     return {

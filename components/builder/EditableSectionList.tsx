@@ -36,7 +36,7 @@ export function EditableSectionList() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
   const handleDragEnd = useCallback(
@@ -54,26 +54,17 @@ export function EditableSectionList() {
       reorderSections(reordered)
       setSaveStatus('saving')
 
-      const ok = await apiReorder(
-        reordered.map((s) => ({ id: s.id, sort_order: s.sort_order })),
-      )
+      const ok = await apiReorder(reordered.map((s) => ({ id: s.id, sort_order: s.sort_order })))
       setSaveStatus(ok ? 'saved' : 'error')
       setTimeout(() => setSaveStatus('idle'), 3000)
     },
-    [sorted, reorderSections, setSaveStatus],
+    [sorted, reorderSections, setSaveStatus]
   )
 
   return (
     <div>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={sorted.map((s) => s.id)}
-          strategy={verticalListSortingStrategy}
-        >
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={sorted.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           {sorted.map((section) => (
             <SortableItem key={section.id} section={section} />
           ))}
@@ -85,19 +76,19 @@ export function EditableSectionList() {
         <button
           onClick={() => setPickerOpen(true)}
           style={{
-            padding:      '0.75rem 2rem',
+            padding: '0.75rem 2rem',
             borderRadius: '0.875rem',
-            border:       '2px dashed rgba(201,168,76,0.4)',
-            background:   'transparent',
-            color:        '#c9a84c',
-            fontWeight:   600,
-            fontSize:     '0.9375rem',
-            cursor:       'pointer',
-            display:      'inline-flex',
-            alignItems:   'center',
-            gap:          '0.5rem',
-            transition:   'all 0.15s',
-            fontFamily:   'Inter, system-ui, sans-serif',
+            border: '2px dashed rgba(201,168,76,0.4)',
+            background: 'transparent',
+            color: '#c9a84c',
+            fontWeight: 600,
+            fontSize: '0.9375rem',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            transition: 'all 0.15s',
+            fontFamily: 'Inter, system-ui, sans-serif',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'rgba(201,168,76,0.08)'
@@ -111,12 +102,7 @@ export function EditableSectionList() {
         </button>
       </div>
 
-      {pickerOpen && (
-        <SectionPicker
-          pageId={pageId}
-          onClose={() => setPickerOpen(false)}
-        />
-      )}
+      {pickerOpen && <SectionPicker pageId={pageId} onClose={() => setPickerOpen(false)} />}
     </div>
   )
 }
@@ -124,15 +110,16 @@ export function EditableSectionList() {
 // ── Sortable item wrapper ─────────────────────────────────────────────────────
 
 function SortableItem({ section }: { section: BuilderSection }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: section.id })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: section.id,
+  })
 
   const style: React.CSSProperties = {
-    transform:  CSS.Transform.toString(transform),
+    transform: CSS.Transform.toString(transform),
     transition,
-    zIndex:     isDragging ? 100 : undefined,
-    opacity:    isDragging ? 0.8 : 1,
-    boxShadow:  isDragging ? '0 8px 32px rgba(0,0,0,0.3)' : undefined,
+    zIndex: isDragging ? 100 : undefined,
+    opacity: isDragging ? 0.8 : 1,
+    boxShadow: isDragging ? '0 8px 32px rgba(0,0,0,0.3)' : undefined,
   }
 
   const DragHandle = (
@@ -140,18 +127,18 @@ function SortableItem({ section }: { section: BuilderSection }) {
       {...attributes}
       {...listeners}
       style={{
-        width:          24,
-        height:         24,
-        borderRadius:   '0.25rem',
-        background:     '#1a1a1f',
-        border:         '1px solid #3f3f46',
-        display:        'flex',
-        alignItems:     'center',
+        width: 24,
+        height: 24,
+        borderRadius: '0.25rem',
+        background: '#1a1a1f',
+        border: '1px solid #3f3f46',
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'center',
-        cursor:         'grab',
-        color:          '#6b7280',
-        fontSize:       '0.75rem',
-        userSelect:     'none',
+        cursor: 'grab',
+        color: '#6b7280',
+        fontSize: '0.75rem',
+        userSelect: 'none',
       }}
     >
       ⠿
@@ -160,10 +147,7 @@ function SortableItem({ section }: { section: BuilderSection }) {
 
   return (
     <div ref={setNodeRef} style={style}>
-      <EditableSectionWrapper
-        section={section}
-        dragHandle={DragHandle}
-      />
+      <EditableSectionWrapper section={section} dragHandle={DragHandle} />
     </div>
   )
 }

@@ -34,50 +34,50 @@ export const DEFAULT_IMAGEN_ASPECT_RATIO: ImagenAspectRatio = '16:9'
 
 const UNSUPPORTED_RATIO_MAP: Record<string, ImagenAspectRatio> = {
   // ── Numeric unsupported ratios ────────────────────────────────────────────
-  '3:2':   '16:9',  // landscape photography → wide (user-requested mapping)
-  '2:3':   '9:16',  // portrait photography  → vertical (user-requested)
-  '4:5':   '3:4',   // tall portrait         → nearest portrait
-  '5:4':   '4:3',   // wide square-ish       → nearest landscape
-  '21:9':  '16:9',  // ultra-wide            → widescreen
-  '16:10': '16:9',  // widescreen laptop     → widescreen
-  '10:16': '9:16',  // tall phone            → vertical
-  '2:1':   '16:9',  // ultra-landscape       → widescreen
-  '1:2':   '9:16',  // ultra-portrait        → vertical
-  '5:3':   '16:9',  // wide cinema-ish       → widescreen
-  '3:5':   '3:4',   // tall narrow           → portrait
-  '7:4':   '16:9',  // near-widescreen       → widescreen
-  '4:7':   '3:4',   // near-portrait         → portrait
-  '8:5':   '16:9',  // golden ratio wide-ish → widescreen
-  '5:8':   '3:4',   // golden ratio portrait → portrait
+  '3:2': '16:9', // landscape photography → wide (user-requested mapping)
+  '2:3': '9:16', // portrait photography  → vertical (user-requested)
+  '4:5': '3:4', // tall portrait         → nearest portrait
+  '5:4': '4:3', // wide square-ish       → nearest landscape
+  '21:9': '16:9', // ultra-wide            → widescreen
+  '16:10': '16:9', // widescreen laptop     → widescreen
+  '10:16': '9:16', // tall phone            → vertical
+  '2:1': '16:9', // ultra-landscape       → widescreen
+  '1:2': '9:16', // ultra-portrait        → vertical
+  '5:3': '16:9', // wide cinema-ish       → widescreen
+  '3:5': '3:4', // tall narrow           → portrait
+  '7:4': '16:9', // near-widescreen       → widescreen
+  '4:7': '3:4', // near-portrait         → portrait
+  '8:5': '16:9', // golden ratio wide-ish → widescreen
+  '5:8': '3:4', // golden ratio portrait → portrait
   // ── Text labels that Gemini/AI planners may output ────────────────────────
-  'landscape':      '16:9',
-  'wide':           '16:9',
-  'hero':           '16:9',
-  'widescreen':     '16:9',
-  'cinematic':      '16:9',
-  'banner':         '16:9',
-  'header':         '16:9',
-  'cover':          '16:9',
-  'portrait':       '9:16',
-  'vertical':       '9:16',
-  'mobile_story':   '9:16',
-  'story':          '9:16',
-  'tall':           '9:16',
-  'square':         '1:1',
-  '1x1':            '1:1',
-  'square_photo':   '1:1',
-  'instagram':      '1:1',
-  'avatar':         '1:1',
-  'icon':           '1:1',
-  'card':           '4:3',
-  'standard':       '4:3',
-  'photo':          '4:3',
-  'about':          '4:3',
-  'section':        '4:3',
-  'tall_portrait':  '3:4',
-  'book':           '3:4',
-  'pin':            '3:4',
-  'pinterest':      '3:4',
+  landscape: '16:9',
+  wide: '16:9',
+  hero: '16:9',
+  widescreen: '16:9',
+  cinematic: '16:9',
+  banner: '16:9',
+  header: '16:9',
+  cover: '16:9',
+  portrait: '9:16',
+  vertical: '9:16',
+  mobile_story: '9:16',
+  story: '9:16',
+  tall: '9:16',
+  square: '1:1',
+  '1x1': '1:1',
+  square_photo: '1:1',
+  instagram: '1:1',
+  avatar: '1:1',
+  icon: '1:1',
+  card: '4:3',
+  standard: '4:3',
+  photo: '4:3',
+  about: '4:3',
+  section: '4:3',
+  tall_portrait: '3:4',
+  book: '3:4',
+  pin: '3:4',
+  pinterest: '3:4',
 }
 
 // ── Section-type default ratios ───────────────────────────────────────────────
@@ -85,67 +85,67 @@ const UNSUPPORTED_RATIO_MAP: Record<string, ImagenAspectRatio> = {
 
 const SECTION_TYPE_DEFAULT_RATIO: Record<string, ImagenAspectRatio> = {
   // Hero variants → wide landscape
-  hero:                '16:9',
-  hero_banner:         '16:9',
-  herobanner:          '16:9',
-  homepage_hero:       '16:9',
-  banner:              '16:9',
-  header:              '16:9',
+  hero: '16:9',
+  hero_banner: '16:9',
+  herobanner: '16:9',
+  homepage_hero: '16:9',
+  banner: '16:9',
+  header: '16:9',
 
   // About/story → standard section
-  about:               '4:3',
-  about_section:       '4:3',
-  aboutsection:        '4:3',
+  about: '4:3',
+  about_section: '4:3',
+  aboutsection: '4:3',
 
   // Feature grid cards → square icons
-  feature_grid:        '1:1',
-  featuregrid:         '1:1',
-  feature:             '1:1',
-  services:            '1:1',
-  service_card:        '1:1',
+  feature_grid: '1:1',
+  featuregrid: '1:1',
+  feature: '1:1',
+  services: '1:1',
+  service_card: '1:1',
 
   // Testimonials → wide background
-  testimonials:        '16:9',
-  reviews:             '16:9',
+  testimonials: '16:9',
+  reviews: '16:9',
 
   // Contact / location
-  contact:             '4:3',
-  contact_section:     '4:3',
-  contactsection:      '4:3',
-  visit_showroom:      '4:3',
-  showroom:            '4:3',
+  contact: '4:3',
+  contact_section: '4:3',
+  contactsection: '4:3',
+  visit_showroom: '4:3',
+  showroom: '4:3',
 
   // Gallery
-  gallery:             '4:3',
-  image_gallery:       '4:3',
-  imagegallery:        '4:3',
+  gallery: '4:3',
+  image_gallery: '4:3',
+  imagegallery: '4:3',
 
   // Product / shop
-  product_grid:        '1:1',
-  productgrid:         '1:1',
-  product:             '1:1',
-  shop:                '1:1',
-  ecommerce:           '1:1',
+  product_grid: '1:1',
+  productgrid: '1:1',
+  product: '1:1',
+  shop: '1:1',
+  ecommerce: '1:1',
 
   // FAQ
-  faq:                 '4:3',
+  faq: '4:3',
 
   // CTA
-  cta:                 '16:9',
-  call_to_action:      '16:9',
+  cta: '16:9',
+  call_to_action: '16:9',
 
   // Rich text / text blocks
-  rich_text:           '16:9',
-  text:                '16:9',
+  rich_text: '16:9',
+  text: '16:9',
 
   // Mobile-specific
-  mobile_story:        '9:16',
-  vertical_banner:     '9:16',
+  mobile_story: '9:16',
+  vertical_banner: '9:16',
 
   // Testimonials avatar / logo
-  avatar:              '1:1',
-  logo:                '1:1',
-  icon:                '1:1',
+  avatar: '1:1',
+  logo: '1:1',
+  icon: '1:1',
 }
 
 // ── Main normalizer ───────────────────────────────────────────────────────────
@@ -162,8 +162,8 @@ const SECTION_TYPE_DEFAULT_RATIO: Record<string, ImagenAspectRatio> = {
  * NEVER throws. Always returns one of: '1:1' | '9:16' | '16:9' | '4:3' | '3:4'.
  */
 export function normalizeImagenAspectRatio(
-  input?:       string | null,
-  sectionType?: string | null,
+  input?: string | null,
+  sectionType?: string | null
 ): ImagenAspectRatio {
   const raw = (input ?? '').trim()
 
@@ -181,7 +181,7 @@ export function normalizeImagenAspectRatio(
       if (process.env.NODE_ENV !== 'production') {
         console.warn(
           `[imagenAspectRatios] Unsupported ratio "${raw}" → normalized to "${mapped}". ` +
-          `Imagen 4 only supports: ${SUPPORTED_IMAGEN_ASPECT_RATIOS.join(', ')}`
+            `Imagen 4 only supports: ${SUPPORTED_IMAGEN_ASPECT_RATIOS.join(', ')}`
         )
       }
       return mapped
@@ -224,14 +224,14 @@ export function isValidImagenAspectRatio(ratio: string): ratio is ImagenAspectRa
  */
 export function getAspectRatioNormalizationNote(
   input: string | null | undefined,
-  sectionType?: string | null,
+  sectionType?: string | null
 ): string | null {
   const raw = (input ?? '').trim()
   if (!raw) return null
 
   const normalized = raw.toLowerCase()
   if (SUPPORTED_IMAGEN_ASPECT_RATIOS.includes(normalized as ImagenAspectRatio)) {
-    return null  // No change needed
+    return null // No change needed
   }
 
   const result = normalizeImagenAspectRatio(input, sectionType)
@@ -248,8 +248,8 @@ export function getAspectRatioNormalizationNote(
  */
 export const ASPECT_RATIO_LABELS: Record<ImagenAspectRatio, string> = {
   '16:9': '16:9 — Landscape / Hero',
-  '4:3':  '4:3 — Standard section image',
-  '1:1':  '1:1 — Square',
+  '4:3': '4:3 — Standard section image',
+  '1:1': '1:1 — Square',
   '9:16': '9:16 — Vertical / Mobile story',
-  '3:4':  '3:4 — Portrait',
+  '3:4': '3:4 — Portrait',
 }

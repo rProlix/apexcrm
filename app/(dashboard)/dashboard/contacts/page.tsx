@@ -8,7 +8,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 export const metadata = { title: 'Contacts — ApexCRM' }
 
 interface ContactCounts {
-  contacts:  number
+  contacts: number
   customers: number
 }
 
@@ -19,7 +19,10 @@ async function getContactCounts(tenantId: string): Promise<ContactCounts> {
     const anyDb = db as any
     const [{ count: contacts }, { count: customers }] = await Promise.all([
       anyDb.from('contacts').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-      anyDb.from('customers').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      anyDb
+        .from('customers')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId),
     ])
     return { contacts: contacts ?? 0, customers: customers ?? 0 }
   } catch {
@@ -37,9 +40,21 @@ export default async function ContactsPage() {
   const total = counts.contacts + counts.customers
 
   const stats = [
-    { label: 'Contacts',  value: counts.contacts,  icon: BookUser,   color: 'text-teal-400', bg: 'bg-teal-400/10' },
-    { label: 'Customers', value: counts.customers, icon: UserCheck,  color: 'text-cyan-400', bg: 'bg-cyan-400/10' },
-    { label: 'Total',     value: total,            icon: Users,      color: 'text-sky-400',  bg: 'bg-sky-400/10'  },
+    {
+      label: 'Contacts',
+      value: counts.contacts,
+      icon: BookUser,
+      color: 'text-teal-400',
+      bg: 'bg-teal-400/10',
+    },
+    {
+      label: 'Customers',
+      value: counts.customers,
+      icon: UserCheck,
+      color: 'text-cyan-400',
+      bg: 'bg-cyan-400/10',
+    },
+    { label: 'Total', value: total, icon: Users, color: 'text-sky-400', bg: 'bg-sky-400/10' },
   ]
 
   return (
@@ -52,7 +67,9 @@ export default async function ContactsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {stats.map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="rounded-xl bg-graphite-800 border border-graphite-600 p-4">
-            <div className={`inline-flex items-center justify-center h-9 w-9 rounded-lg ${bg} mb-3`}>
+            <div
+              className={`inline-flex items-center justify-center h-9 w-9 rounded-lg ${bg} mb-3`}
+            >
               <Icon className={`h-4 w-4 ${color}`} />
             </div>
             <p className="text-2xl font-bold text-white">{value}</p>

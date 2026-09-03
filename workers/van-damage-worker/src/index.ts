@@ -20,9 +20,8 @@ async function main() {
 
   const persistence = new SupabaseWorker(config)
   const storage = new S3Storage(config)
-  const consumer = new VanDamageSqsConsumer(
-    config,
-    (body, metadata) => processMessageBody(body, { config, persistence, storage }, metadata),
+  const consumer = new VanDamageSqsConsumer(config, (body, metadata) =>
+    processMessageBody(body, { config, persistence, storage }, metadata)
   )
 
   logger.info('Worker dependencies initialized', {
@@ -54,6 +53,8 @@ async function main() {
 }
 
 main().catch((error) => {
-  logger.error('Worker terminated unexpectedly', { error: error instanceof Error ? error.message : String(error) })
+  logger.error('Worker terminated unexpectedly', {
+    error: error instanceof Error ? error.message : String(error),
+  })
   process.exitCode = 1
 })

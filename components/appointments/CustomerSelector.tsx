@@ -6,23 +6,23 @@ import { Search, User, ChevronDown, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface Customer {
-  id:    string
-  name:  string
+  id: string
+  name: string
   email: string | null
 }
 
 interface Props {
-  value?:    string | null
-  onChange:  (customerId: string | null, customer: Customer | null) => void
+  value?: string | null
+  onChange: (customerId: string | null, customer: Customer | null) => void
   disabled?: boolean
 }
 
 export function CustomerSelector({ value, onChange, disabled }: Props) {
-  const [open,      setOpen]      = useState(false)
-  const [query,     setQuery]     = useState('')
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
-  const [loading,   setLoading]   = useState(false)
-  const [selected,  setSelected]  = useState<Customer | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [selected, setSelected] = useState<Customer | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Load customers on mount or when searching
@@ -44,7 +44,7 @@ export function CustomerSelector({ value, onChange, disabled }: Props) {
       .then((r) => r.json())
       .then(({ customer }) => setSelected(customer ?? null))
       .catch(() => {})
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])
 
   // Close on outside click
@@ -81,9 +81,10 @@ export function CustomerSelector({ value, onChange, disabled }: Props) {
         className={`
           w-full flex items-center gap-2 px-3 h-10 rounded-xl border text-sm transition-colors text-left
           ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-          ${open
-            ? 'border-gold-500/50 bg-graphite-700'
-            : 'border-surface-border bg-graphite-700 hover:border-white/20'
+          ${
+            open
+              ? 'border-gold-500/50 bg-graphite-700'
+              : 'border-surface-border bg-graphite-700 hover:border-white/20'
           }
         `}
       >
@@ -94,7 +95,9 @@ export function CustomerSelector({ value, onChange, disabled }: Props) {
         {selected ? (
           <X className="w-3.5 h-3.5 text-white/30 hover:text-white/60 shrink-0" onClick={clear} />
         ) : (
-          <ChevronDown className={`w-4 h-4 text-white/30 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+          <ChevronDown
+            className={`w-4 h-4 text-white/30 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+          />
         )}
       </button>
 
@@ -103,8 +106,8 @@ export function CustomerSelector({ value, onChange, disabled }: Props) {
         {open && (
           <motion.div
             initial={{ opacity: 0, y: -4, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0,  scale: 1    }}
-            exit={{    opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15 }}
             className="absolute z-50 top-full mt-1.5 w-full rounded-xl border border-surface-border bg-graphite-800 shadow-panel-lg overflow-hidden"
           >
@@ -128,7 +131,9 @@ export function CustomerSelector({ value, onChange, disabled }: Props) {
               {loading ? (
                 <div className="px-4 py-6 text-center text-xs text-white/30">Loading…</div>
               ) : customers.length === 0 ? (
-                <div className="px-4 py-6 text-center text-xs text-white/30">No customers found</div>
+                <div className="px-4 py-6 text-center text-xs text-white/30">
+                  No customers found
+                </div>
               ) : (
                 customers.map((c) => (
                   <button
@@ -145,10 +150,10 @@ export function CustomerSelector({ value, onChange, disabled }: Props) {
                       </span>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-white leading-tight truncate">{c.name}</p>
-                      {c.email && (
-                        <p className="text-xs text-white/35 truncate">{c.email}</p>
-                      )}
+                      <p className="text-sm font-medium text-white leading-tight truncate">
+                        {c.name}
+                      </p>
+                      {c.email && <p className="text-xs text-white/35 truncate">{c.email}</p>}
                     </div>
                   </button>
                 ))

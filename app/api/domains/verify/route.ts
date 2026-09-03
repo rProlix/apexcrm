@@ -5,10 +5,10 @@
 export const runtime = 'nodejs'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getSupabaseServerClient }   from '@/lib/supabase/server'
-import { getUserContext }             from '@/lib/auth/getUserContext'
-import { verifyDomainOnVercel }       from '@/lib/vercel/verifyDomain'
-import dns                            from 'dns/promises'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { verifyDomainOnVercel } from '@/lib/vercel/verifyDomain'
+import dns from 'dns/promises'
 
 export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const body = await req.json().catch(() => null) as { domain_id?: string } | null
+  const body = (await req.json().catch(() => null)) as { domain_id?: string } | null
   if (!body?.domain_id) {
     return NextResponse.json({ error: 'domain_id is required' }, { status: 400 })
   }
@@ -26,14 +26,19 @@ export async function POST(req: NextRequest) {
 
   const { data: domainRow } = await db
     .from('tenant_domains')
-    .select('id, tenant_id, hostname, domain_type, verification_token, verification_method, is_verified')
+    .select(
+      'id, tenant_id, hostname, domain_type, verification_token, verification_method, is_verified'
+    )
     .eq('id', body.domain_id)
     .maybeSingle()
 
   if (!domainRow) return NextResponse.json({ error: 'Domain not found' }, { status: 404 })
 
   if (domainRow.domain_type === 'subdomain') {
-    return NextResponse.json({ error: 'Platform subdomains do not require verification' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Platform subdomains do not require verification' },
+      { status: 400 }
+    )
   }
 
   // Admin scope check
@@ -48,12 +53,15 @@ export async function POST(req: NextRequest) {
   const { hostname, verification_token: token } = domainRow
 
   if (!token) {
-    return NextResponse.json({ error: 'No verification token found for this domain' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'No verification token found for this domain' },
+      { status: 400 }
+    )
   }
 
   // ── DNS TXT check ─────────────────────────────────────────────────────────
   const expectedTxt = `yourcrm-verify=${token}`
-  let dnsVerified   = false
+  let dnsVerified = false
 
   try {
     const records = await dns.resolveTxt(`_yourcrm-verify.${hostname}`)
@@ -81,10 +89,10 @@ export async function POST(req: NextRequest) {
       .eq('id', domainRow.id)
 
     return NextResponse.json({
-      ok:       false,
+      ok: false,
       verified: false,
-      message:  'DNS TXT record not found. Please add the verification record and try again.',
-      hint:     `Add TXT record: _yourcrm-verify.${hostname} → ${expectedTxt}`,
+      message: 'DNS TXT record not found. Please add the verification record and try again.',
+      hint: `Add TXT record: _yourcrm-verify.${hostname} → ${expectedTxt}`,
     })
   }
 
@@ -92,8 +100,8 @@ export async function POST(req: NextRequest) {
   await db
     .from('tenant_domains')
     .update({
-      is_verified:      true,
-      verified:         true,
+      is_verified: true,
+      verified: true,
       last_verified_at: new Date().toISOString(),
     })
     .eq('id', domainRow.id)
@@ -108,10 +116,10 @@ export async function POST(req: NextRequest) {
     .eq('id', domainRow.id)
 
   return NextResponse.json({
-    ok:       true,
+    ok: true,
     verified: true,
-    ssl:      vercelResult.sslStatus,
-    vercel:   { ok: vercelResult.verified, configured: vercelResult.configured },
-    message:  'Domain verified successfully',
+    ssl: vercelResult.sslStatus,
+    vercel: { ok: vercelResult.verified, configured: vercelResult.configured },
+    message: 'Domain verified successfully',
   })
 }

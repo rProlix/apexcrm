@@ -60,10 +60,18 @@ export function useLenisScroll({ enabled = true }: Options = {}): React.RefObjec
       cancelled = true
       if (rafId) cancelAnimationFrame(rafId)
       cleanupFns.forEach((fn) => {
-        try { fn() } catch { /* noop */ }
+        try {
+          fn()
+        } catch {
+          /* noop */
+        }
       })
       cleanupFns = []
-      try { lenisRef.current?.destroy() } catch { /* noop */ }
+      try {
+        lenisRef.current?.destroy()
+      } catch {
+        /* noop */
+      }
       lenisRef.current = null
     }
   }, [enabled])

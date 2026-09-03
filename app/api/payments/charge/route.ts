@@ -11,12 +11,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized — admin required' }, { status: 401 })
   }
 
-  const tenantId = user.role === 'owner'
-    ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
-    : user.tenant_id
+  const tenantId =
+    user.role === 'owner'
+      ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
+      : user.tenant_id
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -30,19 +33,20 @@ export async function POST(req: NextRequest) {
   try {
     const result = await chargeCustomer({
       tenantId,
-      customerId:  customer_id  as string | undefined,
-      invoiceId:   invoice_id   as string | undefined,
-      amount:      parsedAmount,
-      currency:    currency      as string | undefined,
-      description: description   as string | undefined,
-      source:      source        as string | undefined,
-      providerKey: provider_key  as string | undefined,
+      customerId: customer_id as string | undefined,
+      invoiceId: invoice_id as string | undefined,
+      amount: parsedAmount,
+      currency: currency as string | undefined,
+      description: description as string | undefined,
+      source: source as string | undefined,
+      providerKey: provider_key as string | undefined,
     })
 
     return NextResponse.json({ charge: result }, { status: 201 })
   } catch (err) {
     const msg = (err as Error).message
-    const isUserErr = msg.includes('No payment provider') || msg.includes('Invoice') || msg.includes('Amount')
+    const isUserErr =
+      msg.includes('No payment provider') || msg.includes('Invoice') || msg.includes('Amount')
     return NextResponse.json({ error: msg }, { status: isUserErr ? 400 : 500 })
   }
 }

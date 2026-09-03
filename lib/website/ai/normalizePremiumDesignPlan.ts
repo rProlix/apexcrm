@@ -9,10 +9,10 @@
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface AvailableWebsiteSection {
-  id:     string
-  type?:  string | null
+  id: string
+  type?: string | null
   title?: string | null
-  name?:  string | null
+  name?: string | null
   order?: number | null
   pageId?: string | null
 }
@@ -35,14 +35,42 @@ export function isUuid(value: unknown): value is string {
 //   "subtle" | "balanced" | "cinematic"
 
 export function normalizeIntensity(value: unknown): 'subtle' | 'balanced' | 'cinematic' {
-  const raw = String(value ?? '').toLowerCase().trim()
+  const raw = String(value ?? '')
+    .toLowerCase()
+    .trim()
   if (['low', 'light', 'soft', 'minimal', 'gentle', 'subtle', 'quiet'].includes(raw))
     return 'subtle'
-  if (['high', 'strong', 'bold', 'dramatic', 'premium', 'luxury',
-       'cinematic', 'expensive', 'ultra', 'intense', 'maximum', 'max'].includes(raw))
+  if (
+    [
+      'high',
+      'strong',
+      'bold',
+      'dramatic',
+      'premium',
+      'luxury',
+      'cinematic',
+      'expensive',
+      'ultra',
+      'intense',
+      'maximum',
+      'max',
+    ].includes(raw)
+  )
     return 'cinematic'
-  if (['medium', 'moderate', 'normal', 'standard', 'balanced',
-       'default', 'mid', 'middle', 'regular', 'average'].includes(raw))
+  if (
+    [
+      'medium',
+      'moderate',
+      'normal',
+      'standard',
+      'balanced',
+      'default',
+      'mid',
+      'middle',
+      'regular',
+      'average',
+    ].includes(raw)
+  )
     return 'balanced'
   if (raw === 'subtle' || raw === 'balanced' || raw === 'cinematic')
     return raw as 'subtle' | 'balanced' | 'cinematic'
@@ -58,46 +86,105 @@ type ValidTargetType = 'page' | 'section' | 'component'
 // exported so safeStripAnimationTargetTypes can reference it
 export const TARGET_TYPE_MAP: Record<string, ValidTargetType> = {
   // → page
-  page:      'page', website: 'page', site: 'page', global: 'page',
-  fullpage:  'page', full_page: 'page', layout: 'page', background: 'page',
-  whole:     'page', all: 'page',
+  page: 'page',
+  website: 'page',
+  site: 'page',
+  global: 'page',
+  fullpage: 'page',
+  full_page: 'page',
+  layout: 'page',
+  background: 'page',
+  whole: 'page',
+  all: 'page',
 
   // → section
-  section:        'section',
-  hero:           'section', hero_banner: 'section', banner: 'section',
-  feature_grid:   'section', features: 'section', about: 'section',
-  about_us:       'section', testimonials: 'section', reviews: 'section',
-  faq:            'section', contact: 'section', contact_us: 'section',
-  pricing:        'section', gallery: 'section', products: 'section',
-  shop:           'section', services: 'section', footer: 'section',
-  header:         'section', navigation: 'section', modal: 'section',
-  popup:          'section', overlay: 'section', sidebar: 'section',
+  section: 'section',
+  hero: 'section',
+  hero_banner: 'section',
+  banner: 'section',
+  feature_grid: 'section',
+  features: 'section',
+  about: 'section',
+  about_us: 'section',
+  testimonials: 'section',
+  reviews: 'section',
+  faq: 'section',
+  contact: 'section',
+  contact_us: 'section',
+  pricing: 'section',
+  gallery: 'section',
+  products: 'section',
+  shop: 'section',
+  services: 'section',
+  footer: 'section',
+  header: 'section',
+  navigation: 'section',
+  modal: 'section',
+  popup: 'section',
+  overlay: 'section',
+  sidebar: 'section',
 
   // → component (everything sub-section: elements, widgets, UI pieces)
-  component:          'component',
-  text:               'component', heading: 'component', headline: 'component',
-  subheading:         'component', paragraph: 'component', copy: 'component',
-  label:              'component', caption: 'component',
-  card:               'component', feature_card: 'component', testimonial_card: 'component',
-  product_card:       'component', review_card: 'component', pricing_card: 'component',
-  stat_card:          'component', info_card: 'component',
-  button:             'component', cta: 'component', cta_button: 'component',
-  link:               'component',
-  image:              'component', photo: 'component', avatar: 'component',
-  logo:               'component', icon:  'component', svg: 'component',
-  badge:              'component', tag: 'component', chip: 'component',
-  form:               'component', input: 'component', field: 'component',
-  nav:                'component', menu: 'component', navbar: 'component',
-  carousel:           'component', slider: 'component',
-  grid:               'component', list: 'component', table: 'component',
-  stat:               'component', counter: 'component', number: 'component',
-  video:              'component', iframe: 'component',
-  product_viewer:     'component', product_360: 'component', spin_360: 'component',
-  map:                'component', embed: 'component',
-  divider:            'component', spacer: 'component', separator: 'component',
-  quote:              'component', blockquote: 'component',
-  social:             'component', social_links: 'component',
-  rating:             'component', stars: 'component',
+  component: 'component',
+  text: 'component',
+  heading: 'component',
+  headline: 'component',
+  subheading: 'component',
+  paragraph: 'component',
+  copy: 'component',
+  label: 'component',
+  caption: 'component',
+  card: 'component',
+  feature_card: 'component',
+  testimonial_card: 'component',
+  product_card: 'component',
+  review_card: 'component',
+  pricing_card: 'component',
+  stat_card: 'component',
+  info_card: 'component',
+  button: 'component',
+  cta: 'component',
+  cta_button: 'component',
+  link: 'component',
+  image: 'component',
+  photo: 'component',
+  avatar: 'component',
+  logo: 'component',
+  icon: 'component',
+  svg: 'component',
+  badge: 'component',
+  tag: 'component',
+  chip: 'component',
+  form: 'component',
+  input: 'component',
+  field: 'component',
+  nav: 'component',
+  menu: 'component',
+  navbar: 'component',
+  carousel: 'component',
+  slider: 'component',
+  grid: 'component',
+  list: 'component',
+  table: 'component',
+  stat: 'component',
+  counter: 'component',
+  number: 'component',
+  video: 'component',
+  iframe: 'component',
+  product_viewer: 'component',
+  product_360: 'component',
+  spin_360: 'component',
+  map: 'component',
+  embed: 'component',
+  divider: 'component',
+  spacer: 'component',
+  separator: 'component',
+  quote: 'component',
+  blockquote: 'component',
+  social: 'component',
+  social_links: 'component',
+  rating: 'component',
+  stars: 'component',
 }
 
 /**
@@ -114,18 +201,26 @@ export function normalizeTargetType(raw: unknown): ValidTargetType {
 // Maps common Gemini labels → DB section_type values
 
 const TYPE_ALIASES: Record<string, string[]> = {
-  hero:         ['hero', 'hero_banner', 'banner', 'landing', 'header', 'hero_section'],
-  features:     ['features', 'feature_grid', 'featuregrid', 'services', 'modules', 'benefits', 'why_us'],
-  about:        ['about', 'about_us', 'about_section', 'story', 'team', 'mission'],
+  hero: ['hero', 'hero_banner', 'banner', 'landing', 'header', 'hero_section'],
+  features: [
+    'features',
+    'feature_grid',
+    'featuregrid',
+    'services',
+    'modules',
+    'benefits',
+    'why_us',
+  ],
+  about: ['about', 'about_us', 'about_section', 'story', 'team', 'mission'],
   testimonials: ['testimonials', 'reviews', 'testimonial', 'review', 'social_proof'],
-  faq:          ['faq', 'faqs', 'questions', 'q_and_a', 'help', 'accordion'],
-  contact:      ['contact', 'contact_us', 'contact_section', 'get_in_touch', 'reach_us'],
-  pricing:      ['pricing', 'plans', 'packages', 'tiers'],
-  gallery:      ['gallery', 'images', 'portfolio', 'photos', 'media', 'image_gallery'],
-  products:     ['products', 'product_grid', 'shop', 'store', 'catalog', 'menu'],
-  services:     ['services', 'service_grid', 'service_list', 'what_we_do'],
-  cta:          ['cta', 'call_to_action', 'conversion', 'signup', 'book', 'get_started'],
-  footer:       ['footer', 'bottom', 'foot'],
+  faq: ['faq', 'faqs', 'questions', 'q_and_a', 'help', 'accordion'],
+  contact: ['contact', 'contact_us', 'contact_section', 'get_in_touch', 'reach_us'],
+  pricing: ['pricing', 'plans', 'packages', 'tiers'],
+  gallery: ['gallery', 'images', 'portfolio', 'photos', 'media', 'image_gallery'],
+  products: ['products', 'product_grid', 'shop', 'store', 'catalog', 'menu'],
+  services: ['services', 'service_grid', 'service_list', 'what_we_do'],
+  cta: ['cta', 'call_to_action', 'conversion', 'signup', 'book', 'get_started'],
+  footer: ['footer', 'bottom', 'foot'],
 }
 
 // Invert aliases: 'hero_banner' → 'hero', 'featuregrid' → 'features', etc.
@@ -149,18 +244,18 @@ function normalizeLabel(label: string): string {
 // ── Section lookup builder ────────────────────────────────────────────────────
 
 interface SectionLookup {
-  byId:    Map<string, AvailableWebsiteSection>
-  byType:  Map<string, AvailableWebsiteSection>
+  byId: Map<string, AvailableWebsiteSection>
+  byType: Map<string, AvailableWebsiteSection>
   byTitle: Map<string, AvailableWebsiteSection>
-  byName:  Map<string, AvailableWebsiteSection>
-  all:     AvailableWebsiteSection[]
+  byName: Map<string, AvailableWebsiteSection>
+  all: AvailableWebsiteSection[]
 }
 
 function buildLookup(sections: AvailableWebsiteSection[]): SectionLookup {
-  const byId    = new Map<string, AvailableWebsiteSection>()
-  const byType  = new Map<string, AvailableWebsiteSection>()
+  const byId = new Map<string, AvailableWebsiteSection>()
+  const byType = new Map<string, AvailableWebsiteSection>()
   const byTitle = new Map<string, AvailableWebsiteSection>()
-  const byName  = new Map<string, AvailableWebsiteSection>()
+  const byName = new Map<string, AvailableWebsiteSection>()
 
   for (const s of sections) {
     byId.set(s.id, s)
@@ -177,7 +272,7 @@ function buildLookup(sections: AvailableWebsiteSection[]): SectionLookup {
     }
 
     if (s.title) byTitle.set(s.title.toLowerCase(), s)
-    if (s.name)  byName.set(s.name.toLowerCase(), s)
+    if (s.name) byName.set(s.name.toLowerCase(), s)
   }
 
   return { byId, byType, byTitle, byName, all: sections }
@@ -185,10 +280,7 @@ function buildLookup(sections: AvailableWebsiteSection[]): SectionLookup {
 
 // ── Resolve a single sectionId candidate to a known UUID ─────────────────────
 
-function resolveToSectionId(
-  candidates: string[],
-  lookup:     SectionLookup,
-): string | null {
+function resolveToSectionId(candidates: string[], lookup: SectionLookup): string | null {
   for (const candidate of candidates) {
     if (!candidate || candidate.trim() === '') continue
     const trimmed = candidate.trim()
@@ -199,7 +291,7 @@ function resolveToSectionId(
     }
 
     // Label — try type lookup (direct + normalized)
-    const typeKey    = trimmed.toLowerCase()
+    const typeKey = trimmed.toLowerCase()
     const normalized = normalizeLabel(trimmed)
 
     const match =
@@ -216,9 +308,9 @@ function resolveToSectionId(
 // ── Main normalization function ───────────────────────────────────────────────
 
 export function normalizePremiumDesignPlan(
-  rawPlan:           unknown,
+  rawPlan: unknown,
   availableSections: AvailableWebsiteSection[],
-  options?:          NormalizeOptions,
+  options?: NormalizeOptions
 ): Record<string, unknown> {
   // Safely convert to object
   const plan: Record<string, unknown> =
@@ -227,7 +319,7 @@ export function normalizePremiumDesignPlan(
       : {}
 
   const lookup = buildLookup(availableSections)
-  const availableIds = new Set(availableSections.map(s => s.id))
+  const availableIds = new Set(availableSections.map((s) => s.id))
 
   // ── Normalize sectionUpgrades ───────────────────────────────────────────────
   const rawUpgrades = Array.isArray(plan.sectionUpgrades) ? plan.sectionUpgrades : []
@@ -241,11 +333,21 @@ export function normalizePremiumDesignPlan(
 
     // Collect all possible identifiers Gemini might have used
     const rawCandidates: unknown[] = [
-      u.sectionId, u.section_id, u.id, u.sectionKey, u.section_key,
-      u.sectionType, u.section_type, u.type, u.title, u.sectionTitle, u.name,
+      u.sectionId,
+      u.section_id,
+      u.id,
+      u.sectionKey,
+      u.section_key,
+      u.sectionType,
+      u.section_type,
+      u.type,
+      u.title,
+      u.sectionTitle,
+      u.name,
     ]
-    const candidates: string[] = rawCandidates
-      .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+    const candidates: string[] = rawCandidates.filter(
+      (v): v is string => typeof v === 'string' && v.trim().length > 0
+    )
 
     let resolvedId = resolveToSectionId(candidates, lookup)
 
@@ -269,14 +371,17 @@ export function normalizePremiumDesignPlan(
 
     // Preserve sectionType from original even if sectionId became null
     const sectionType =
-      typeof u.sectionType === 'string' ? u.sectionType :
-      typeof u.section_type === 'string' ? u.section_type :
-      typeof u.type === 'string' ? u.type :
-      ''
+      typeof u.sectionType === 'string'
+        ? u.sectionType
+        : typeof u.section_type === 'string'
+          ? u.section_type
+          : typeof u.type === 'string'
+            ? u.type
+            : ''
 
     return {
       ...u,
-      sectionId:   resolvedId,      // normalized UUID or null
+      sectionId: resolvedId, // normalized UUID or null
       sectionType: sectionType,
     }
   })
@@ -312,17 +417,21 @@ export function normalizePremiumDesignPlan(
       TARGET_TYPE_MAP[rawTargetType.trim().toLowerCase().replace(/[-\s]/g, '_')] === 'component' &&
       !['component'].includes(rawTargetType.trim().toLowerCase())
 
-    const componentType =
-      a.componentType ??
-      (isComponentTerm ? rawTargetType : undefined)
+    const componentType = a.componentType ?? (isComponentTerm ? rawTargetType : undefined)
 
     // Normalize sectionId on animations when targetType is 'section'
     let sectionId = a.sectionId ?? null
     if (normalizedType === 'section' && sectionId !== null) {
       // Try to resolve label → UUID
-      const rawCandidates: unknown[] = [sectionId, a.targetId, a.targetKey, a.sectionType, a.section_type]
+      const rawCandidates: unknown[] = [
+        sectionId,
+        a.targetId,
+        a.targetKey,
+        a.sectionType,
+        a.section_type,
+      ]
       const candidates: string[] = rawCandidates.filter(
-        (v): v is string => typeof v === 'string' && v.trim().length > 0,
+        (v): v is string => typeof v === 'string' && v.trim().length > 0
       )
       const resolved = resolveToSectionId(candidates, lookup)
       sectionId = resolved
@@ -343,9 +452,9 @@ export function normalizePremiumDesignPlan(
 
     return {
       ...a,
-      targetType:         normalizedType,
+      targetType: normalizedType,
       originalTargetType: rawTargetType,
-      intensity:          normalizedIntensity,
+      intensity: normalizedIntensity,
       ...(componentType !== undefined ? { componentType } : {}),
       ...(normalizedType === 'section' ? { sectionId } : {}),
     }
@@ -360,12 +469,12 @@ export function normalizePremiumDesignPlan(
   // ── Dev-only debug info ─────────────────────────────────────────────────────
   if (process.env.NODE_ENV === 'development') {
     plan._debug = {
-      availableSectionCount:    availableSections.length,
-      normalizedSectionIds:     normalizedIds,
-      unmatchedSectionRefs:     unmatchedRefs,
+      availableSectionCount: availableSections.length,
+      normalizedSectionIds: normalizedIds,
+      unmatchedSectionRefs: unmatchedRefs,
       targetTypeMappings,
       unmatchedTargets,
-      availableSections:        availableSections.map(s => ({ id: s.id, type: s.type, title: s.title })),
+      availableSections: availableSections.map((s) => ({ id: s.id, type: s.type, title: s.title })),
     }
   }
 
@@ -377,7 +486,7 @@ export function normalizePremiumDesignPlan(
 // and any remaining invalid intensity to 'subtle'|'balanced'|'cinematic'.
 
 export function safeStripAnimationTargetTypes(
-  plan: Record<string, unknown>,
+  plan: Record<string, unknown>
 ): Record<string, unknown> {
   const anims = Array.isArray(plan.animations) ? plan.animations : []
   const validTypes = new Set(['page', 'section', 'component'])
@@ -406,8 +515,8 @@ export function safeStripAnimationTargetTypes(
 // Strips any remaining non-UUID sectionId values that normalization may have missed.
 
 export function safeStripSectionIds(
-  plan:             Record<string, unknown>,
-  availableSectionIds: Set<string>,
+  plan: Record<string, unknown>,
+  availableSectionIds: Set<string>
 ): Record<string, unknown> {
   const upgrades = Array.isArray(plan.sectionUpgrades) ? plan.sectionUpgrades : []
 

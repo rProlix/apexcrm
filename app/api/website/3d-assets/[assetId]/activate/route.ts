@@ -11,8 +11,8 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserContext }           from '@/lib/auth/getUserContext'
-import { getSupabaseServerClient }  from '@/lib/supabase/server'
+import { getUserContext } from '@/lib/auth/getUserContext'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 type RouteContext = { params: Promise<{ assetId: string }> }
 
@@ -48,14 +48,28 @@ export async function POST(req: NextRequest, context: RouteContext) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  let body: { section_id?: string; sectionId?: string; mode?: string; activationType?: string; sequence_id?: string; sequenceId?: string } = {}
-  try { body = await req.json() } catch { /* allow empty */ }
+  let body: {
+    section_id?: string
+    sectionId?: string
+    mode?: string
+    activationType?: string
+    sequence_id?: string
+    sequenceId?: string
+  } = {}
+  try {
+    body = await req.json()
+  } catch {
+    /* allow empty */
+  }
 
   const sectionId = body.section_id || body.sectionId || null
   const sequenceId = body.sequence_id || body.sequenceId || null
   const mode = resolveMode(body)
   if (!mode) {
-    return NextResponse.json({ error: 'mode/activationType must resolve to video | image_sequence | poster | fallback' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'mode/activationType must resolve to video | image_sequence | poster | fallback' },
+      { status: 400 }
+    )
   }
 
   const db = getSupabaseServerClient()
@@ -76,10 +90,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
   let imageSequenceUrls: string[] | undefined
   if (mode === 'image_sequence') {
     const resolvedSeqId =
-      sequenceId
-      ?? (asset.sequence_id as string | undefined)
-      ?? (asset.metadata?.sequenceId as string | undefined)
-      ?? null
+      sequenceId ??
+      (asset.sequence_id as string | undefined) ??
+      (asset.metadata?.sequenceId as string | undefined) ??
+      null
     const metaFrames = Array.isArray(asset.metadata?.frameUrls)
       ? (asset.metadata.frameUrls as unknown[]).filter((u): u is string => typeof u === 'string')
       : null
@@ -110,10 +124,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
   // Flip is_active: clear siblings of the same asset_type for this section, then
   // mark this asset active. Only scope clearing to a section when we have one.
   const activeTypes =
-    mode === 'video' ? ['video']
-    : mode === 'image_sequence' ? ['image_sequence']
-    : mode === 'poster' ? ['poster']
-    : ['fallback']
+    mode === 'video'
+      ? ['video']
+      : mode === 'image_sequence'
+        ? ['image_sequence']
+        : mode === 'poster'
+          ? ['poster']
+          : ['fallback']
 
   if (sectionId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

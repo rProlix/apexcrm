@@ -11,9 +11,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const tenantId = user.role === 'owner'
-    ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
-    : user.tenant_id
+  const tenantId =
+    user.role === 'owner'
+      ? (req.nextUrl.searchParams.get('tenant_id') ?? user.tenant_id)
+      : user.tenant_id
 
   const supabase = getSupabaseServerClient()
   const { data, error } = await supabase
@@ -40,8 +41,11 @@ export async function POST(req: NextRequest) {
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() }
-  catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   const { name, description, status, earning_rules, punch_card_rules, settings } = body
 
@@ -56,13 +60,22 @@ export async function POST(req: NextRequest) {
   const { data, error } = await (supabase as any)
     .from('rewards_programs')
     .insert({
-      tenant_id:        tenantId,
-      name:             name.trim(),
-      description:      typeof description === 'string' ? description.trim() || null : null,
-      status:           typeof status === 'string' ? status : 'active',
-      earning_rules:    earning_rules ?? { points_per_dollar: 10, enabled: true, bonus_points_products: [] },
+      tenant_id: tenantId,
+      name: name.trim(),
+      description: typeof description === 'string' ? description.trim() || null : null,
+      status: typeof status === 'string' ? status : 'active',
+      earning_rules: earning_rules ?? {
+        points_per_dollar: 10,
+        enabled: true,
+        bonus_points_products: [],
+      },
       punch_card_rules: punch_card_rules ?? [],
-      settings:         settings ?? { points_enabled: true, punch_cards_enabled: true, shop_enabled: true, min_redemption_points: 100 },
+      settings: settings ?? {
+        points_enabled: true,
+        punch_cards_enabled: true,
+        shop_enabled: true,
+        min_redemption_points: 100,
+      },
     })
     .select()
     .single()

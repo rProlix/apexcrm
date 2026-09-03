@@ -1,4 +1,4 @@
-export const dynamic  = 'force-dynamic'
+export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 // app/events/[eventSlug]/page.tsx
@@ -33,17 +33,32 @@ export async function generateMetadata({ params }: Props) {
 }
 
 function pickEmbed(config: Record<string, unknown> | null): {
-  embedUrl: string | null; sourceUrl: string | null; embedCode: string | null
-  isCustomDomain: boolean; povEventId: string | null
+  embedUrl: string | null
+  sourceUrl: string | null
+  embedCode: string | null
+  isCustomDomain: boolean
+  povEventId: string | null
 } {
-  if (!config) return { embedUrl: null, sourceUrl: null, embedCode: null, isCustomDomain: false, povEventId: null }
+  if (!config)
+    return {
+      embedUrl: null,
+      sourceUrl: null,
+      embedCode: null,
+      isCustomDomain: false,
+      povEventId: null,
+    }
   const pages = (config.pages as Array<Record<string, unknown>> | undefined) ?? []
   const firstSection = (pages[0]?.sections as Array<Record<string, unknown>> | undefined)?.[0] ?? {}
   return {
-    embedUrl: (config.iframeSrc as string) ?? (config.embedUrl as string) ?? (firstSection.embedUrl as string) ?? null,
+    embedUrl:
+      (config.iframeSrc as string) ??
+      (config.embedUrl as string) ??
+      (firstSection.embedUrl as string) ??
+      null,
     sourceUrl: (config.canvaSourceUrl as string) ?? (firstSection.sourceUrl as string) ?? null,
     embedCode: (config.canvaEmbedCode as string) ?? null,
-    isCustomDomain: (config.canvaValidationMode as string) === 'custom_domain' || Boolean(config.isCustomDomain),
+    isCustomDomain:
+      (config.canvaValidationMode as string) === 'custom_domain' || Boolean(config.isCustomDomain),
     povEventId: (config.povEventId as string) ?? null,
   }
 }
@@ -56,17 +71,34 @@ export default async function EventPublicPage({ params, searchParams }: Props) {
   let site = await resolvePublicEventWebsite(eventSlug)
   if (site) {
     const ctx = await getUserContext()
-    const canPreview = !!ctx && (ctx.role === 'owner' || (['owner', 'admin'].includes(ctx.role) && ctx.tenant_id === site.tenant_id))
+    const canPreview =
+      !!ctx &&
+      (ctx.role === 'owner' ||
+        (['owner', 'admin'].includes(ctx.role) && ctx.tenant_id === site.tenant_id))
     const wantPreview = preview === 'draft'
     if (wantPreview && canPreview) {
-      site = (await resolvePublicEventWebsite(eventSlug, { preview: true, canPreview: true })) ?? site
+      site =
+        (await resolvePublicEventWebsite(eventSlug, { preview: true, canPreview: true })) ?? site
     }
 
     // Unpublished and no authorized draft preview → public not-found state.
     if (!site.config && !(wantPreview && canPreview)) {
       return (
-        <main style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', textAlign: 'center', padding: '2rem' }}>
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>This event website isn’t published yet</h1>
+        <main
+          style={{
+            minHeight: '60vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.75rem',
+            textAlign: 'center',
+            padding: '2rem',
+          }}
+        >
+          <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>
+            This event website isn’t published yet
+          </h1>
           <p style={{ color: 'var(--color-muted,#999)', maxWidth: 460 }}>Please check back soon.</p>
         </main>
       )
@@ -100,13 +132,19 @@ export default async function EventPublicPage({ params, searchParams }: Props) {
     let loginHref: string | null = null
     if (site.pov_enabled && povEventId) {
       try {
-        const { data: ev } = await povDb().from('pov_events').select('slug').eq('id', povEventId).maybeSingle()
+        const { data: ev } = await povDb()
+          .from('pov_events')
+          .select('slug')
+          .eq('id', povEventId)
+          .maybeSingle()
         if (ev?.slug) {
           cameraHref = `/events/${ev.slug}/camera`
           galleryHref = `/events/${ev.slug}/gallery`
           loginHref = `/events/${ev.slug}`
         }
-      } catch { /* non-fatal */ }
+      } catch {
+        /* non-fatal */
+      }
     }
 
     return (

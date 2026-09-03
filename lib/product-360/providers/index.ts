@@ -4,11 +4,11 @@
 // SERVER-ONLY. Never import from client components.
 
 export type { Product360ProviderName, Product360Provider, ProviderError } from './types'
-export { getGeminiProvider }    from './geminiProvider'
-export { getLeonardoProvider }  from './leonardoProvider'
+export { getGeminiProvider } from './geminiProvider'
+export { getLeonardoProvider } from './leonardoProvider'
 
 import type { Product360Provider, Product360ProviderName } from './types'
-import { getGeminiProvider }   from './geminiProvider'
+import { getGeminiProvider } from './geminiProvider'
 import { getLeonardoProvider } from './leonardoProvider'
 
 /**
@@ -18,9 +18,11 @@ import { getLeonardoProvider } from './leonardoProvider'
 export function getProduct360Provider(providerName: string): Product360Provider {
   const name = (providerName?.toLowerCase() ?? 'gemini') as Product360ProviderName
   switch (name) {
-    case 'leonardo': return getLeonardoProvider()
+    case 'leonardo':
+      return getLeonardoProvider()
     case 'gemini':
-    default:         return getGeminiProvider()
+    default:
+      return getGeminiProvider()
   }
 }
 
@@ -33,8 +35,7 @@ export function requireProduct360Provider(providerName: string): Product360Provi
   if (!provider.isAvailable()) {
     const errs = provider.configErrors()
     throw new Error(
-      `360 Product Studio: provider "${providerName}" is not configured.\n` +
-      errs.join('\n'),
+      `360 Product Studio: provider "${providerName}" is not configured.\n` + errs.join('\n')
     )
   }
   return provider

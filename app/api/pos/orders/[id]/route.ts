@@ -15,14 +15,16 @@ export async function GET(req: NextRequest, { params }: Params) {
 
   const { data: order, error } = await supabase
     .from('pos_orders')
-    .select(`
+    .select(
+      `
       *,
       customers(name,email,phone),
       pos_order_items(*, pos_order_item_modifiers(*)),
       pos_payments(*),
       pos_order_events(*),
       pos_refunds(*)
-    `)
+    `
+    )
     .eq('id', id)
     .eq('tenant_id', user.tenant_id)
     .single()
@@ -39,16 +41,31 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const { id } = await params
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
   const allowed = [
-    'order_type','status','table_name','guest_count','notes',
-    'internal_notes','kitchen_notes','customer_id','customer_account_id',
-    'subtotal_cents','discount_cents','tax_cents','tip_cents',
-    'service_fee_cents','total_cents','balance_due_cents',
-    'fulfillment_status','assigned_employee_id',
+    'order_type',
+    'status',
+    'table_name',
+    'guest_count',
+    'notes',
+    'internal_notes',
+    'kitchen_notes',
+    'customer_id',
+    'customer_account_id',
+    'subtotal_cents',
+    'discount_cents',
+    'tax_cents',
+    'tip_cents',
+    'service_fee_cents',
+    'total_cents',
+    'balance_due_cents',
+    'fulfillment_status',
+    'assigned_employee_id',
   ]
 
   const update: Record<string, unknown> = {}
@@ -73,7 +90,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   if (update.status) {
     await supabase.from('pos_order_events').insert({
-      tenant_id: user.tenant_id, order_id: id,
+      tenant_id: user.tenant_id,
+      order_id: id,
       event_type: 'status_changed',
       message: `Status changed to ${update.status}`,
       created_by: user.id,

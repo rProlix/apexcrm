@@ -15,20 +15,20 @@ import type { AiImportJob } from '@/lib/website-ai/types'
 
 interface Props {
   tenantId: string
-  isOwner:  boolean
+  isOwner: boolean
   initialJobs: Partial<AiImportJob>[]
 }
 
 export function AiAutofillPage({ tenantId, isOwner, initialJobs }: Props) {
-  const [jobs,        setJobs]        = useState<Partial<AiImportJob>[]>(initialJobs)
+  const [jobs, setJobs] = useState<Partial<AiImportJob>[]>(initialJobs)
   const [selectedJob, setSelectedJob] = useState<string | null>(null)
-  const [view,        setView]        = useState<'paste' | 'detail'>('paste')
-  const [refreshing,  setRefreshing]  = useState(false)
+  const [view, setView] = useState<'paste' | 'detail'>('paste')
+  const [refreshing, setRefreshing] = useState(false)
 
   const refreshJobs = useCallback(async () => {
     setRefreshing(true)
     try {
-      const res  = await fetch(`/api/website-ai/imports?tenantId=${tenantId}`)
+      const res = await fetch(`/api/website-ai/imports?tenantId=${tenantId}`)
       const json = await res.json()
       if (res.ok) setJobs(json.jobs ?? [])
     } finally {
@@ -54,12 +54,7 @@ export function AiAutofillPage({ tenantId, isOwner, initialJobs }: Props) {
   }
 
   return (
-    <motion.div
-      variants={fadeIn}
-      initial="hidden"
-      animate="visible"
-      className="space-y-8"
-    >
+    <motion.div variants={fadeIn} initial="hidden" animate="visible" className="space-y-8">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
@@ -105,10 +100,7 @@ export function AiAutofillPage({ tenantId, isOwner, initialJobs }: Props) {
               )}
             </>
           ) : selectedJob ? (
-            <ImportJobDetail
-              jobId={selectedJob}
-              onDone={handleBack}
-            />
+            <ImportJobDetail jobId={selectedJob} onDone={handleBack} />
           ) : null}
         </div>
 
@@ -116,16 +108,14 @@ export function AiAutofillPage({ tenantId, isOwner, initialJobs }: Props) {
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <History className="h-4 w-4 text-white/30" />
-            <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest">History</h2>
+            <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest">
+              History
+            </h2>
             {refreshing && (
               <span className="text-2xs text-white/20 animate-pulse">refreshing…</span>
             )}
           </div>
-          <ImportJobList
-            jobs={jobs}
-            selected={selectedJob}
-            onSelect={handleSelectJob}
-          />
+          <ImportJobList jobs={jobs} selected={selectedJob} onSelect={handleSelectJob} />
           {jobs.length > 0 && (
             <button
               onClick={refreshJobs}

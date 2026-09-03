@@ -12,65 +12,90 @@ export function buildImagePlannerPrompt(ctx: ImagePlannerContext): string {
   // 2. autofillBusinessType (detected by Gemini autofill)
   // 3. businessType (legacy field)
   // 4. "general"
-  const effectiveType = ctx.businessCategory ?? ctx.autofillBusinessType ?? ctx.businessType ?? 'general'
+  const effectiveType =
+    ctx.businessCategory ?? ctx.autofillBusinessType ?? ctx.businessType ?? 'general'
 
   // Build sections summary with FULL content context
-  const sectionsSummary = (ctx.sectionDetails ?? ctx.sections).map(s => {
-    // Check if this is a RichSectionDetail (has headline/body/items/ctaText)
-    const maybeRich = s as {
-      section_type: string; id: string; page_id: string;
-      headline?: string; body?: string; items?: string[]; ctaText?: string;
-      content?: Record<string, unknown>
-    }
-    if (typeof maybeRich.headline === 'string') {
-      const itemsSample = (maybeRich.items ?? []).slice(0, 3).join(', ')
-      return [
-        `  - section_type: ${maybeRich.section_type}, id: ${maybeRich.id}, page_id: ${maybeRich.page_id}`,
-        `    headline: "${(maybeRich.headline ?? '').slice(0, 80)}"`,
-        maybeRich.body     ? `    body: "${maybeRich.body.slice(0, 100)}"` : '',
-        itemsSample        ? `    items: [${itemsSample}]` : '',
-        maybeRich.ctaText  ? `    cta: "${maybeRich.ctaText}"` : '',
-      ].filter(Boolean).join('\n')
-    }
-    // Fallback: legacy shape
-    const legacySection = s as { section_type: string; id: string; page_id: string; content: Record<string, unknown> }
-    const c = legacySection.content ?? {}
-    const heading = String(c?.heading ?? c?.headline ?? c?.title ?? '')
-    return `  - section_type: ${legacySection.section_type}, id: ${legacySection.id}, heading: "${heading.slice(0,60)}"`
-  }).join('\n')
+  const sectionsSummary = (ctx.sectionDetails ?? ctx.sections)
+    .map((s) => {
+      // Check if this is a RichSectionDetail (has headline/body/items/ctaText)
+      const maybeRich = s as {
+        section_type: string
+        id: string
+        page_id: string
+        headline?: string
+        body?: string
+        items?: string[]
+        ctaText?: string
+        content?: Record<string, unknown>
+      }
+      if (typeof maybeRich.headline === 'string') {
+        const itemsSample = (maybeRich.items ?? []).slice(0, 3).join(', ')
+        return [
+          `  - section_type: ${maybeRich.section_type}, id: ${maybeRich.id}, page_id: ${maybeRich.page_id}`,
+          `    headline: "${(maybeRich.headline ?? '').slice(0, 80)}"`,
+          maybeRich.body ? `    body: "${maybeRich.body.slice(0, 100)}"` : '',
+          itemsSample ? `    items: [${itemsSample}]` : '',
+          maybeRich.ctaText ? `    cta: "${maybeRich.ctaText}"` : '',
+        ]
+          .filter(Boolean)
+          .join('\n')
+      }
+      // Fallback: legacy shape
+      const legacySection = s as {
+        section_type: string
+        id: string
+        page_id: string
+        content: Record<string, unknown>
+      }
+      const c = legacySection.content ?? {}
+      const heading = String(c?.heading ?? c?.headline ?? c?.title ?? '')
+      return `  - section_type: ${legacySection.section_type}, id: ${legacySection.id}, heading: "${heading.slice(0, 60)}"`
+    })
+    .join('\n')
 
-  const pagesSummary = ctx.pages.map(p =>
-    `  - page_type: ${p.page_type}, slug: /${p.slug}, title: "${p.title ?? ''}"`
-  ).join('\n')
+  const pagesSummary = ctx.pages
+    .map((p) => `  - page_type: ${p.page_type}, slug: /${p.slug}, title: "${p.title ?? ''}"`)
+    .join('\n')
 
   // Business description block
   const businessDescBlock = [
-    ctx.businessDescription
-      ? `- Business description: "${ctx.businessDescription}"` : '',
-    ctx.autofillSummary
-      ? `- AI-detected content summary: "${ctx.autofillSummary}"` : '',
-  ].filter(Boolean).join('\n')
+    ctx.businessDescription ? `- Business description: "${ctx.businessDescription}"` : '',
+    ctx.autofillSummary ? `- AI-detected content summary: "${ctx.autofillSummary}"` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
 
   // Services block
-  const servicesBlock = (ctx.services ?? []).length > 0
-    ? (ctx.services ?? []).map(s =>
-        `  - ${s.name}${s.price ? ` (${s.price})` : ''}${s.description ? `: ${s.description.slice(0, 80)}` : ''}`
-      ).join('\n')
-    : '  (none listed)'
+  const servicesBlock =
+    (ctx.services ?? []).length > 0
+      ? (ctx.services ?? [])
+          .map(
+            (s) =>
+              `  - ${s.name}${s.price ? ` (${s.price})` : ''}${s.description ? `: ${s.description.slice(0, 80)}` : ''}`
+          )
+          .join('\n')
+      : '  (none listed)'
 
   // Products block
-  const productsBlock = (ctx.topProducts ?? []).length > 0
-    ? (ctx.topProducts ?? []).map(p =>
-        `  - ${p.name}${p.price ? ` ($${p.price})` : ''}${p.description ? `: ${p.description.slice(0, 60)}` : ''}`
-      ).join('\n')
-    : '  (none)'
+  const productsBlock =
+    (ctx.topProducts ?? []).length > 0
+      ? (ctx.topProducts ?? [])
+          .map(
+            (p) =>
+              `  - ${p.name}${p.price ? ` ($${p.price})` : ''}${p.description ? `: ${p.description.slice(0, 60)}` : ''}`
+          )
+          .join('\n')
+      : '  (none)'
 
   // Reviews block — use real customer language to ground the visuals
-  const reviewsBlock = (ctx.reviews ?? []).length > 0
-    ? (ctx.reviews ?? []).slice(0, 3).map(r =>
-        `  - "${r.text.slice(0, 100)}" — ${r.author}`
-      ).join('\n')
-    : '  (none available)'
+  const reviewsBlock =
+    (ctx.reviews ?? []).length > 0
+      ? (ctx.reviews ?? [])
+          .slice(0, 3)
+          .map((r) => `  - "${r.text.slice(0, 100)}" — ${r.author}`)
+          .join('\n')
+      : '  (none available)'
 
   const hasExistingImages = ctx.existingImageUrls.length > 0
 
@@ -179,41 +204,49 @@ Return only the JSON. No other text.`
 export function enhancePromptForImagen(
   basePrompt: string,
   imageRole: string,
-  businessType: string | null,
+  businessType: string | null
 ): string {
   const roleModifiers: Record<string, string> = {
-    hero_main:              'ultra-sharp commercial photography, premium website hero image, 8K resolution, highly detailed',
-    hero_background:        'wide angle composition, soft natural background, website hero background, minimal noise, high resolution',
-    about_feature:          'warm authentic lifestyle photography, brand storytelling, genuine atmosphere',
-    service_card:           'clean commercial photography, sharp focus, professional presentation, white or neutral background',
-    gallery_cover:          'editorial photography, polished, premium commercial quality',
-    gallery_item:           'clean high quality photograph, natural lighting, sharp focus',
-    product_banner:         'commercial product photography, studio lighting, premium presentation, high resolution',
-    category_banner:        'wide banner composition, 16:9, vibrant, commercial photography',
-    contact_banner:         'welcoming warm tone, location or lifestyle imagery, inviting atmosphere',
-    testimonial_background: 'abstract soft background, subtle texture, pastel gradient, no people, clean minimalist',
-    rewards_promo_banner:   'vibrant energetic promotional banner, bold colors, commercial quality',
-    cta_banner:             'conversion-focused composition, clean layout, bold visual impact',
-    promo_banner:           'promotional eye-catching design, commercial quality photography',
-    feature_image:          'clean high quality commercial photography, website-ready',
-    section_background:     'subtle texture or abstract gradient, not distracting, professional',
-    other:                  'commercial photography, website-ready, high quality, professional',
+    hero_main:
+      'ultra-sharp commercial photography, premium website hero image, 8K resolution, highly detailed',
+    hero_background:
+      'wide angle composition, soft natural background, website hero background, minimal noise, high resolution',
+    about_feature: 'warm authentic lifestyle photography, brand storytelling, genuine atmosphere',
+    service_card:
+      'clean commercial photography, sharp focus, professional presentation, white or neutral background',
+    gallery_cover: 'editorial photography, polished, premium commercial quality',
+    gallery_item: 'clean high quality photograph, natural lighting, sharp focus',
+    product_banner:
+      'commercial product photography, studio lighting, premium presentation, high resolution',
+    category_banner: 'wide banner composition, 16:9, vibrant, commercial photography',
+    contact_banner: 'welcoming warm tone, location or lifestyle imagery, inviting atmosphere',
+    testimonial_background:
+      'abstract soft background, subtle texture, pastel gradient, no people, clean minimalist',
+    rewards_promo_banner: 'vibrant energetic promotional banner, bold colors, commercial quality',
+    cta_banner: 'conversion-focused composition, clean layout, bold visual impact',
+    promo_banner: 'promotional eye-catching design, commercial quality photography',
+    feature_image: 'clean high quality commercial photography, website-ready',
+    section_background: 'subtle texture or abstract gradient, not distracting, professional',
+    other: 'commercial photography, website-ready, high quality, professional',
   }
 
   const modifier = roleModifiers[imageRole] ?? roleModifiers.other
 
   // Business-type specific photography style modifiers
   const businessModifiers: Record<string, string> = {
-    restaurant:  'food photography, natural warm lighting, restaurant atmosphere, appetizing presentation',
-    car_rental:  'automotive photography, clean studio environment, premium vehicle presentation',
-    auto_shop:   'automotive photography, professional detail bay, premium vehicle, clean garage environment',
-    salon:       'beauty photography, warm inviting salon atmosphere, soft elegant lighting',
-    fitness:     'fitness lifestyle photography, energetic action, motivational atmosphere',
-    contractor:  'professional trade photography, skilled craftwork, trustworthy presentation',
-    plumber:     'professional service photography, skilled technician, trustworthy brand feel',
-    medical:     'clean clinical environment, professional medical setting, trustworthy calm atmosphere',
-    ecommerce:   'commercial product photography, clean studio, premium presentation',
-    unknown:     'professional business photography, clean modern environment',
+    restaurant:
+      'food photography, natural warm lighting, restaurant atmosphere, appetizing presentation',
+    car_rental: 'automotive photography, clean studio environment, premium vehicle presentation',
+    auto_shop:
+      'automotive photography, professional detail bay, premium vehicle, clean garage environment',
+    salon: 'beauty photography, warm inviting salon atmosphere, soft elegant lighting',
+    fitness: 'fitness lifestyle photography, energetic action, motivational atmosphere',
+    contractor: 'professional trade photography, skilled craftwork, trustworthy presentation',
+    plumber: 'professional service photography, skilled technician, trustworthy brand feel',
+    medical:
+      'clean clinical environment, professional medical setting, trustworthy calm atmosphere',
+    ecommerce: 'commercial product photography, clean studio, premium presentation',
+    unknown: 'professional business photography, clean modern environment',
   }
 
   const normalizedType = (businessType ?? 'unknown')

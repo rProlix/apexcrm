@@ -11,25 +11,31 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ensureInvitationPages } from '@/lib/pov/invitationPages'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
 
-function forbidden() { return NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+function forbidden() {
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+}
 
 export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const hint = sanitizeTenantId(body.tenant_id)
   const self = sanitizeTenantId(ctx.tenant_id)
-  const tenantId = ctx.role === 'owner' ? (hint ?? self) : (self && hint && self !== hint ? null : (self ?? hint))
+  const tenantId =
+    ctx.role === 'owner' ? (hint ?? self) : self && hint && self !== hint ? null : (self ?? hint)
   if (!tenantId) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getSupabaseServerClient() as any
-  const { error } = await db.from('site_settings').upsert({
-    tenant_id:   tenantId,
-    website_type: 'invitational',
-    pov_enabled: false,
-  }, { onConflict: 'tenant_id' })
+  const { error } = await db.from('site_settings').upsert(
+    {
+      tenant_id: tenantId,
+      website_type: 'invitational',
+      pov_enabled: false,
+    },
+    { onConflict: 'tenant_id' }
+  )
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const created = await ensureInvitationPages(tenantId, {

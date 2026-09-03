@@ -8,10 +8,10 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 export const metadata = { title: 'Messages — ApexCRM' }
 
 interface MessageCounts {
-  total:    number
-  unread:   number
-  sent:     number
-  pending:  number
+  total: number
+  unread: number
+  sent: number
+  pending: number
 }
 
 async function getMessageCounts(tenantId: string): Promise<MessageCounts> {
@@ -28,9 +28,9 @@ async function getMessageCounts(tenantId: string): Promise<MessageCounts> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rows = data as any[]
     return {
-      total:   rows.length,
-      unread:  rows.filter((m) => m.status === 'unread').length,
-      sent:    rows.filter((m) => m.direction === 'outbound').length,
+      total: rows.length,
+      unread: rows.filter((m) => m.status === 'unread').length,
+      sent: rows.filter((m) => m.direction === 'outbound').length,
       pending: rows.filter((m) => m.status === 'pending').length,
     }
   } catch {
@@ -47,10 +47,34 @@ export default async function MessagesPage() {
   const counts = await getMessageCounts(tenantId)
 
   const stats = [
-    { label: 'Total',    value: counts.total,   icon: MessageSquare, color: 'text-blue-400',   bg: 'bg-blue-400/10'   },
-    { label: 'Unread',   value: counts.unread,  icon: Inbox,         color: 'text-amber-400',  bg: 'bg-amber-400/10'  },
-    { label: 'Sent',     value: counts.sent,    icon: Send,          color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-    { label: 'Pending',  value: counts.pending, icon: Clock,         color: 'text-orange-400', bg: 'bg-orange-400/10' },
+    {
+      label: 'Total',
+      value: counts.total,
+      icon: MessageSquare,
+      color: 'text-blue-400',
+      bg: 'bg-blue-400/10',
+    },
+    {
+      label: 'Unread',
+      value: counts.unread,
+      icon: Inbox,
+      color: 'text-amber-400',
+      bg: 'bg-amber-400/10',
+    },
+    {
+      label: 'Sent',
+      value: counts.sent,
+      icon: Send,
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-400/10',
+    },
+    {
+      label: 'Pending',
+      value: counts.pending,
+      icon: Clock,
+      color: 'text-orange-400',
+      bg: 'bg-orange-400/10',
+    },
   ]
 
   return (
@@ -63,7 +87,9 @@ export default async function MessagesPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="rounded-xl bg-graphite-800 border border-graphite-600 p-4">
-            <div className={`inline-flex items-center justify-center h-9 w-9 rounded-lg ${bg} mb-3`}>
+            <div
+              className={`inline-flex items-center justify-center h-9 w-9 rounded-lg ${bg} mb-3`}
+            >
               <Icon className={`h-4 w-4 ${color}`} />
             </div>
             <p className="text-2xl font-bold text-white">{value}</p>

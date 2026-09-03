@@ -12,16 +12,21 @@ function err(code: string, message: string, status = 400) {
   return NextResponse.json({ ok: false, code, error: message }, { status })
 }
 
-interface RouteContext { params: Promise<{ id: string }> }
+interface RouteContext {
+  params: Promise<{ id: string }>
+}
 
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const { id } = await params
   const ctx = await getUserContext()
-  if (!ctx)               return err('UNAUTHORIZED', 'Authentication required.', 401)
-  if (ctx.role !== 'owner') return err('FORBIDDEN', 'Only the platform owner can reset passwords.', 403)
+  if (!ctx) return err('UNAUTHORIZED', 'Authentication required.', 401)
+  if (ctx.role !== 'owner')
+    return err('FORBIDDEN', 'Only the platform owner can reset passwords.', 403)
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return err('INVALID_JSON', 'Request body must be valid JSON.', 400)
   }
 

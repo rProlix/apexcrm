@@ -14,7 +14,7 @@ export default async function PaymentLinksPage() {
 
   const tenantId = ctx.tenant_id ?? ''
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase  = getSupabaseServerClient() as any
+  const supabase = getSupabaseServerClient() as any
 
   const [linksResult, invoicesResult] = await Promise.all([
     supabase

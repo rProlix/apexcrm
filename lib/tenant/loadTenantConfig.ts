@@ -28,16 +28,8 @@ export async function loadTenantConfig(tenantId: string): Promise<TenantConfig |
   const supabase = getSupabaseServerClient()
 
   const [tenantResult, modulesResult] = await Promise.all([
-    supabase
-      .from('tenants')
-      .select('*')
-      .eq('id', tenantId)
-      .eq('status', 'active')
-      .single(),
-    supabase
-      .from('tenant_modules')
-      .select('module_key, enabled, config')
-      .eq('tenant_id', tenantId),
+    supabase.from('tenants').select('*').eq('id', tenantId).eq('status', 'active').single(),
+    supabase.from('tenant_modules').select('module_key, enabled, config').eq('tenant_id', tenantId),
   ])
 
   if (tenantResult.error || !tenantResult.data) return null
@@ -54,7 +46,7 @@ export async function loadTenantConfig(tenantId: string): Promise<TenantConfig |
     enabledModuleKeys,
     branding: Object.assign(
       { primary_color: '#c9a84c', logo_url: null, accent: 'gold', industry: 'general' },
-      branding,
+      branding
     ) as TenantConfig['branding'],
   }
 }

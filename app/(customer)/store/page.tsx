@@ -9,7 +9,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ShoppingBag, Package } from 'lucide-react'
 
 export default async function CustomerStorePage() {
-  const host   = (await headers()).get('host') ?? ''
+  const host = (await headers()).get('host') ?? ''
   const tenant = await getTenantFromHost(host)
   if (!tenant) redirect('/')
 
@@ -23,8 +23,12 @@ export default async function CustomerStorePage() {
     .order('created_at', { ascending: false })
 
   const products = (productsRaw ?? []) as Array<{
-    id: string; name: string; description: string | null
-    price: number; currency: string; inventory_count: number
+    id: string
+    name: string
+    description: string | null
+    price: number
+    currency: string
+    inventory_count: number
   }>
 
   return (
@@ -68,9 +72,7 @@ export default async function CustomerStorePage() {
                   {product.name}
                 </h2>
                 {product.description && (
-                  <p className="text-xs text-white/40 line-clamp-2 mb-3">
-                    {product.description}
-                  </p>
+                  <p className="text-xs text-white/40 line-clamp-2 mb-3">{product.description}</p>
                 )}
 
                 {/* Price + stock */}
@@ -79,11 +81,13 @@ export default async function CustomerStorePage() {
                     {product.currency}{' '}
                     {Number(product.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </span>
-                  <span className={`text-xs px-2 py-1 rounded-lg border ${
-                    product.inventory_count > 0
-                      ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
-                      : 'text-white/30 bg-white/4 border-white/8'
-                  }`}>
+                  <span
+                    className={`text-xs px-2 py-1 rounded-lg border ${
+                      product.inventory_count > 0
+                        ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
+                        : 'text-white/30 bg-white/4 border-white/8'
+                    }`}
+                  >
                     {product.inventory_count > 0 ? 'In Stock' : 'Out of Stock'}
                   </span>
                 </div>

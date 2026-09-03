@@ -10,11 +10,11 @@ import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 const bodySchema = z.object({
-  tenantId:  z.string().uuid(),
-  pageId:    z.string().uuid().optional().nullable(),
+  tenantId: z.string().uuid(),
+  pageId: z.string().uuid().optional().nullable(),
   sectionId: z.string().uuid().optional().nullable(),
-  scope:     z.enum(['global', 'page', 'section']),
-  planId:    z.string().uuid().optional().nullable(),
+  scope: z.enum(['global', 'page', 'section']),
+  planId: z.string().uuid().optional().nullable(),
 })
 
 const EMPTY_CONFIG = { v: 1, enabled: false }
@@ -26,8 +26,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   let body: z.infer<typeof bodySchema>
-  try { body = bodySchema.parse(await req.json()) }
-  catch (err) { return NextResponse.json({ error: 'Invalid body', detail: String(err) }, { status: 400 }) }
+  try {
+    body = bodySchema.parse(await req.json())
+  } catch (err) {
+    return NextResponse.json({ error: 'Invalid body', detail: String(err) }, { status: 400 })
+  }
 
   const { tenantId, pageId, sectionId, scope, planId } = body
   const supabase = getSupabaseServerClient()
@@ -46,19 +49,31 @@ export async function POST(req: NextRequest) {
   if (scope === 'section' && sectionId) {
     await supabase
       .from('site_sections')
-      .update({ animation_config: EMPTY_CONFIG as never, style_config: EMPTY_CONFIG as never, updated_at: now } as never)
+      .update({
+        animation_config: EMPTY_CONFIG as never,
+        style_config: EMPTY_CONFIG as never,
+        updated_at: now,
+      } as never)
       .eq('id', sectionId)
   }
 
   if (scope === 'page' && pageId) {
     await supabase
       .from('site_pages')
-      .update({ animation_config: EMPTY_CONFIG as never, style_config: EMPTY_CONFIG as never, updated_at: now } as never)
+      .update({
+        animation_config: EMPTY_CONFIG as never,
+        style_config: EMPTY_CONFIG as never,
+        updated_at: now,
+      } as never)
       .eq('id', pageId)
     // Also clear sections on this page
     await supabase
       .from('site_sections')
-      .update({ animation_config: EMPTY_CONFIG as never, style_config: EMPTY_CONFIG as never, updated_at: now } as never)
+      .update({
+        animation_config: EMPTY_CONFIG as never,
+        style_config: EMPTY_CONFIG as never,
+        updated_at: now,
+      } as never)
       .eq('page_id', pageId)
   }
 
@@ -70,12 +85,20 @@ export async function POST(req: NextRequest) {
     // Clear all sections for this tenant
     await supabase
       .from('site_sections')
-      .update({ animation_config: EMPTY_CONFIG as never, style_config: EMPTY_CONFIG as never, updated_at: now } as never)
+      .update({
+        animation_config: EMPTY_CONFIG as never,
+        style_config: EMPTY_CONFIG as never,
+        updated_at: now,
+      } as never)
       .eq('tenant_id', tenantId)
     // Clear all pages
     await supabase
       .from('site_pages')
-      .update({ animation_config: EMPTY_CONFIG as never, style_config: EMPTY_CONFIG as never, updated_at: now } as never)
+      .update({
+        animation_config: EMPTY_CONFIG as never,
+        style_config: EMPTY_CONFIG as never,
+        updated_at: now,
+      } as never)
       .eq('tenant_id', tenantId)
   }
 

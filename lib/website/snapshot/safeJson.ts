@@ -10,8 +10,8 @@
 //  - transient UI state
 
 export type JsonPrimitive = string | number | boolean | null
-export type JsonArray     = JsonCompatible[]
-export type JsonObject    = { [key: string]: JsonCompatible }
+export type JsonArray = JsonCompatible[]
+export type JsonObject = { [key: string]: JsonCompatible }
 export type JsonCompatible = JsonPrimitive | JsonArray | JsonObject
 
 // ── Primitive conversions ─────────────────────────────────────────────────────
@@ -30,7 +30,9 @@ export function asRecord(value: unknown): Record<string, unknown> {
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         return parsed as Record<string, unknown>
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
   return {}
 }
@@ -46,7 +48,7 @@ export function asArray<T = unknown>(value: unknown): T[] {
 
 // ── Deep JSON sanitizer ───────────────────────────────────────────────────────
 
-const MAX_DEPTH   = 20
+const MAX_DEPTH = 20
 const MAX_STR_LEN = 50_000 // chars — hard cap before we truncate
 
 /**
@@ -79,8 +81,8 @@ function makeReplacer() {
 
     // Handle binary / browser objects
     if (
-      value instanceof Blob          ||
-      value instanceof ArrayBuffer   ||
+      value instanceof Blob ||
+      value instanceof ArrayBuffer ||
       (typeof File !== 'undefined' && value instanceof File)
     ) {
       return { _removedBinary: true, reason: 'Binary objects not allowed in snapshots' }

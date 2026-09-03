@@ -5,15 +5,15 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Zap, Copy, Check } from 'lucide-react'
 
 interface Invoice {
-  id:             string
+  id: string
   invoice_number: string
-  title:          string
-  amount:         number
-  currency:       string
+  title: string
+  amount: number
+  currency: string
 }
 
 interface Props {
-  onClose:  () => void
+  onClose: () => void
   invoices: Invoice[]
   currency: string
   onCreated: (link: Record<string, unknown>) => void
@@ -21,16 +21,16 @@ interface Props {
 
 export function PaymentLinkForm({ onClose, invoices, currency, onCreated }: Props) {
   const [form, setForm] = useState({
-    title:       '',
-    amount:      '',
+    title: '',
+    amount: '',
     currency,
-    invoice_id:  '',
+    invoice_id: '',
     provider_key: '',
   })
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
-  const [created,  setCreated]  = useState<{ url: string; id: string } | null>(null)
-  const [copied,   setCopied]   = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [created, setCreated] = useState<{ url: string; id: string } | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const _selectedInvoice = invoices.find((i) => i.id === form.invoice_id)
 
@@ -39,31 +39,37 @@ export function PaymentLinkForm({ onClose, invoices, currency, onCreated }: Prop
     setForm({
       ...form,
       invoice_id: invoiceId,
-      title:      inv ? (inv.title ?? `Invoice ${inv.invoice_number}`) : form.title,
-      amount:     inv ? String(Number(inv.amount).toFixed(2)) : form.amount,
-      currency:   inv ? inv.currency : form.currency,
+      title: inv ? (inv.title ?? `Invoice ${inv.invoice_number}`) : form.title,
+      amount: inv ? String(Number(inv.amount).toFixed(2)) : form.amount,
+      currency: inv ? inv.currency : form.currency,
     })
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.title.trim()) { setError('Title is required'); return }
+    if (!form.title.trim()) {
+      setError('Title is required')
+      return
+    }
 
     const parsedAmount = Number(form.amount)
-    if (isNaN(parsedAmount) || parsedAmount <= 0) { setError('Amount must be a positive number'); return }
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      setError('Amount must be a positive number')
+      return
+    }
 
     setLoading(true)
     setError(null)
 
     try {
       const res = await fetch('/api/payments/payment-links', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title:        form.title.trim(),
-          amount:       parsedAmount,
-          currency:     form.currency,
-          invoice_id:   form.invoice_id || undefined,
+          title: form.title.trim(),
+          amount: parsedAmount,
+          currency: form.currency,
+          invoice_id: form.invoice_id || undefined,
           provider_key: form.provider_key || undefined,
         }),
       })
@@ -94,7 +100,9 @@ export function PaymentLinkForm({ onClose, invoices, currency, onCreated }: Prop
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 16 }}
@@ -150,13 +158,17 @@ export function PaymentLinkForm({ onClose, invoices, currency, onCreated }: Prop
           ) : (
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {error && (
-                <div className="p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">{error}</div>
+                <div className="p-3 rounded-xl bg-red-400/8 border border-red-400/20 text-sm text-red-400">
+                  {error}
+                </div>
               )}
 
               {/* Link to invoice */}
               {invoices.length > 0 && (
                 <div>
-                  <label className="block text-xs font-medium text-white/50 mb-2">Link to Invoice (optional)</label>
+                  <label className="block text-xs font-medium text-white/50 mb-2">
+                    Link to Invoice (optional)
+                  </label>
                   <select
                     value={form.invoice_id}
                     onChange={(e) => handleInvoiceChange(e.target.value)}
@@ -210,7 +222,9 @@ export function PaymentLinkForm({ onClose, invoices, currency, onCreated }: Prop
                     className="store-input w-full text-sm"
                   >
                     {['USD', 'EUR', 'GBP', 'CAD', 'AUD'].map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </select>
                 </div>

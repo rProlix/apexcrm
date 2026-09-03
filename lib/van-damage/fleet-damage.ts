@@ -88,13 +88,18 @@ export function buildFleetDamageCards(input: {
   return input.vehicles.map((vehicle) => {
     const activeCases = casesByVan.get(vehicle.id) ?? []
     const analyses = analysesByVan.get(vehicle.id) ?? []
-    const completed = analyses
-      .map((analysis) => analysis.run_completed_at ?? analysis.completed_at)
-      .filter((value): value is string => Boolean(value))
-      .sort()
-      .at(-1) ?? null
+    const completed =
+      analyses
+        .map((analysis) => analysis.run_completed_at ?? analysis.completed_at)
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1) ?? null
     const latestInspectionAt =
-      analyses.map((analysis) => analysis.created_at).filter(Boolean).sort().at(-1) ?? null
+      analyses
+        .map((analysis) => analysis.created_at)
+        .filter(Boolean)
+        .sort()
+        .at(-1) ?? null
     const processing = analyses.some((analysis) =>
       ['queued', 'processing', 'running', 'in_progress'].includes(
         analysis.run_status ?? analysis.inspection_status ?? ''
@@ -112,7 +117,9 @@ export function buildFleetDamageCards(input: {
 
     for (const damageCase of activeCases) {
       const severity = normalizeDamageSeverity(
-        damageCase.effective_severity ?? damageCase.current_severity ?? damageCase.max_observed_severity
+        damageCase.effective_severity ??
+          damageCase.current_severity ??
+          damageCase.max_observed_severity
       )
       const level = Math.min(3, Math.max(0, severity.level)) as FleetDamageLevel
       damageLevel = Math.max(damageLevel, level) as FleetDamageLevel
@@ -136,7 +143,13 @@ export function buildFleetDamageCards(input: {
       latestInspectionAt,
       latestEvidenceImageId,
       latestInspectionId,
-      analysisState: completed ? 'completed' : processing ? 'processing' : failed ? 'failed' : 'never',
+      analysisState: completed
+        ? 'completed'
+        : processing
+          ? 'processing'
+          : failed
+            ? 'failed'
+            : 'never',
       activeMaintenanceCount: input.maintenanceByVan?.get(vehicle.id)?.activeCount ?? 0,
       missingProfileImage: !vehicle.profileImageId,
     }
@@ -165,7 +178,10 @@ export function compareFleetDamageCards(
     case 'needs_review':
       return Number(b.needsReview) - Number(a.needsReview) || b.damageLevel - a.damageLevel
     case 'out_of_service':
-      return Number(isOutOfService(b.status)) - Number(isOutOfService(a.status)) || b.damageLevel - a.damageLevel
+      return (
+        Number(isOutOfService(b.status)) - Number(isOutOfService(a.status)) ||
+        b.damageLevel - a.damageLevel
+      )
     case 'most_damage':
       return b.activeDamageCount - a.activeDamageCount || b.damageLevel - a.damageLevel
     case 'most_maintenance':
@@ -174,7 +190,14 @@ export function compareFleetDamageCards(
       return vanSort(a, b)
     case 'highest_damage':
     default:
-      return b.damageLevel - a.damageLevel || Number(b.needsReview) - Number(a.needsReview) || newest(a.latestObservationAt ?? a.latestAnalysisAt, b.latestObservationAt ?? b.latestAnalysisAt)
+      return (
+        b.damageLevel - a.damageLevel ||
+        Number(b.needsReview) - Number(a.needsReview) ||
+        newest(
+          a.latestObservationAt ?? a.latestAnalysisAt,
+          b.latestObservationAt ?? b.latestAnalysisAt
+        )
+      )
   }
 }
 

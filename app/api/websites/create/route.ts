@@ -12,13 +12,24 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sanitizeTenantId } from '@/lib/website/resolveWebsiteTenant'
 import { createPovEventRecord } from '@/lib/pov/createEvent'
 import {
-  createBuilderWebsite, getWebsite, getPrimaryBuilderWebsite, withUrls, checkSlugAvailable,
-  type WebsiteRecord, type WebsiteType, type WebsiteWithUrl,
+  createBuilderWebsite,
+  getWebsite,
+  getPrimaryBuilderWebsite,
+  withUrls,
+  checkSlugAvailable,
+  type WebsiteRecord,
+  type WebsiteType,
+  type WebsiteWithUrl,
 } from '@/lib/website/registry'
 
-function forbidden() { return NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+function forbidden() {
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+}
 
-function resolveTenantId(ctx: Awaited<ReturnType<typeof getUserContext>>, override?: string | null): string | null {
+function resolveTenantId(
+  ctx: Awaited<ReturnType<typeof getUserContext>>,
+  override?: string | null
+): string | null {
   if (!ctx) return null
   const hint = sanitizeTenantId(override)
   const self = sanitizeTenantId(ctx.tenant_id)
@@ -45,12 +56,15 @@ export async function POST(req: NextRequest) {
   const ctx = await getUserContext()
   if (!ctx || !['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const body = await req.json().catch(() => ({})) as Record<string, unknown>
-  const tenantId = resolveTenantId(ctx, body.tenantId as string ?? body.tenant_id as string)
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
+  const tenantId = resolveTenantId(ctx, (body.tenantId as string) ?? (body.tenant_id as string))
   if (!tenantId) return NextResponse.json({ error: 'No tenant' }, { status: 400 })
 
-  const websiteType = (['business', 'creative', 'invitational', 'pov_event'].includes(body.websiteType as string)
-    ? body.websiteType : 'business') as WebsiteType
+  const websiteType = (
+    ['business', 'creative', 'invitational', 'pov_event'].includes(body.websiteType as string)
+      ? body.websiteType
+      : 'business'
+  ) as WebsiteType
   const name = String(body.name ?? '').trim()
   const povEnabled = Boolean(body.povEnabled)
 
@@ -74,21 +88,28 @@ export async function POST(req: NextRequest) {
       site = await getWebsite(tenantId, site.id)
     } else {
       const result = await createBuilderWebsite({
-        tenantId, websiteType, name: name || 'My Website',
+        tenantId,
+        websiteType,
+        name: name || 'My Website',
         slug: String(body.publicSlug ?? body.slug ?? name ?? ''),
         createdBy: ctx.id ?? null,
       })
-      if (result.error || !result.website) return NextResponse.json({ error: result.error ?? 'Create failed' }, { status: 400 })
+      if (result.error || !result.website)
+        return NextResponse.json({ error: result.error ?? 'Create failed' }, { status: 400 })
       site = result.website
     }
 
     // Keep the legacy builder branch in sync so the editor renders this type.
     try {
-      await db.from('site_settings')
+      await db
+        .from('site_settings')
         .upsert({ tenant_id: tenantId, website_type: websiteType }, { onConflict: 'tenant_id' })
-    } catch { /* non-fatal */ }
+    } catch {
+      /* non-fatal */
+    }
 
-    if (!site) return NextResponse.json({ error: 'Could not resolve website record.' }, { status: 500 })
+    if (!site)
+      return NextResponse.json({ error: 'Could not resolve website record.' }, { status: 500 })
     return NextResponse.json({ ...descriptor(site) }, { status: 201 })
   }
 
@@ -112,26 +133,38 @@ export async function POST(req: NextRequest) {
     gallery_reveal_at: (body.galleryRevealAt as string) ?? null,
     timezone: body.timezone as string | undefined,
     theme_key: body.themeKey as string | undefined,
-    ...(body.povEventSetup as Record<string, unknown> ?? {}),
+    ...((body.povEventSetup as Record<string, unknown>) ?? {}),
   })
-  if (created.error || !created.event) return NextResponse.json({ error: created.error ?? 'Create failed' }, { status: 400 })
+  if (created.error || !created.event)
+    return NextResponse.json({ error: created.error ?? 'Create failed' }, { status: 400 })
 
   // Resolve the registry row that ensureWebsiteRegistry created for this event.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getSupabaseServerClient() as any
-  const { data: row } = await db.from('websites').select('*')
-    .eq('tenant_id', tenantId).eq('pov_event_id', created.event.id).maybeSingle()
+  const { data: row } = await db
+    .from('websites')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('pov_event_id', created.event.id)
+    .maybeSingle()
 
   // Attach a Canva import to THIS event website only (never the business site).
   if (row && typeof body.canvaImportId === 'string' && body.canvaImportId) {
-    await db.from('websites').update({ canva_import_enabled: true, canva_import_id: body.canvaImportId })
-      .eq('tenant_id', tenantId).eq('id', row.id)
+    await db
+      .from('websites')
+      .update({ canva_import_enabled: true, canva_import_id: body.canvaImportId })
+      .eq('tenant_id', tenantId)
+      .eq('id', row.id)
     row.canva_import_enabled = true
     row.canva_import_id = body.canvaImportId
   }
 
   const site = row ? withUrls(row as WebsiteRecord) : await getWebsite(tenantId, created.event.id)
-  if (!site) return NextResponse.json({ error: 'Created event but could not resolve its website record.' }, { status: 500 })
+  if (!site)
+    return NextResponse.json(
+      { error: 'Created event but could not resolve its website record.' },
+      { status: 500 }
+    )
 
   void povEnabled
   return NextResponse.json({ ...descriptor(site), povEventId: created.event.id }, { status: 201 })

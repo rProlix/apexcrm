@@ -7,73 +7,73 @@ import type { CustomerOrder } from '@/lib/customers/getCustomerOrders'
 import type { CustomerPaymentSummary } from '@/lib/customers/getCustomerPayments'
 
 interface TimelineEvent {
-  id:      string
-  type:    'order' | 'payment' | 'invoice' | 'signup'
-  label:   string
-  sub:     string
-  date:    Date
+  id: string
+  type: 'order' | 'payment' | 'invoice' | 'signup'
+  label: string
+  sub: string
+  date: Date
   amount?: number
-  status:  string
+  status: string
 }
 
 interface Props {
   customer: TenantCustomerDetail
-  orders:   CustomerOrder[]
+  orders: CustomerOrder[]
   payments: CustomerPaymentSummary
 }
 
 const EVENT_ICONS: Record<string, React.ElementType> = {
-  order:   ShoppingBag,
+  order: ShoppingBag,
   payment: CreditCard,
   invoice: FileText,
-  signup:  UserPlus,
+  signup: UserPlus,
 }
 
 const EVENT_COLORS: Record<string, string> = {
-  order:   'text-amber-400 bg-amber-400/10',
+  order: 'text-amber-400 bg-amber-400/10',
   payment: 'text-cyan-400 bg-cyan-400/10',
   invoice: 'text-gold-400 bg-gold-400/10',
-  signup:  'text-emerald-400 bg-emerald-400/10',
+  signup: 'text-emerald-400 bg-emerald-400/10',
 }
 
 export function CustomerActivityTimeline({ customer, orders, payments }: Props) {
   const events: TimelineEvent[] = [
     // Account creation
     {
-      id:     'signup',
-      type:   'signup' as const,
-      label:  'Customer created',
-      sub:    'Added to your CRM',
-      date:   new Date(customer.created_at),
+      id: 'signup',
+      type: 'signup' as const,
+      label: 'Customer created',
+      sub: 'Added to your CRM',
+      date: new Date(customer.created_at),
       status: 'info',
     },
     // Orders
-    ...orders.map(o => ({
-      id:     `order-${o.id}`,
-      type:   'order' as const,
-      label:  `Order placed`,
-      sub:    `${o.order_items.length} item${o.order_items.length !== 1 ? 's' : ''}`,
-      date:   new Date(o.created_at),
+    ...orders.map((o) => ({
+      id: `order-${o.id}`,
+      type: 'order' as const,
+      label: `Order placed`,
+      sub: `${o.order_items.length} item${o.order_items.length !== 1 ? 's' : ''}`,
+      date: new Date(o.created_at),
       amount: o.total_amount,
       status: o.status,
     })),
     // Transactions
-    ...payments.transactions.map(tx => ({
-      id:     `tx-${tx.id}`,
-      type:   'payment' as const,
-      label:  `Payment ${tx.transaction_type}`,
-      sub:    tx.provider_key,
-      date:   new Date(tx.created_at),
+    ...payments.transactions.map((tx) => ({
+      id: `tx-${tx.id}`,
+      type: 'payment' as const,
+      label: `Payment ${tx.transaction_type}`,
+      sub: tx.provider_key,
+      date: new Date(tx.created_at),
       amount: tx.amount,
       status: tx.status,
     })),
     // Invoices
-    ...payments.invoices.map(inv => ({
-      id:     `inv-${inv.id}`,
-      type:   'invoice' as const,
-      label:  `Invoice #${inv.invoice_number}`,
-      sub:    inv.title,
-      date:   new Date(inv.created_at),
+    ...payments.invoices.map((inv) => ({
+      id: `inv-${inv.id}`,
+      type: 'invoice' as const,
+      label: `Invoice #${inv.invoice_number}`,
+      sub: inv.title,
+      date: new Date(inv.created_at),
       amount: inv.amount,
       status: inv.status,
     })),
@@ -110,7 +110,9 @@ export function CustomerActivityTimeline({ customer, orders, payments }: Props) 
                   transition={{ delay: i * 0.04 }}
                   className="flex items-start gap-3 pl-7 relative"
                 >
-                  <div className={`absolute left-0 h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 ${colorClass}`}>
+                  <div
+                    className={`absolute left-0 h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 ${colorClass}`}
+                  >
                     <Icon className="w-3.5 h-3.5" />
                   </div>
                   <div className="flex-1 min-w-0">

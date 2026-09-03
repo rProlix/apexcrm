@@ -11,9 +11,10 @@ export async function GET(req: NextRequest) {
   // Try admin first
   const dashUser = await resolveStoreUser(req)
   if (dashUser && (dashUser.role === 'admin' || dashUser.role === 'owner')) {
-    const tenantId = dashUser.role === 'owner'
-      ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
-      : dashUser.tenant_id
+    const tenantId =
+      dashUser.role === 'owner'
+        ? (req.nextUrl.searchParams.get('tenant_id') ?? dashUser.tenant_id)
+        : dashUser.tenant_id
 
     const { data, error } = await supabase
       .from('reward_shop_items')
@@ -50,12 +51,25 @@ export async function POST(req: NextRequest) {
   }
 
   let body: Record<string, unknown>
-  try { body = await req.json() }
-  catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
-  const { name, description, points_cost, is_active, image_url, product_id,
-          redemption_type, discount_type, discount_value, inventory_count,
-          max_redemptions_per_customer } = body
+  const {
+    name,
+    description,
+    points_cost,
+    is_active,
+    image_url,
+    product_id,
+    redemption_type,
+    discount_type,
+    discount_value,
+    inventory_count,
+    max_redemptions_per_customer,
+  } = body
 
   if (typeof name !== 'string' || !name.trim()) {
     return NextResponse.json({ error: 'name is required' }, { status: 400 })
@@ -74,24 +88,27 @@ export async function POST(req: NextRequest) {
       .eq('id', product_id)
       .eq('tenant_id', user.tenant_id)
       .maybeSingle()
-    if (!prod) return NextResponse.json({ error: 'Product not found in your store' }, { status: 400 })
+    if (!prod)
+      return NextResponse.json({ error: 'Product not found in your store' }, { status: 400 })
   }
 
   const { data, error } = await supabase
     .from('reward_shop_items')
     .insert({
-      tenant_id:                    user.tenant_id,
-      name:                         name.trim(),
-      description:                  typeof description === 'string' ? description.trim() || null : null,
-      points_cost:                  Math.floor(points_cost),
-      is_active:                    typeof is_active === 'boolean' ? is_active : true,
-      image_url:                    typeof image_url === 'string' ? image_url || null : null,
-      product_id:                   typeof product_id === 'string' ? product_id || null : null,
-      redemption_type:              typeof redemption_type === 'string' ? redemption_type : 'points_only',
-      discount_type:                typeof discount_type === 'string' ? discount_type || null : null,
-      discount_value:               typeof discount_value === 'number' ? discount_value : null,
-      inventory_count:              typeof inventory_count === 'number' ? Math.max(0, Math.floor(inventory_count)) : 0,
-      max_redemptions_per_customer: typeof max_redemptions_per_customer === 'number' ? max_redemptions_per_customer : null,
+      tenant_id: user.tenant_id,
+      name: name.trim(),
+      description: typeof description === 'string' ? description.trim() || null : null,
+      points_cost: Math.floor(points_cost),
+      is_active: typeof is_active === 'boolean' ? is_active : true,
+      image_url: typeof image_url === 'string' ? image_url || null : null,
+      product_id: typeof product_id === 'string' ? product_id || null : null,
+      redemption_type: typeof redemption_type === 'string' ? redemption_type : 'points_only',
+      discount_type: typeof discount_type === 'string' ? discount_type || null : null,
+      discount_value: typeof discount_value === 'number' ? discount_value : null,
+      inventory_count:
+        typeof inventory_count === 'number' ? Math.max(0, Math.floor(inventory_count)) : 0,
+      max_redemptions_per_customer:
+        typeof max_redemptions_per_customer === 'number' ? max_redemptions_per_customer : null,
     })
     .select()
     .single()

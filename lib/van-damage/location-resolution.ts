@@ -76,17 +76,17 @@ function genericAreaForSide(area: string, side: VanImageSide): string {
 function areaSide(area: string): VanImageSide | null {
   if (area.startsWith('driver_') || area.endsWith('_driver') || area === 'driver_side')
     return 'driver'
-  if (
-    area.startsWith('passenger_') ||
-    area.endsWith('_passenger') ||
-    area === 'passenger_side'
-  )
+  if (area.startsWith('passenger_') || area.endsWith('_passenger') || area === 'passenger_side')
     return 'passenger'
   return null
 }
 
 function normalizeToken(value: string | null | undefined): string {
   return typeof value === 'string'
-    ? value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+    ? value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_|_$/g, '')
     : ''
 }

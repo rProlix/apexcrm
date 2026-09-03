@@ -68,18 +68,24 @@ export default function AppointmentsAvailabilityPage() {
         <Info className="w-4 h-4 text-gold-400 shrink-0 mt-0.5" />
         <div className="text-xs text-white/50 space-y-1 flex-1">
           <p>
-            <span className="text-emerald-400 font-medium">Available blocks</span> define when customers can book.
-            {' '}<span className="text-red-400 font-medium">Blackout blocks</span> prevent booking during that window even if an available block exists.
+            <span className="text-emerald-400 font-medium">Available blocks</span> define when
+            customers can book. <span className="text-red-400 font-medium">Blackout blocks</span>{' '}
+            prevent booking during that window even if an available block exists.
           </p>
           <p>
-            Assign blocks to a specific <span className="text-white/70 font-medium">Professional</span> or leave unassigned to apply to all staff.
-            Use quick-create presets or the <span className="text-white/70 font-medium">Add Block</span> button to get started.
+            Assign blocks to a specific{' '}
+            <span className="text-white/70 font-medium">Professional</span> or leave unassigned to
+            apply to all staff. Use quick-create presets or the{' '}
+            <span className="text-white/70 font-medium">Add Block</span> button to get started.
           </p>
           <p className="pt-0.5">
-            <Link href="/appointments/settings" className="text-gold-400/70 hover:text-gold-400 underline underline-offset-2 inline-flex items-center gap-1">
+            <Link
+              href="/appointments/settings"
+              className="text-gold-400/70 hover:text-gold-400 underline underline-offset-2 inline-flex items-center gap-1"
+            >
               Advanced settings <ExternalLink className="w-3 h-3" />
-            </Link>
-            {' '}— manage professionals, legacy schedule rules, and blocked times.
+            </Link>{' '}
+            — manage professionals, legacy schedule rules, and blocked times.
           </p>
         </div>
       </motion.div>
@@ -99,15 +105,15 @@ export default function AppointmentsAvailabilityPage() {
 // ── Diagnostics panel (owner only helper) ─────────────────────────────────────
 
 function DiagnosticsPanel({ onClose }: { onClose: () => void }) {
-  const [data,    setData]    = useState<Record<string, unknown> | null>(null)
+  const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   async function run() {
     setLoading(true)
     setError(null)
     try {
-      const res  = await fetch('/api/owner/diagnostics/appointments')
+      const res = await fetch('/api/owner/diagnostics/appointments')
       const json = await res.json()
       setData(json)
     } catch (e: unknown) {
@@ -121,7 +127,9 @@ function DiagnosticsPanel({ onClose }: { onClose: () => void }) {
     <div className="p-4 space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold text-gold-400">System Diagnostics</p>
-        <button onClick={onClose} className="text-white/30 hover:text-white text-xs">✕</button>
+        <button onClick={onClose} className="text-white/30 hover:text-white text-xs">
+          ✕
+        </button>
       </div>
 
       {!data && !loading && (
@@ -139,19 +147,21 @@ function DiagnosticsPanel({ onClose }: { onClose: () => void }) {
 
       {data && (
         <div className="space-y-2">
-          {Array.isArray((data as { checks?: unknown[] }).checks) && (data as { checks: Array<{ label: string; ok: boolean; detail?: string }> }).checks.map((c, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs">
-              <span className={c.ok ? 'text-emerald-400' : 'text-red-400'}>{c.ok ? '✓' : '✗'}</span>
-              <div>
-                <span className={c.ok ? 'text-white/70' : 'text-red-300'}>{c.label}</span>
-                {c.detail && <p className="text-white/30 mt-0.5">{c.detail}</p>}
-              </div>
-            </div>
-          ))}
-          <button
-            onClick={run}
-            className="text-xs text-white/30 hover:text-white/60 underline"
-          >
+          {Array.isArray((data as { checks?: unknown[] }).checks) &&
+            (data as { checks: Array<{ label: string; ok: boolean; detail?: string }> }).checks.map(
+              (c, i) => (
+                <div key={i} className="flex items-start gap-2 text-xs">
+                  <span className={c.ok ? 'text-emerald-400' : 'text-red-400'}>
+                    {c.ok ? '✓' : '✗'}
+                  </span>
+                  <div>
+                    <span className={c.ok ? 'text-white/70' : 'text-red-300'}>{c.label}</span>
+                    {c.detail && <p className="text-white/30 mt-0.5">{c.detail}</p>}
+                  </div>
+                </div>
+              )
+            )}
+          <button onClick={run} className="text-xs text-white/30 hover:text-white/60 underline">
             Re-run
           </button>
         </div>

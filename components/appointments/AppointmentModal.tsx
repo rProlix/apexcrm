@@ -3,7 +3,17 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, CalendarDays, Clock, MapPin, FileText, Save, Trash2, CheckCircle, User } from 'lucide-react'
+import {
+  X,
+  CalendarDays,
+  Clock,
+  MapPin,
+  FileText,
+  Save,
+  Trash2,
+  CheckCircle,
+  User,
+} from 'lucide-react'
 import { CustomerSelector } from './CustomerSelector'
 import { ProfessionalSelector } from './ProfessionalSelector'
 import { TimeSlotPicker } from './TimeSlotPicker'
@@ -11,15 +21,15 @@ import { StatusBadge } from './StatusBadge'
 import type { Appointment, TimeSlot } from '@/lib/appointments/types'
 
 interface Props {
-  open:          boolean
-  appointment?:  Appointment | null
+  open: boolean
+  appointment?: Appointment | null
   defaultStart?: string
-  isAdmin?:      boolean
-  onClose:       () => void
-  onSave:        (data: Partial<Appointment> & { customer_id?: string }) => Promise<void>
-  onDelete?:     (appt: Appointment) => Promise<void>
-  onConfirm?:    (appt: Appointment) => Promise<void>
-  onComplete?:   (appt: Appointment) => Promise<void>
+  isAdmin?: boolean
+  onClose: () => void
+  onSave: (data: Partial<Appointment> & { customer_id?: string }) => Promise<void>
+  onDelete?: (appt: Appointment) => Promise<void>
+  onConfirm?: (appt: Appointment) => Promise<void>
+  onComplete?: (appt: Appointment) => Promise<void>
 }
 
 function toDateInput(iso?: string | null) {
@@ -48,19 +58,19 @@ export function AppointmentModal({
 }: Props) {
   const isEdit = !!appointment
 
-  const [title,          setTitle]          = useState('')
-  const [description,    setDescription]    = useState('')
-  const [customerId,     setCustomerId]     = useState<string | null>(null)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [customerId, setCustomerId] = useState<string | null>(null)
   const [professionalId, setProfessionalId] = useState<string | null>(null)
-  const [date,           setDate]           = useState('')
-  const [startTime,      setStartTime]      = useState('')
-  const [endTime,        setEndTime]        = useState('')
-  const [location,       setLocation]       = useState('')
-  const [notes,          setNotes]          = useState('')
-  const [showSlots,      setShowSlots]      = useState(false)
-  const [saving,         setSaving]         = useState(false)
-  const [deleting,       setDeleting]       = useState(false)
-  const [error,          setError]          = useState<string | null>(null)
+  const [date, setDate] = useState('')
+  const [startTime, setStartTime] = useState('')
+  const [endTime, setEndTime] = useState('')
+  const [location, setLocation] = useState('')
+  const [notes, setNotes] = useState('')
+  const [showSlots, setShowSlots] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (appointment) {
@@ -75,17 +85,27 @@ export function AppointmentModal({
       setNotes(appointment.notes ?? '')
       setShowSlots(false)
     } else if (defaultStart) {
-      setTitle(''); setDescription(''); setCustomerId(null); setProfessionalId(null)
-      setLocation(''); setNotes('')
+      setTitle('')
+      setDescription('')
+      setCustomerId(null)
+      setProfessionalId(null)
+      setLocation('')
+      setNotes('')
       setDate(toDateInput(defaultStart))
       setStartTime(toTimeInput(defaultStart))
       const endISO = new Date(new Date(defaultStart).getTime() + 60 * 60 * 1000).toISOString()
       setEndTime(toTimeInput(endISO))
       setShowSlots(true)
     } else {
-      setTitle(''); setDescription(''); setCustomerId(null); setProfessionalId(null)
-      setDate(''); setStartTime(''); setEndTime('')
-      setLocation(''); setNotes('')
+      setTitle('')
+      setDescription('')
+      setCustomerId(null)
+      setProfessionalId(null)
+      setDate('')
+      setStartTime('')
+      setEndTime('')
+      setLocation('')
+      setNotes('')
       setShowSlots(false)
     }
     setError(null)
@@ -98,22 +118,31 @@ export function AppointmentModal({
   }
 
   async function handleSave() {
-    if (!title.trim()) { setError('Title is required'); return }
-    if (!date)         { setError('Date is required');  return }
-    if (!startTime || !endTime) { setError('Start and end time are required'); return }
+    if (!title.trim()) {
+      setError('Title is required')
+      return
+    }
+    if (!date) {
+      setError('Date is required')
+      return
+    }
+    if (!startTime || !endTime) {
+      setError('Start and end time are required')
+      return
+    }
 
     setError(null)
     setSaving(true)
     try {
       await onSave({
-        title:       title.trim(),
+        title: title.trim(),
         description: description || null,
         customer_id: customerId ?? undefined,
-        staff_id:    professionalId,
-        starts_at:   buildISO(date, startTime),
-        ends_at:     buildISO(date, endTime),
-        location:    location || null,
-        notes:       notes    || null,
+        staff_id: professionalId,
+        starts_at: buildISO(date, startTime),
+        ends_at: buildISO(date, endTime),
+        location: location || null,
+        notes: notes || null,
       })
       onClose()
     } catch (e: unknown) {
@@ -148,8 +177,8 @@ export function AppointmentModal({
 
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 16 }}
-            animate={{ opacity: 1, scale: 1,    y: 0  }}
-            exit={{    opacity: 0, scale: 0.95, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }}
             transition={{ type: 'spring', stiffness: 320, damping: 28 }}
             className="relative w-full max-w-lg bg-graphite-800 border border-surface-border rounded-2xl shadow-panel-lg overflow-hidden"
           >
@@ -168,7 +197,10 @@ export function AppointmentModal({
                   {isEdit && <StatusBadge status={appointment!.status} />}
                 </div>
               </div>
-              <button onClick={onClose} className="h-8 w-8 rounded-lg bg-graphite-700 hover:bg-graphite-600 flex items-center justify-center transition-colors">
+              <button
+                onClick={onClose}
+                className="h-8 w-8 rounded-lg bg-graphite-700 hover:bg-graphite-600 flex items-center justify-center transition-colors"
+              >
                 <X className="w-4 h-4 text-white/60" />
               </button>
             </div>
@@ -197,13 +229,14 @@ export function AppointmentModal({
               {isAdmin && (
                 <div>
                   <label className="block text-xs font-medium text-white/50 mb-1.5">
-                    <User className="inline w-3 h-3 mr-1" />Professional / Employee
+                    <User className="inline w-3 h-3 mr-1" />
+                    Professional / Employee
                   </label>
                   <ProfessionalSelector
                     value={professionalId}
                     onChange={(id) => {
                       setProfessionalId(id)
-                      setShowSlots(!!date)  // refresh slots when professional changes
+                      setShowSlots(!!date) // refresh slots when professional changes
                     }}
                     placeholder="Any professional"
                   />
@@ -217,10 +250,7 @@ export function AppointmentModal({
                     <label className="text-xs font-medium text-white/50">Customer</label>
                     <span className="text-xs text-white/25 italic">optional</span>
                   </div>
-                  <CustomerSelector
-                    value={customerId}
-                    onChange={(id) => setCustomerId(id)}
-                  />
+                  <CustomerSelector value={customerId} onChange={(id) => setCustomerId(id)} />
                 </div>
               )}
 
@@ -228,19 +258,24 @@ export function AppointmentModal({
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-white/50 mb-1.5">
-                    <CalendarDays className="inline w-3 h-3 mr-1" />Date *
+                    <CalendarDays className="inline w-3 h-3 mr-1" />
+                    Date *
                   </label>
                   <input
                     type="date"
                     value={date}
-                    onChange={(e) => { setDate(e.target.value); setShowSlots(true) }}
+                    onChange={(e) => {
+                      setDate(e.target.value)
+                      setShowSlots(true)
+                    }}
                     style={{ colorScheme: 'dark' }}
                     className="w-full h-10 px-3 bg-graphite-700 border border-surface-border rounded-xl text-sm text-white focus:outline-none focus:border-gold-500/50 transition-colors"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-white/50 mb-1.5">
-                    <Clock className="inline w-3 h-3 mr-1" />Start *
+                    <Clock className="inline w-3 h-3 mr-1" />
+                    Start *
                   </label>
                   <input
                     type="time"
@@ -252,7 +287,8 @@ export function AppointmentModal({
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-white/50 mb-1.5">
-                    <Clock className="inline w-3 h-3 mr-1" />End *
+                    <Clock className="inline w-3 h-3 mr-1" />
+                    End *
                   </label>
                   <input
                     type="time"
@@ -283,7 +319,8 @@ export function AppointmentModal({
               {/* Location */}
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">
-                  <MapPin className="inline w-3 h-3 mr-1" />Location
+                  <MapPin className="inline w-3 h-3 mr-1" />
+                  Location
                 </label>
                 <input
                   type="text"
@@ -296,7 +333,9 @@ export function AppointmentModal({
 
               {/* Description */}
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-1.5">Description</label>
+                <label className="block text-xs font-medium text-white/50 mb-1.5">
+                  Description
+                </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -309,7 +348,8 @@ export function AppointmentModal({
               {/* Notes */}
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">
-                  <FileText className="inline w-3 h-3 mr-1" />Notes
+                  <FileText className="inline w-3 h-3 mr-1" />
+                  Notes
                 </label>
                 <textarea
                   value={notes}
@@ -324,22 +364,32 @@ export function AppointmentModal({
             {/* Footer */}
             <div className="px-6 py-4 border-t border-surface-border flex items-center justify-between gap-3">
               <div className="flex gap-2">
-                {isEdit && appointment && isAdmin && onConfirm && appointment.status === 'pending' && (
-                  <button
-                    onClick={() => onConfirm(appointment)}
-                    className="flex items-center gap-1.5 h-9 px-3 rounded-xl bg-gold-500/10 border border-gold-500/20 text-gold-400 text-xs font-medium hover:bg-gold-500/20 transition-colors"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />Confirm
-                  </button>
-                )}
-                {isEdit && appointment && isAdmin && onComplete && appointment.status === 'confirmed' && (
-                  <button
-                    onClick={() => onComplete(appointment)}
-                    className="flex items-center gap-1.5 h-9 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-colors"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />Complete
-                  </button>
-                )}
+                {isEdit &&
+                  appointment &&
+                  isAdmin &&
+                  onConfirm &&
+                  appointment.status === 'pending' && (
+                    <button
+                      onClick={() => onConfirm(appointment)}
+                      className="flex items-center gap-1.5 h-9 px-3 rounded-xl bg-gold-500/10 border border-gold-500/20 text-gold-400 text-xs font-medium hover:bg-gold-500/20 transition-colors"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      Confirm
+                    </button>
+                  )}
+                {isEdit &&
+                  appointment &&
+                  isAdmin &&
+                  onComplete &&
+                  appointment.status === 'confirmed' && (
+                    <button
+                      onClick={() => onComplete(appointment)}
+                      className="flex items-center gap-1.5 h-9 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-colors"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      Complete
+                    </button>
+                  )}
                 {isEdit && onDelete && (
                   <button
                     onClick={handleDelete}

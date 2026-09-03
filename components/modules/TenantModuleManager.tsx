@@ -9,30 +9,31 @@ import { ModuleList } from '@/components/modules/ModuleList'
 import type { TenantModuleState } from '@/lib/modules/getTenantModules'
 
 interface Tenant {
-  id:         string
-  name:       string
-  slug:       string
-  status:     string
+  id: string
+  name: string
+  slug: string
+  status: string
   created_at: string
 }
 
 interface TenantModuleManagerProps {
-  tenants:         Tenant[]
+  tenants: Tenant[]
   modulesByTenant: Record<string, TenantModuleState[]>
 }
 
 export function TenantModuleManager({ tenants, modulesByTenant }: TenantModuleManagerProps) {
   const [selectedId, setSelectedId] = useState<string>(tenants[0]?.id ?? '')
-  const [search, setSearch]         = useState('')
+  const [search, setSearch] = useState('')
   const [dropdownOpen, setDropdown] = useState(false)
 
-  const filtered = tenants.filter((t) =>
-    t.name.toLowerCase().includes(search.toLowerCase()) ||
-    t.slug.toLowerCase().includes(search.toLowerCase())
+  const filtered = tenants.filter(
+    (t) =>
+      t.name.toLowerCase().includes(search.toLowerCase()) ||
+      t.slug.toLowerCase().includes(search.toLowerCase())
   )
 
-  const selectedTenant  = tenants.find((t) => t.id === selectedId)
-  const selectedModules = selectedId ? modulesByTenant[selectedId] ?? [] : []
+  const selectedTenant = tenants.find((t) => t.id === selectedId)
+  const selectedModules = selectedId ? (modulesByTenant[selectedId] ?? []) : []
 
   return (
     <div className="space-y-6">
@@ -58,9 +59,7 @@ export function TenantModuleManager({ tenants, modulesByTenant }: TenantModuleMa
             >
               <span className="flex items-center gap-2 truncate">
                 <Building2 className="h-4 w-4 text-gold-400 shrink-0" strokeWidth={1.75} />
-                <span className="truncate">
-                  {selectedTenant?.name ?? 'Choose a business…'}
-                </span>
+                <span className="truncate">{selectedTenant?.name ?? 'Choose a business…'}</span>
               </span>
               <ChevronDown
                 className={cn(
@@ -97,7 +96,7 @@ export function TenantModuleManager({ tenants, modulesByTenant }: TenantModuleMa
                           'w-full pl-8 pr-3 py-2 rounded-lg text-xs',
                           'bg-graphite-800 border border-white/8 text-white',
                           'placeholder:text-white/25 focus:outline-none',
-                          'focus:border-gold-500/40 focus:bg-graphite-800',
+                          'focus:border-gold-500/40 focus:bg-graphite-800'
                         )}
                       />
                     </div>
@@ -169,15 +168,11 @@ export function TenantModuleManager({ tenants, modulesByTenant }: TenantModuleMa
           >
             <div className="mb-4">
               <p className="text-xs font-semibold text-white/20 uppercase tracking-widest">
-                Modules for{' '}
-                <span className="text-white/40">{selectedTenant?.name}</span>
+                Modules for <span className="text-white/40">{selectedTenant?.name}</span>
               </p>
             </div>
 
-            <ModuleList
-              tenantId={selectedId}
-              modules={selectedModules}
-            />
+            <ModuleList tenantId={selectedId} modules={selectedModules} />
           </motion.div>
         )}
       </AnimatePresence>

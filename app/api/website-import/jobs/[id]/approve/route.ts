@@ -12,19 +12,16 @@ function forbidden() {
 
 const approveSchema = z.object({
   result_ids: z.array(z.string().uuid()).min(1).max(100),
-  approved:   z.boolean(),
+  approved: z.boolean(),
   // Optional: owner can edit the value before approving
-  overrides:  z.record(z.string(), z.unknown()).optional(),
+  overrides: z.record(z.string(), z.unknown()).optional(),
 })
 
 // ── POST /api/website-import/jobs/[id]/approve ────────────────────────────────
 // Approve or reject a set of import result rows.
 // Optionally override the result_value for a given result_id.
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getUserContext()
   if (!ctx || ctx.role !== 'owner') return forbidden()
 
@@ -33,12 +30,15 @@ export async function POST(
 
   const parsed = approveSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 422 })
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsed.error.flatten() },
+      { status: 422 }
+    )
   }
 
   const { result_ids, approved, overrides } = parsed.data
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = getSupabaseServerClient() as any
+  const db = getSupabaseServerClient() as any
   const jobId = (await params).id
 
   // Verify job exists
@@ -73,9 +73,9 @@ const db = getSupabaseServerClient() as any
   // Audit
   await db.from('website_import_audit').insert({
     tenant_id: job.tenant_id,
-    job_id:    jobId,
-    action:    approved ? 'results_approved' : 'results_rejected',
-    metadata:  { result_ids, count: result_ids.length },
+    job_id: jobId,
+    action: approved ? 'results_approved' : 'results_rejected',
+    metadata: { result_ids, count: result_ids.length },
   })
 
   return NextResponse.json({ success: true, updated: result_ids.length })

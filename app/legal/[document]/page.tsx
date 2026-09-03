@@ -1,9 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import {
-  LEGAL_DOCUMENT_ORDER,
-  getLegalDocument,
-} from '@/lib/legal/policies'
+import { LEGAL_DOCUMENT_ORDER, getLegalDocument } from '@/lib/legal/policies'
 
 interface Props {
   params: Promise<{ document: string }>
@@ -36,9 +33,7 @@ export default async function LegalDocumentPage({ params }: Props) {
         <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-5xl">
           {document.title}
         </h1>
-        <p className="mt-5 max-w-2xl text-base leading-7 text-white/55">
-          {document.description}
-        </p>
+        <p className="mt-5 max-w-2xl text-base leading-7 text-white/55">{document.description}</p>
         <dl className="mt-7 flex flex-wrap gap-x-8 gap-y-3 text-xs">
           <div>
             <dt className="text-white/30">Effective date</dt>
@@ -71,7 +66,10 @@ export default async function LegalDocumentPage({ params }: Props) {
             {section.items && (
               <ul className="mt-4 space-y-3 pl-5">
                 {section.items.map((item) => (
-                  <li key={item} className="list-disc pl-1 text-sm leading-7 text-white/58 marker:text-gold-400/65">
+                  <li
+                    key={item}
+                    className="list-disc pl-1 text-sm leading-7 text-white/58 marker:text-gold-400/65"
+                  >
                     {item}
                   </li>
                 ))}

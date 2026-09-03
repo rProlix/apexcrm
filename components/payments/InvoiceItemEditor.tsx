@@ -3,17 +3,17 @@
 import { Plus, Trash2 } from 'lucide-react'
 
 export interface InvoiceItem {
-  id?:          string
-  name:         string
+  id?: string
+  name: string
   description?: string
-  quantity:     number
-  unit_price:   number
+  quantity: number
+  unit_price: number
   source_type?: string
 }
 
 interface Props {
-  items:     InvoiceItem[]
-  onChange:  (items: InvoiceItem[]) => void
+  items: InvoiceItem[]
+  onChange: (items: InvoiceItem[]) => void
   currency?: string
 }
 
@@ -27,9 +27,7 @@ export function InvoiceItemEditor({ items, onChange, currency = 'USD' }: Props) 
   }
 
   function update(idx: number, field: keyof InvoiceItem, value: string | number) {
-    const next = items.map((item, i) =>
-      i === idx ? { ...item, [field]: value } : item
-    )
+    const next = items.map((item, i) => (i === idx ? { ...item, [field]: value } : item))
     onChange(next)
   }
 
@@ -74,7 +72,9 @@ export function InvoiceItemEditor({ items, onChange, currency = 'USD' }: Props) 
                 type="number"
                 min="1"
                 value={item.quantity}
-                onChange={(e) => update(idx, 'quantity', Math.max(1, parseInt(e.target.value) || 1))}
+                onChange={(e) =>
+                  update(idx, 'quantity', Math.max(1, parseInt(e.target.value) || 1))
+                }
                 className="store-input w-full text-sm text-center"
               />
             </div>
@@ -91,7 +91,9 @@ export function InvoiceItemEditor({ items, onChange, currency = 'USD' }: Props) 
                   min="0"
                   step="0.01"
                   value={item.unit_price}
-                  onChange={(e) => update(idx, 'unit_price', Math.max(0, parseFloat(e.target.value) || 0))}
+                  onChange={(e) =>
+                    update(idx, 'unit_price', Math.max(0, parseFloat(e.target.value) || 0))
+                  }
                   className="store-input w-full text-sm pl-12 text-right"
                 />
               </div>

@@ -5,12 +5,12 @@ import type { SiteByHostResult, SiteSettings } from './types'
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nexoranow.com'
 
 interface TenantRow {
-  id:            string
-  name:          string
-  slug:          string
-  subdomain:     string | null
+  id: string
+  name: string
+  slug: string
+  subdomain: string | null
   custom_domain: string | null
-  status:        string
+  status: string
 }
 
 /**
@@ -30,7 +30,10 @@ export async function getSiteByHost(host: string): Promise<SiteByHostResult | nu
   try {
     db = getSupabaseServerClient()
   } catch (err) {
-    console.error('[getSiteByHost] Supabase client init failed:', err instanceof Error ? err.message : err)
+    console.error(
+      '[getSiteByHost] Supabase client init failed:',
+      err instanceof Error ? err.message : err
+    )
     return null
   }
 
@@ -106,7 +109,12 @@ export async function getSiteByHost(host: string): Promise<SiteByHostResult | nu
       }
     }
   } catch (err) {
-    console.error('[getSiteByHost] unexpected error for host', host, ':', err instanceof Error ? err.message : err)
+    console.error(
+      '[getSiteByHost] unexpected error for host',
+      host,
+      ':',
+      err instanceof Error ? err.message : err
+    )
   }
 
   return null
@@ -121,7 +129,10 @@ export async function getSiteBySlug(slug: string): Promise<SiteByHostResult | nu
   try {
     db = getSupabaseServerClient()
   } catch (err) {
-    console.error('[getSiteBySlug] Supabase client init failed:', err instanceof Error ? err.message : err)
+    console.error(
+      '[getSiteBySlug] Supabase client init failed:',
+      err instanceof Error ? err.message : err
+    )
     return null
   }
 
@@ -143,7 +154,12 @@ export async function getSiteBySlug(slug: string): Promise<SiteByHostResult | nu
     const settings = await fetchSiteSettings(db, tenant.id)
     return buildResult(tenant as TenantRow, settings)
   } catch (err) {
-    console.error('[getSiteBySlug] unexpected error for slug', slug, ':', err instanceof Error ? err.message : err)
+    console.error(
+      '[getSiteBySlug] unexpected error for slug',
+      slug,
+      ':',
+      err instanceof Error ? err.message : err
+    )
     return null
   }
 }
@@ -153,10 +169,10 @@ export async function getSiteBySlug(slug: string): Promise<SiteByHostResult | nu
 function buildResult(tenant: TenantRow, settings: SiteSettings | null): SiteByHostResult {
   return {
     tenant: {
-      id:            tenant.id,
-      name:          tenant.name,
-      slug:          tenant.slug,
-      subdomain:     tenant.subdomain,
+      id: tenant.id,
+      name: tenant.name,
+      slug: tenant.slug,
+      subdomain: tenant.subdomain,
       custom_domain: tenant.custom_domain,
     },
     settings,
@@ -166,7 +182,7 @@ function buildResult(tenant: TenantRow, settings: SiteSettings | null): SiteByHo
 
 async function fetchTenant(
   db: ReturnType<typeof getSupabaseServerClient>,
-  tenantId: string,
+  tenantId: string
 ): Promise<TenantRow | null> {
   try {
     const { data, error } = await db
@@ -176,7 +192,7 @@ async function fetchTenant(
       .eq('status', 'active')
       .maybeSingle()
     if (error) console.error('[fetchTenant] error for id', tenantId, ':', error.message)
-    return (data as TenantRow | null)
+    return data as TenantRow | null
   } catch (err) {
     console.error('[fetchTenant] unexpected error:', err instanceof Error ? err.message : err)
     return null
@@ -185,7 +201,7 @@ async function fetchTenant(
 
 async function fetchSiteSettings(
   db: ReturnType<typeof getSupabaseServerClient>,
-  tenantId: string,
+  tenantId: string
 ): Promise<SiteSettings | null> {
   try {
     const { data, error } = await db
@@ -194,7 +210,7 @@ async function fetchSiteSettings(
       .eq('tenant_id', tenantId)
       .maybeSingle()
     if (error) console.error('[fetchSiteSettings] error for tenant', tenantId, ':', error.message)
-    return (data as unknown as SiteSettings | null)
+    return data as unknown as SiteSettings | null
   } catch (err) {
     console.error('[fetchSiteSettings] unexpected error:', err instanceof Error ? err.message : err)
     return null

@@ -3,30 +3,41 @@
 // Modal for sending a customer portal invite from the CRM.
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { X, Mail, User, Phone, Clock, Send, Copy, CheckCheck, AlertCircle, RefreshCw } from 'lucide-react'
+import {
+  X,
+  Mail,
+  User,
+  Phone,
+  Clock,
+  Send,
+  Copy,
+  CheckCheck,
+  AlertCircle,
+  RefreshCw,
+} from 'lucide-react'
 
 interface Props {
-  tenantId:    string
+  tenantId: string
   customerId?: string
   customerEmail?: string
-  customerName?:  string
+  customerName?: string
   customerPhone?: string
-  onClose:     () => void
-  onSuccess?:  (invite: InviteResult) => void
+  onClose: () => void
+  onSuccess?: (invite: InviteResult) => void
 }
 
 interface InviteResult {
-  id:        string
-  email:     string
-  status:    string
+  id: string
+  email: string
+  status: string
   expiresAt: string
   inviteUrl: string
 }
 
 const EXPIRY_OPTIONS = [
-  { label: '1 day',   value: 1  },
-  { label: '3 days',  value: 3  },
-  { label: '7 days',  value: 7  },
+  { label: '1 day', value: 1 },
+  { label: '3 days', value: 3 },
+  { label: '7 days', value: 7 },
   { label: '14 days', value: 14 },
 ]
 
@@ -34,24 +45,24 @@ export function InviteCustomerModal({
   tenantId: _tenantId,
   customerId,
   customerEmail = '',
-  customerName  = '',
+  customerName = '',
   customerPhone = '',
   onClose,
   onSuccess,
 }: Props) {
-  const [email,     setEmail]     = useState(customerEmail)
-  const [fullName,  setFullName]  = useState(customerName)
-  const [phone,     setPhone]     = useState(customerPhone)
+  const [email, setEmail] = useState(customerEmail)
+  const [fullName, setFullName] = useState(customerName)
+  const [phone, setPhone] = useState(customerPhone)
   const [expiresIn, setExpiresIn] = useState(7)
   const [sendEmail, setSendEmail] = useState(true)
 
-  const [loading,      setLoading]      = useState(false)
-  const [result,       setResult]       = useState<InviteResult | null>(null)
-  const [error,        setError]        = useState<string | null>(null)
-  const [copied,       setCopied]       = useState(false)
-  const [emailSent,    setEmailSent]    = useState<boolean | null>(null)
-  const [emailError,   setEmailError]   = useState<string | null>(null)
-  const [retrying,     setRetrying]     = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<InviteResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [emailSent, setEmailSent] = useState<boolean | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [retrying, setRetrying] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -59,43 +70,49 @@ export function InviteCustomerModal({
     inputRef.current?.focus()
   }, [])
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email.trim()) { setError('Email is required.'); return }
-    setLoading(true)
-    setError(null)
-
-    try {
-      const res  = await fetch('/api/customers/invites', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          email:          email.trim(),
-          fullName:       fullName.trim() || undefined,
-          phone:          phone.trim() || undefined,
-          customerId:     customerId || undefined,
-          expiresInDays:  expiresIn,
-          sendEmail,
-        }),
-      })
-
-      const data = await res.json()
-
-      if (!data.ok) {
-        setError(data.error ?? 'Failed to send invite. Please try again.')
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!email.trim()) {
+        setError('Email is required.')
         return
       }
+      setLoading(true)
+      setError(null)
 
-      setResult(data.invite)
-      setEmailSent(data.emailSent)
-      setEmailError(data.emailError ?? null)
-      onSuccess?.(data.invite)
-    } catch {
-      setError('Network error. Please check your connection and try again.')
-    } finally {
-      setLoading(false)
-    }
-  }, [email, fullName, phone, customerId, expiresIn, sendEmail, onSuccess])
+      try {
+        const res = await fetch('/api/customers/invites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email.trim(),
+            fullName: fullName.trim() || undefined,
+            phone: phone.trim() || undefined,
+            customerId: customerId || undefined,
+            expiresInDays: expiresIn,
+            sendEmail,
+          }),
+        })
+
+        const data = await res.json()
+
+        if (!data.ok) {
+          setError(data.error ?? 'Failed to send invite. Please try again.')
+          return
+        }
+
+        setResult(data.invite)
+        setEmailSent(data.emailSent)
+        setEmailError(data.emailError ?? null)
+        onSuccess?.(data.invite)
+      } catch {
+        setError('Network error. Please check your connection and try again.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [email, fullName, phone, customerId, expiresIn, sendEmail, onSuccess]
+  )
 
   const copyLink = useCallback(() => {
     if (!result?.inviteUrl) return
@@ -111,7 +128,7 @@ export function InviteCustomerModal({
     setRetrying(true)
     setEmailError(null)
     try {
-      const res  = await fetch(`/api/customers/invites/${result.id}/resend`, { method: 'POST' })
+      const res = await fetch(`/api/customers/invites/${result.id}/resend`, { method: 'POST' })
       const data = await res.json()
       if (data.ok && data.emailSent) {
         setEmailSent(true)
@@ -127,9 +144,12 @@ export function InviteCustomerModal({
   }, [result])
 
   // Trap focus on modal
-  const handleBackdropClick = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose()
-  }, [onClose])
+  const handleBackdropClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.target === e.currentTarget) onClose()
+    },
+    [onClose]
+  )
 
   return (
     <div
@@ -194,10 +214,15 @@ export function InviteCustomerModal({
                     disabled={retrying}
                     className="w-full flex items-center justify-center gap-2 h-8 rounded-lg text-xs font-semibold bg-amber-400/15 border border-amber-400/25 text-amber-300 hover:bg-amber-400/20 disabled:opacity-50 transition-colors"
                   >
-                    {retrying
-                      ? <><RefreshCw className="w-3 h-3 animate-spin" /> Retrying…</>
-                      : <><RefreshCw className="w-3 h-3" /> Retry sending email</>
-                    }
+                    {retrying ? (
+                      <>
+                        <RefreshCw className="w-3 h-3 animate-spin" /> Retrying…
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3 h-3" /> Retry sending email
+                      </>
+                    )}
                   </button>
                 </div>
               )}
@@ -223,10 +248,15 @@ export function InviteCustomerModal({
                   onClick={copyLink}
                   className="w-full flex items-center justify-center gap-2 h-9 rounded-xl text-xs font-semibold border border-white/10 text-white/70 hover:text-white hover:bg-white/8 transition-colors"
                 >
-                  {copied
-                    ? <><CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> Copied!</>
-                    : <><Copy className="w-3.5 h-3.5" /> Copy invite link</>
-                  }
+                  {copied ? (
+                    <>
+                      <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" /> Copy invite link
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -249,7 +279,10 @@ export function InviteCustomerModal({
 
               {/* Email */}
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-1.5" htmlFor="invite-email">
+                <label
+                  className="block text-xs font-medium text-white/50 mb-1.5"
+                  htmlFor="invite-email"
+                >
                   Email address <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
@@ -259,7 +292,7 @@ export function InviteCustomerModal({
                     ref={inputRef}
                     type="email"
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                     disabled={!!customerEmail}
                     placeholder="customer@example.com"
@@ -270,7 +303,10 @@ export function InviteCustomerModal({
 
               {/* Full name */}
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-1.5" htmlFor="invite-name">
+                <label
+                  className="block text-xs font-medium text-white/50 mb-1.5"
+                  htmlFor="invite-name"
+                >
                   Full name <span className="text-white/30">(optional)</span>
                 </label>
                 <div className="relative">
@@ -279,7 +315,7 @@ export function InviteCustomerModal({
                     id="invite-name"
                     type="text"
                     value={fullName}
-                    onChange={e => setFullName(e.target.value)}
+                    onChange={(e) => setFullName(e.target.value)}
                     placeholder="Jane Smith"
                     className="w-full h-10 pl-9 pr-3 rounded-xl bg-white/4 border border-white/10 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-gold-500/50"
                   />
@@ -288,7 +324,10 @@ export function InviteCustomerModal({
 
               {/* Phone */}
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-1.5" htmlFor="invite-phone">
+                <label
+                  className="block text-xs font-medium text-white/50 mb-1.5"
+                  htmlFor="invite-phone"
+                >
                   Phone <span className="text-white/30">(optional)</span>
                 </label>
                 <div className="relative">
@@ -297,7 +336,7 @@ export function InviteCustomerModal({
                     id="invite-phone"
                     type="tel"
                     value={phone}
-                    onChange={e => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(e.target.value)}
                     placeholder="+1 (555) 000-0000"
                     className="w-full h-10 pl-9 pr-3 rounded-xl bg-white/4 border border-white/10 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-gold-500/50"
                   />
@@ -311,7 +350,7 @@ export function InviteCustomerModal({
                   Link expires in
                 </label>
                 <div className="grid grid-cols-4 gap-2">
-                  {EXPIRY_OPTIONS.map(opt => (
+                  {EXPIRY_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
@@ -332,13 +371,15 @@ export function InviteCustomerModal({
               <label className="flex items-center gap-3 cursor-pointer">
                 <div
                   className={`relative h-5 w-9 rounded-full transition-colors ${sendEmail ? 'bg-gold-500' : 'bg-white/10'}`}
-                  onClick={() => setSendEmail(v => !v)}
+                  onClick={() => setSendEmail((v) => !v)}
                   role="checkbox"
                   aria-checked={sendEmail}
                   tabIndex={0}
-                  onKeyDown={e => e.key === ' ' && setSendEmail(v => !v)}
+                  onKeyDown={(e) => e.key === ' ' && setSendEmail((v) => !v)}
                 >
-                  <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${sendEmail ? 'left-4' : 'left-0.5'}`} />
+                  <div
+                    className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${sendEmail ? 'left-4' : 'left-0.5'}`}
+                  />
                 </div>
                 <span className="text-xs text-white/60">Send invite email</span>
               </label>

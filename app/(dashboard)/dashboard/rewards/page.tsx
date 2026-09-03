@@ -40,10 +40,12 @@ export default async function RewardsDashboardPage() {
       .limit(10),
   ])
 
-  const balances  = (balancesRes.data ?? []) as Array<{
-    points_balance: number; lifetime_points_earned: number; lifetime_points_redeemed: number
+  const balances = (balancesRes.data ?? []) as Array<{
+    points_balance: number
+    lifetime_points_earned: number
+    lifetime_points_redeemed: number
   }>
-  const totalIssued   = balances.reduce((s, r) => s + (r.lifetime_points_earned ?? 0), 0)
+  const totalIssued = balances.reduce((s, r) => s + (r.lifetime_points_earned ?? 0), 0)
   const totalRedeemed = balances.reduce((s, r) => s + (r.lifetime_points_redeemed ?? 0), 0)
 
   return (
@@ -51,10 +53,10 @@ export default async function RewardsDashboardPage() {
       tenantId={tenantId}
       program={program}
       stats={{
-        members:        balances.length,
+        members: balances.length,
         totalIssued,
         totalRedeemed,
-        shopItems:      shopRes.count ?? 0,
+        shopItems: shopRes.count ?? 0,
         activePunchCards: punchRes.count ?? 0,
       }}
       recentTransactions={(txnRes.data ?? []) as any}

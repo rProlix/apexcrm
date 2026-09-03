@@ -4,22 +4,38 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Plus, Trash2, Eye, EyeOff, GripVertical, X, Check, AlertTriangle, ChevronDown, ChevronUp,
-  Film, Upload,
+  Plus,
+  Trash2,
+  Eye,
+  EyeOff,
+  GripVertical,
+  X,
+  Check,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Film,
+  Upload,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { SECTION_TYPE_META, type SectionType } from '@/lib/website/types'
 
 interface SiteSection {
-  id: string; tenant_id: string; page_id: string
-  section_type: SectionType; section_key: string | null
-  content: Record<string, unknown>; sort_order: number
-  is_visible: boolean; created_at: string; updated_at: string
+  id: string
+  tenant_id: string
+  page_id: string
+  section_type: SectionType
+  section_key: string | null
+  content: Record<string, unknown>
+  sort_order: number
+  is_visible: boolean
+  created_at: string
+  updated_at: string
 }
 
 interface Props {
-  pageId:   string
+  pageId: string
   tenantId: string
 }
 
@@ -32,13 +48,13 @@ const SECTION_OPTIONS = Object.values(SECTION_TYPE_META)
   })
 
 export function SectionsPanel({ pageId, tenantId: _tenantId }: Props) {
-  const [sections,      setSections]      = useState<SiteSection[]>([])
-  const [loading,       setLoading]       = useState(true)
-  const [showPicker,    setShowPicker]    = useState(false)
-  const [addingType,    setAddingType]    = useState<SectionType | null>(null)
+  const [sections, setSections] = useState<SiteSection[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showPicker, setShowPicker] = useState(false)
+  const [addingType, setAddingType] = useState<SectionType | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-  const [deleting,      setDeleting]      = useState<string | null>(null)
-  const [editingId,     setEditingId]     = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`/api/website/sections?page_id=${pageId}`)
@@ -53,14 +69,14 @@ export function SectionsPanel({ pageId, tenantId: _tenantId }: Props) {
     const meta = SECTION_TYPE_META[type]
     try {
       const res = await fetch('/api/website/sections', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          page_id:      pageId,
+        body: JSON.stringify({
+          page_id: pageId,
           section_type: type,
-          content:      meta.defaultContent,
-          sort_order:   sections.length,
-          is_visible:   true,
+          content: meta.defaultContent,
+          sort_order: sections.length,
+          is_visible: true,
         }),
       })
       const json = await res.json()
@@ -75,13 +91,13 @@ export function SectionsPanel({ pageId, tenantId: _tenantId }: Props) {
 
   async function toggleVisibility(section: SiteSection) {
     const res = await fetch(`/api/website/sections/${section.id}`, {
-      method:  'PATCH',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ is_visible: !section.is_visible }),
+      body: JSON.stringify({ is_visible: !section.is_visible }),
     })
     if (res.ok) {
       const { section: updated } = await res.json()
-      setSections((prev) => prev.map((s) => s.id === updated.id ? updated : s))
+      setSections((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
     }
   }
 
@@ -115,18 +131,16 @@ export function SectionsPanel({ pageId, tenantId: _tenantId }: Props) {
         .filter((s, i) => s.sort_order !== sections[i]?.sort_order)
         .map((s) =>
           fetch(`/api/website/sections/${s.id}`, {
-            method:  'PATCH',
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ sort_order: s.sort_order }),
+            body: JSON.stringify({ sort_order: s.sort_order }),
           })
         )
     )
   }
 
   if (loading) {
-    return (
-      <div className="py-6 text-center text-sm text-white/30">Loading sections…</div>
-    )
+    return <div className="py-6 text-center text-sm text-white/30">Loading sections…</div>
   }
 
   return (
@@ -159,9 +173,7 @@ export function SectionsPanel({ pageId, tenantId: _tenantId }: Props) {
                 <p className="text-xs font-semibold text-white/70">
                   {SECTION_TYPE_META[section.section_type]?.label ?? section.section_type}
                 </p>
-                {!section.is_visible && (
-                  <p className="text-2xs text-white/25">Hidden</p>
-                )}
+                {!section.is_visible && <p className="text-2xs text-white/25">Hidden</p>}
               </div>
 
               {/* Reorder */}
@@ -188,10 +200,11 @@ export function SectionsPanel({ pageId, tenantId: _tenantId }: Props) {
                 className="h-6 w-6 rounded-md text-white/25 hover:text-white/60 hover:bg-white/8 transition-colors flex items-center justify-center"
                 title={section.is_visible ? 'Hide section' : 'Show section'}
               >
-                {section.is_visible
-                  ? <Eye className="h-3.5 w-3.5" />
-                  : <EyeOff className="h-3.5 w-3.5" />
-                }
+                {section.is_visible ? (
+                  <Eye className="h-3.5 w-3.5" />
+                ) : (
+                  <EyeOff className="h-3.5 w-3.5" />
+                )}
               </button>
 
               {/* Edit */}
@@ -247,9 +260,12 @@ export function SectionsPanel({ pageId, tenantId: _tenantId }: Props) {
                   transition={{ duration: 0.18 }}
                   className="overflow-hidden border-t border-surface-border"
                 >
-                  <SectionContentEditor section={section} onUpdate={(updated) => {
-                    setSections((prev) => prev.map((s) => s.id === updated.id ? updated : s))
-                  }} />
+                  <SectionContentEditor
+                    section={section}
+                    onUpdate={(updated) => {
+                      setSections((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
+                    }}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -267,8 +283,13 @@ export function SectionsPanel({ pageId, tenantId: _tenantId }: Props) {
             className="rounded-xl border border-gold-500/20 bg-graphite-900/80 p-4"
           >
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">Add Section</p>
-              <button onClick={() => setShowPicker(false)} className="text-white/30 hover:text-white transition-colors">
+              <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">
+                Add Section
+              </p>
+              <button
+                onClick={() => setShowPicker(false)}
+                className="text-white/30 hover:text-white transition-colors"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -283,7 +304,9 @@ export function SectionsPanel({ pageId, tenantId: _tenantId }: Props) {
                   <p className="text-xs font-semibold text-white">
                     {addingType === opt.value ? 'Adding…' : opt.label}
                   </p>
-                  <p className="text-2xs text-white/30 leading-snug mt-0.5 line-clamp-1">{opt.description}</p>
+                  <p className="text-2xs text-white/30 leading-snug mt-0.5 line-clamp-1">
+                    {opt.description}
+                  </p>
                 </button>
               ))}
             </div>
@@ -307,16 +330,19 @@ export function SectionsPanel({ pageId, tenantId: _tenantId }: Props) {
 // ── Inline Section Content Editor ─────────────────────────────────────────────
 
 interface EditorProps {
-  section:  SiteSection
+  section: SiteSection
   onUpdate: (updated: SiteSection) => void
 }
 
 function SectionContentEditor({ section, onUpdate }: EditorProps) {
-  const [content, setContent] = useState<Record<string, unknown>>(section.content as Record<string, unknown>)
-  const [saving,  setSaving]  = useState(false)
-  const [saved,   setSaved]   = useState(false)
+  const [content, setContent] = useState<Record<string, unknown>>(
+    section.content as Record<string, unknown>
+  )
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
 
-  const input = 'w-full bg-graphite-800 border border-surface-border rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-gold-500/40 transition-colors'
+  const input =
+    'w-full bg-graphite-800 border border-surface-border rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-gold-500/40 transition-colors'
   const label = 'block text-2xs font-semibold text-white/40 uppercase tracking-wider mb-1'
 
   function set(key: string, value: unknown) {
@@ -328,9 +354,9 @@ function SectionContentEditor({ section, onUpdate }: EditorProps) {
     setSaving(true)
     try {
       const res = await fetch(`/api/website/sections/${section.id}`, {
-        method:  'PATCH',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ content }),
+        body: JSON.stringify({ content }),
       })
       if (res.ok) {
         const { section: updated } = await res.json()
@@ -414,43 +440,58 @@ function SectionContentEditor({ section, onUpdate }: EditorProps) {
   )
 }
 
-interface FieldDef { key: string; label: string; type?: string; placeholder?: string }
+interface FieldDef {
+  key: string
+  label: string
+  type?: string
+  placeholder?: string
+}
 
 function buildFieldsForType(type: SectionType, _content: Record<string, unknown>): FieldDef[] {
   const fieldMap: Partial<Record<SectionType, FieldDef[]>> = {
     hero: [
-      { key: 'headline',    label: 'Headline',    placeholder: 'Welcome to our store' },
-      { key: 'subheadline', label: 'Subheadline', type: 'textarea', placeholder: 'Discover premium products…' },
-      { key: 'ctaLabel',    label: 'CTA Button Label',  placeholder: 'Shop Now' },
-      { key: 'ctaHref',     label: 'CTA Button Link',   placeholder: '/shop' },
+      { key: 'headline', label: 'Headline', placeholder: 'Welcome to our store' },
+      {
+        key: 'subheadline',
+        label: 'Subheadline',
+        type: 'textarea',
+        placeholder: 'Discover premium products…',
+      },
+      { key: 'ctaLabel', label: 'CTA Button Label', placeholder: 'Shop Now' },
+      { key: 'ctaHref', label: 'CTA Button Link', placeholder: '/shop' },
       { key: 'backgroundImage', label: 'Background Image URL', placeholder: 'https://…' },
-      { key: 'overlay',     label: 'Overlay', type: 'checkbox', placeholder: 'Enable dark overlay' },
+      { key: 'overlay', label: 'Overlay', type: 'checkbox', placeholder: 'Enable dark overlay' },
     ],
     feature_grid: [
       { key: 'headline', label: 'Headline', placeholder: 'Why Choose Us' },
       { key: 'subtitle', label: 'Subtitle', type: 'textarea', placeholder: 'Optional subtitle…' },
     ],
     cta: [
-      { key: 'headline', label: 'Headline',   placeholder: 'Ready to Get Started?' },
-      { key: 'body',     label: 'Body Text',  type: 'textarea', placeholder: 'Optional body text…' },
+      { key: 'headline', label: 'Headline', placeholder: 'Ready to Get Started?' },
+      { key: 'body', label: 'Body Text', type: 'textarea', placeholder: 'Optional body text…' },
       { key: 'ctaLabel', label: 'Button Label', placeholder: 'Get Started' },
-      { key: 'ctaHref',  label: 'Button Link',  placeholder: '/shop' },
+      { key: 'ctaHref', label: 'Button Link', placeholder: '/shop' },
     ],
     contact: [
       { key: 'headline', label: 'Headline', placeholder: 'Get In Touch' },
-      { key: 'body',     label: 'Body',     type: 'textarea', placeholder: 'Optional message…' },
-      { key: 'email',    label: 'Email',    placeholder: 'hello@business.com' },
-      { key: 'phone',    label: 'Phone',    placeholder: '+1 555 000 0000' },
-      { key: 'address',  label: 'Address',  placeholder: '123 Main St, City' },
+      { key: 'body', label: 'Body', type: 'textarea', placeholder: 'Optional message…' },
+      { key: 'email', label: 'Email', placeholder: 'hello@business.com' },
+      { key: 'phone', label: 'Phone', placeholder: '+1 555 000 0000' },
+      { key: 'address', label: 'Address', placeholder: '123 Main St, City' },
       { key: 'showForm', label: 'Show Form', type: 'checkbox', placeholder: 'Enable contact form' },
     ],
     rich_text: [
-      { key: 'html', label: 'HTML Content', type: 'textarea', placeholder: '<p>Your content here</p>' },
+      {
+        key: 'html',
+        label: 'HTML Content',
+        type: 'textarea',
+        placeholder: '<p>Your content here</p>',
+      },
     ],
     banner: [
-      { key: 'text',     label: 'Banner Text', placeholder: 'Free shipping on orders over $50!' },
+      { key: 'text', label: 'Banner Text', placeholder: 'Free shipping on orders over $50!' },
       { key: 'ctaLabel', label: 'CTA Label (optional)', placeholder: 'Shop Now' },
-      { key: 'ctaHref',  label: 'CTA Link (optional)',  placeholder: '/shop' },
+      { key: 'ctaHref', label: 'CTA Link (optional)', placeholder: '/shop' },
     ],
     testimonials: [
       { key: 'headline', label: 'Section Headline', placeholder: 'What Our Customers Say' },
@@ -460,13 +501,13 @@ function buildFieldsForType(type: SectionType, _content: Record<string, unknown>
     ],
     about: [
       { key: 'headline', label: 'Headline', placeholder: 'About Us' },
-      { key: 'body',     label: 'Body',     type: 'textarea', placeholder: 'Tell your story…' },
-      { key: 'image',    label: 'Image URL', placeholder: 'https://…' },
+      { key: 'body', label: 'Body', type: 'textarea', placeholder: 'Tell your story…' },
+      { key: 'image', label: 'Image URL', placeholder: 'https://…' },
     ],
     product_grid: [
       { key: 'headline', label: 'Section Headline', placeholder: 'Featured Products' },
       { key: 'subtitle', label: 'Subtitle', placeholder: 'Optional subtitle' },
-      { key: 'allHref',  label: 'View All Link', placeholder: '/shop' },
+      { key: 'allHref', label: 'View All Link', placeholder: '/shop' },
     ],
     scroll_experience: [
       { key: 'heading', label: 'Heading', placeholder: 'Your story, paced by every scroll' },
@@ -476,7 +517,5 @@ function buildFieldsForType(type: SectionType, _content: Record<string, unknown>
     ],
   }
 
-  return fieldMap[type] ?? [
-    { key: 'headline', label: 'Headline', placeholder: 'Enter headline…' },
-  ]
+  return fieldMap[type] ?? [{ key: 'headline', label: 'Headline', placeholder: 'Enter headline…' }]
 }

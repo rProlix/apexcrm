@@ -18,8 +18,8 @@
 //
 // SERVER-ONLY. Never import from client components.
 
-import { callGeminiMultimodal }    from '@/lib/ai/geminiRequest'
-import { safeParseGeminiJson }     from '@/lib/ai/parseGeminiJson'
+import { callGeminiMultimodal } from '@/lib/ai/geminiRequest'
+import { safeParseGeminiJson } from '@/lib/ai/parseGeminiJson'
 import type { MasterFrameAnalysisEmbed } from './buildLockedFramePrompt'
 
 // ─── Prompt ───────────────────────────────────────────────────────────────────
@@ -63,8 +63,8 @@ Rules:
  */
 export async function analyzeMasterFrame(
   masterBase64: string,
-  mimeType:     string = 'image/png',
-  model?:       string,
+  mimeType: string = 'image/png',
+  model?: string
 ): Promise<MasterFrameAnalysisEmbed | null> {
   const apiKey = process.env.GEMINI_API_KEY?.trim()
   if (!apiKey) {
@@ -84,18 +84,17 @@ export async function analyzeMasterFrame(
     'gemini-2.5-flash-lite'
   ).trim()
 
-  console.info(`[P360] masterFrameAnalyzer:start model="${analysisModel}" imageSize=${masterBase64.length}`)
+  console.info(
+    `[P360] masterFrameAnalyzer:start model="${analysisModel}" imageSize=${masterBase64.length}`
+  )
 
   try {
     const result = await callGeminiMultimodal({
-      model:       analysisModel,
-      feature:     'p360-master-analysis',
-      temperature: 0.05,    // very low temperature for deterministic extraction
-      timeoutMs:   45_000,
-      parts: [
-        { inlineData: { mimeType, data: masterBase64 } },
-        { text: ANALYSIS_PROMPT },
-      ],
+      model: analysisModel,
+      feature: 'p360-master-analysis',
+      temperature: 0.05, // very low temperature for deterministic extraction
+      timeoutMs: 45_000,
+      parts: [{ inlineData: { mimeType, data: masterBase64 } }, { text: ANALYSIS_PROMPT }],
     })
 
     if (result.error || !result.text) {
@@ -103,7 +102,9 @@ export async function analyzeMasterFrame(
       return null
     }
 
-    const { data, error: parseError } = safeParseGeminiJson<Partial<MasterFrameAnalysisEmbed>>(result.text)
+    const { data, error: parseError } = safeParseGeminiJson<Partial<MasterFrameAnalysisEmbed>>(
+      result.text
+    )
 
     if (parseError || !data) {
       console.warn(`[P360] masterFrameAnalyzer: JSON parse error — ${parseError}`)
@@ -111,30 +112,30 @@ export async function analyzeMasterFrame(
     }
 
     const safe = (v: unknown, fb: string): string =>
-      (typeof v === 'string' && v.trim().length > 0) ? v.trim() : fb
+      typeof v === 'string' && v.trim().length > 0 ? v.trim() : fb
 
     const analysis: MasterFrameAnalysisEmbed = {
-      vesselExact:      safe(data.vesselExact,      'container (details from vision analysis unavailable)'),
+      vesselExact: safe(data.vesselExact, 'container (details from vision analysis unavailable)'),
       arrangementExact: safe(data.arrangementExact, 'product contents as arranged'),
-      garnishExact:     safe(data.garnishExact,     'no garnish present'),
-      utensilsExact:    safe(data.utensilsExact,    'no utensils present'),
-      surfaceExact:     safe(data.surfaceExact,     'studio surface'),
-      backgroundExact:  safe(data.backgroundExact,  'studio background'),
-      lightingExact:    safe(data.lightingExact,    'professional studio lighting'),
-      cropExact:        safe(data.cropExact,        'product centered, medium-close crop'),
-      rawSummary:       safe(data.rawSummary,       result.text.slice(0, 500)),
+      garnishExact: safe(data.garnishExact, 'no garnish present'),
+      utensilsExact: safe(data.utensilsExact, 'no utensils present'),
+      surfaceExact: safe(data.surfaceExact, 'studio surface'),
+      backgroundExact: safe(data.backgroundExact, 'studio background'),
+      lightingExact: safe(data.lightingExact, 'professional studio lighting'),
+      cropExact: safe(data.cropExact, 'product centered, medium-close crop'),
+      rawSummary: safe(data.rawSummary, result.text.slice(0, 500)),
     }
 
     console.info(
       `[P360] masterFrameAnalyzer:success ` +
-      `vessel="${analysis.vesselExact.slice(0, 80)}" ` +
-      `garnish="${analysis.garnishExact.slice(0, 60)}"`,
+        `vessel="${analysis.vesselExact.slice(0, 80)}" ` +
+        `garnish="${analysis.garnishExact.slice(0, 60)}"`
     )
 
     return analysis
   } catch (err) {
     console.warn(
-      `[P360] masterFrameAnalyzer: exception — ${err instanceof Error ? err.message : String(err)}`,
+      `[P360] masterFrameAnalyzer: exception — ${err instanceof Error ? err.message : String(err)}`
     )
     return null
   }

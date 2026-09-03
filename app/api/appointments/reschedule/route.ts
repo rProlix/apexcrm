@@ -49,7 +49,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     if (existing.status === 'completed') {
-      return NextResponse.json({ error: 'Cannot reschedule a completed appointment' }, { status: 422 })
+      return NextResponse.json(
+        { error: 'Cannot reschedule a completed appointment' },
+        { status: 422 }
+      )
     }
 
     const result = await updateAppointment(id, customerUser.tenant_id, { starts_at, ends_at })

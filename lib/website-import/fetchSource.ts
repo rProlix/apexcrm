@@ -12,8 +12,8 @@ const BLOCKED_IP_RANGES = [
   /^10\./,
   /^172\.(1[6-9]|2[0-9]|3[01])\./,
   /^192\.168\./,
-  /^169\.254\./,   // link-local / AWS metadata
-  /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./,  // CGNAT
+  /^169\.254\./, // link-local / AWS metadata
+  /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./, // CGNAT
   /^::1$/,
   /^fc[0-9a-f]{2}:/i,
   /^fd[0-9a-f]{2}:/i,
@@ -84,15 +84,15 @@ async function assertSafeHostResolution(hostname: string): Promise<void> {
 }
 
 export interface FetchSourceResult {
-  html:        string
-  finalUrl:    string
-  statusCode:  number
+  html: string
+  finalUrl: string
+  statusCode: number
   contentType: string
-  fetchedAt:   string
+  fetchedAt: string
 }
 
-const FETCH_TIMEOUT_MS  = 15_000
-const MAX_BODY_BYTES    = 3 * 1024 * 1024  // 3 MB cap
+const FETCH_TIMEOUT_MS = 15_000
+const MAX_BODY_BYTES = 3 * 1024 * 1024 // 3 MB cap
 
 /**
  * Fetches a public URL server-side with:
@@ -118,10 +118,8 @@ export async function fetchSource(rawUrl: string): Promise<FetchSourceResult> {
     response = await fetch(rawUrl, {
       signal: controller.signal,
       headers: {
-        'User-Agent':
-          'Mozilla/5.0 (compatible; CRMWebsiteImporter/1.0; +https://apexcrm.app/bot)',
-        Accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (compatible; CRMWebsiteImporter/1.0; +https://apexcrm.app/bot)',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
       },
       redirect: 'follow',
@@ -151,10 +149,10 @@ export async function fetchSource(rawUrl: string): Promise<FetchSourceResult> {
 
   return {
     html,
-    finalUrl:    response.url ?? rawUrl,
-    statusCode:  response.status,
+    finalUrl: response.url ?? rawUrl,
+    statusCode: response.status,
     contentType,
-    fetchedAt:   new Date().toISOString(),
+    fetchedAt: new Date().toISOString(),
   }
 }
 
@@ -181,7 +179,7 @@ export async function checkRobotsTxt(rawUrl: string): Promise<boolean> {
       clearTimeout(timer)
     }
 
-    if (!res.ok) return true  // No robots.txt = allow
+    if (!res.ok) return true // No robots.txt = allow
 
     const text = await res.text()
     const lines = text.split('\n')
@@ -196,13 +194,13 @@ export async function checkRobotsTxt(rawUrl: string): Promise<boolean> {
       if (inOurBlock && trimmed.startsWith('disallow:')) {
         const path = trimmed.replace('disallow:', '').trim()
         if (path === '/' || path === '') {
-          return false  // Everything disallowed
+          return false // Everything disallowed
         }
       }
     }
 
     return true
   } catch {
-    return true  // If we can't check, allow
+    return true // If we can't check, allow
   }
 }

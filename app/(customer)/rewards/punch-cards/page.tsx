@@ -12,11 +12,11 @@ export const metadata = { title: 'Punch Cards — Rewards' }
 
 export default async function CustomerPunchCardsPage() {
   const host = (await headers()).get('host') ?? ''
-  const ctx  = await requireCustomerAuth(host)
+  const ctx = await requireCustomerAuth(host)
 
-  const allCards   = await getCustomerPunchCards(ctx.tenant_id, ctx.customer_id)
-  const active     = allCards.filter((c) => c.status === 'active')
-  const completed  = allCards.filter((c) => c.status === 'completed')
+  const allCards = await getCustomerPunchCards(ctx.tenant_id, ctx.customer_id)
+  const active = allCards.filter((c) => c.status === 'active')
+  const completed = allCards.filter((c) => c.status === 'completed')
 
   return (
     <div className="space-y-8">

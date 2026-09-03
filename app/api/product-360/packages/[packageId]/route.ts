@@ -1,7 +1,11 @@
 // app/api/product-360/packages/[packageId]/route.ts
-import { NextRequest, NextResponse }              from 'next/server'
-import { resolveP360ApiUser }                     from '@/lib/product-360/auth'
-import { getPackageWithFrames, updatePackage, archivePackage } from '@/lib/product-360/packageService'
+import { NextRequest, NextResponse } from 'next/server'
+import { resolveP360ApiUser } from '@/lib/product-360/auth'
+import {
+  getPackageWithFrames,
+  updatePackage,
+  archivePackage,
+} from '@/lib/product-360/packageService'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,29 +45,66 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     : user.tenantId
 
   let body: Record<string, unknown>
-  try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
   const allowed = [
-    'name','slug','label','description','status','is_enabled',
+    'name',
+    'slug',
+    'label',
+    'description',
+    'status',
+    'is_enabled',
     // Both is_default and is_primary are accepted; packageService normalises them.
-    'is_default','is_primary',
+    'is_default',
+    'is_primary',
     // Generic preset label
     'preset',
     'package_type',
     // Promo: accept both canonical and alias names; packageService normalises.
-    'promo_starts_at','promo_ends_at','starts_at','ends_at',
-    'generation_prompt','generation_notes','negative_prompt',
-    'target_frame_count','settings',
-    'lighting_config','camera_config','hotspot_config','cover_frame_url',
-    'model_url','ar_model_url',
+    'promo_starts_at',
+    'promo_ends_at',
+    'starts_at',
+    'ends_at',
+    'generation_prompt',
+    'generation_notes',
+    'negative_prompt',
+    'target_frame_count',
+    'settings',
+    'lighting_config',
+    'camera_config',
+    'hotspot_config',
+    'cover_frame_url',
+    'model_url',
+    'ar_model_url',
     // Presets (migration 033)
-    'lighting_preset','background_preset','category_preset','camera_preset',
-    'camera_distance','camera_height','fov','zoom','shadow_strength',
-    'reflection_intensity','turn_direction','output_width','output_height',
+    'lighting_preset',
+    'background_preset',
+    'category_preset',
+    'camera_preset',
+    'camera_distance',
+    'camera_height',
+    'fov',
+    'zoom',
+    'shadow_strength',
+    'reflection_intensity',
+    'turn_direction',
+    'output_width',
+    'output_height',
     'promo_tag',
     // AI model: both names accepted
-    'ai_model','generation_model','generation_provider','provider','generation_mode',
-    'reference_image_url','reference_image_path','reference_storage_path','reference_source',
+    'ai_model',
+    'generation_model',
+    'generation_provider',
+    'provider',
+    'generation_mode',
+    'reference_image_url',
+    'reference_image_path',
+    'reference_storage_path',
+    'reference_source',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of allowed) {

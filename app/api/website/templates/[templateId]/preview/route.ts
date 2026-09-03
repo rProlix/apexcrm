@@ -26,7 +26,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
   try {
     const body = await req.json()
     pageId = body.pageId ?? null
-  } catch { /* no body required */ }
+  } catch {
+    /* no body required */
+  }
 
   const result = await previewTemplate(tenantId, templateId, pageId)
   if (!result.ok) {
@@ -36,19 +38,21 @@ export async function POST(req: NextRequest, context: RouteContext) {
   const template = getTemplate(templateId)
 
   return NextResponse.json({
-    ok:       true,
-    template: template ? {
-      key:            template.key,
-      name:           template.name,
-      description:    template.description,
-      layoutType:     template.layoutType,
-      animationLevel: template.animationLevel,
-      features:       template.features,
-      bestFor:        template.bestFor,
-      designSystem:   template.designSystem,
-      previewGradient: template.previewGradient,
-    } : null,
+    ok: true,
+    template: template
+      ? {
+          key: template.key,
+          name: template.name,
+          description: template.description,
+          layoutType: template.layoutType,
+          animationLevel: template.animationLevel,
+          features: template.features,
+          bestFor: template.bestFor,
+          designSystem: template.designSystem,
+          previewGradient: template.previewGradient,
+        }
+      : null,
     mappings: result.mappings,
-    message:  `Preview ready: ${result.mappings.filter((m) => m.hasContent).length} of ${result.mappings.length} slots will be filled with your existing content.`,
+    message: `Preview ready: ${result.mappings.filter((m) => m.hasContent).length} of ${result.mappings.length} slots will be filled with your existing content.`,
   })
 }

@@ -1,10 +1,10 @@
 export const dynamic = 'force-dynamic'
 
 // app/(dashboard)/settings/domain/page.tsx
-import { redirect }       from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { getUserContext } from '@/lib/auth/getUserContext'
-import { DomainManager }  from '@/components/domains/DomainManager'
-import { Globe }          from 'lucide-react'
+import { DomainManager } from '@/components/domains/DomainManager'
+import { Globe } from 'lucide-react'
 
 export const metadata = { title: 'Domain Settings' }
 
@@ -39,7 +39,9 @@ export default async function SettingsDomainPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-zinc-100">Domain Settings</h1>
-            <p className="text-sm text-zinc-500">Manage your platform subdomain and custom domains</p>
+            <p className="text-sm text-zinc-500">
+              Manage your platform subdomain and custom domains
+            </p>
           </div>
         </div>
       </div>

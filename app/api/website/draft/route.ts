@@ -53,7 +53,7 @@ export async function PUT(req: NextRequest) {
     if (snapResult.error || !snapResult.data) {
       return NextResponse.json(
         { error: snapResult.error ?? 'Could not capture snapshot' },
-        { status: 500 },
+        { status: 500 }
       )
     }
     snapshot = snapResult.data

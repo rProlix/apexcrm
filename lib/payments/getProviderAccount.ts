@@ -2,17 +2,17 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface ProviderAccount {
-  id:                 string
-  tenantId:           string
-  providerKey:        string
-  providerAccountId:  string | null
-  accessToken:        string | null
-  refreshToken:       string | null
-  scope:              string | null
-  expiresAt:          string | null
-  status:             string
-  connectionMethod:   string
-  metadata:           Record<string, unknown>
+  id: string
+  tenantId: string
+  providerKey: string
+  providerAccountId: string | null
+  accessToken: string | null
+  refreshToken: string | null
+  scope: string | null
+  expiresAt: string | null
+  status: string
+  connectionMethod: string
+  metadata: Record<string, unknown>
 }
 
 /**
@@ -20,7 +20,7 @@ export interface ProviderAccount {
  * Access token is returned server-side only — never forwarded to the client.
  */
 export async function getProviderAccount(
-  tenantId:    string,
+  tenantId: string,
   providerKey: string
 ): Promise<ProviderAccount | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,17 +39,17 @@ export async function getProviderAccount(
   if (error || !data) return null
 
   return {
-    id:                data.id,
-    tenantId:          data.tenant_id,
-    providerKey:       data.provider_key,
+    id: data.id,
+    tenantId: data.tenant_id,
+    providerKey: data.provider_key,
     providerAccountId: data.provider_account_id ?? null,
-    accessToken:       data.access_token         ?? null,
-    refreshToken:      data.refresh_token        ?? null,
-    scope:             data.scope                ?? null,
-    expiresAt:         data.expires_at           ?? null,
-    status:            data.status               ?? 'connected',
-    connectionMethod:  data.connection_method     ?? 'api_key',
-    metadata:          (data.metadata ?? {}) as Record<string, unknown>,
+    accessToken: data.access_token ?? null,
+    refreshToken: data.refresh_token ?? null,
+    scope: data.scope ?? null,
+    expiresAt: data.expires_at ?? null,
+    status: data.status ?? 'connected',
+    connectionMethod: data.connection_method ?? 'api_key',
+    metadata: (data.metadata ?? {}) as Record<string, unknown>,
   }
 }
 
@@ -57,15 +57,15 @@ export async function getProviderAccount(
  * Returns a safe public summary of a provider account (no tokens).
  */
 export async function getProviderAccountPublic(
-  tenantId:    string,
+  tenantId: string,
   providerKey: string
 ): Promise<{ connected: boolean; accountId: string | null; connectionMethod: string } | null> {
   const account = await getProviderAccount(tenantId, providerKey)
   if (!account) return null
 
   return {
-    connected:        account.status === 'connected',
-    accountId:        account.providerAccountId,
+    connected: account.status === 'connected',
+    accountId: account.providerAccountId,
     connectionMethod: account.connectionMethod,
   }
 }
