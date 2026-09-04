@@ -479,6 +479,71 @@ export function CinematicRenderer({
                 : undefined,
             onUpdate: (self) => scheduleProgress(self.progress),
           })
+          let wasBackgrounded = document.hidden
+          let resumeFrame = 0
+          let settleFrame = 0
+          const cancelResume = () => {
+            if (resumeFrame) cancelAnimationFrame(resumeFrame)
+            if (settleFrame) cancelAnimationFrame(settleFrame)
+            resumeFrame = 0
+            settleFrame = 0
+          }
+          const restoreAfterBackground = () => {
+            cancelResume()
+            resumeFrame = requestAnimationFrame(() => {
+              resumeFrame = 0
+              settleFrame = requestAnimationFrame(() => {
+                settleFrame = 0
+                if (disposed || document.hidden) return
+
+                // Mobile browsers can suspend or evict the decoder while a tab is hidden.
+                // Refresh scroll measurements, then reload and seek the active clip so the
+                // first foreground scroll starts from the current page position.
+                ScrollTrigger.refresh()
+                ScrollTrigger.update()
+                const progress = trigger.progress
+                const mapped = mapProgressToClip(clips, progress)
+                const media = videoRef.current
+                if (media && mapped) {
+                  const source = selectCinematicSource(mapped.clip, mobile)
+                  media.pause()
+                  activeClipRef.current = mapped.index
+                  pendingMetadataProgressRef.current = mapped.localProgress
+                  pendingSeekRef.current = null
+                  lastSeekRef.current = -1
+                  setVideoState('loading')
+                  if (media.getAttribute('src') !== source) media.src = source
+                  media.load()
+                  preloadClip(mapped.next)
+                }
+                scheduleProgress(progress)
+              })
+            })
+          }
+          const handleVisibilityChange = () => {
+            if (document.hidden) {
+              wasBackgrounded = true
+              cancelResume()
+              videoRef.current?.pause()
+              return
+            }
+            if (!wasBackgrounded) return
+            wasBackgrounded = false
+            restoreAfterBackground()
+          }
+          const handlePageHide = () => {
+            wasBackgrounded = true
+            cancelResume()
+            videoRef.current?.pause()
+          }
+          const handlePageShow = (event: PageTransitionEvent) => {
+            if (!event.persisted && !wasBackgrounded) return
+            wasBackgrounded = false
+            restoreAfterBackground()
+          }
+          document.addEventListener('visibilitychange', handleVisibilityChange)
+          window.addEventListener('pagehide', handlePageHide)
+          window.addEventListener('pageshow', handlePageShow)
           const refresh = () => ScrollTrigger.refresh()
           const resizeObserver =
             typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(refresh)
@@ -486,6 +551,10 @@ export function CinematicRenderer({
           const refreshTimer = window.setTimeout(refresh, 120)
           cleanup = () => {
             window.clearTimeout(refreshTimer)
+            cancelResume()
+            document.removeEventListener('visibilitychange', handleVisibilityChange)
+            window.removeEventListener('pagehide', handlePageHide)
+            window.removeEventListener('pageshow', handlePageShow)
             resizeObserver?.disconnect()
             if (progressFrameRef.current != null) cancelAnimationFrame(progressFrameRef.current)
             progressFrameRef.current = null
@@ -615,7 +684,7 @@ export function CinematicRenderer({
             unoptimized
           />
         ) : null}
-        {near && selectedSrc && !reduced && config.engine !== 'layers' && videoState !== 'error' ? (
+        {near && selectedSrc && !reduced && config.engine !== 'layers' ? (
           <video
             ref={videoRef}
             src={selectedSrc}
