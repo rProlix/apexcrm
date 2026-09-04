@@ -3,7 +3,12 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { cinematicConfigSchema, normalizeCinematicConfig } from '@/lib/website-cinematic/schema'
 import { CINEMATIC_PRESETS, getCinematicPreset } from '@/lib/website-cinematic/presets'
-import { mapProgressToClip, selectCinematicSource } from '@/lib/website-cinematic/runtime'
+import {
+  mapProgressToClip,
+  orderCinematicClips,
+  resolveCinematicLayer,
+  selectCinematicSource,
+} from '@/lib/website-cinematic/runtime'
 import { validateCinematicConfigs } from '@/lib/website-cinematic/publishing'
 
 test('all cinematic presets are versioned, editable configurations', () => {
@@ -50,12 +55,34 @@ test('weighted video chains select mobile sources and map continuous progress', 
   assert.ok((mapProgressToClip(clips, 0.5)?.localProgress ?? 0) > 0)
 })
 
+test('clips are stable by order and mobile overrides inherit from larger breakpoints', () => {
+  const config = getCinematicPreset('Product Reveal')
+  const original = config.layers[0]
+  const responsive = {
+    ...original,
+    responsive: { desktop: { width: 60 }, tablet: { x: 40 }, mobile: { x: 20 } },
+  }
+  assert.deepEqual(
+    orderCinematicClips([
+      { id: 'second', desktopSrc: '/two.mp4', duration: 1, order: 2 },
+      { id: 'first', desktopSrc: '/one.mp4', duration: 1, order: 1 },
+    ]).map((clip) => clip.id),
+    ['first', 'second']
+  )
+  assert.equal(resolveCinematicLayer(responsive, 'mobile').width, 60)
+  assert.equal(resolveCinematicLayer(responsive, 'mobile').x, 20)
+})
+
 test('public runtime is code split and uses one normalized GSAP progress source', () => {
   const section = readFileSync('components/website/scroll-experience/ScrollExperience.tsx', 'utf8')
   const runtime = readFileSync('components/website/cinematic/CinematicRenderer.tsx', 'utf8')
   assert.match(section, /normalizeCinematicConfig/)
   assert.match(runtime, /import\('gsap\/ScrollTrigger'\)/)
   assert.match(runtime, /timeline\.progress\(progress\)/)
+  assert.match(runtime, /requestAnimationFrame/)
+  assert.match(runtime, /scheduledProgressRef/)
+  assert.match(runtime, /pendingMetadataProgressRef/)
+  assert.match(runtime, /requestVideoFrameCallback/)
   assert.match(runtime, /mapped\.localProgress \* media\.duration/)
   assert.match(runtime, /context\.revert\(\)/)
   assert.match(runtime, /prefers-reduced-motion: reduce/)

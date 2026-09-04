@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getUserContext } from '@/lib/auth/getUserContext'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
+  assertScrollExperienceEntitlement,
   completeScrollExperienceUpload,
   recordScrollAudit,
   resolveScrollTenant,
@@ -24,26 +25,39 @@ export async function POST(
   const db = getSupabaseServerClient() as SupabaseClient
   const { data: version } = await db
     .from('website_scroll_experience_versions')
-    .select('id,status')
+    .select('id,status,updated_at')
     .eq('experience_id', experienceId)
     .eq('tenant_id', tenantId)
     .order('version_number', { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (!version || version.status !== 'FAILED') {
+  const updatedAt = version?.updated_at ? Date.parse(String(version.updated_at)) : Number.NaN
+  const stale =
+    Boolean(version) &&
+    !['READY', 'ARCHIVED', 'FAILED'].includes(String(version?.status)) &&
+    Number.isFinite(updatedAt) &&
+    Date.now() - updatedAt >= 30 * 60 * 1000
+  if (!version || (version.status !== 'FAILED' && !stale)) {
     return NextResponse.json(
-      { ok: false, error: 'Only a failed processing version can be retried.' },
+      { ok: false, error: 'Processing is still active. Retry becomes available after 30 minutes.' },
       { status: 409 }
     )
   }
+  await assertScrollExperienceEntitlement(tenantId)
   await db
     .from('website_scroll_experience_jobs')
-    .update({ status: 'QUEUED', queue_message_id: null, last_error_category: null })
+    .update({
+      status: 'QUEUED',
+      queue_message_id: null,
+      claimed_at: null,
+      completed_at: null,
+      last_error_category: null,
+    })
     .eq('experience_version_id', version.id)
     .eq('tenant_id', tenantId)
   await db
     .from('website_scroll_experience_versions')
-    .update({ status: 'UPLOADED', processing_error_category: null })
+    .update({ status: 'UPLOADED', processing_error_category: null, processing_started_at: null })
     .eq('id', version.id)
     .eq('tenant_id', tenantId)
   await recordScrollAudit(tenantId, experienceId, 'SCROLL_VIDEO_RETRY_STARTED', ctx.id)

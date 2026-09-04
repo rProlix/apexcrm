@@ -632,27 +632,35 @@ async function process(
     return 'success'
   } catch (error) {
     const category = errorCategory(error)
+    const retryable = category === 'INSUFFICIENT_DISK'
+    const attempt = (metadata.retryCount ?? 0) + 1
+    const willRetry = retryable && attempt < config.scrollMaxRetries
+    const failureStatus = willRetry ? 'QUEUED' : 'FAILED'
     await Promise.all([
       db
         .from('website_scroll_experience_versions')
-        .update({ status: 'FAILED', processing_error_category: category })
+        .update({ status: failureStatus, processing_error_category: category })
         .eq('id', job.experienceVersionId)
         .eq('tenant_id', job.tenantId),
       db
         .from('website_scroll_experiences')
-        .update({ status: 'FAILED' })
+        .update({ status: failureStatus })
         .eq('id', job.experienceId)
         .eq('tenant_id', job.tenantId),
       db
         .from('website_scroll_experience_jobs')
-        .update({ status: 'FAILED', last_error_category: category })
+        .update({
+          status: failureStatus,
+          claimed_at: willRetry ? null : row.claimed_at,
+          last_error_category: category,
+        })
         .eq('id', row.id)
         .eq('tenant_id', job.tenantId),
       db.from('website_scroll_experience_audit').insert({
         tenant_id: job.tenantId,
         experience_id: job.experienceId,
-        event_name: 'SCROLL_VIDEO_PROCESSING_FAILED',
-        metadata: { category },
+        event_name: willRetry ? 'SCROLL_VIDEO_RETRY_STARTED' : 'SCROLL_VIDEO_PROCESSING_FAILED',
+        metadata: { category, attempt, automatic: willRetry },
       }),
     ])
     logger.error('Scroll Experience processing failed', {
@@ -660,9 +668,7 @@ async function process(
       category,
       durationMs: Date.now() - startedAt,
     })
-    const retryable = category === 'INSUFFICIENT_DISK'
-    const attempt = (metadata.retryCount ?? 0) + 1
-    if (retryable && attempt < config.scrollMaxRetries) return 'retry'
+    if (willRetry) return 'retry'
     if (retryable) {
       logger.error('Scroll Experience retry limit reached; discarding message', {
         ...context,

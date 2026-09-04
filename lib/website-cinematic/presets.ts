@@ -16,11 +16,26 @@ const base = (
   version: 1,
   name,
   engine,
-  section: { scrollLength: 400, pinned: true, smoothScroll: false, background, snap: false },
+  section: {
+    scrollLength: 400,
+    pinned: true,
+    scrub: true,
+    start: 'top top',
+    end: 'bottom bottom',
+    smoothScroll: false,
+    background,
+    overflow: 'hidden',
+    snap: false,
+    loadingIndicator: true,
+  },
+  responsive: {},
   scenes: [{ ...scene, background }],
   layers: [],
   tracks: [],
-  video: engine === 'layers' ? null : { clips: [], fit: 'cover', focalPoint: { x: 50, y: 50 } },
+  video:
+    engine === 'layers'
+      ? null
+      : { clips: [], fit: 'cover', mobileFit: 'cover', focalPoint: { x: 50, y: 50 } },
   accessibility: { ariaLabel: name, reducedMotion: 'poster' },
 })
 
@@ -39,9 +54,18 @@ const layer = (
   zIndex: 2,
   color: '#ffffff',
   fontSize: 52,
+  fontFamily: 'inherit',
+  fontWeight: 500,
+  lineHeight: 1.1,
+  letterSpacing: 0,
   textAlign: 'left',
   fit: 'contain',
+  positionMode: 'absolute',
+  transformOrigin: 'center center',
+  borderRadius: 0,
+  shadow: 'none',
   visibleOn: ['desktop', 'tablet', 'mobile'],
+  responsive: {},
   baseTransform: {},
   ...value,
 })
@@ -54,6 +78,7 @@ const track = (
   to: { opacity: 1, y: 0, scale: 1 },
   easing: 'power2',
   enabled: true,
+  breakpointOverrides: {},
   ...value,
 })
 
@@ -157,7 +182,12 @@ const hybridLaunch = story(
   'Introducing what comes next.'
 )
 hybridLaunch.engine = 'hybrid'
-hybridLaunch.video = { clips: [], fit: 'cover', focalPoint: { x: 50, y: 50 } }
+hybridLaunch.video = {
+  clips: [],
+  fit: 'cover',
+  mobileFit: 'cover',
+  focalPoint: { x: 50, y: 50 },
+}
 
 export const CINEMATIC_PRESETS: CinematicConfig[] = [
   story('Product Reveal', '#111113', '#d8ff65', 'Make the ordinary impossible to ignore.'),

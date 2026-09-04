@@ -23,6 +23,7 @@ import {
   type CinematicTrack,
 } from '@/lib/website-cinematic/schema'
 import { CINEMATIC_PRESETS } from '@/lib/website-cinematic/presets'
+import { resolveCinematicLayer } from '@/lib/website-cinematic/runtime'
 
 type SaveState = 'saved' | 'saving' | 'error'
 const field =
@@ -38,6 +39,7 @@ export function CinematicStudio({
   const initial = normalizeCinematicConfig(initialContent.cinematic) ?? CINEMATIC_PRESETS[0]
   const [config, setConfig] = useState<CinematicConfig>(initial)
   const [selectedLayerId, setSelectedLayerId] = useState(initial.layers[0]?.id ?? '')
+  const [selectedTrackId, setSelectedTrackId] = useState(initial.tracks[0]?.id ?? '')
   const [previewProgress, setPreviewProgress] = useState(0)
   const [manualPreview, setManualPreview] = useState(true)
   const [breakpoint, setBreakpoint] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
@@ -112,7 +114,9 @@ export function CinematicStudio({
     setConfig(next)
   }
   const selected = config.layers.find((layer) => layer.id === selectedLayerId)
-  const selectedTrack = config.tracks.find((track) => track.layerId === selectedLayerId)
+  const displayedSelected = selected ? resolveCinematicLayer(selected, breakpoint) : undefined
+  const layerTracks = config.tracks.filter((track) => track.layerId === selectedLayerId)
+  const selectedTrack = layerTracks.find((track) => track.id === selectedTrackId) ?? layerTracks[0]
   const patchLayer = (changes: Partial<CinematicLayer>) =>
     commit((current) => ({
       ...current,
@@ -120,6 +124,25 @@ export function CinematicStudio({
         layer.id === selectedLayerId ? { ...layer, ...changes } : layer
       ),
     }))
+  const patchResponsiveLayer = (
+    changes: Partial<Pick<CinematicLayer, 'x' | 'y' | 'width' | 'height' | 'fontSize' | 'fit'>>
+  ) => {
+    if (breakpoint === 'desktop') return patchLayer(changes)
+    commit((current) => ({
+      ...current,
+      layers: current.layers.map((layer) =>
+        layer.id === selectedLayerId
+          ? {
+              ...layer,
+              responsive: {
+                ...layer.responsive,
+                [breakpoint]: { ...layer.responsive[breakpoint], ...changes },
+              },
+            }
+          : layer
+      ),
+    }))
+  }
   const patchTrack = (changes: Partial<CinematicTrack>) =>
     commit((current) => ({
       ...current,
@@ -149,9 +172,18 @@ export function CinematicStudio({
           zIndex: current.layers.length + 2,
           color: '#ffffff',
           fontSize: 64,
+          fontFamily: 'inherit',
+          fontWeight: 500,
+          lineHeight: 1.1,
+          letterSpacing: 0,
           textAlign: 'left',
           fit: 'contain',
+          positionMode: 'absolute',
+          transformOrigin: 'center center',
+          borderRadius: 0,
+          shadow: 'none',
           visibleOn: ['desktop', 'tablet', 'mobile'],
+          responsive: {},
           baseTransform: {},
         },
       ],
@@ -187,12 +219,13 @@ export function CinematicStudio({
   }
   const addTrack = () => {
     if (!selected) return
+    const id = crypto.randomUUID()
     commit((current) => ({
       ...current,
       tracks: [
         ...current.tracks,
         {
-          id: crypto.randomUUID(),
+          id,
           layerId: selected.id,
           name: 'Reveal',
           startProgress: 0.1,
@@ -201,10 +234,78 @@ export function CinematicStudio({
           to: { opacity: 1, y: 0, scale: 1 },
           easing: 'power2',
           enabled: true,
+          breakpointOverrides: {},
         },
       ],
     }))
+    setSelectedTrackId(id)
   }
+  const removeTrack = () => {
+    if (!selectedTrack) return
+    commit((current) => ({
+      ...current,
+      tracks: current.tracks.filter((track) => track.id !== selectedTrack.id),
+    }))
+    setSelectedTrackId('')
+  }
+  const duplicateTrack = () => {
+    if (!selectedTrack) return
+    const id = crypto.randomUUID()
+    commit((current) => ({
+      ...current,
+      tracks: [...current.tracks, { ...selectedTrack, id, name: `${selectedTrack.name} copy` }],
+    }))
+    setSelectedTrackId(id)
+  }
+  const beginTrackDrag =
+    (track: CinematicTrack): React.PointerEventHandler<HTMLButtonElement> =>
+    (event) => {
+      event.preventDefault()
+      const element = event.currentTarget
+      const timeline = element.parentElement?.getBoundingClientRect()
+      if (!timeline) return
+      setSelectedLayerId(track.layerId)
+      setSelectedTrackId(track.id)
+      history.current = [...history.current.slice(-39), config]
+      future.current = []
+      const startX = event.clientX
+      const duration = track.endProgress - track.startProgress
+      const edge = event.clientX - element.getBoundingClientRect().left
+      const mode = edge < 9 ? 'start' : edge > element.offsetWidth - 9 ? 'end' : 'move'
+      const move = (next: PointerEvent) => {
+        const delta = (next.clientX - startX) / timeline.width
+        setConfig((current) => ({
+          ...current,
+          tracks: current.tracks.map((candidate) => {
+            if (candidate.id !== track.id) return candidate
+            if (mode === 'start')
+              return {
+                ...candidate,
+                startProgress: Math.max(
+                  0,
+                  Math.min(track.endProgress - 0.01, track.startProgress + delta)
+                ),
+              }
+            if (mode === 'end')
+              return {
+                ...candidate,
+                endProgress: Math.min(
+                  1,
+                  Math.max(track.startProgress + 0.01, track.endProgress + delta)
+                ),
+              }
+            const startProgress = Math.max(0, Math.min(1 - duration, track.startProgress + delta))
+            return { ...candidate, startProgress, endProgress: startProgress + duration }
+          }),
+        }))
+      }
+      const stop = () => {
+        window.removeEventListener('pointermove', move)
+        window.removeEventListener('pointerup', stop)
+      }
+      window.addEventListener('pointermove', move)
+      window.addEventListener('pointerup', stop, { once: true })
+    }
   const viewportWidth = breakpoint === 'desktop' ? '100%' : breakpoint === 'tablet' ? 760 : 390
   const sceneName =
     config.scenes.find(
@@ -276,6 +377,7 @@ export function CinematicStudio({
                       : (config.video ?? {
                           clips: [],
                           fit: 'cover',
+                          mobileFit: 'cover',
                           focalPoint: { x: 50, y: 50 },
                         }),
                 })
@@ -298,6 +400,7 @@ export function CinematicStudio({
                 if (preset) {
                   commit(structuredClone(preset))
                   setSelectedLayerId(preset.layers[0]?.id || '')
+                  setSelectedTrackId(preset.tracks[0]?.id || '')
                 }
               }}
             >
@@ -404,7 +507,17 @@ export function CinematicStudio({
                   setConfig((current) => ({
                     ...current,
                     layers: current.layers.map((layer) =>
-                      layer.id === layerId ? { ...layer, x, y } : layer
+                      layer.id !== layerId
+                        ? layer
+                        : breakpoint === 'desktop'
+                          ? { ...layer, x, y }
+                          : {
+                              ...layer,
+                              responsive: {
+                                ...layer.responsive,
+                                [breakpoint]: { ...layer.responsive[breakpoint], x, y },
+                              },
+                            }
                     ),
                   }))
                 }
@@ -416,6 +529,59 @@ export function CinematicStudio({
           <h2 className="mb-4 text-xs font-bold uppercase tracking-[.14em] text-zinc-400">
             Properties
           </h2>
+          <div className="mb-5 space-y-3 border-b border-white/10 pb-5">
+            <p className="text-[10px] font-bold uppercase tracking-[.14em] text-zinc-500">
+              Scroll behavior
+            </p>
+            <NumberField
+              label={`${breakpoint} length (vh)`}
+              value={
+                breakpoint === 'desktop'
+                  ? config.section.scrollLength
+                  : (config.responsive[breakpoint]?.scrollLength ?? config.section.scrollLength)
+              }
+              onChange={(rawScrollLength) => {
+                const scrollLength = Math.max(150, Math.min(1000, rawScrollLength))
+                return breakpoint === 'desktop'
+                  ? commit({
+                      ...config,
+                      section: { ...config.section, scrollLength },
+                    })
+                  : commit({
+                      ...config,
+                      responsive: {
+                        ...config.responsive,
+                        [breakpoint]: { ...config.responsive[breakpoint], scrollLength },
+                      },
+                    })
+              }}
+            />
+            <div className="grid grid-cols-2 gap-2 text-xs text-zinc-400">
+              {(
+                [
+                  ['pinned', 'Pin stage'],
+                  ['scrub', 'Scrub motion'],
+                  ['smoothScroll', 'Smooth scroll'],
+                  ['snap', 'Snap scenes'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 rounded-lg bg-white/[.03] p-2">
+                  <input
+                    type="checkbox"
+                    checked={config.section[key]}
+                    onChange={(event) =>
+                      commit({
+                        ...config,
+                        section: { ...config.section, [key]: event.target.checked },
+                      })
+                    }
+                    className="accent-[#c9a84c]"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
           {config.engine !== 'layers' && config.video ? (
             <div className="mb-5 space-y-2 border-b border-white/10 pb-5">
               <p className="text-[10px] font-bold uppercase tracking-[.14em] text-zinc-500">
@@ -490,6 +656,8 @@ export function CinematicStudio({
                           duration: 10,
                           scrollWeight: 1,
                           seamOverlap: 0.015,
+                          order: config.video!.clips.length,
+                          preload: 'metadata',
                         },
                       ],
                     },
@@ -541,20 +709,50 @@ export function CinematicStudio({
                   onChange={(event) => patchLayer({ src: event.target.value })}
                 />
               ) : null}
-              <div className="grid grid-cols-2 gap-2">
-                <NumberField label="X %" value={selected.x} onChange={(x) => patchLayer({ x })} />
-                <NumberField label="Y %" value={selected.y} onChange={(y) => patchLayer({ y })} />
-                <NumberField
-                  label="Width %"
-                  value={selected.width}
-                  onChange={(width) => patchLayer({ width })}
-                />
-                <NumberField
-                  label="Type px"
-                  value={selected.fontSize}
-                  onChange={(fontSize) => patchLayer({ fontSize })}
-                />
+              <div className="rounded-lg border border-white/8 bg-white/[.025] p-2">
+                <p className="mb-2 text-[10px] text-zinc-500">
+                  {breakpoint === 'desktop' ? 'Base layout' : `${breakpoint} override`}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <NumberField
+                    label="X %"
+                    value={displayedSelected?.x ?? selected.x}
+                    onChange={(x) => patchResponsiveLayer({ x })}
+                  />
+                  <NumberField
+                    label="Y %"
+                    value={displayedSelected?.y ?? selected.y}
+                    onChange={(y) => patchResponsiveLayer({ y })}
+                  />
+                  <NumberField
+                    label="Width %"
+                    value={displayedSelected?.width ?? selected.width}
+                    onChange={(width) => patchResponsiveLayer({ width })}
+                  />
+                  <NumberField
+                    label="Type px"
+                    value={displayedSelected?.fontSize ?? selected.fontSize}
+                    onChange={(fontSize) => patchResponsiveLayer({ fontSize })}
+                  />
+                </div>
               </div>
+              {['image', 'svg', 'video'].includes(selected.type) ? (
+                <input
+                  className={field}
+                  placeholder={selected.decorative ? 'Decorative image' : 'Accessible alt text'}
+                  value={selected.alt}
+                  disabled={selected.decorative}
+                  onChange={(event) => patchLayer({ alt: event.target.value })}
+                />
+              ) : null}
+              {selected.type === 'button' ? (
+                <input
+                  className={field}
+                  placeholder="Button link"
+                  value={selected.href || ''}
+                  onChange={(event) => patchLayer({ href: event.target.value })}
+                />
+              ) : null}
               <label className="block text-[10px] uppercase tracking-wider text-zinc-500">
                 Color
                 <input
@@ -589,29 +787,120 @@ export function CinematicStudio({
               </div>
               {selectedTrack ? (
                 <div className="mt-5 border-t border-white/10 pt-4">
-                  <p className="mb-3 text-[10px] font-bold uppercase tracking-[.14em] text-zinc-500">
-                    Animation
-                  </p>
-                  <NumberField
-                    label="Start (0–1)"
-                    value={selectedTrack.startProgress}
-                    step={0.01}
-                    onChange={(startProgress) =>
-                      patchTrack({
-                        startProgress: Math.min(startProgress, selectedTrack.endProgress),
-                      })
-                    }
+                  <div className="mb-3 flex items-center gap-2">
+                    <p className="flex-1 text-[10px] font-bold uppercase tracking-[.14em] text-zinc-500">
+                      Animation
+                    </p>
+                    <select
+                      aria-label="Animation track"
+                      className="max-w-32 rounded-md border border-white/10 bg-black/25 px-2 py-1 text-[10px]"
+                      value={selectedTrack.id}
+                      onChange={(event) => setSelectedTrackId(event.target.value)}
+                    >
+                      {layerTracks.map((track) => (
+                        <option key={track.id} value={track.id}>
+                          {track.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <input
+                    className={field}
+                    aria-label="Track name"
+                    value={selectedTrack.name}
+                    onChange={(event) => patchTrack({ name: event.target.value })}
                   />
-                  <NumberField
-                    label="End (0–1)"
-                    value={selectedTrack.endProgress}
-                    step={0.01}
-                    onChange={(endProgress) =>
-                      patchTrack({
-                        endProgress: Math.max(endProgress, selectedTrack.startProgress),
-                      })
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <NumberField
+                      label="Start (0–1)"
+                      value={selectedTrack.startProgress}
+                      step={0.01}
+                      onChange={(startProgress) =>
+                        patchTrack({
+                          startProgress: Math.min(startProgress, selectedTrack.endProgress),
+                        })
+                      }
+                    />
+                    <NumberField
+                      label="End (0–1)"
+                      value={selectedTrack.endProgress}
+                      step={0.01}
+                      onChange={(endProgress) =>
+                        patchTrack({
+                          endProgress: Math.max(endProgress, selectedTrack.startProgress),
+                        })
+                      }
+                    />
+                  </div>
+                  <select
+                    className={`${field} mt-2`}
+                    aria-label="Animation easing"
+                    value={selectedTrack.easing}
+                    onChange={(event) =>
+                      patchTrack({ easing: event.target.value as CinematicTrack['easing'] })
                     }
-                  />
+                  >
+                    {['none', 'power1', 'power2', 'power3', 'expo', 'sine', 'back'].map(
+                      (easing) => (
+                        <option key={easing}>{easing}</option>
+                      )
+                    )}
+                  </select>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <NumberField
+                      label="From Y"
+                      value={selectedTrack.from.y ?? 0}
+                      onChange={(y) => patchTrack({ from: { ...selectedTrack.from, y } })}
+                    />
+                    <NumberField
+                      label="To Y"
+                      value={selectedTrack.to.y ?? 0}
+                      onChange={(y) => patchTrack({ to: { ...selectedTrack.to, y } })}
+                    />
+                    <NumberField
+                      label="From opacity"
+                      value={selectedTrack.from.opacity ?? 1}
+                      step={0.05}
+                      onChange={(opacity) =>
+                        patchTrack({ from: { ...selectedTrack.from, opacity } })
+                      }
+                    />
+                    <NumberField
+                      label="To opacity"
+                      value={selectedTrack.to.opacity ?? 1}
+                      step={0.05}
+                      onChange={(opacity) => patchTrack({ to: { ...selectedTrack.to, opacity } })}
+                    />
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => patchTrack({ enabled: !selectedTrack.enabled })}
+                      className="flex-1 rounded-lg border border-white/10 py-2 text-xs"
+                    >
+                      {selectedTrack.enabled ? 'Disable' : 'Enable'}
+                    </button>
+                    <button
+                      onClick={duplicateTrack}
+                      className="rounded-lg border border-white/10 p-2"
+                      aria-label="Duplicate animation track"
+                    >
+                      <Copy size={14} />
+                    </button>
+                    <button
+                      onClick={removeTrack}
+                      className="rounded-lg border border-red-500/20 p-2 text-red-400"
+                      aria-label="Delete animation track"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                    <button
+                      onClick={addTrack}
+                      className="rounded-lg border border-white/10 p-2"
+                      aria-label="Add animation track"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button
@@ -658,8 +947,8 @@ export function CinematicStudio({
             <button
               key={track.id}
               aria-label={`Select ${track.name}`}
-              onClick={() => setSelectedLayerId(track.layerId)}
-              className="absolute top-1 h-5 rounded-sm bg-[#c9a84c]/45 hover:bg-[#c9a84c]/70"
+              onPointerDown={beginTrackDrag(track)}
+              className={`absolute top-1 h-5 cursor-ew-resize rounded-sm ${selectedTrack?.id === track.id ? 'bg-[#e4ca7d]' : 'bg-[#c9a84c]/45 hover:bg-[#c9a84c]/70'}`}
               style={{
                 left: `${track.startProgress * 100}%`,
                 width: `${Math.max(1, (track.endProgress - track.startProgress) * 100)}%`,

@@ -273,19 +273,49 @@ export async function completeScrollExperienceUpload(input: {
   })
   let messageId = job.queue_message_id as string | null
   if (!messageId) {
-    const config = getScrollExperienceQueueEnv()
-    const queued = await queueClient(config.region).send(
-      new SendMessageCommand({
-        QueueUrl: config.queueUrl,
-        MessageBody: JSON.stringify(payload),
-        MessageAttributes: {
-          version: { DataType: 'String', StringValue: payload.version },
-          jobType: { DataType: 'String', StringValue: payload.jobType },
-        },
-      }),
-      { abortSignal: AbortSignal.timeout(3_000) }
-    )
-    messageId = queued.MessageId ?? null
+    try {
+      const config = getScrollExperienceQueueEnv()
+      const queued = await queueClient(config.region).send(
+        new SendMessageCommand({
+          QueueUrl: config.queueUrl,
+          MessageBody: JSON.stringify(payload),
+          MessageAttributes: {
+            version: { DataType: 'String', StringValue: payload.version },
+            jobType: { DataType: 'String', StringValue: payload.jobType },
+          },
+        }),
+        { abortSignal: AbortSignal.timeout(3_000) }
+      )
+      messageId = queued.MessageId ?? null
+      if (!messageId) throw new Error('Queue did not return a message identifier.')
+    } catch {
+      const category = 'QUEUE_DISPATCH_FAILED'
+      await Promise.all([
+        database
+          .from('website_scroll_experience_jobs')
+          .update({ status: 'FAILED', last_error_category: category })
+          .eq('id', job.id)
+          .eq('tenant_id', input.tenantId),
+        database
+          .from('website_scroll_experience_versions')
+          .update({ status: 'FAILED', processing_error_category: category })
+          .eq('id', input.experienceVersionId)
+          .eq('tenant_id', input.tenantId),
+        database
+          .from('website_scroll_experiences')
+          .update({ status: 'FAILED' })
+          .eq('id', input.experienceId)
+          .eq('tenant_id', input.tenantId),
+        recordScrollAudit(
+          input.tenantId,
+          input.experienceId,
+          'SCROLL_VIDEO_PROCESSING_FAILED',
+          input.actorId,
+          { category }
+        ),
+      ])
+      throw new Error('Video processing could not be queued. Try again.')
+    }
     await database
       .from('website_scroll_experience_jobs')
       .update({ queue_message_id: messageId })

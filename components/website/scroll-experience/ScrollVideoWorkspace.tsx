@@ -30,6 +30,7 @@ type ExperienceVersion = {
   desktop_bytes?: number | null
   mobile_bytes?: number | null
   processing_error_category?: string | null
+  updated_at?: string | null
 }
 
 type Experience = {
@@ -37,6 +38,7 @@ type Experience = {
   name: string
   status: string
   created_at: string
+  updated_at: string
   website_scroll_experience_versions?: ExperienceVersion | ExperienceVersion[] | null
 }
 
@@ -44,6 +46,7 @@ type Notice = { tone: 'success' | 'error' | 'info'; message: string }
 
 const TERMINAL_STATUSES = new Set(['READY', 'FAILED', 'ARCHIVED'])
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+const STALE_PROCESSING_MS = 30 * 60 * 1000
 
 function versionFor(experience: Experience) {
   const relation = experience.website_scroll_experience_versions
@@ -69,6 +72,12 @@ function statusLabel(status: string) {
 function formatBytes(value?: number | null) {
   if (!value || value <= 0) return null
   return `${(value / 1024 / 1024).toFixed(value >= 100 * 1024 * 1024 ? 0 : 1)} MB`
+}
+
+function isStaleProcessing(experience: Experience) {
+  if (TERMINAL_STATUSES.has(experience.status)) return false
+  const timestamp = Date.parse(versionFor(experience)?.updated_at || experience.updated_at)
+  return Number.isFinite(timestamp) && Date.now() - timestamp >= STALE_PROCESSING_MS
 }
 
 function putSupabaseFile(
@@ -114,6 +123,7 @@ export function ScrollVideoWorkspace({
   const [selectedPageId, setSelectedPageId] = useState(targetSection?.pageId ?? pages[0]?.id ?? '')
   const [attachingId, setAttachingId] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
+  const recovering = useRef(new Set<string>())
 
   const loadExperiences = useCallback(async () => {
     const response = await fetch(
@@ -151,6 +161,48 @@ export function ScrollVideoWorkspace({
     }, 3_000)
     return () => window.clearInterval(interval)
   }, [hasActiveProcessing, loadExperiences])
+
+  const retryProcessing = useCallback(
+    async (experience: Experience, automatic = false) => {
+      if (recovering.current.has(experience.id)) return
+      recovering.current.add(experience.id)
+      try {
+        const response = await fetch(
+          `/api/website-builder/scroll-experiences/${encodeURIComponent(experience.id)}/retry`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tenantId }),
+          }
+        )
+        const body = (await response.json()) as { error?: string }
+        if (!response.ok) throw new Error(body.error || 'Could not restart video processing.')
+        setNotice({
+          tone: 'info',
+          message: automatic
+            ? `${experience.name} stopped reporting progress, so processing was safely re-queued.`
+            : `${experience.name} was queued again.`,
+        })
+        await loadExperiences()
+      } catch (error) {
+        if (!automatic) {
+          setNotice({
+            tone: 'error',
+            message: error instanceof Error ? error.message : 'Could not restart video processing.',
+          })
+        }
+      } finally {
+        recovering.current.delete(experience.id)
+      }
+    },
+    [loadExperiences, tenantId]
+  )
+
+  useEffect(() => {
+    for (const experience of experiences) {
+      if (isStaleProcessing(experience)) void retryProcessing(experience, true)
+    }
+  }, [experiences, retryProcessing])
 
   const upload = async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.mp4')) {
@@ -417,6 +469,7 @@ export function ScrollVideoWorkspace({
               const version = versionFor(experience)
               const ready = experience.status === 'READY' && Boolean(version)
               const failed = experience.status === 'FAILED'
+              const stale = isStaleProcessing(experience)
               return (
                 <article
                   key={experience.id}
@@ -473,16 +526,22 @@ export function ScrollVideoWorkspace({
                     <Button
                       size="sm"
                       variant={ready ? 'primary' : 'secondary'}
-                      disabled={!ready || !selectedPageId}
+                      disabled={(!ready || !selectedPageId) && !failed && !stale}
                       loading={attachingId === experience.id}
-                      onClick={() => void attachToPage(experience)}
+                      onClick={() =>
+                        ready ? void attachToPage(experience) : void retryProcessing(experience)
+                      }
                     >
                       <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                       {ready
                         ? targetSection
                           ? 'Use in section'
                           : 'Add to page'
-                        : statusLabel(experience.status)}
+                        : failed
+                          ? 'Try processing again'
+                          : stale
+                            ? 'Restart processing'
+                            : statusLabel(experience.status)}
                     </Button>
                   </div>
                 </article>

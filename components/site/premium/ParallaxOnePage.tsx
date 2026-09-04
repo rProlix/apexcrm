@@ -31,10 +31,14 @@ export function ParallaxOnePage({
   const [scrollY, setScrollY] = useState(0)
   const [prefersReduced, setPrefersReduced] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const scrollFrameRef = useRef<number | null>(null)
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setPrefersReduced(mq.matches)
+    const update = () => setPrefersReduced(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
   }, [])
 
   useEffect(() => {
@@ -42,21 +46,28 @@ export function ParallaxOnePage({
     let ticking = false
     const onScroll = () => {
       if (!ticking) {
-        requestAnimationFrame(() => {
+        scrollFrameRef.current = requestAnimationFrame(() => {
           setScrollY(window.scrollY)
           ticking = false
+          scrollFrameRef.current = null
         })
         ticking = true
       }
     }
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (scrollFrameRef.current != null) cancelAnimationFrame(scrollFrameRef.current)
+      scrollFrameRef.current = null
+    }
   }, [prefersReduced])
 
   return (
     <div
       ref={containerRef}
-      style={{ background: backgroundColor, color: textColor, overflow: 'hidden' }}
+      // `clip` prevents decorative horizontal spill without creating the
+      // scroll container that disables sticky cinematic descendants.
+      style={{ background: backgroundColor, color: textColor, overflow: 'clip' }}
     >
       {sections.map((section, index) => (
         <ParallaxSectionWrapper
@@ -91,7 +102,6 @@ function ParallaxSectionWrapper({
 }: WrapperProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [offsetTop, setOffsetTop] = useState(0)
-  const [sectionH, setSectionH] = useState(0)
   const [isVisible, setIsVisible] = useState(false)
   const [hasRevealed, setHasRevealed] = useState(false)
 
@@ -100,7 +110,6 @@ function ParallaxSectionWrapper({
     const measure = () => {
       if (ref.current) {
         setOffsetTop(ref.current.offsetTop)
-        setSectionH(ref.current.offsetHeight)
       }
     }
     measure()
@@ -127,18 +136,23 @@ function ParallaxSectionWrapper({
   }, [prefersReduced])
 
   // Parallax offset for the background layer
-  const depth = section.parallaxDepth ?? (section.sectionType === 'hero' ? 0.4 : 0.15)
+  const ownsScroll = section.sectionType === 'scroll_experience'
+  const depth = ownsScroll
+    ? 0
+    : (section.parallaxDepth ?? (section.sectionType === 'hero' ? 0.4 : 0.15))
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   const parallaxShift = !prefersReduced && !isMobile ? (scrollY - offsetTop) * depth * -0.5 : 0
 
   // Reveal animation
-  const revealStyle: React.CSSProperties = prefersReduced
-    ? {}
-    : {
-        opacity: hasRevealed ? 1 : 0,
-        transform: hasRevealed ? 'translateY(0)' : 'translateY(32px)',
-        transition: hasRevealed || index === 0 ? 'opacity 0.7s ease, transform 0.7s ease' : 'none',
-      }
+  const revealStyle: React.CSSProperties =
+    prefersReduced || ownsScroll
+      ? {}
+      : {
+          opacity: hasRevealed ? 1 : 0,
+          transform: hasRevealed ? 'translateY(0)' : 'translateY(32px)',
+          transition:
+            hasRevealed || index === 0 ? 'opacity 0.7s ease, transform 0.7s ease' : 'none',
+        }
 
   // Divider between sections
   const showDivider = index > 0
@@ -148,7 +162,7 @@ function ParallaxSectionWrapper({
       ref={ref}
       style={{
         position: 'relative',
-        overflow: 'hidden',
+        overflow: ownsScroll ? 'visible' : 'hidden',
         minHeight: section.fullHeight ? '100vh' : undefined,
       }}
       data-section-id={section.id}

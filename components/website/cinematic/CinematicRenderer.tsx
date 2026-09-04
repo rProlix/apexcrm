@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import type { CinematicConfig, CinematicLayer } from '@/lib/website-cinematic/schema'
-import { mapProgressToClip, selectCinematicSource } from '@/lib/website-cinematic/runtime'
+import {
+  mapProgressToClip,
+  orderCinematicClips,
+  resolveCinematicLayer,
+  selectCinematicSource,
+} from '@/lib/website-cinematic/runtime'
 import { acquireCinematicSmoothScroll } from './smooth-scroll'
 
 type Props = {
@@ -24,7 +29,7 @@ const NORMALIZED_DURATION = 1000
 
 function layerTransform(layer: CinematicLayer) {
   const transform = layer.baseTransform
-  return `translate3d(-50%, -50%, 0) translate3d(${transform.x ?? 0}px, ${transform.y ?? 0}px, 0) scale(${transform.scale ?? 1}) rotate(${transform.rotation ?? 0}deg)`
+  return `translate3d(-50%, -50%, 0) translate3d(${transform.x ?? 0}px, ${transform.y ?? 0}px, 0) scale(${transform.scaleX ?? transform.scale ?? 1}, ${transform.scaleY ?? transform.scale ?? 1}) rotate(${transform.rotation ?? 0}deg) skew(${transform.skewX ?? 0}deg, ${transform.skewY ?? 0}deg)`
 }
 
 function Layer({
@@ -40,20 +45,32 @@ function Layer({
   selected: boolean
   onPointerDown?: React.PointerEventHandler<HTMLElement>
 }) {
-  if (layer.hidden || !layer.visibleOn.includes(breakpoint)) return null
+  const resolved = resolveCinematicLayer(layer, breakpoint)
+  if (resolved.hidden || resolved.visible === false || !resolved.visibleOn.includes(breakpoint))
+    return null
+  const transform = resolved.baseTransform
   const common: React.CSSProperties = {
-    position: 'absolute',
-    left: `${layer.x}%`,
-    top: `${layer.y}%`,
-    width: `${layer.width}%`,
-    zIndex: layer.zIndex,
-    color: layer.color,
-    opacity: layer.baseTransform.opacity ?? 1,
-    filter: `blur(${layer.baseTransform.blur ?? 0}px)`,
-    transform: layerTransform(layer),
-    transformOrigin: 'center',
+    position: resolved.positionMode,
+    left: `${resolved.x}%`,
+    top: `${resolved.y}%`,
+    width: `${resolved.width}%`,
+    height: resolved.height ? `${resolved.height}%` : undefined,
+    maxWidth: resolved.maxWidth,
+    aspectRatio: resolved.aspectRatio,
+    zIndex: resolved.zIndex,
+    color: resolved.color,
+    opacity: transform.opacity ?? 1,
+    filter: `blur(${transform.blur ?? 0}px) brightness(${transform.brightness ?? 1}) contrast(${transform.contrast ?? 1}) saturate(${transform.saturation ?? 1})`,
+    transform: layerTransform(resolved),
+    transformOrigin: resolved.transformOrigin,
     willChange: animated ? 'transform, opacity' : undefined,
-    textAlign: layer.textAlign,
+    textAlign: resolved.textAlign,
+    fontFamily: resolved.fontFamily,
+    fontWeight: resolved.fontWeight,
+    lineHeight: resolved.lineHeight,
+    letterSpacing: `${resolved.letterSpacing}em`,
+    borderRadius: resolved.borderRadius,
+    boxShadow: resolved.shadow,
     outline: selected ? '1px solid rgba(216,183,105,.9)' : undefined,
     outlineOffset: selected ? 4 : undefined,
     cursor: onPointerDown ? 'move' : undefined,
@@ -174,15 +191,18 @@ export function CinematicRenderer({
   manualProgressRef.current = manualProgress
   const activeClipRef = useRef(-1)
   const pendingSeekRef = useRef<number | null>(null)
-  const pendingProgressRef = useRef<number | null>(null)
+  const pendingMetadataProgressRef = useRef<number | null>(null)
+  const scheduledProgressRef = useRef<number | null>(null)
   const lastSeekRef = useRef(-1)
+  const progressFrameRef = useRef<number | null>(null)
   const [near, setNear] = useState(editorMode)
   const [mobile, setMobile] = useState(false)
   const [tablet, setTablet] = useState(false)
   const [reduced, setReduced] = useState(false)
+  const [videoState, setVideoState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const video = config.video
   const clips = useMemo(() => {
-    if (video?.clips.length) return video.clips
+    if (video?.clips.length) return orderCinematicClips(video.clips)
     return desktopSrc
       ? [
           {
@@ -193,6 +213,8 @@ export function CinematicRenderer({
             duration: 1,
             scrollWeight: 1,
             seamOverlap: 0.015,
+            order: 0,
+            preload: 'metadata' as const,
           },
         ]
       : []
@@ -304,18 +326,45 @@ export function CinematicRenderer({
             1,
             (track.endProgress - track.startProgress) * NORMALIZED_DURATION
           )
-          const from = {
+          const desktopOverride = track.breakpointOverrides.desktop ?? {}
+          const tabletOverride =
+            activeBreakpoint === 'tablet' || activeBreakpoint === 'mobile'
+              ? (track.breakpointOverrides.tablet ?? {})
+              : {}
+          const mobileOverride =
+            activeBreakpoint === 'mobile' ? (track.breakpointOverrides.mobile ?? {}) : {}
+          const fromValues = {
             ...track.from,
-            filter: track.from.blur == null ? undefined : `blur(${track.from.blur}px)`,
+            ...desktopOverride.from,
+            ...tabletOverride.from,
+            ...mobileOverride.from,
+          }
+          const toValues = {
+            ...track.to,
+            ...desktopOverride.to,
+            ...tabletOverride.to,
+            ...mobileOverride.to,
+          }
+          const filter = (value: typeof fromValues) =>
+            `blur(${value.blur ?? 0}px) brightness(${value.brightness ?? 1}) contrast(${value.contrast ?? 1}) saturate(${value.saturation ?? 1})`
+          const from = {
+            ...fromValues,
+            filter: filter(fromValues),
           }
           const to = {
-            ...track.to,
-            filter: track.to.blur == null ? undefined : `blur(${track.to.blur}px)`,
+            ...toValues,
+            filter: filter(toValues),
             duration,
             ease: track.easing === 'none' ? 'none' : `${track.easing}.inOut`,
           } as Record<string, unknown>
           delete from.blur
+          delete from.brightness
+          delete from.contrast
+          delete from.saturation
           delete to.blur
+          delete to.brightness
+          delete to.contrast
+          delete to.saturation
           if (track.motionPath) {
             const pathLayer = config.layers.find(
               (layer) => layer.id === track.motionPath?.pathLayerId
@@ -333,24 +382,47 @@ export function CinematicRenderer({
           timeline.fromTo(target, from, to, track.startProgress * NORMALIZED_DURATION)
         }
         timelineRef.current = timeline
+        const preloads = new Map<string, HTMLVideoElement>()
+        const preloadClip = (clip: (typeof clips)[number] | null) => {
+          if (!clip) return
+          const source = selectCinematicSource(clip, mobile)
+          if (preloads.has(source)) return
+          for (const [cachedSource, cached] of preloads) {
+            if (cachedSource === source) continue
+            cached.removeAttribute('src')
+            cached.load()
+            preloads.delete(cachedSource)
+          }
+          const preload = document.createElement('video')
+          preload.muted = true
+          preload.playsInline = true
+          preload.preload = clip.preload ?? 'metadata'
+          preload.src = source
+          preloads.set(source, preload)
+        }
         const applyProgress = (progress: number) => {
           timeline.progress(progress)
           const media = videoRef.current
           const mapped = mapProgressToClip(clips, progress)
+          let sourceChanged = false
           if (media && mapped && activeClipRef.current !== mapped.index) {
+            sourceChanged = true
             activeClipRef.current = mapped.index
-            pendingProgressRef.current = mapped.localProgress
+            pendingMetadataProgressRef.current = mapped.localProgress
             pendingSeekRef.current = null
             lastSeekRef.current = -1
+            setVideoState('loading')
             media.src = selectCinematicSource(mapped.clip, mobile)
             media.load()
-            if (mapped.next) {
-              const preload = document.createElement('video')
-              preload.preload = 'metadata'
-              preload.src = selectCinematicSource(mapped.next, mobile)
-            }
+            preloadClip(mapped.next)
           }
-          if (media && mapped && Number.isFinite(media.duration) && media.duration > 0) {
+          if (
+            media &&
+            mapped &&
+            !sourceChanged &&
+            Number.isFinite(media.duration) &&
+            media.duration > 0
+          ) {
             const target = Math.min(
               media.duration - 0.001,
               Math.max(0, mapped.localProgress * media.duration)
@@ -361,12 +433,13 @@ export function CinematicRenderer({
                 try {
                   media.currentTime = target
                   lastSeekRef.current = target
+                  media.requestVideoFrameCallback?.(() => setVideoState('ready'))
                 } catch {
                   pendingSeekRef.current = target
                 }
               }
             }
-            const seam = mapped.clip.seamOverlap
+            const seam = mapped.clip.seamOverlap ?? 0.015
             const entering = mapped.index > 0 && mapped.localProgress < seam
             const leaving = Boolean(mapped.next) && mapped.localProgress > 1 - seam
             media.style.opacity = entering
@@ -374,16 +447,28 @@ export function CinematicRenderer({
               : leaving
                 ? String((1 - mapped.localProgress) / seam)
                 : '1'
+          } else if (media && mapped) {
+            pendingMetadataProgressRef.current = mapped.localProgress
           }
           rootRef.current?.style.setProperty('--cinematic-progress', String(progress))
         }
-        applyProgressRef.current = applyProgress
+        const scheduleProgress = (progress: number) => {
+          scheduledProgressRef.current = Math.max(0, Math.min(1, progress))
+          if (progressFrameRef.current != null) return
+          progressFrameRef.current = requestAnimationFrame(() => {
+            progressFrameRef.current = null
+            const next = scheduledProgressRef.current
+            scheduledProgressRef.current = null
+            if (next != null) applyProgress(next)
+          })
+        }
+        applyProgressRef.current = scheduleProgress
         if (!manualMode) {
           const trigger = ScrollTrigger.create({
             trigger: rootRef.current,
-            start: 'top top',
-            end: 'bottom bottom',
-            scrub: true,
+            start: config.section.start,
+            end: config.section.end,
+            scrub: config.section.scrub,
             pin: false,
             snap:
               config.section.snap && config.scenes.length > 1
@@ -392,20 +477,44 @@ export function CinematicRenderer({
                     duration: { min: 0.08, max: 0.25 },
                   }
                 : undefined,
-            onUpdate: (self) => applyProgress(self.progress),
+            onUpdate: (self) => scheduleProgress(self.progress),
           })
+          const refresh = () => ScrollTrigger.refresh()
+          const resizeObserver =
+            typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(refresh)
+          if (stageRef.current) resizeObserver?.observe(stageRef.current)
+          const refreshTimer = window.setTimeout(refresh, 120)
           cleanup = () => {
+            window.clearTimeout(refreshTimer)
+            resizeObserver?.disconnect()
+            if (progressFrameRef.current != null) cancelAnimationFrame(progressFrameRef.current)
+            progressFrameRef.current = null
             trigger.kill()
             releaseSmoothScroll?.()
             context.revert()
-            releaseSmoothScroll?.()
+            for (const preload of preloads.values()) {
+              preload.removeAttribute('src')
+              preload.load()
+            }
+            preloads.clear()
             timelineRef.current = null
+            applyProgressRef.current = () => undefined
+            activeClipRef.current = -1
+            pendingMetadataProgressRef.current = null
+            pendingSeekRef.current = null
           }
         } else {
-          applyProgress(manualProgressRef.current ?? 0)
+          scheduleProgress(manualProgressRef.current ?? 0)
           cleanup = () => {
+            if (progressFrameRef.current != null) cancelAnimationFrame(progressFrameRef.current)
+            progressFrameRef.current = null
             context.revert()
+            preloads.clear()
             timelineRef.current = null
+            applyProgressRef.current = () => undefined
+            activeClipRef.current = -1
+            pendingMetadataProgressRef.current = null
+            pendingSeekRef.current = null
           }
         }
       }, rootRef)
@@ -414,7 +523,7 @@ export function CinematicRenderer({
       disposed = true
       cleanup()
     }
-  }, [clips, config, editorMode, manualMode, mobile, near, reduced])
+  }, [activeBreakpoint, clips, config, editorMode, manualMode, mobile, near, reduced])
 
   useEffect(() => {
     const media = videoRef.current
@@ -430,8 +539,9 @@ export function CinematicRenderer({
       }
     }
     const applyMetadataProgress = () => {
-      const progress = pendingProgressRef.current
-      pendingProgressRef.current = null
+      setVideoState('ready')
+      const progress = pendingMetadataProgressRef.current
+      pendingMetadataProgressRef.current = null
       if (progress != null) seek(progress * media.duration)
     }
     const applyPendingSeek = () => {
@@ -441,9 +551,19 @@ export function CinematicRenderer({
     }
     media.addEventListener('loadedmetadata', applyMetadataProgress)
     media.addEventListener('seeked', applyPendingSeek)
+    const markReady = () => setVideoState('ready')
+    const markError = () => setVideoState('error')
+    media.addEventListener('canplay', markReady)
+    media.addEventListener('error', markError)
+    const metadataTimeout = window.setTimeout(() => {
+      if (media.readyState < HTMLMediaElement.HAVE_METADATA) setVideoState('error')
+    }, 12_000)
     return () => {
+      window.clearTimeout(metadataTimeout)
       media.removeEventListener('loadedmetadata', applyMetadataProgress)
       media.removeEventListener('seeked', applyPendingSeek)
+      media.removeEventListener('canplay', markReady)
+      media.removeEventListener('error', markError)
     }
   }, [near, reduced, selectedSrc])
 
@@ -452,6 +572,8 @@ export function CinematicRenderer({
   }, [manualProgress])
 
   const fallback = config.accessibility.fallbackImage || posterSrc || clips[0]?.poster
+  const scrollLength =
+    config.responsive[activeBreakpoint]?.scrollLength ?? config.section.scrollLength
   return (
     <section
       ref={rootRef}
@@ -460,7 +582,7 @@ export function CinematicRenderer({
       data-engine={config.engine}
       style={{
         position: 'relative',
-        minHeight: reduced || editorMode ? '100svh' : `${config.section.scrollLength}vh`,
+        minHeight: reduced || editorMode ? '100svh' : `${scrollLength}vh`,
         background: config.section.background,
         color: '#fff',
       }}
@@ -472,7 +594,7 @@ export function CinematicRenderer({
           top: 0,
           height: '100svh',
           minHeight: 520,
-          overflow: 'hidden',
+          overflow: config.section.overflow,
           isolation: 'isolate',
         }}
       >
@@ -493,13 +615,13 @@ export function CinematicRenderer({
             unoptimized
           />
         ) : null}
-        {near && selectedSrc && !reduced && config.engine !== 'layers' ? (
+        {near && selectedSrc && !reduced && config.engine !== 'layers' && videoState !== 'error' ? (
           <video
             ref={videoRef}
             src={selectedSrc}
             muted
             playsInline
-            preload="metadata"
+            preload={clips[0]?.preload ?? 'metadata'}
             poster={fallback}
             aria-hidden="true"
             style={{
@@ -507,8 +629,31 @@ export function CinematicRenderer({
               inset: 0,
               width: '100%',
               height: '100%',
-              objectFit: video?.fit || 'cover',
-              objectPosition: `${video?.focalPoint.x ?? 50}% ${video?.focalPoint.y ?? 50}%`,
+              objectFit:
+                mobile && video?.mobileFit !== 'poster'
+                  ? video?.mobileFit || 'cover'
+                  : video?.fit || 'cover',
+              objectPosition: `${mobile ? (video?.mobileFocalPoint?.x ?? video?.focalPoint.x ?? 50) : (video?.focalPoint.x ?? 50)}% ${mobile ? (video?.mobileFocalPoint?.y ?? video?.focalPoint.y ?? 50) : (video?.focalPoint.y ?? 50)}%`,
+              opacity: videoState === 'ready' ? 1 : 0,
+              transition: 'opacity 180ms ease-out',
+            }}
+          />
+        ) : null}
+        {config.section.loadingIndicator && videoState === 'loading' ? (
+          <div
+            role="status"
+            aria-label="Loading cinematic video"
+            className="animate-spin motion-reduce:animate-none"
+            style={{
+              position: 'absolute',
+              right: 20,
+              bottom: 20,
+              zIndex: 3,
+              width: 18,
+              height: 18,
+              border: '2px solid rgba(255,255,255,.25)',
+              borderTopColor: '#fff',
+              borderRadius: '50%',
             }}
           />
         ) : null}

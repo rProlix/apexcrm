@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   let query = db
     .from('website_scroll_experiences')
     .select(
-      'id,name,status,page_id,component_instance_id,active_version_id,created_at,updated_at,website_scroll_experience_versions!website_scroll_experiences_active_version_fk(id,status,duration_seconds,desktop_bytes,mobile_bytes,processed_at,processing_error_category)'
+      'id,name,status,page_id,component_instance_id,active_version_id,created_at,updated_at,website_scroll_experience_versions!website_scroll_experiences_active_version_fk(id,status,duration_seconds,desktop_bytes,mobile_bytes,processed_at,processing_error_category,updated_at)'
     )
     .eq('tenant_id', tenantId)
     .neq('status', 'ARCHIVED')

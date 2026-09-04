@@ -105,6 +105,7 @@ test('Scroll MP4 uses private Supabase Storage with a hard 10 MB source limit', 
   assert.match(migration, /public, file_size_limit/)
   assert.match(server, /createSignedUploadUrl/)
   assert.match(server, /storage_provider: 'supabase'/)
+  assert.match(server, /QUEUE_DISPATCH_FAILED/)
   assert.match(worker, /downloadSupabase/)
   assert.match(worker, /uploadSupabase/)
 })
@@ -214,11 +215,24 @@ test('the Website Builder exposes Scroll Experience as a prominent upload workfl
   assert.match(workspace, /Choose MP4 video/)
   assert.match(workspace, /Up to 10 MB/)
   assert.match(workspace, /Add to page/)
+  assert.match(workspace, /STALE_PROCESSING_MS/)
+  assert.match(workspace, /retryProcessing\(experience, true\)/)
   assert.match(sectionsPanel, /Open Cinematic Scroll/)
 
   const sidebar = readFileSync('components/shell/Sidebar.tsx', 'utf8')
   assert.match(sidebar, /label: 'Cinematic Scroll'/)
   assert.match(sidebar, /href: '\/website\/scroll-video'/)
+})
+
+test('stale processing can be safely reclaimed and re-queued', () => {
+  const retryRoute = readFileSync(
+    'app/api/website-builder/scroll-experiences/[experienceId]/retry/route.ts',
+    'utf8'
+  )
+  assert.match(retryRoute, /30 \* 60 \* 1000/)
+  assert.match(retryRoute, /claimed_at: null/)
+  assert.match(retryRoute, /queue_message_id: null/)
+  assert.match(retryRoute, /completeScrollExperienceUpload/)
 })
 
 test('published Scroll Experience keeps sticky positioning compatible wrappers', () => {
@@ -228,4 +242,8 @@ test('published Scroll Experience keeps sticky positioning compatible wrappers',
   assert.match(frame, /isScrollExperience \? 'visible' : 'hidden'/)
   assert.match(frame, /isScrollExperience \|\|/)
   assert.match(renderer, /normalized\.type !== 'scroll_experience'/)
+
+  const parallax = readFileSync('components/site/premium/ParallaxOnePage.tsx', 'utf8')
+  assert.match(parallax, /section\.sectionType === 'scroll_experience'/)
+  assert.match(parallax, /ownsScroll \? 'visible' : 'hidden'/)
 })

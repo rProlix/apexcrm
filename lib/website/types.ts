@@ -274,6 +274,7 @@ export interface SiteSettings {
   /** Controls which domain is active for the public site. */
   domain_type: DomainType
   is_published: boolean
+  last_published_version_id?: string | null
   created_at: string
   updated_at: string
   // POV Event App / Invitation-event integration (migrations 078–079)

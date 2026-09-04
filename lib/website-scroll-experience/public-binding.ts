@@ -37,47 +37,6 @@ export async function resolvePublicScrollExperienceBinding(
     .maybeSingle()
   if (!version) return null
 
-  // The public storefront reads visible sections from published site_pages.
-  // Check that same source of truth so an editor-applied section cannot render
-  // publicly with media that the public endpoint refuses to serve.
-  const { data: publishedPages } = await db
-    .from('site_pages')
-    .select('id')
-    .eq('tenant_id', version.tenant_id)
-    .eq('status', 'published')
-  const pageIds = (publishedPages ?? []).map((page) => String(page.id))
-  if (pageIds.length > 0) {
-    const { data: sections } = await db
-      .from('site_sections')
-      .select('id,content')
-      .eq('tenant_id', version.tenant_id)
-      .eq('section_type', 'scroll_experience')
-      .eq('is_visible', true)
-      .in('page_id', pageIds)
-    const liveBinding = findScrollExperienceBinding(
-      {
-        pages: [
-          {
-            sections: (sections ?? []).map((section) => ({
-              id: section.id,
-              section_type: 'scroll_experience',
-              is_visible: true,
-              content: section.content,
-            })),
-          },
-        ],
-      },
-      experienceVersionId,
-      componentInstanceId
-    )
-    if (liveBinding && liveBinding.experienceId === version.experience_id)
-      return {
-        tenant_id: String(version.tenant_id),
-        experience_id: String(version.experience_id),
-        component_instance_id: liveBinding.componentInstanceId,
-      }
-  }
-
   const { data: settings } = await db
     .from('site_settings')
     .select('is_published,last_published_version_id')

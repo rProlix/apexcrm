@@ -1,5 +1,6 @@
 // lib/website/getPublishedSiteConfig.ts
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizeTheme } from './normalizeTheme'
 import type {
   PublishedSiteConfig,
@@ -8,6 +9,8 @@ import type {
   SiteSection,
   SiteNavigationItem,
 } from './types'
+import type { WebsiteSnapshot } from './versionTypes'
+import { publishedSiteConfigFromSnapshot } from './publishedSnapshot'
 
 /**
  * Returns the fully assembled, published website configuration for a tenant.
@@ -22,9 +25,9 @@ import type {
 export async function getPublishedSiteConfig(
   tenantId: string
 ): Promise<PublishedSiteConfig | null> {
-  let db: ReturnType<typeof getSupabaseServerClient>
+  let db: SupabaseClient
   try {
-    db = getSupabaseServerClient()
+    db = getSupabaseServerClient() as unknown as SupabaseClient
   } catch (err) {
     console.error(
       '[getPublishedSiteConfig] Supabase client init failed:',
@@ -34,8 +37,40 @@ export async function getPublishedSiteConfig(
   }
 
   try {
-    const [settingsResult, pagesResult, navResult] = await Promise.all([
-      db.from('site_settings').select('*').eq('tenant_id', tenantId).maybeSingle(),
+    const settingsResult = await db
+      .from('site_settings')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (settingsResult.error)
+      console.error('[getPublishedSiteConfig] settings error:', settingsResult.error.message)
+    const settings = settingsResult.data as unknown as SiteSettings | null
+    if (!settings?.is_published) return null
+
+    const lastPublishedVersionId = settings.last_published_version_id
+    if (lastPublishedVersionId) {
+      const { data: version, error: versionError } = await db
+        .from('site_versions')
+        .select('snapshot')
+        .eq('tenant_id', tenantId)
+        .eq('id', lastPublishedVersionId)
+        .eq('status', 'published')
+        .maybeSingle()
+      if (versionError)
+        console.error('[getPublishedSiteConfig] published version error:', versionError.message)
+      const versionedConfig = publishedSiteConfigFromSnapshot(
+        tenantId,
+        settings,
+        version?.snapshot as unknown as WebsiteSnapshot
+      )
+      if (versionedConfig) return versionedConfig
+      // A tenant that points at a checkpoint must fail closed. Falling back to
+      // mutable rows here would expose post-publish drafts on the public site.
+      return null
+    }
+
+    // Legacy fallback for tenants that were published before checkpointed versions existed.
+    const [pagesResult, navResult] = await Promise.all([
       db
         .from('site_pages')
         .select('*')
@@ -50,16 +85,10 @@ export async function getPublishedSiteConfig(
         .order('sort_order', { ascending: true }),
     ])
 
-    if (settingsResult.error)
-      console.error('[getPublishedSiteConfig] settings error:', settingsResult.error.message)
     if (pagesResult.error)
       console.error('[getPublishedSiteConfig] pages error:', pagesResult.error.message)
     if (navResult.error)
       console.error('[getPublishedSiteConfig] nav error:', navResult.error.message)
-
-    const settings = settingsResult.data as unknown as SiteSettings | null
-
-    if (!settings?.is_published) return null
 
     const pages = (pagesResult.data ?? []) as unknown as SitePage[]
     const navItems = (navResult.data ?? []) as unknown as SiteNavigationItem[]
@@ -206,7 +235,7 @@ export async function getDraftPageBySlug(
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 async function fetchSectionsForPages(
-  db: ReturnType<typeof getSupabaseServerClient>,
+  db: SupabaseClient,
   pageIds: string[],
   visibleOnly: boolean
 ): Promise<SiteSection[]> {
