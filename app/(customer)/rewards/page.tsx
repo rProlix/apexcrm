@@ -396,8 +396,20 @@ export default async function CustomerRewardsPage() {
               />
             </a>
           ) : (
-            <div className="mt-5 rounded-xl border border-white/10 bg-black/15 px-4 py-3 text-xs text-white/45">
-              Apple Wallet is currently unavailable.
+            <div className="mt-5 space-y-3" aria-live="polite">
+              <Image
+                src="https://developer.apple.com/assets/elements/badges/add-to-apple-wallet/add-to-apple-wallet.svg"
+                alt="Add to Apple Wallet unavailable"
+                width={180}
+                height={57}
+                className="opacity-40 grayscale"
+                unoptimized
+              />
+              <p className="rounded-xl border border-white/10 bg-black/15 px-4 py-3 text-xs text-white/45">
+                {program?.wallet_enabled
+                  ? 'Apple Wallet setup is awaiting signing configuration.'
+                  : 'Apple Wallet has not been enabled for this rewards program.'}
+              </p>
             </div>
           )}
         </div>

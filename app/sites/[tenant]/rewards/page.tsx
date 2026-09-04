@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 // app/sites/[tenant]/rewards/page.tsx — Customer rewards & loyalty portal
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { headers } from 'next/headers'
 import { getSiteByHost, getSiteBySlug } from '@/lib/website/getSiteByHost'
 import { getPublishedSiteConfig } from '@/lib/website/getPublishedSiteConfig'
@@ -10,6 +11,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveSiteUser } from '@/lib/auth/resolveSiteUser'
 import { safeQuery, safeOptional } from '@/lib/supabase/safeQuery'
 import type { Json } from '@/lib/supabase/types'
+import { getAppleWalletConfigurationStatus } from '@/lib/rewards/wallet/config'
 
 interface Props {
   params: Promise<{ tenant: string }>
@@ -162,7 +164,7 @@ export default async function RewardsPage({ params }: Props) {
   const db = getSupabaseServerClient()
 
   // Load all rewards data in parallel
-  const [balanceResult, transactionsResult, punchCardsResult] = await Promise.all([
+  const [balanceResult, transactionsResult, punchCardsResult, programResult] = await Promise.all([
     db
       .from('rewards_balances')
       .select('points_balance, lifetime_points_earned, lifetime_points_redeemed')
@@ -184,6 +186,14 @@ export default async function RewardsPage({ params }: Props) {
       .in('status', ['active', 'completed'])
       .order('created_at', { ascending: false })
       .limit(10),
+    (db as any)
+      .from('rewards_programs')
+      .select('id, wallet_enabled')
+      .eq('tenant_id', siteData.tenant.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   if (balanceResult.error) {
@@ -203,6 +213,8 @@ export default async function RewardsPage({ params }: Props) {
   }>(balanceResult.data, balanceResult.error)
   const transactions = safeQuery<Transaction>(transactionsResult.data, transactionsResult.error)
   const punchCards = safeQuery<PunchCard>(punchCardsResult.data, punchCardsResult.error)
+  const program = programResult.data as { id: string; wallet_enabled: boolean } | null
+  const walletConfigured = getAppleWalletConfigurationStatus().configured
 
   const pointsBalance = balance?.points_balance ?? 0
   const lifetimeEarned = balance?.lifetime_points_earned ?? 0
@@ -332,6 +344,57 @@ export default async function RewardsPage({ params }: Props) {
             </p>
           </div>
         </div>
+
+        <section aria-labelledby="apple-wallet-heading" style={{ ...card, marginBottom: '2rem' }}>
+          <h2
+            id="apple-wallet-heading"
+            style={{
+              color: 'var(--color-text)',
+              fontSize: '1.0625rem',
+              fontWeight: 700,
+              margin: 0,
+            }}
+          >
+            Apple Wallet rewards card
+          </h2>
+          <p
+            style={{
+              color: 'var(--color-muted)',
+              fontSize: '0.875rem',
+              lineHeight: 1.6,
+              margin: '0.5rem 0 1rem',
+            }}
+          >
+            Keep your points, punch progress, tier, and membership code on your iPhone.
+          </p>
+          {program?.wallet_enabled && walletConfigured ? (
+            <a href="/api/rewards/wallet/apple" aria-label="Add rewards card to Apple Wallet">
+              <Image
+                src="https://developer.apple.com/assets/elements/badges/add-to-apple-wallet/add-to-apple-wallet.svg"
+                alt="Add to Apple Wallet"
+                width={180}
+                height={57}
+                unoptimized
+              />
+            </a>
+          ) : (
+            <div aria-live="polite">
+              <Image
+                src="https://developer.apple.com/assets/elements/badges/add-to-apple-wallet/add-to-apple-wallet.svg"
+                alt="Add to Apple Wallet unavailable"
+                width={180}
+                height={57}
+                style={{ filter: 'grayscale(1)', opacity: 0.42 }}
+                unoptimized
+              />
+              <p style={{ color: 'var(--color-muted)', fontSize: '0.75rem', margin: '0.5rem 0 0' }}>
+                {program?.wallet_enabled
+                  ? 'Apple Wallet setup is awaiting signing configuration.'
+                  : 'Apple Wallet has not been enabled for this rewards program.'}
+              </p>
+            </div>
+          )}
+        </section>
 
         {/* Punch cards */}
         {punchCards.length > 0 && (
