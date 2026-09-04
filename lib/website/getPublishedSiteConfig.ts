@@ -11,6 +11,8 @@ import type {
 } from './types'
 import type { WebsiteSnapshot } from './versionTypes'
 import { publishedSiteConfigFromSnapshot } from './publishedSnapshot'
+import { normalizeScrollExperienceContent } from '@/lib/website-scroll-experience/types'
+import { normalizeCinematicConfig } from '@/lib/website-cinematic/schema'
 
 /**
  * Returns the fully assembled, published website configuration for a tenant.
@@ -63,7 +65,8 @@ export async function getPublishedSiteConfig(
         settings,
         version?.snapshot as unknown as WebsiteSnapshot
       )
-      if (versionedConfig) return versionedConfig
+      if (versionedConfig)
+        return mergePublishedCinematicCompatibility(db, tenantId, versionedConfig)
       // A tenant that points at a checkpoint must fail closed. Falling back to
       // mutable rows here would expose post-publish drafts on the public site.
       return null
@@ -122,6 +125,80 @@ export async function getPublishedSiteConfig(
       err instanceof Error ? err.message : err
     )
     return null
+  }
+}
+
+/**
+ * Compatibility bridge for sites that attached Cinematic Scroll before public
+ * rendering moved to immutable checkpoints. It can only add a visible, valid,
+ * READY cinematic section to a page that exists in both the published snapshot
+ * and the current published page set. Other mutable sections remain private.
+ */
+async function mergePublishedCinematicCompatibility(
+  db: SupabaseClient,
+  tenantId: string,
+  config: PublishedSiteConfig
+): Promise<PublishedSiteConfig> {
+  const snapshotPageIds = config.pages.map((page) => page.id)
+  if (!snapshotPageIds.length) return config
+
+  const { data: livePages } = await db
+    .from('site_pages')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'published')
+    .in('id', snapshotPageIds)
+  const publishedPageIds = (livePages ?? []).map((page) => String(page.id))
+  if (!publishedPageIds.length) return config
+
+  const { data: liveSections } = await db
+    .from('site_sections')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('section_type', 'scroll_experience')
+    .eq('is_visible', true)
+    .in('page_id', publishedPageIds)
+  const candidates = (liveSections ?? []).flatMap((raw) => {
+    const section = raw as unknown as SiteSection
+    const content = normalizeScrollExperienceContent(section.content)
+    const cinematic = normalizeCinematicConfig(content.cinematic)
+    return cinematic && content.experienceId && content.experienceVersionId
+      ? [{ section, content: { ...content, cinematic } }]
+      : []
+  })
+  if (!candidates.length) return config
+
+  const versionIds = [...new Set(candidates.map(({ content }) => content.experienceVersionId!))]
+  const { data: readyVersions } = await db
+    .from('website_scroll_experience_versions')
+    .select('id,experience_id')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'READY')
+    .in('id', versionIds)
+  const ready = new Map(
+    (readyVersions ?? []).map((version) => [String(version.id), String(version.experience_id)])
+  )
+
+  return {
+    ...config,
+    pages: config.pages.map((page) => {
+      const additions = candidates
+        .filter(
+          ({ section, content }) =>
+            section.page_id === page.id &&
+            ready.get(content.experienceVersionId!) === content.experienceId &&
+            !page.sections.some((published) => published.id === section.id)
+        )
+        .map(({ section, content }) => ({ ...section, content }))
+      return additions.length
+        ? {
+            ...page,
+            sections: [...page.sections, ...additions].sort(
+              (left, right) => left.sort_order - right.sort_order
+            ),
+          }
+        : page
+    }),
   }
 }
 

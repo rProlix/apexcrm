@@ -57,11 +57,65 @@ export async function resolvePublicScrollExperienceBinding(
     experienceVersionId,
     componentInstanceId
   )
-  if (!snapshotBinding || snapshotBinding.experienceId !== version.experience_id) return null
+  if (snapshotBinding && snapshotBinding.experienceId === version.experience_id)
+    return {
+      tenant_id: String(version.tenant_id),
+      experience_id: String(version.experience_id),
+      component_instance_id: snapshotBinding.componentInstanceId,
+    }
+
+  // Transitional compatibility: only a page already present in the immutable
+  // published checkpoint may contribute a newly attached READY cinematic
+  // section. This cannot expose a draft page or a non-cinematic section.
+  const snapshot = siteVersion?.snapshot
+  const snapshotPageIds =
+    snapshot && typeof snapshot === 'object' && Array.isArray(snapshot.pages)
+      ? snapshot.pages.flatMap((page: unknown) => {
+          if (!page || typeof page !== 'object') return []
+          const id = (page as Record<string, unknown>).id
+          return typeof id === 'string' ? [id] : []
+        })
+      : []
+  if (!snapshotPageIds.length) return null
+
+  const { data: publishedPages } = await db
+    .from('site_pages')
+    .select('id')
+    .eq('tenant_id', version.tenant_id)
+    .eq('status', 'published')
+    .in('id', snapshotPageIds)
+  const pageIds = (publishedPages ?? []).map((page) => String(page.id))
+  if (!pageIds.length) return null
+
+  const { data: sections } = await db
+    .from('site_sections')
+    .select('id,content')
+    .eq('tenant_id', version.tenant_id)
+    .eq('section_type', 'scroll_experience')
+    .eq('is_visible', true)
+    .in('page_id', pageIds)
+  const compatibilityBinding = findScrollExperienceBinding(
+    {
+      pages: [
+        {
+          sections: (sections ?? []).map((section) => ({
+            id: section.id,
+            section_type: 'scroll_experience',
+            is_visible: true,
+            content: section.content,
+          })),
+        },
+      ],
+    },
+    experienceVersionId,
+    componentInstanceId
+  )
+  if (!compatibilityBinding || compatibilityBinding.experienceId !== version.experience_id)
+    return null
 
   return {
     tenant_id: String(version.tenant_id),
     experience_id: String(version.experience_id),
-    component_instance_id: snapshotBinding.componentInstanceId,
+    component_instance_id: compatibilityBinding.componentInstanceId,
   }
 }

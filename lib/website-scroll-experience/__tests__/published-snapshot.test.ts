@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { publishedSiteConfigFromSnapshot } from '@/lib/website/publishedSnapshot'
 import type { SiteSettings } from '@/lib/website/types'
@@ -73,4 +74,16 @@ test('snapshot mapping rejects a cross-tenant checkpoint', () => {
     }),
     null
   )
+})
+
+test('legacy cinematic compatibility is bounded to published snapshot pages and READY media', () => {
+  const loader = readFileSync('lib/website/getPublishedSiteConfig.ts', 'utf8')
+  const binding = readFileSync('lib/website-scroll-experience/public-binding.ts', 'utf8')
+  assert.match(loader, /mergePublishedCinematicCompatibility/)
+  assert.match(loader, /\.eq\('section_type', 'scroll_experience'\)/)
+  assert.match(loader, /\.eq\('status', 'READY'\)/)
+  assert.match(loader, /\.in\('id', snapshotPageIds\)/)
+  assert.match(binding, /Transitional compatibility/)
+  assert.match(binding, /\.in\('id', snapshotPageIds\)/)
+  assert.match(binding, /\.eq\('status', 'published'\)/)
 })
