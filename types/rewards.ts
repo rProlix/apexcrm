@@ -41,7 +41,8 @@ export interface ProgramSettings {
 
 // ─── Rewards Program ──────────────────────────────────────────────────────────
 
-export type RewardsProgramStatus = 'active' | 'paused' | 'archived'
+export type RewardsProgramStatus = 'draft' | 'active' | 'paused' | 'archived'
+export type RewardsProgramType = 'points' | 'punches' | 'hybrid'
 
 export interface RewardsProgram {
   id: string
@@ -49,6 +50,15 @@ export interface RewardsProgram {
   name: string
   description: string | null
   status: RewardsProgramStatus
+  program_type?: RewardsProgramType
+  currency_display_name?: string
+  points_name?: string
+  points_abbreviation?: string
+  earning_enabled?: boolean
+  redemption_enabled?: boolean
+  wallet_enabled?: boolean
+  expiration_policy?: RewardExpirationPolicy
+  branding?: RewardBranding
   earning_rules: EarningRules
   punch_card_rules: PunchCardRule[]
   settings: ProgramSettings
@@ -71,7 +81,16 @@ export interface RewardsBalance {
 
 // ─── Rewards Transaction ──────────────────────────────────────────────────────
 
-export type TransactionType = 'earned' | 'redeemed' | 'adjusted' | 'expired' | 'bonus'
+export type TransactionType =
+  | 'earned'
+  | 'redeemed'
+  | 'adjusted'
+  | 'expired'
+  | 'bonus'
+  | 'refund_reversal'
+  | 'promotion'
+  | 'referral'
+  | 'birthday'
 export type SourceType =
   | 'order'
   | 'product'
@@ -90,6 +109,11 @@ export interface RewardsTransaction {
   source_type: SourceType | null
   source_id: string | null
   metadata: Record<string, unknown>
+  idempotency_key?: string | null
+  description?: string | null
+  performed_by?: string | null
+  expires_at?: string | null
+  reversed_transaction_id?: string | null
   created_at: string
 }
 
@@ -121,7 +145,7 @@ export interface RewardShopItem {
 
 // ─── Reward Redemption ────────────────────────────────────────────────────────
 
-export type RedemptionStatus = 'pending' | 'approved' | 'fulfilled' | 'canceled'
+export type RedemptionStatus = 'available' | 'claimed' | 'redeemed' | 'expired' | 'cancelled'
 
 export interface RewardRedemption {
   id: string
@@ -221,4 +245,85 @@ export interface ApplyOrderRewardsResult {
   new_balance: number
   punch_cards_hit: string[]
   transaction_id: string
+}
+
+export type RewardExpirationPolicy =
+  | { type: 'never' }
+  | { type: 'rolling'; days: number }
+  | { type: 'fixed'; date: string }
+  | { type: 'inactivity'; days: number }
+
+export interface RewardBranding {
+  program_name?: string
+  logo_url?: string | null
+  background_color?: string
+  foreground_color?: string
+  label_color?: string
+  card_description?: string
+  support_url?: string
+  terms?: string
+  barcode_enabled?: boolean
+}
+
+export interface RewardMembership {
+  id: string
+  tenant_id: string
+  customer_id: string
+  program_id: string
+  status: 'active' | 'paused' | 'closed'
+  membership_number: string
+  wallet_enabled: boolean
+  joined_at: string
+  updated_at: string
+}
+
+export interface RewardTier {
+  id: string
+  tenant_id: string
+  program_id: string
+  name: string
+  rank: number
+  qualification_type: 'points' | 'spend' | 'visits' | 'purchases' | 'appointments'
+  threshold: number
+  qualification_window: 'lifetime' | 'rolling_12_months'
+  points_multiplier: number
+  benefits: Record<string, unknown>
+  color: string | null
+  enabled: boolean
+}
+
+export interface RewardPromotion {
+  id: string
+  tenant_id: string
+  program_id: string
+  name: string
+  status: 'draft' | 'active' | 'paused' | 'ended' | 'archived'
+  rule_type: 'multiplier' | 'bonus_points' | 'bonus_punch' | 'spend_bonus' | 'visit_bonus'
+  multiplier: number | null
+  bonus_points: number | null
+  bonus_punches: number | null
+  minimum_spend: number | null
+  starts_at: string
+  ends_at: string
+}
+
+export interface WalletPassDomainModel {
+  membershipName: string
+  customerDisplayName: string
+  membershipNumber: string
+  pointsBalance: number
+  pointsLabel: string
+  tier: string | null
+  tierProgress: { current: number; target: number; label: string } | null
+  punchProgress: { current: number; target: number; label: string } | null
+  nextReward: string | null
+  barcodeToken: string
+  brandColors: {
+    background: string
+    foreground: string
+    label: string
+  }
+  logoUrl: string | null
+  terms: string | null
+  supportUrl: string | null
 }

@@ -1,4 +1,14 @@
 {
   "framework": "nextjs",
-  "routes": []
+  "routes": [],
+  "crons": [
+    {
+      "path": "/api/internal/rewards/wallet-updates",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/rewards/maintenance",
+      "schedule": "15 7 * * *"
+    }
+  ]
 }

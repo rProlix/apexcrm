@@ -1,6 +1,6 @@
 'use client'
 // app/(customer)/rewards/[rewardId]/_RewardDetailClient.tsx
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Gift, CheckCircle2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -18,6 +18,8 @@ export function RewardsRedemptionCard({ itemId, canAfford, outOfStock, currentBa
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
   const [newBalance, setNewBalance] = useState(currentBalance)
+  const [redemptionToken, setRedemptionToken] = useState('')
+  const idempotencyKey = useRef(`reward:${crypto.randomUUID()}`)
 
   async function handleRedeem() {
     setLoading(true)
@@ -26,11 +28,12 @@ export function RewardsRedemptionCard({ itemId, canAfford, outOfStock, currentBa
       const res = await fetch('/api/rewards/redemptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ item_id: itemId }),
+        body: JSON.stringify({ item_id: itemId, idempotency_key: idempotencyKey.current }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setNewBalance(data.new_balance ?? currentBalance)
+      setRedemptionToken(data.redemption_token ?? '')
       setSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Redemption failed')
@@ -50,7 +53,12 @@ export function RewardsRedemptionCard({ itemId, canAfford, outOfStock, currentBa
           <CheckCircle2 className="h-6 w-6 text-emerald-400" strokeWidth={1.75} />
         </div>
         <h3 className="text-sm font-semibold text-white mb-1">Redeemed!</h3>
-        <p className="text-xs text-white/40 mb-1">Your redemption is pending approval.</p>
+        <p className="text-xs text-white/40 mb-1">Present this one-time code to staff.</p>
+        {redemptionToken && (
+          <code className="my-3 block break-all rounded-xl border border-white/10 bg-black/20 p-3 text-xs text-white/70">
+            {redemptionToken}
+          </code>
+        )}
         <p className="text-xs text-emerald-400 font-semibold">
           New balance: {newBalance.toLocaleString()} pts
         </p>
@@ -58,7 +66,7 @@ export function RewardsRedemptionCard({ itemId, canAfford, outOfStock, currentBa
           onClick={() => router.push('/rewards/history')}
           className="mt-4 text-xs text-gold-400 hover:text-gold-300 transition-colors"
         >
-          View history →
+          View history
         </button>
       </motion.div>
     )
@@ -73,7 +81,7 @@ export function RewardsRedemptionCard({ itemId, canAfford, outOfStock, currentBa
         className="w-full flex items-center justify-center gap-2 bg-gold-gradient text-graphite-900 font-bold text-sm py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Gift className="h-4 w-4" />
-        {loading ? 'Processing…' : 'Redeem Now'}
+        {loading ? 'Processing...' : 'Redeem Now'}
       </button>
     </div>
   )

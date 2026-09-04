@@ -53,7 +53,7 @@ export function RewardsProgramForm({ programs, products }: Props) {
   function populateForm(p: RewardsProgram) {
     setName(p.name)
     setDescription(p.description ?? '')
-    setStatus(p.status)
+    setStatus(p.status === 'draft' ? 'paused' : p.status)
     setPointsPerDollar(p.earning_rules.points_per_dollar ?? 10)
     setPointsEnabled(p.settings.points_enabled)
     setPunchCardsEnabled(p.settings.punch_cards_enabled)

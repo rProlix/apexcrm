@@ -44,7 +44,23 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const supabase = getSupabaseServerClient()
 
-  const allowed = ['name', 'description', 'status', 'earning_rules', 'punch_card_rules', 'settings']
+  const allowed = [
+    'name',
+    'description',
+    'status',
+    'program_type',
+    'currency_display_name',
+    'points_name',
+    'points_abbreviation',
+    'earning_enabled',
+    'redemption_enabled',
+    'wallet_enabled',
+    'expiration_policy',
+    'branding',
+    'earning_rules',
+    'punch_card_rules',
+    'settings',
+  ]
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   for (const key of allowed) {
     if (key in body) updates[key] = body[key]

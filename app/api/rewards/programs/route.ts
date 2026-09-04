@@ -76,6 +76,17 @@ export async function POST(req: NextRequest) {
         shop_enabled: true,
         min_redemption_points: 100,
       },
+      program_type: typeof body.program_type === 'string' ? body.program_type : 'points',
+      currency_display_name:
+        typeof body.currency_display_name === 'string' ? body.currency_display_name : 'Points',
+      points_name: typeof body.points_name === 'string' ? body.points_name : 'points',
+      points_abbreviation:
+        typeof body.points_abbreviation === 'string' ? body.points_abbreviation : 'pts',
+      earning_enabled: body.earning_enabled !== false,
+      redemption_enabled: body.redemption_enabled !== false,
+      wallet_enabled: body.wallet_enabled === true,
+      expiration_policy: body.expiration_policy ?? { type: 'never' },
+      branding: body.branding ?? {},
     })
     .select()
     .single()

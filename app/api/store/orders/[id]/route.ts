@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveStoreUser, resolveStoreCustomer } from '@/lib/auth/resolveStoreUser'
 import { applyInventoryForCompletedOrder } from '@/lib/inventory/applyInventoryForOrder'
+import { applyOrderRewards } from '@/lib/rewards/applyOrderRewards'
 
 const COMPLETION_STATUSES = new Set(['delivered', 'completed'])
 
@@ -71,7 +72,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { data: existing } = await supabase
     .from('orders')
-    .select('id, tenant_id')
+    .select('id, tenant_id, customer_id, status')
     .eq('id', (await params).id)
     .maybeSingle()
 
@@ -122,12 +123,37 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (
     typeof body.status === 'string' &&
     COMPLETION_STATUSES.has(body.status) &&
+    !COMPLETION_STATUSES.has(existing.status) &&
     data?.id &&
     data?.tenant_id
   ) {
     applyInventoryForCompletedOrder(data.id as string, data.tenant_id as string).catch((err) => {
       console.warn('[inventory] applyInventoryForCompletedOrder failed:', err?.message)
     })
+    if (existing.customer_id) {
+      const { data: orderItems } = await supabase
+        .from('order_items')
+        .select('product_id,quantity,price')
+        .eq('tenant_id', existing.tenant_id)
+        .eq('order_id', existing.id)
+      await applyOrderRewards({
+        tenantId: existing.tenant_id,
+        customerId: existing.customer_id,
+        orderId: existing.id,
+        items: (orderItems ?? [])
+          .filter((item) => Boolean(item.product_id))
+          .map((item) => ({
+            product_id: item.product_id as string,
+            quantity: item.quantity,
+            price: Number(item.price),
+          })),
+      }).catch((error) => {
+        console.warn('[rewards] completed order processing failed', {
+          orderId: existing.id,
+          kind: error instanceof Error ? error.name : 'unknown',
+        })
+      })
+    }
   }
 
   return NextResponse.json({ order: data })

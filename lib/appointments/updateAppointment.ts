@@ -2,6 +2,7 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { checkConflicts } from './checkConflicts'
 import type { Appointment, UpdateAppointmentInput } from './types'
+import { processRewardEvent } from '@/lib/rewards/engine'
 
 export interface UpdateResult {
   appointment?: Appointment
@@ -32,7 +33,7 @@ export async function updateAppointment(
   // Fetch current record to merge times
   const { data: current, error: fetchErr } = await supabase
     .from('appointments')
-    .select('starts_at, ends_at, status, staff_id')
+    .select('starts_at, ends_at, status, staff_id, customer_id, appointment_block_id')
     .eq('id', id)
     .eq('tenant_id', tenant_id)
     .maybeSingle()
@@ -97,6 +98,21 @@ export async function updateAppointment(
   if (error) {
     console.error('[updateAppointment]', error.message)
     return { error: error.message }
+  }
+
+  if (input.status === 'completed' && current.status !== 'completed' && current.customer_id) {
+    await processRewardEvent({
+      tenantId: tenant_id,
+      customerId: current.customer_id,
+      sourceId: id,
+      eventType: 'appointment_completed',
+      serviceIds: current.appointment_block_id ? [current.appointment_block_id] : [],
+    }).catch((rewardError) => {
+      console.warn('[rewards] completed appointment processing failed', {
+        appointmentId: id,
+        kind: rewardError instanceof Error ? rewardError.name : 'unknown',
+      })
+    })
   }
 
   return { appointment: data as unknown as Appointment }

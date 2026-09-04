@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveStoreUser } from '@/lib/auth/resolveStoreUser'
+import { recordCommandAudit } from '@/lib/command-center/audit'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 // ─── PATCH /api/rewards/redemptions/[id] ─────────────────────────────────────
-// admin/owner — update redemption status (approve, fulfill, cancel)
+// admin/owner - claim, redeem, or cancel a redemption.
 export async function PATCH(req: NextRequest, { params }: Params) {
   const user = await resolveStoreUser(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -44,7 +45,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   const { status } = body
-  const validStatuses = ['pending', 'approved', 'fulfilled', 'canceled']
+  const validStatuses = ['claimed', 'redeemed', 'cancelled']
   if (typeof status !== 'string' || !validStatuses.includes(status)) {
     return NextResponse.json(
       { error: `status must be one of: ${validStatuses.join(', ')}` },
@@ -52,12 +53,62 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     )
   }
 
-  const supabase = getSupabaseServerClient()
+  const supabase = getSupabaseServerClient() as any
+  const redemptionId = (await params).id
+  const { data: existing } = await supabase
+    .from('reward_redemptions')
+    .select('*')
+    .eq('id', redemptionId)
+    .eq('tenant_id', user.tenant_id)
+    .maybeSingle()
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  if (status === 'redeemed') {
+    const { data: completed, error } = await supabase.rpc('complete_reward_redemption', {
+      p_tenant_id: user.tenant_id,
+      p_redemption_id: redemptionId,
+      p_actor_id: user.id,
+      p_idempotency_key: `admin:${redemptionId}:redeemed`,
+    })
+    if (error || !completed)
+      return NextResponse.json({ error: 'Redemption is expired or already used' }, { status: 409 })
+    await recordCommandAudit({
+      tenantId: user.tenant_id,
+      actorUserId: user.id,
+      action: 'rewards.reward_redeemed',
+      metadata: { redemption_id: redemptionId, customer_id: existing.customer_id },
+    })
+    return NextResponse.json({ redemption: { ...existing, status: 'redeemed' } })
+  }
+
+  if (status === 'cancelled') {
+    const { data: cancelled, error } = await supabase.rpc('cancel_reward_redemption', {
+      p_tenant_id: user.tenant_id,
+      p_redemption_id: redemptionId,
+      p_actor_id: user.id,
+      p_idempotency_key: `admin:${redemptionId}:cancelled`,
+    })
+    if (error || !cancelled)
+      return NextResponse.json({ error: 'Redemption is already final' }, { status: 409 })
+    await recordCommandAudit({
+      tenantId: user.tenant_id,
+      actorUserId: user.id,
+      action: 'rewards.reward_cancelled',
+      metadata: { redemption_id: redemptionId, customer_id: existing.customer_id },
+    })
+    return NextResponse.json({ redemption: { ...existing, status: 'cancelled' } })
+  }
+
   const { data, error } = await supabase
     .from('reward_redemptions')
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq('id', (await params).id)
+    .update({
+      status,
+      claimed_at: status === 'claimed' ? new Date().toISOString() : existing.claimed_at,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', redemptionId)
     .eq('tenant_id', user.tenant_id)
+    .in('status', ['available', 'claimed'])
     .select()
     .single()
 
@@ -65,6 +116,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     console.error('[PATCH /api/rewards/redemptions/[id]]', error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  await recordCommandAudit({
+    tenantId: user.tenant_id,
+    actorUserId: user.id,
+    action: 'rewards.reward_claimed',
+    metadata: { redemption_id: redemptionId, customer_id: existing.customer_id },
+  })
 
   return NextResponse.json({ redemption: data })
 }

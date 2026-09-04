@@ -4,6 +4,7 @@ import { getDefaultProvider } from './getDefaultProvider'
 import { getAdapter } from './adapters/getAdapter'
 import { syncProviderEvent } from './syncProviderEvent'
 import { getPaymentSettings } from './getPaymentSettings'
+import { reverseOrderRewards } from '@/lib/rewards/refunds'
 
 export interface RefundPaymentParams {
   tenantId: string
@@ -165,6 +166,23 @@ export async function refundPayment(params: RefundPaymentParams): Promise<Refund
     },
     idempotencyKey: refundResult.providerRefundId,
   })
+
+  if (refundResult.status === 'succeeded' && tx.invoice_id) {
+    const { data: invoice } = await supabase
+      .from('invoices')
+      .select('order_id')
+      .eq('tenant_id', params.tenantId)
+      .eq('id', tx.invoice_id)
+      .maybeSingle()
+    if (invoice?.order_id) {
+      await reverseOrderRewards({
+        tenantId: params.tenantId,
+        orderId: invoice.order_id,
+        refundId: refund.id,
+        refundFraction: Math.min(1, refundResult.amount / fullAmount),
+      })
+    }
+  }
 
   return {
     refundId: refund.id,

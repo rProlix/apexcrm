@@ -1,161 +1,66 @@
-// lib/rewards/redeemRewardItem.ts
+import 'server-only'
+
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import type { RewardShopItem } from '@/types/rewards'
+import { getRewardsProgram } from './getRewardsProgram'
+import { generateOpaqueToken, hashRewardToken, safeTokenSuffix } from './security'
 
 export interface RedeemResult {
   success: boolean
   error?: string
   redemption_id?: string
+  redemption_token?: string
   points_used: number
   new_balance: number
 }
 
-/**
- * Redeems a reward shop item for a customer.
- *
- * Guards:
- *  - Verifies the shop item exists and is active for the tenant
- *  - Checks the customer has sufficient points
- *  - Checks inventory (if tracked)
- *  - Checks per-customer redemption limit (if set)
- *  - Atomically deducts points and creates redemption record
- *
- * Uses upsert_rewards_balance RPC for atomic point deduction.
- */
 export async function redeemRewardItem(params: {
   tenantId: string
   customerId: string
   itemId: string
+  idempotencyKey?: string
 }): Promise<RedeemResult> {
-  const { tenantId, customerId, itemId } = params
-  const supabase = getSupabaseServerClient()
-
-  // ── Load shop item ────────────────────────────────────────────────────────
-  const { data: item, error: itemError } = await supabase
-    .from('reward_shop_items')
-    .select('*')
-    .eq('id', itemId)
-    .eq('tenant_id', tenantId)
-    .eq('is_active', true)
-    .maybeSingle()
-
-  if (itemError || !item) {
+  const db = getSupabaseServerClient() as any
+  const [program, itemResult] = await Promise.all([
+    getRewardsProgram(params.tenantId),
+    db
+      .from('reward_shop_items')
+      .select('id,points_cost,program_id')
+      .eq('tenant_id', params.tenantId)
+      .eq('id', params.itemId)
+      .maybeSingle(),
+  ])
+  if (!program || !program.redemption_enabled || !itemResult.data) {
+    return { success: false, error: 'Reward is unavailable', points_used: 0, new_balance: 0 }
+  }
+  const programId = itemResult.data.program_id ?? program.id
+  const credential = `nex_red_${generateOpaqueToken(24)}`
+  const idempotencyKey =
+    params.idempotencyKey ??
+    `redeem:${params.customerId}:${params.itemId}:${generateOpaqueToken(12)}`
+  const { data, error } = await db.rpc('redeem_reward_catalog_item', {
+    p_tenant_id: params.tenantId,
+    p_customer_id: params.customerId,
+    p_item_id: params.itemId,
+    p_program_id: programId,
+    p_credential_hash: hashRewardToken(credential),
+    p_credential_last_four: safeTokenSuffix(credential),
+    p_idempotency_key: idempotencyKey,
+  })
+  if (error || !data?.[0]) {
     return {
       success: false,
-      error: 'Reward item not found or unavailable',
+      error: /insufficient/i.test(error?.message ?? '')
+        ? 'Insufficient points'
+        : 'Unable to redeem this reward',
       points_used: 0,
       new_balance: 0,
     }
   }
-
-  const shopItem = item as RewardShopItem
-
-  // ── Check inventory ───────────────────────────────────────────────────────
-  if (shopItem.inventory_count !== null && shopItem.inventory_count <= 0) {
-    return { success: false, error: 'This reward is out of stock', points_used: 0, new_balance: 0 }
-  }
-
-  // ── Check per-customer limit ──────────────────────────────────────────────
-  if (shopItem.max_redemptions_per_customer != null) {
-    const { count } = await supabase
-      .from('reward_redemptions')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .eq('customer_id', customerId)
-      .eq('reward_item_id', itemId)
-      .neq('status', 'canceled')
-
-    if ((count ?? 0) >= shopItem.max_redemptions_per_customer) {
-      return {
-        success: false,
-        error: `You have already redeemed this reward the maximum number of times (${shopItem.max_redemptions_per_customer})`,
-        points_used: 0,
-        new_balance: 0,
-      }
-    }
-  }
-
-  // ── Load current balance ──────────────────────────────────────────────────
-  const { data: balanceRow } = await supabase
-    .from('rewards_balances')
-    .select('points_balance')
-    .eq('tenant_id', tenantId)
-    .eq('customer_id', customerId)
-    .maybeSingle()
-
-  const currentBalance = balanceRow?.points_balance ?? 0
-
-  if (currentBalance < shopItem.points_cost) {
-    return {
-      success: false,
-      error: `Insufficient points. You have ${currentBalance} points but need ${shopItem.points_cost}`,
-      points_used: 0,
-      new_balance: currentBalance,
-    }
-  }
-
-  // ── Deduct points atomically ──────────────────────────────────────────────
-  const { data: newBalanceData, error: balError } = await supabase.rpc('upsert_rewards_balance', {
-    p_tenant_id: tenantId,
-    p_customer_id: customerId,
-    p_points_delta: -shopItem.points_cost,
-  })
-
-  if (balError) {
-    console.error('[redeemRewardItem] balance deduction', balError.message)
-    return {
-      success: false,
-      error: 'Failed to deduct points',
-      points_used: 0,
-      new_balance: currentBalance,
-    }
-  }
-
-  const newBalance = (newBalanceData as unknown as number) ?? 0
-
-  // ── Create rewards transaction ────────────────────────────────────────────
-  await supabase.from('rewards_transactions').insert({
-    tenant_id: tenantId,
-    customer_id: customerId,
-    transaction_type: 'redeemed',
-    points_delta: -shopItem.points_cost,
-    source_type: 'reward_item',
-    source_id: itemId,
-    metadata: { item_name: shopItem.name, redemption_type: shopItem.redemption_type },
-  })
-
-  // ── Create redemption record ──────────────────────────────────────────────
-  const { data: redemption, error: redeemError } = await supabase
-    .from('reward_redemptions')
-    .insert({
-      tenant_id: tenantId,
-      customer_id: customerId,
-      reward_item_id: itemId,
-      points_used: shopItem.points_cost,
-      status: 'pending',
-      metadata: { item_name: shopItem.name, redemption_type: shopItem.redemption_type },
-    })
-    .select('id')
-    .single()
-
-  if (redeemError) {
-    console.error('[redeemRewardItem] redemption insert', redeemError.message)
-    // Balance already deducted — still return success but log warning
-  }
-
-  // ── Decrement inventory if tracked ────────────────────────────────────────
-  if (shopItem.inventory_count > 0) {
-    await supabase
-      .from('reward_shop_items')
-      .update({ inventory_count: Math.max(0, shopItem.inventory_count - 1) })
-      .eq('id', itemId)
-      .eq('tenant_id', tenantId)
-  }
-
   return {
     success: true,
-    redemption_id: redemption?.id,
-    points_used: shopItem.points_cost,
-    new_balance: newBalance,
+    redemption_id: data[0].redemption_id,
+    redemption_token: credential,
+    points_used: Number(itemResult.data.points_cost),
+    new_balance: Number(data[0].points_balance),
   }
 }

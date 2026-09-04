@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveStoreUser, resolveStoreCustomer } from '@/lib/auth/resolveStoreUser'
-import { applyOrderRewards } from '@/lib/rewards/applyOrderRewards'
 
 // ─── GET /api/store/orders ────────────────────────────────────────────────────
 // admin/owner → all orders for their tenant
@@ -184,20 +183,6 @@ export async function POST(req: NextRequest) {
         })
     )
   )
-
-  // ── Apply rewards (non-blocking — never fails the order) ─────────────────
-  applyOrderRewards({
-    tenantId: customer.tenant_id,
-    customerId: customer.customer_id,
-    orderId: order.id,
-    items: items.map((item) => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      price: Number(productMap.get(item.product_id)!.price),
-    })),
-  }).catch((err) => {
-    console.warn('[POST /api/store/orders] rewards application failed', err)
-  })
 
   return NextResponse.json({ order }, { status: 201 })
 }

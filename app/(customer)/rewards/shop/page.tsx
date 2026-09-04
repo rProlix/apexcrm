@@ -12,6 +12,7 @@ export default function CustomerRewardsShopPage() {
   const [items, setItems] = useState<RewardShopItem[]>([])
   const [balance, setBalance] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [issuedCode, setIssuedCode] = useState('')
   useEffect(() => {
     async function load() {
       const [itemsRes, balRes] = await Promise.all([
@@ -40,6 +41,7 @@ export default function CustomerRewardsShopPage() {
     const data = await res.json()
     if (!res.ok) throw new Error(data.error)
     setBalance(data.new_balance ?? balance)
+    setIssuedCode(data.redemption_token ?? '')
   }
 
   if (loading) {
@@ -72,6 +74,20 @@ export default function CustomerRewardsShopPage() {
       </div>
 
       <RewardsShopGrid items={items} userPoints={balance} onRedeem={handleRedeem} />
+      {issuedCode && (
+        <aside
+          className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-5"
+          aria-live="polite"
+        >
+          <h2 className="text-sm font-semibold text-emerald-200">Reward ready</h2>
+          <p className="mt-1 text-xs text-white/50">
+            Present this one-time code to staff. It will not be shown again.
+          </p>
+          <code className="mt-3 block break-all rounded-xl bg-black/20 p-3 text-xs text-white/75">
+            {issuedCode}
+          </code>
+        </aside>
+      )}
     </div>
   )
 }

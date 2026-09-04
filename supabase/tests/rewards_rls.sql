@@ -1,0 +1,12 @@
+begin;
+select plan(8);
+select has_table('public','reward_memberships','reward memberships exists');
+select has_table('public','reward_rules','reward rules exists');
+select has_table('public','wallet_passes','wallet passes exists');
+select row_security_active('public.reward_memberships'::regclass);
+select row_security_active('public.reward_rules'::regclass);
+select row_security_active('public.reward_referrals'::regclass);
+select row_security_active('public.wallet_passes'::regclass);
+select has_function('public','apply_reward_points',array['uuid','uuid','uuid','text','integer','text','uuid','text','text','uuid','jsonb','timestamp with time zone','uuid']);
+select * from finish();
+rollback;

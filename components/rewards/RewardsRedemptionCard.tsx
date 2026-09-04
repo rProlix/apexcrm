@@ -11,39 +11,46 @@ interface Props {
 }
 
 const STATUS_CONFIG = {
-  pending: {
+  available: {
     icon: Clock,
     color: 'text-yellow-400',
     bg: 'bg-yellow-400/10',
     border: 'border-yellow-400/20',
-    label: 'Pending',
+    label: 'Available',
   },
-  approved: {
+  claimed: {
     icon: CheckCircle2,
     color: 'text-blue-400',
     bg: 'bg-blue-400/10',
     border: 'border-blue-400/20',
-    label: 'Approved',
+    label: 'Claimed',
   },
-  fulfilled: {
+  redeemed: {
     icon: CheckCircle2,
     color: 'text-emerald-400',
     bg: 'bg-emerald-400/10',
     border: 'border-emerald-400/20',
-    label: 'Fulfilled',
+    label: 'Redeemed',
   },
-  canceled: {
+  expired: {
+    icon: Clock,
+    color: 'text-white/30',
+    bg: 'bg-white/4',
+    border: 'border-white/8',
+    label: 'Expired',
+  },
+  cancelled: {
     icon: XCircle,
     color: 'text-white/30',
     bg: 'bg-white/4',
     border: 'border-white/8',
-    label: 'Canceled',
+    label: 'Cancelled',
   },
 }
 
 export function RewardsRedemptionCard({ redemption, isAdmin, onUpdateStatus }: Props) {
   const cfg =
-    STATUS_CONFIG[redemption.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.pending
+    STATUS_CONFIG[redemption.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.available
   const StatusIcon = cfg.icon
   const itemName = (redemption.reward_shop_items as { name: string } | null)?.name
 
@@ -89,27 +96,28 @@ export function RewardsRedemptionCard({ redemption, isAdmin, onUpdateStatus }: P
 
         {isAdmin &&
           onUpdateStatus &&
-          redemption.status !== 'canceled' &&
-          redemption.status !== 'fulfilled' && (
+          redemption.status !== 'cancelled' &&
+          redemption.status !== 'redeemed' &&
+          redemption.status !== 'expired' && (
             <div className="flex gap-2">
-              {redemption.status === 'pending' && (
+              {redemption.status === 'available' && (
                 <button
-                  onClick={() => onUpdateStatus(redemption.id, 'approved')}
+                  onClick={() => onUpdateStatus(redemption.id, 'claimed')}
                   className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-400/10 border border-blue-400/20 text-blue-400 hover:bg-blue-400/20 transition-colors"
                 >
-                  Approve
+                  Claim
                 </button>
               )}
-              {(redemption.status === 'pending' || redemption.status === 'approved') && (
+              {(redemption.status === 'available' || redemption.status === 'claimed') && (
                 <button
-                  onClick={() => onUpdateStatus(redemption.id, 'fulfilled')}
+                  onClick={() => onUpdateStatus(redemption.id, 'redeemed')}
                   className="text-xs font-medium px-3 py-1.5 rounded-lg bg-emerald-400/10 border border-emerald-400/20 text-emerald-400 hover:bg-emerald-400/20 transition-colors"
                 >
-                  Mark Fulfilled
+                  Redeem
                 </button>
               )}
               <button
-                onClick={() => onUpdateStatus(redemption.id, 'canceled')}
+                onClick={() => onUpdateStatus(redemption.id, 'cancelled')}
                 className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors"
               >
                 Cancel

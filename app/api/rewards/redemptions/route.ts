@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
     tenantId: customer.tenant_id,
     customerId: customer.customer_id,
     itemId: item_id,
+    idempotencyKey: typeof body.idempotency_key === 'string' ? body.idempotency_key : undefined,
   })
 
   if (!result.success) {
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(
     {
       redemption_id: result.redemption_id,
+      redemption_token: result.redemption_token,
       points_used: result.points_used,
       new_balance: result.new_balance,
     },
