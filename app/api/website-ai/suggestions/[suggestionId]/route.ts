@@ -28,7 +28,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const access = await requireAiAutofillAccess()
+  const tenantHint = new URL(req.url).searchParams.get('tenantId')
+  const access = await requireAiAutofillAccess(tenantHint)
   if (!access) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { tenantId } = access

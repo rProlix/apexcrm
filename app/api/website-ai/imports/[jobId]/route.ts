@@ -20,7 +20,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const access = await requireAiAutofillAccess()
+  const tenantHint = new URL(_req.url).searchParams.get('tenantId')
+  const access = await requireAiAutofillAccess(tenantHint)
   if (!access) return forbidden('You do not have permission to use AI Autofill for this website.')
 
   const { tenantId } = access
@@ -68,7 +69,8 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!['owner', 'admin'].includes(ctx.role)) return forbidden()
 
-  const access = await requireAiAutofillAccess()
+  const tenantHint = new URL(_req.url).searchParams.get('tenantId')
+  const access = await requireAiAutofillAccess(tenantHint)
   if (!access) return forbidden()
 
   const { tenantId } = access

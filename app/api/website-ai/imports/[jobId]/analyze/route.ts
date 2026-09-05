@@ -8,7 +8,8 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireAiAutofillAccess, verifyJobAccess } from '@/lib/website-ai/tenantAccess'
 import { buildGeminiPrompt } from '@/lib/website-ai/prompt'
 import { callGemini } from '@/lib/website-ai/geminiClient'
-import type { TenantContext } from '@/lib/website-ai/types'
+import { mapSuggestionToSection } from '@/lib/website-ai/sectionMapper'
+import type { GeminiSuggestion, TenantContext } from '@/lib/website-ai/types'
 
 type Params = { params: Promise<{ jobId: string }> }
 
@@ -16,15 +17,18 @@ function forbidden(msg = 'Forbidden') {
   return NextResponse.json({ error: msg }, { status: 403 })
 }
 
-export async function POST(_req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, { params }: Params) {
   const { jobId } = await params
+  const startedAt = Date.now()
+  const requestId = req.headers.get('x-vercel-id')
 
   const ctx = await getUserContext()
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!['owner', 'admin'].includes(ctx.role))
     return forbidden('You do not have permission to use AI Autofill for this website.')
 
-  const access = await requireAiAutofillAccess()
+  const tenantHint = new URL(req.url).searchParams.get('tenantId')
+  const access = await requireAiAutofillAccess(tenantHint)
   if (!access) return forbidden('You do not have permission to use AI Autofill for this website.')
 
   const { tenantId } = access
@@ -60,8 +64,27 @@ export async function POST(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Analysis is already in progress.' }, { status: 409 })
   }
 
-  // Mark as analyzing
-  await db.from('website_ai_import_jobs').update({ status: 'analyzing' }).eq('id', jobId)
+  // Mark as analyzing. A failed state transition must not leave a job that looks active forever.
+  const { error: analyzingError } = await db
+    .from('website_ai_import_jobs')
+    .update({ status: 'analyzing', error_message: null })
+    .eq('id', jobId)
+    .eq('tenant_id', tenantId)
+  if (analyzingError) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        message: 'website_autofill_state_transition_failed',
+        requestId,
+        jobId,
+        durationMs: Date.now() - startedAt,
+      })
+    )
+    return NextResponse.json(
+      { error: 'Could not start website creation. Try again.' },
+      { status: 500 }
+    )
+  }
 
   // Load tenant context
   const tenantContext = await loadTenantContext(tenantId)
@@ -71,6 +94,17 @@ export async function POST(_req: NextRequest, { params }: Params) {
   const geminiResult = await callGemini({ prompt })
 
   if (geminiResult.error || !geminiResult.result) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        message: 'website_autofill_generation_failed',
+        requestId,
+        jobId,
+        model: getWebsiteAiGeminiModelForLog(),
+        technicalError: geminiResult.error ?? 'missing result',
+        durationMs: Date.now() - startedAt,
+      })
+    )
     await db
       .from('website_ai_import_jobs')
       .update({
@@ -91,9 +125,21 @@ export async function POST(_req: NextRequest, { params }: Params) {
   }
 
   const result = geminiResult.result
+  const resolvedTargets = await resolveSuggestionTargets(tenantId, result.suggestions)
+
+  console.info(
+    JSON.stringify({
+      level: 'info',
+      message: 'website_autofill_generation_complete',
+      requestId,
+      jobId,
+      suggestionCount: result.suggestions.length,
+      durationMs: Date.now() - startedAt,
+    })
+  )
 
   // Insert suggestions
-  const suggestionRows = result.suggestions.map((s) => ({
+  const suggestionRows = result.suggestions.map((s, index) => ({
     tenant_id: tenantId,
     job_id: jobId,
     suggestion_type: s.type as string,
@@ -103,6 +149,8 @@ export async function POST(_req: NextRequest, { params }: Params) {
     reason: s.reason,
     extracted_data: s.data as never,
     proposed_section: s.proposedSection as never,
+    target_page_id: resolvedTargets[index]?.pageId ?? null,
+    target_section_id: resolvedTargets[index]?.sectionId ?? null,
     confidence: s.confidence,
     status: 'pending',
   }))
@@ -111,17 +159,30 @@ export async function POST(_req: NextRequest, { params }: Params) {
     const { error: insertErr } = await db.from('website_ai_suggestions').insert(suggestionRows)
 
     if (insertErr) {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          message: 'website_autofill_suggestion_insert_failed',
+          requestId,
+          jobId,
+          technicalError: insertErr.message,
+          durationMs: Date.now() - startedAt,
+        })
+      )
       await db
         .from('website_ai_import_jobs')
-        .update({ status: 'failed', error_message: insertErr.message })
+        .update({ status: 'failed', error_message: 'Website sections could not be saved.' })
         .eq('id', jobId)
 
-      return NextResponse.json({ error: insertErr.message }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Website sections could not be saved. Please try again.' },
+        { status: 500 }
+      )
     }
   }
 
   // Update job to ready
-  const { data: updatedJob } = await db
+  const { data: updatedJob, error: readyError } = await db
     .from('website_ai_import_jobs')
     .update({
       status: 'ready',
@@ -140,19 +201,99 @@ export async function POST(_req: NextRequest, { params }: Params) {
     .select('*')
     .single()
 
+  if (readyError || !updatedJob) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        message: 'website_autofill_ready_transition_failed',
+        requestId,
+        jobId,
+        technicalError: readyError?.message ?? 'missing updated job',
+        durationMs: Date.now() - startedAt,
+      })
+    )
+    return NextResponse.json(
+      { error: 'The website plan was generated but could not be finalized. Please try again.' },
+      { status: 500 }
+    )
+  }
+
   // Fetch created suggestions
-  const { data: suggestions } = await db
+  const { data: suggestions, error: suggestionsError } = await db
     .from('website_ai_suggestions')
     .select('*')
     .eq('job_id', jobId)
     .eq('tenant_id', tenantId)
     .order('created_at')
 
+  if (suggestionsError) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        message: 'website_autofill_suggestion_read_failed',
+        requestId,
+        jobId,
+        technicalError: suggestionsError.message,
+      })
+    )
+  }
+
   return NextResponse.json({
     job: updatedJob,
     suggestions: suggestions ?? [],
     warnings: result.warnings,
     missingInfoQuestions: result.missingInfoQuestions,
+  })
+}
+
+async function resolveSuggestionTargets(
+  tenantId: string,
+  suggestions: GeminiSuggestion[]
+): Promise<Array<{ pageId: string | null; sectionId: string | null }>> {
+  const db = getSupabaseServerClient()
+  const [{ data: pages }, { data: sections }] = await Promise.all([
+    db
+      .from('site_pages')
+      .select('id, slug, page_type, sort_order')
+      .eq('tenant_id', tenantId)
+      .neq('status', 'archived')
+      .order('sort_order'),
+    db
+      .from('site_sections')
+      .select('id, page_id, section_type, is_visible, sort_order')
+      .eq('tenant_id', tenantId)
+      .order('sort_order'),
+  ])
+
+  const normalizedSlug = (value: string) => value.trim().replace(/^\/+|\/+$/g, '')
+  const homePage =
+    (pages ?? []).find((page) => page.page_type === 'home') ??
+    (pages ?? []).find((page) => normalizedSlug(page.slug) === '') ??
+    pages?.[0]
+  const pageBySlug = new Map(
+    (pages ?? []).map((page) => [normalizedSlug(page.slug), page.id] as const)
+  )
+
+  return suggestions.map((suggestion) => {
+    const requestedSlug = suggestion.target?.pageSlug
+      ? normalizedSlug(suggestion.target.pageSlug)
+      : ''
+    const pageId = pageBySlug.get(requestedSlug) ?? homePage?.id ?? null
+    const mappedType = mapSuggestionToSection(suggestion).section_type
+    const section =
+      suggestion.action === 'create'
+        ? null
+        : ((sections ?? []).find(
+            (candidate) =>
+              candidate.page_id === pageId &&
+              candidate.section_type === mappedType &&
+              candidate.is_visible
+          ) ??
+          (sections ?? []).find(
+            (candidate) => candidate.page_id === pageId && candidate.section_type === mappedType
+          ))
+
+    return { pageId, sectionId: section?.id ?? null }
   })
 }
 
@@ -168,16 +309,21 @@ async function loadTenantContext(tenantId: string): Promise<TenantContext> {
 
   const [
     tenantResult,
+    onboardingResult,
     settingsResult,
     pagesResult,
     sectionsResult,
     storeModuleResult,
     productsResult,
   ] = await Promise.all([
+    db.from('tenants').select('id, name').eq('id', tenantId).maybeSingle(),
     dbClient
-      .from('tenants')
-      .select('id, name, business_type, industry, description')
-      .eq('id', tenantId)
+      .from('business_onboarding_responses')
+      .select('business_name, business_type, business_category, business_description')
+      .eq('tenant_id', tenantId)
+      .order('completed_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle(),
     db.from('site_settings').select('site_name').eq('tenant_id', tenantId).maybeSingle(),
     db
@@ -204,6 +350,7 @@ async function loadTenantContext(tenantId: string): Promise<TenantContext> {
   ])
 
   const tenant = tenantResult.data
+  const onboarding = onboardingResult.data
   const settings = settingsResult.data
   const pages = pagesResult.data ?? []
   const hasStore = storeModuleResult.data?.enabled === true
@@ -212,13 +359,13 @@ async function loadTenantContext(tenantId: string): Promise<TenantContext> {
   const pageSlugById = new Map(
     pages.map((page: { id: string; slug: string }) => [page.id, page.slug])
   )
-  const businessType = tenant?.business_type ?? tenant?.industry ?? null
+  const businessType = onboarding?.business_type ?? onboarding?.business_category ?? null
 
   return {
     tenantId,
-    tenantName: tenant?.name ?? 'Business',
+    tenantName: onboarding?.business_name ?? tenant?.name ?? 'Business',
     businessType,
-    businessDescription: tenant?.description ?? null,
+    businessDescription: onboarding?.business_description ?? null,
     hasStore,
     siteName: settings?.site_name ?? null,
     existingPages: pages.map((p: { slug: string; title: string | null; page_type: string }) => ({
@@ -242,4 +389,8 @@ async function loadTenantContext(tenantId: string): Promise<TenantContext> {
     ),
     existingProductNames: productNames,
   }
+}
+
+function getWebsiteAiGeminiModelForLog(): string {
+  return process.env.WEBSITE_AI_GEMINI_MODEL?.trim() || 'default'
 }

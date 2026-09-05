@@ -97,7 +97,7 @@ export function AiAutofillClient({ tenantId, isOwner, initialJobs }: Props) {
               {jobs.length === 0 && !refreshing && <AiAutofillEmptyState />}
             </>
           ) : selectedJob ? (
-            <ImportJobDetail jobId={selectedJob} onDone={handleBack} />
+            <ImportJobDetail jobId={selectedJob} tenantId={tenantId} onDone={handleBack} />
           ) : null}
         </div>
 

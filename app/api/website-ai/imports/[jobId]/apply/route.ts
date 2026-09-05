@@ -10,6 +10,8 @@ import { requireAiAutofillAccess, verifyJobAccess } from '@/lib/website-ai/tenan
 import { applyWebsiteSuggestions } from '@/lib/website-ai/applyWebsiteSuggestions'
 import { getCurrentWebsiteSnapshot, updateDraftSnapshot } from '@/lib/website/versioning'
 import { normalizeSnapshotForInsert } from '@/lib/website/snapshot/safeJson'
+import { publishTenantSite } from '@/lib/website/publishSite'
+import { syncRegistryAfterPublish } from '@/lib/website/registry'
 import type { PublishMode } from '@/lib/website-ai/types'
 
 type Params = { params: Promise<{ jobId: string }> }
@@ -28,7 +30,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!['owner', 'admin'].includes(ctx.role))
     return forbidden('You do not have permission to use AI Autofill for this website.')
 
-  const access = await requireAiAutofillAccess()
+  const tenantHint = new URL(req.url).searchParams.get('tenantId')
+  const access = await requireAiAutofillAccess(tenantHint)
   if (!access) return forbidden('You do not have permission to use AI Autofill for this website.')
   const { tenantId } = access
 
@@ -123,6 +126,33 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
   )
 
+  if (result.errors.length > 0) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        message: 'website_autofill_apply_partial_failure',
+        requestId: req.headers.get('x-vercel-id'),
+        jobId,
+        applied: result.applied,
+        skipped: result.skipped,
+        technicalErrors: result.errors,
+      })
+    )
+  }
+
+  if (result.applied === 0) {
+    return NextResponse.json(
+      {
+        error:
+          'No website sections were created. Your suggestions are still saved; please try again.',
+        applied: 0,
+        skipped: result.skipped,
+        published: false,
+      },
+      { status: 422 }
+    )
+  }
+
   // After AI autofill updates DB — refresh draft snapshot so checkpoints are accurate
   if (result.applied > 0) {
     try {
@@ -163,7 +193,20 @@ export async function POST(req: NextRequest, { params }: Params) {
       before_snapshot: c.before_snapshot,
       after_snapshot: c.after_snapshot,
     }))
-    await db.from('website_ai_applied_changes').insert(changeRows as never)
+    const { error: auditError } = await db
+      .from('website_ai_applied_changes')
+      .insert(changeRows as never)
+    if (auditError) {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          message: 'website_autofill_audit_insert_failed',
+          requestId: req.headers.get('x-vercel-id'),
+          jobId,
+          technicalError: auditError.message,
+        })
+      )
+    }
   }
 
   // Mark job as applied if all pending suggestions are done
@@ -175,14 +218,68 @@ export async function POST(req: NextRequest, { params }: Params) {
     .in('status', ['pending', 'accepted', 'edited'])
 
   if (!remaining?.length && result.applied > 0) {
-    await db.from('website_ai_import_jobs').update({ status: 'applied' }).eq('id', jobId)
+    const { error: jobStatusError } = await db
+      .from('website_ai_import_jobs')
+      .update({ status: 'applied' })
+      .eq('id', jobId)
+      .eq('tenant_id', tenantId)
+    if (jobStatusError) {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          message: 'website_autofill_job_completion_failed',
+          requestId: req.headers.get('x-vercel-id'),
+          jobId,
+          technicalError: jobStatusError.message,
+        })
+      )
+    }
+  }
+
+  let published = false
+  if (publishMode === 'publish_now') {
+    const publishResult = await publishTenantSite({ tenantId, userId: ctx.auth_id ?? undefined })
+    if (!publishResult.ok) {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          message: 'website_autofill_publish_failed',
+          requestId: req.headers.get('x-vercel-id'),
+          jobId,
+          step: publishResult.step,
+          technicalError: publishResult.error,
+        })
+      )
+      return NextResponse.json(
+        {
+          error:
+            'Your website draft was created, but publishing failed. Open the builder to review and publish it.',
+          applied: result.applied,
+          skipped: result.skipped,
+          published: false,
+          draftSaved: true,
+        },
+        { status: 502 }
+      )
+    }
+    await syncRegistryAfterPublish(tenantId, {
+      published: true,
+      publishedAt: publishResult.publishedAt ?? null,
+      versionId: publishResult.versionId ?? null,
+    }).catch(() => null)
+    published = true
   }
 
   return NextResponse.json({
     applied: result.applied,
     skipped: result.skipped,
-    errors: result.errors,
-    published: publishMode === 'publish_now',
+    errors:
+      result.errors.length > 0
+        ? [
+            'Some selected sections could not be applied. Review the remaining suggestions and try again.',
+          ]
+        : [],
+    published,
     draftSaved: result.applied > 0,
   })
 }

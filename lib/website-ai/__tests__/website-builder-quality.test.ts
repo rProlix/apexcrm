@@ -235,3 +235,22 @@ test('restyle apply and contact rendering preserve their real execution boundari
   assert.match(contact, /c\.showForm === true && Boolean\(email\)/)
   assert.match(contact, /window\.location\.href = `mailto:/)
 })
+
+test('autofill creation completes through tenant-safe apply and canonical publish paths', () => {
+  const analyzeRoute = readFileSync('app/api/website-ai/imports/[jobId]/analyze/route.ts', 'utf8')
+  const applyRoute = readFileSync('app/api/website-ai/imports/[jobId]/apply/route.ts', 'utf8')
+  const applyService = readFileSync('lib/website-ai/applyWebsiteSuggestions.ts', 'utf8')
+  const detail = readFileSync('components/website-ai/ImportJobDetail.tsx', 'utf8')
+  const actionBar = readFileSync('components/website-ai/ApplySuggestionsBar.tsx', 'utf8')
+
+  assert.match(analyzeRoute, /requireAiAutofillAccess\(tenantHint\)/)
+  assert.match(analyzeRoute, /target_page_id: resolvedTargets\[index\]/)
+  assert.match(applyRoute, /publishTenantSite\(\{ tenantId/)
+  assert.match(applyRoute, /syncRegistryAfterPublish/)
+  assert.doesNotMatch(applyService, /update\(\{ is_published: true \}\)/)
+  assert.match(applyService, /s\.action !== 'ignore'/)
+  assert.match(applyService, /\.limit\(1\)\s+\.maybeSingle\(\)/)
+  assert.match(detail, /tenantId=\$\{encodeURIComponent\(tenantId\)\}/)
+  assert.match(actionBar, /sticky top-4/)
+  assert.match(actionBar, /Create &amp; publish/)
+})

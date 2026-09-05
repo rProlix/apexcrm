@@ -60,9 +60,12 @@ export function PasteDetailsPanel({ tenantId, isOwner, onAnalyzed }: Props) {
       const jobId = createJson.job.id
 
       // 2. Trigger analysis
-      const analyzeRes = await fetch(`/api/website-ai/imports/${jobId}/analyze`, {
-        method: 'POST',
-      })
+      const analyzeRes = await fetch(
+        `/api/website-ai/imports/${jobId}/analyze?tenantId=${encodeURIComponent(tenantId)}`,
+        {
+          method: 'POST',
+        }
+      )
       const analyzeJson = await analyzeRes.json()
       if (!analyzeRes.ok)
         throw new Error(analyzeJson.error ?? 'AI analysis is temporarily unavailable')
@@ -167,7 +170,7 @@ export function PasteDetailsPanel({ tenantId, isOwner, onAnalyzed }: Props) {
         className="w-full justify-center"
       >
         <Wand2 className="h-4 w-4" />
-        {analyzing ? 'Analysis in progress…' : 'Analyze content'}
+        {analyzing ? 'Creating website plan…' : 'Generate website draft'}
       </Button>
     </div>
   )

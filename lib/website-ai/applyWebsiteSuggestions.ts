@@ -36,8 +36,25 @@ export async function applyWebsiteSuggestions(
   const db = getSupabaseServerClient()
   const result: ApplyResult = { applied: 0, skipped: 0, errors: [], changes: [] }
 
-  // Skip rejected suggestions
-  const toApply = suggestions.filter((s) => s.status !== 'rejected' && s.status !== 'applied')
+  // Never turn an AI "ignore" recommendation into a website section. Because the
+  // UI auto-selects pending suggestions, explicitly close these out as rejected.
+  const ignored = suggestions.filter(
+    (s) => s.action === 'ignore' && s.status !== 'rejected' && s.status !== 'applied'
+  )
+  for (const suggestion of ignored) {
+    const { error } = await db
+      .from('website_ai_suggestions')
+      .update({ status: 'rejected' })
+      .eq('id', suggestion.id)
+      .eq('tenant_id', ctx.tenantId)
+    if (error)
+      result.errors.push(`Failed to skip "${suggestion.title ?? suggestion.id}": ${error.message}`)
+    result.skipped++
+  }
+
+  const toApply = suggestions.filter(
+    (s) => s.action !== 'ignore' && s.status !== 'rejected' && s.status !== 'applied'
+  )
 
   // Ensure a home page exists to hang sections on
   const homePageId = await getOrCreateHomePage(ctx.tenantId)
@@ -68,11 +85,6 @@ export async function applyWebsiteSuggestions(
         `Design system save failed (non-critical): ${err instanceof Error ? err.message : String(err)}`
       )
     }
-  }
-
-  // Publish if requested
-  if (ctx.publishMode === 'publish_now' && result.applied > 0) {
-    await db.from('site_settings').update({ is_published: true }).eq('tenant_id', ctx.tenantId)
   }
 
   return result
@@ -117,7 +129,7 @@ async function applyDesignSystem(ctx: ApplyContext): Promise<void> {
   const cssVars = buildCssVars(normalizedDs)
 
   // Save to site_settings.theme — this drives the CSS variables for the whole site
-  await db
+  const { error: settingsError } = await db
     .from('site_settings')
     .update({
       theme: { ...serialized, cssVars } as never,
@@ -137,12 +149,14 @@ async function applyDesignSystem(ctx: ApplyContext): Promise<void> {
       } as never,
     } as never)
     .eq('tenant_id', ctx.tenantId)
+  if (settingsError) throw new Error(settingsError.message)
 
   // Also apply section flow to all existing sections to create visual rhythm
   const { data: allSections } = await db
     .from('site_sections')
     .select('id, section_type, style_config, sort_order')
     .eq('tenant_id', ctx.tenantId)
+    .eq('is_visible', true)
     .order('sort_order', { ascending: true })
 
   if (allSections && allSections.length > 0) {
@@ -159,11 +173,12 @@ async function applyDesignSystem(ctx: ApplyContext): Promise<void> {
     )
 
     for (const sec of sectionsWithDesign) {
-      await db
+      const { error } = await db
         .from('site_sections')
         .update({ style_config: sec.style_config } as never)
         .eq('id', sec.id)
         .eq('tenant_id', ctx.tenantId)
+      if (error) throw new Error(error.message)
     }
   }
 }
@@ -193,12 +208,19 @@ async function applySectionSuggestion(
   const pageId = suggestion.target_page_id ?? homePageId
 
   // Find existing section of same type on the same page
-  const { data: existing } = (await dbClient
+  let existingQuery = dbClient
     .from('site_sections')
     .select('id, content, sort_order, style_config')
     .eq('tenant_id', ctx.tenantId)
     .eq('page_id', pageId)
     .eq('section_type', mapped.section_type)
+  if (suggestion.target_section_id) {
+    existingQuery = existingQuery.eq('id', suggestion.target_section_id)
+  }
+  const { data: existing, error: existingError } = (await existingQuery
+    .order('is_visible', { ascending: false })
+    .order('sort_order', { ascending: true })
+    .limit(1)
     .maybeSingle()) as {
     data: {
       id: string
@@ -206,7 +228,9 @@ async function applySectionSuggestion(
       sort_order: number
       style_config: Record<string, unknown> | null
     } | null
+    error: { message: string } | null
   }
+  if (existingError) throw new Error(existingError.message)
 
   const action = suggestion.action
   const rawDesign = (suggestion.proposed_section as Record<string, unknown>)?.design
@@ -219,19 +243,29 @@ async function applySectionSuggestion(
       }
     : null
 
-  if (existing && (action === 'append' || action === 'update')) {
+  // Gemini may still say "create" when a single-purpose section already exists.
+  // Reuse that section so repeated runs improve the page instead of stacking duplicates.
+  const shouldReuseExisting =
+    existing &&
+    (action === 'append' ||
+      action === 'update' ||
+      (action === 'create' && !['cta', 'banner', 'image_gallery'].includes(mapped.section_type)))
+
+  if (shouldReuseExisting) {
     const merged = mergeContent(
       mapped.section_type,
       existing.content as Record<string, unknown>,
       mapped.content as Record<string, unknown>
     )
-    await dbClient
+    const { error: updateError } = await dbClient
       .from('site_sections')
       .update({
         content: merged as never,
         ...(proposedStyleConfig ? { style_config: proposedStyleConfig as never } : {}),
       })
       .eq('id', existing.id)
+      .eq('tenant_id', ctx.tenantId)
+    if (updateError) throw new Error(updateError.message)
 
     await markApplied(db, suggestion.id, ctx)
     return buildChange(
@@ -245,13 +279,15 @@ async function applySectionSuggestion(
   }
 
   if (existing && action === 'replace') {
-    await dbClient
+    const { error: replaceError } = await dbClient
       .from('site_sections')
       .update({
         content: mapped.content as never,
         ...(proposedStyleConfig ? { style_config: proposedStyleConfig as never } : {}),
       })
       .eq('id', existing.id)
+      .eq('tenant_id', ctx.tenantId)
+    if (replaceError) throw new Error(replaceError.message)
 
     await markApplied(db, suggestion.id, ctx)
     return buildChange(
@@ -419,7 +455,7 @@ async function applyProductsSuggestion(
         typeof product.price === 'string' ? product.price.replace(/[^0-9.]/g, '') : ''
       const price = priceStr ? parseFloat(priceStr) : null
 
-      await db.from('products').insert({
+      const { error: productError } = await db.from('products').insert({
         tenant_id: ctx.tenantId,
         name,
         description: typeof product.description === 'string' ? product.description : null,
@@ -427,6 +463,7 @@ async function applyProductsSuggestion(
         status: 'draft',
         metadata: { source: 'ai_autofill' } as never,
       } as never)
+      if (productError) throw new Error(productError.message)
 
       existingNames.add(name.toLowerCase())
       createdCount++
@@ -445,17 +482,20 @@ async function applyProductsSuggestion(
 async function getOrCreateHomePage(tenantId: string): Promise<string> {
   const db = getSupabaseServerClient()
 
-  const { data: home } = await db
+  const { data: home, error: homeError } = await db
     .from('site_pages')
     .select('id')
     .eq('tenant_id', tenantId)
     .eq('page_type', 'home')
+    .order('sort_order', { ascending: true })
+    .limit(1)
     .maybeSingle()
+  if (homeError) throw new Error(homeError.message)
 
   if (home?.id) return home.id
 
   // Check any page
-  const { data: first } = await db
+  const { data: first, error: firstError } = await db
     .from('site_pages')
     .select('id')
     .eq('tenant_id', tenantId)
@@ -463,11 +503,12 @@ async function getOrCreateHomePage(tenantId: string): Promise<string> {
     .order('sort_order', { ascending: true })
     .limit(1)
     .maybeSingle()
+  if (firstError) throw new Error(firstError.message)
 
   if (first?.id) return first.id
 
   // Create home page
-  const { data: created } = await db
+  const { data: created, error: createError } = await db
     .from('site_pages')
     .insert({
       tenant_id: tenantId,
@@ -480,7 +521,7 @@ async function getOrCreateHomePage(tenantId: string): Promise<string> {
     .select('id')
     .single()
 
-  if (!created) throw new Error('Could not create home page')
+  if (createError || !created) throw new Error(createError?.message ?? 'Could not create home page')
   return (created as { id: string }).id
 }
 
@@ -519,11 +560,12 @@ async function markApplied(
   suggestionId: string,
   ctx: ApplyContext
 ): Promise<void> {
-  await db
+  const { error } = await db
     .from('website_ai_suggestions')
     .update({ status: 'applied', applied_at: new Date().toISOString() })
     .eq('id', suggestionId)
     .eq('tenant_id', ctx.tenantId)
+  if (error) throw new Error(error.message)
 }
 
 function buildChange(

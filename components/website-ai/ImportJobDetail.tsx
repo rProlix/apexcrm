@@ -3,9 +3,10 @@
 // Full detail view of a selected import job.
 
 import { useState, useCallback, useEffect } from 'react'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { staggerContainer } from '@/lib/motion'
-import { AlertTriangle, HelpCircle, CheckCheck, X } from 'lucide-react'
+import { AlertTriangle, HelpCircle, CheckCheck, ExternalLink, X } from 'lucide-react'
 import { ConfidenceBadge } from './ConfidenceBadge'
 import { DetectedContentChips } from './DetectedContentChips'
 import { SuggestionCard } from './SuggestionCard'
@@ -14,10 +15,11 @@ import type { AiImportJob, AiSuggestion } from '@/lib/website-ai/types'
 
 interface Props {
   jobId: string
+  tenantId: string
   onDone: () => void
 }
 
-export function ImportJobDetail({ jobId, onDone }: Props) {
+export function ImportJobDetail({ jobId, tenantId, onDone }: Props) {
   const [job, setJob] = useState<AiImportJob | null>(null)
   const [suggestions, setSuggestions] = useState<AiSuggestion[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -29,14 +31,16 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/website-ai/imports/${jobId}`)
+      const res = await fetch(
+        `/api/website-ai/imports/${jobId}?tenantId=${encodeURIComponent(tenantId)}`
+      )
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Failed to load job')
       setJob(json.job)
       setSuggestions(json.suggestions ?? [])
       // Auto-select all pending suggestions
       const pendingIds = (json.suggestions ?? [])
-        .filter((s: AiSuggestion) => s.status === 'pending')
+        .filter((s: AiSuggestion) => s.status === 'pending' && s.action !== 'ignore')
         .map((s: AiSuggestion) => s.id)
       setSelected(new Set(pendingIds))
     } catch (e) {
@@ -44,7 +48,7 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [jobId])
+  }, [jobId, tenantId])
 
   useEffect(() => {
     load()
@@ -60,11 +64,14 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
   }
 
   async function handleUpdate(id: string, updates: Record<string, unknown>) {
-    const res = await fetch(`/api/website-ai/suggestions/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    })
+    const res = await fetch(
+      `/api/website-ai/suggestions/${id}?tenantId=${encodeURIComponent(tenantId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      }
+    )
     const json = await res.json()
     if (!res.ok) throw new Error(json.error ?? 'Update failed')
     setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, ...json.suggestion } : s)))
@@ -84,14 +91,29 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
     setApplying(true)
     setError(null)
     try {
-      const res = await fetch(`/api/website-ai/imports/${jobId}/apply`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ suggestionIds: Array.from(selected), publishMode }),
-      })
+      const res = await fetch(
+        `/api/website-ai/imports/${jobId}/apply?tenantId=${encodeURIComponent(tenantId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ suggestionIds: Array.from(selected), publishMode }),
+        }
+      )
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Apply failed')
-      const msg = `${json.applied} suggestion${json.applied !== 1 ? 's' : ''} applied${json.published ? ' and published' : ' to draft'}.`
+      if (!res.ok) {
+        if (typeof json.applied === 'number' && json.applied > 0) {
+          setToast(
+            `${json.applied} section${json.applied !== 1 ? 's were' : ' was'} saved to your draft.`
+          )
+          await load()
+        }
+        throw new Error(json.error ?? 'Apply failed')
+      }
+      const partialWarning =
+        Array.isArray(json.errors) && json.errors.length > 0
+          ? ' Some finishing steps need your attention.'
+          : ''
+      const msg = `${json.applied} suggestion${json.applied !== 1 ? 's' : ''} applied${json.published ? ' and published' : ' to your draft'}.${partialWarning}`
       setToast(msg)
       setTimeout(() => setToast(null), 5000)
       await load()
@@ -120,9 +142,15 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
   const questions: string[] =
     ((job.metadata as Record<string, unknown>)?.missingInfoQuestions as string[]) ?? []
   const activeSuggestions = suggestions.filter((s) => s.status !== 'rejected')
+  const actionableSuggestions = activeSuggestions.filter(
+    (s) => s.status !== 'applied' && s.action !== 'ignore'
+  )
+  const jobComplete =
+    suggestions.length > 0 &&
+    suggestions.every((s) => s.status === 'applied' || s.status === 'rejected')
   const selectedCount = Array.from(selected).filter((id) => {
     const s = suggestions.find((sg) => sg.id === id)
-    return s && s.status !== 'rejected' && s.status !== 'applied'
+    return s && s.action !== 'ignore' && s.status !== 'rejected' && s.status !== 'applied'
   }).length
 
   return (
@@ -130,7 +158,16 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
       {/* Toast */}
       {toast && (
         <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 flex items-center justify-between">
-          <p className="text-sm text-emerald-400">{toast}</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <p className="text-sm text-emerald-400">{toast}</p>
+            <Link
+              href="/website"
+              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-white hover:text-gold-300"
+            >
+              Open builder
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+          </div>
           <button onClick={() => setToast(null)}>
             <X className="h-4 w-4 text-emerald-400/50" />
           </button>
@@ -193,29 +230,52 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
         </div>
       )}
 
+      {jobComplete && (
+        <div className="flex flex-col items-start justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-4 py-3 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2 text-emerald-400">
+            <CheckCheck className="h-5 w-5" />
+            <p className="text-sm font-medium">Your website content is ready.</p>
+          </div>
+          <div className="flex items-center gap-4 text-xs">
+            <Link href="/website" className="font-semibold text-gold-400 hover:text-gold-300">
+              Open website builder
+            </Link>
+            <button type="button" onClick={onDone} className="text-white/40 hover:text-white/70">
+              Create another draft
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Select/deselect all */}
-      {activeSuggestions.length > 0 && (
+      {actionableSuggestions.length > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-xs text-white/40">
-            {activeSuggestions.length} suggestion{activeSuggestions.length !== 1 ? 's' : ''}
+            {actionableSuggestions.length} suggestion
+            {actionableSuggestions.length !== 1 ? 's' : ''}
             {selectedCount > 0 && ` · ${selectedCount} selected`}
           </p>
           <button
             onClick={() => {
-              const ids = activeSuggestions.filter((s) => s.status !== 'applied').map((s) => s.id)
+              const ids = actionableSuggestions.map((s) => s.id)
               const allSelected = ids.every((id) => selected.has(id))
               setSelected(allSelected ? new Set() : new Set(ids))
             }}
             className="text-xs text-gold-400 hover:text-gold-300 transition-colors"
           >
-            {activeSuggestions
-              .filter((s) => s.status !== 'applied')
-              .every((s) => selected.has(s.id))
-              ? 'Deselect all'
-              : 'Select all'}
+            {actionableSuggestions.every((s) => selected.has(s.id)) ? 'Deselect all' : 'Select all'}
           </button>
         </div>
       )}
+
+      {/* Keep the completion action visible before the user reviews a long section list. */}
+      <ApplySuggestionsBar
+        selectedCount={selectedCount}
+        applying={applying}
+        onApplyDraft={() => handleApply('draft_only')}
+        onApplyPublish={() => handleApply('publish_now')}
+        onCancel={() => setSelected(new Set())}
+      />
 
       {/* Suggestion cards */}
       {activeSuggestions.length > 0 ? (
@@ -237,20 +297,11 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
           ))}
         </motion.div>
       ) : (
-        <div className="flex items-center gap-2 justify-center py-8 text-white/30">
+        <div className="flex items-center justify-center gap-2 py-8 text-white/30">
           <CheckCheck className="h-5 w-5" />
-          <p className="text-sm">All suggestions have been applied or rejected.</p>
+          <p className="text-sm">No active website suggestions remain.</p>
         </div>
       )}
-
-      {/* Apply bar */}
-      <ApplySuggestionsBar
-        selectedCount={selectedCount}
-        applying={applying}
-        onApplyDraft={() => handleApply('draft_only')}
-        onApplyPublish={() => handleApply('publish_now')}
-        onCancel={() => setSelected(new Set())}
-      />
     </div>
   )
 }

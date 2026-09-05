@@ -22,26 +22,45 @@ export function ApplySuggestionsBar({
   if (selectedCount === 0) return null
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-graphite-800 border border-gold-500/20 shadow-glow-gold backdrop-blur-xl">
-      <span className="text-sm font-semibold text-white/70">
-        {selectedCount} suggestion{selectedCount !== 1 ? 's' : ''} selected
-      </span>
-      <div className="w-px h-5 bg-white/10" />
-      <Button variant="secondary" onClick={onApplyDraft} loading={applying} disabled={applying}>
-        <CheckCheck className="h-4 w-4" />
-        Apply to draft
-      </Button>
-      <Button variant="primary" onClick={onApplyPublish} loading={applying} disabled={applying}>
-        <Zap className="h-4 w-4" />
-        Apply &amp; publish
-      </Button>
-      <button
-        onClick={onCancel}
-        className="text-white/30 hover:text-white/70 transition-colors ml-1"
-        disabled={applying}
-      >
-        <X className="h-4 w-4" />
-      </button>
+    <div className="sticky top-4 z-40 rounded-2xl border border-gold-500/25 bg-graphite-800/95 p-3 shadow-glow-gold backdrop-blur-xl sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-1 items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-white">Finish creating your website</p>
+            <p className="text-xs text-white/45">
+              {selectedCount} section{selectedCount !== 1 ? 's' : ''} ready to add
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg p-2 text-white/30 transition-colors hover:bg-white/5 hover:text-white/70 sm:hidden"
+            disabled={applying}
+            aria-label="Clear selected sections"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
+          <Button variant="secondary" onClick={onApplyDraft} loading={applying} disabled={applying}>
+            <CheckCheck className="h-4 w-4" />
+            Create draft
+          </Button>
+          <Button variant="primary" onClick={onApplyPublish} loading={applying} disabled={applying}>
+            <Zap className="h-4 w-4" />
+            Create &amp; publish
+          </Button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="hidden rounded-lg p-2 text-white/30 transition-colors hover:bg-white/5 hover:text-white/70 sm:block"
+            disabled={applying}
+            aria-label="Clear selected sections"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

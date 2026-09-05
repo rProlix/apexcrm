@@ -100,7 +100,7 @@ export function AiAutofillPage({ tenantId, isOwner, initialJobs }: Props) {
               )}
             </>
           ) : selectedJob ? (
-            <ImportJobDetail jobId={selectedJob} onDone={handleBack} />
+            <ImportJobDetail jobId={selectedJob} tenantId={tenantId} onDone={handleBack} />
           ) : null}
         </div>
 
