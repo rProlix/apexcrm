@@ -22,6 +22,9 @@ const AI_SUGGESTION_TYPES = new Set([
   'section',
   'seo',
   'promotion',
+  'cta',
+  'premium_3d_scroll_hero',
+  'scroll_experience',
   'unknown',
 ])
 const AI_ACTIONS = new Set(['create', 'update', 'append', 'replace', 'ignore'])

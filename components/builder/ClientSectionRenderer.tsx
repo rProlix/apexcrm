@@ -59,7 +59,7 @@ export function ClientSectionRenderer({ section }: Props) {
 
   switch (section.section_type) {
     case 'hero':
-      inner = <HeroSection content={c as never} />
+      inner = <HeroSection content={c as never} sectionDesign={sectionDesign} />
       break
 
     case 'feature_grid':

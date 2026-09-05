@@ -22,10 +22,10 @@ interface Props {
 // ── Spacing map ────────────────────────────────────────────────────────────────
 
 const PADDING_MAP: Record<string, string> = {
-  compact: '3rem 1.25rem',
-  balanced: '5rem 1.5rem',
-  airy: '6.5rem 1.5rem',
-  luxury: '8rem 1.5rem',
+  compact: 'clamp(2.5rem, 5vw, 3rem) clamp(1rem, 3vw, 1.25rem)',
+  balanced: 'clamp(3.5rem, 7vw, 5rem) clamp(1rem, 4vw, 1.5rem)',
+  airy: 'clamp(4rem, 8vw, 6.5rem) clamp(1rem, 4vw, 1.5rem)',
+  luxury: 'clamp(4.5rem, 9vw, 7rem) clamp(1rem, 4vw, 1.5rem)',
 }
 
 // ── Card style → CSS ──────────────────────────────────────────────────────────
@@ -114,13 +114,8 @@ export function PremiumSectionFrame({ sectionDesign, children, className, sectio
   const divBottom = d?.dividerBottom
   const bgColorForDivider = extractSolidColor(bg)
 
-  // For hero sections — full-bleed, no padding override
+  // Scroll experiences must keep overflow visible for their sticky runway.
   const isScrollExperience = sectionType === 'scroll_experience'
-  const isHero =
-    sectionType === 'hero' ||
-    sectionType === 'banner' ||
-    isScrollExperience ||
-    d?.layoutVariant === 'hero'
 
   // Section shadow
   const hasShadow = d?.shadow && d.shadow !== 'none'
@@ -142,16 +137,20 @@ export function PremiumSectionFrame({ sectionDesign, children, className, sectio
           ? '0.5rem'
           : undefined
 
-  const wrapperStyle: React.CSSProperties = {
+  const wrapperStyle = {
     position: 'relative',
     background: bg,
     // A scroll experience contains a sticky viewport inside a taller scroll
     // runway. Clipping this ancestor disables sticky positioning in browsers.
     overflow: isScrollExperience ? 'visible' : 'hidden',
-    padding: isHero ? undefined : padding,
+    // Inner section components own their layout padding. Supplying the value as
+    // a variable avoids the previous frame + section double-padding.
+    '--section-padding-desk': padding,
+    '--ds-text': d?.textColor || undefined,
+    '--ds-muted': d?.subtextColor || undefined,
     boxShadow: sectionShadow,
     borderRadius: sectionRadius,
-  }
+  } as React.CSSProperties
 
   // Glass section extra
   if (d?.backgroundType === 'glass') {

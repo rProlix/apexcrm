@@ -176,6 +176,10 @@ async function applySectionSuggestion(
   homePageId: string
 ): Promise<AiAppliedChange | null> {
   const db = getSupabaseServerClient()
+  // style_config exists in current Website Builder migrations but is not yet
+  // represented in the generated Supabase types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dbClient = db as any
   const mapped = mapSuggestionToSection({
     type: suggestion.suggestion_type as never,
     action: suggestion.action,
@@ -189,15 +193,31 @@ async function applySectionSuggestion(
   const pageId = suggestion.target_page_id ?? homePageId
 
   // Find existing section of same type on the same page
-  const { data: existing } = await db
+  const { data: existing } = (await dbClient
     .from('site_sections')
-    .select('id, content, sort_order')
+    .select('id, content, sort_order, style_config')
     .eq('tenant_id', ctx.tenantId)
     .eq('page_id', pageId)
     .eq('section_type', mapped.section_type)
-    .maybeSingle()
+    .maybeSingle()) as {
+    data: {
+      id: string
+      content: Record<string, unknown>
+      sort_order: number
+      style_config: Record<string, unknown> | null
+    } | null
+  }
 
   const action = suggestion.action
+  const rawDesign = (suggestion.proposed_section as Record<string, unknown>)?.design
+  const proposedStyleConfig = rawDesign
+    ? {
+        ...((existing?.style_config && typeof existing.style_config === 'object'
+          ? existing.style_config
+          : {}) as Record<string, unknown>),
+        design: normalizeSectionDesign(rawDesign, {} as never),
+      }
+    : null
 
   if (existing && (action === 'append' || action === 'update')) {
     const merged = mergeContent(
@@ -205,9 +225,12 @@ async function applySectionSuggestion(
       existing.content as Record<string, unknown>,
       mapped.content as Record<string, unknown>
     )
-    await db
+    await dbClient
       .from('site_sections')
-      .update({ content: merged as never })
+      .update({
+        content: merged as never,
+        ...(proposedStyleConfig ? { style_config: proposedStyleConfig as never } : {}),
+      })
       .eq('id', existing.id)
 
     await markApplied(db, suggestion.id, ctx)
@@ -222,9 +245,12 @@ async function applySectionSuggestion(
   }
 
   if (existing && action === 'replace') {
-    await db
+    await dbClient
       .from('site_sections')
-      .update({ content: mapped.content as never })
+      .update({
+        content: mapped.content as never,
+        ...(proposedStyleConfig ? { style_config: proposedStyleConfig as never } : {}),
+      })
       .eq('id', existing.id)
 
     await markApplied(db, suggestion.id, ctx)
@@ -251,7 +277,6 @@ async function applySectionSuggestion(
   const nextSort = ((maxSort?.sort_order as number) ?? -1) + 1
 
   // Extract design from proposedSection if present (normalized to ensure valid enums)
-  const rawDesign = (suggestion.proposed_section as Record<string, unknown>)?.design
   const sectionDesign = rawDesign ? normalizeSectionDesign(rawDesign, {} as never) : null
 
   const { data: created, error } = await db

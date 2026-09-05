@@ -14,6 +14,7 @@ import { callGeminiText } from '@/lib/ai/geminiRequest'
 import { getWebsiteAiGeminiModel } from '@/lib/ai/geminiConfig'
 import { buildRestylePrompt } from '@/lib/website/ai/buildRestylePrompt'
 import { normalizeRestylePlan } from '@/lib/website/ai/normalizeRestylePlan'
+import { summarizeRestyleSectionContent } from '@/lib/website/ai/restyleContext'
 import type { RestyleSectionContext, RestyleBusinessContext } from '@/lib/website/ai/restyleTypes'
 
 const bodySchema = z.object({
@@ -142,6 +143,7 @@ export async function POST(req: NextRequest) {
       sortOrder: (s.sort_order as number) ?? 0,
       pageId: (s.page_id as string) ?? '',
       currentDesign: (sc.design as Record<string, unknown> | null) ?? null,
+      contentSummary: summarizeRestyleSectionContent(c),
     }
   })
 
@@ -150,7 +152,14 @@ export async function POST(req: NextRequest) {
     businessType: String(tenant.business_type ?? tenant.industry ?? 'general'),
     businessCategory: String(tenant.business_type ?? tenant.industry ?? 'general'),
     description: String(tenant.description ?? ''),
-    currentTheme: (settings?.theme as Record<string, unknown> | null) ?? null,
+    currentTheme: settings
+      ? {
+          theme: settings.theme ?? null,
+          designSystem: settings.design_system ?? null,
+          brandColors: settings.brand_colors ?? null,
+          fonts: settings.fonts ?? null,
+        }
+      : null,
   }
 
   // ── Create a "planned" run record ────────────────────────────────────────────

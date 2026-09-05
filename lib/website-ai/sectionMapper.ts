@@ -15,6 +15,8 @@ import type {
   ProductGridContent,
   BannerContent,
   RichTextContent,
+  CtaContent,
+  ImageGalleryContent,
 } from '@/lib/website/types'
 
 export interface MappedSection {
@@ -81,6 +83,18 @@ export function mapSuggestionToSection(suggestion: GeminiSuggestion): MappedSect
         content: mapBanner(ps),
       }
 
+    case 'cta':
+      return {
+        section_type: 'cta',
+        content: mapCta(ps),
+      }
+
+    case 'gallery':
+      return {
+        section_type: 'image_gallery',
+        content: mapGallery(ps),
+      }
+
     case 'premium_3d_scroll_hero':
       return {
         section_type: 'premium_3d_scroll_hero',
@@ -109,7 +123,6 @@ export function mapSuggestionToSection(suggestion: GeminiSuggestion): MappedSect
     case 'policies':
     case 'social_links':
     case 'navigation':
-    case 'gallery':
     case 'page':
     case 'section':
     case 'unknown':
@@ -146,16 +159,18 @@ function mapTestimonials(ps: Record<string, unknown>): TestimonialsContent {
   const rawItems = Array.isArray(ps.items) ? ps.items : []
   return {
     headline: str(ps.heading ?? ps.headline, 'What Our Customers Say'),
-    items: rawItems.map((item: unknown) => {
-      const i = asObj(item)
-      return {
-        name: str(i.name, 'Customer'),
-        role: str(i.role, '') || undefined,
-        avatar: str(i.avatar, '') || undefined,
-        text: str(i.text ?? i.quote, ''),
-        rating: num(i.rating, 5),
-      }
-    }),
+    items: rawItems
+      .map((item: unknown) => {
+        const i = asObj(item)
+        return {
+          name: str(i.name, ''),
+          role: str(i.role, '') || undefined,
+          avatar: str(i.avatar, '') || undefined,
+          text: str(i.text ?? i.quote, ''),
+          rating: num(i.rating, 0),
+        }
+      })
+      .filter((item) => item.text),
   }
 }
 
@@ -200,7 +215,7 @@ function mapServices(
         const desc = str(svc.description, '')
         return {
           title: str(svc.name, 'Service'),
-          description: price ? `${price}${desc ? ` — ${desc}` : ''}` : desc,
+          description: price ? `${price}${desc ? ` - ${desc}` : ''}` : desc,
         }
       })
     : psItems.map((item: unknown) => {
@@ -232,7 +247,7 @@ function mapProductGrid(ps: Record<string, unknown>): ProductGridContent {
 
 function mapBanner(ps: Record<string, unknown>): BannerContent {
   return {
-    text: str(ps.text, 'Special offer — limited time only!'),
+    text: str(ps.text, ''),
     ctaLabel: str(ps.ctaLabel, '') || undefined,
     ctaHref: str(ps.ctaHref, '') || undefined,
     variant: 'promo',
@@ -240,12 +255,42 @@ function mapBanner(ps: Record<string, unknown>): BannerContent {
   }
 }
 
+function mapCta(ps: Record<string, unknown>): CtaContent {
+  return {
+    headline: str(ps.headline ?? ps.heading, ''),
+    body: str(ps.body ?? ps.subheading, ''),
+    ctaLabel: str(ps.ctaLabel, ''),
+    ctaHref: str(ps.ctaHref, '/contact'),
+    align: align(ps.align),
+  }
+}
+
+function mapGallery(ps: Record<string, unknown>): ImageGalleryContent {
+  const rawImages = Array.isArray(ps.images) ? ps.images : Array.isArray(ps.items) ? ps.items : []
+  const layout = ps.layout === 'masonry' || ps.layout === 'carousel' ? ps.layout : 'grid'
+  return {
+    headline: str(ps.headline ?? ps.heading, '') || undefined,
+    images: rawImages
+      .map((value) => {
+        const image = asObj(value)
+        const url = str(image.url ?? image.src, '')
+        return {
+          url,
+          alt: str(image.alt, ''),
+          caption: str(image.caption, '') || undefined,
+        }
+      })
+      .filter((image) => image.url),
+    layout,
+  }
+}
+
 function mapScrollHero(ps: Record<string, unknown>, data: Record<string, unknown>): unknown {
   const businessType = str(data.businessType ?? ps.businessType ?? ps.industry, '')
   const rec = recommendScrollHero(businessType || null, {
     headline: str(ps.heading ?? ps.headline, 'Experience It In Motion'),
-    subheadline: str(ps.subheading ?? ps.subheadline, 'Scroll to explore every detail.'),
-    eyebrow: str(ps.eyebrow, 'Premium'),
+    subheadline: str(ps.subheading ?? ps.subheadline, ''),
+    eyebrow: str(ps.eyebrow, ''),
     renderMode: ps.renderMode === 'video_scrub' ? 'video_scrub' : undefined,
   })
   // recommendScrollHero never fabricates assets; it returns a safe placeholder.

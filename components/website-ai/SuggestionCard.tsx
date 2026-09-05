@@ -24,6 +24,7 @@ const TYPE_COLOR: Record<string, string> = {
   faq: 'bg-orange-500/10 border-orange-500/20 text-orange-400',
   seo: 'bg-teal-500/10 border-teal-500/20 text-teal-400',
   promotion: 'bg-rose-500/10 border-rose-500/20 text-rose-400',
+  cta: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
   social_links: 'bg-sky-500/10 border-sky-500/20 text-sky-400',
   policies: 'bg-red-500/10 border-red-500/20 text-red-400',
 }
@@ -32,7 +33,7 @@ interface Props {
   suggestion: AiSuggestion
   selected: boolean
   onToggle: (id: string) => void
-  onUpdate: (id: string, updates: Record<string, string>) => Promise<void>
+  onUpdate: (id: string, updates: Record<string, unknown>) => Promise<void>
   onReject: (id: string) => Promise<void>
 }
 

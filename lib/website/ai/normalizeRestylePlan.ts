@@ -137,33 +137,88 @@ function ensureBackgroundVariety(upgrades: SectionRestyleUpgrade[]): SectionRest
   return upgrades.map((u, i) => {
     const currentBg = u.design.backgroundType ?? 'solid'
     const currentVal = u.design.backgroundValue ?? ''
+    const signature = `${currentBg}:${currentVal}`
 
-    if (currentBg === 'solid' && currentBg === lastBg && consecutiveCount >= 2) {
-      // Break the monotony — add a soft gradient wash
+    if (currentBg === 'solid' && signature === lastBg && consecutiveCount >= 2) {
+      // Break a genuinely repeated flat surface with a semantic alternate.
       const altUpgrade: SectionRestyleUpgrade = {
         ...u,
         design: {
           ...u.design,
-          backgroundType: 'gradient',
-          backgroundValue:
-            i % 2 === 0
-              ? 'linear-gradient(180deg, var(--ds-surface) 0%, var(--ds-bg) 100%)'
-              : 'linear-gradient(180deg, var(--ds-surface-alt) 0%, var(--ds-surface) 100%)',
+          backgroundType: 'solid',
+          backgroundValue: i % 2 === 0 ? 'var(--ds-surface-alt)' : 'var(--ds-surface)',
         },
       }
       consecutiveCount = 0
-      lastBg = 'gradient'
+      lastBg = `solid:${altUpgrade.design.backgroundValue}`
       return altUpgrade
     }
 
-    if (currentBg === lastBg && currentVal.includes('var(--ds-bg)') && consecutiveCount >= 1) {
+    if (signature === lastBg) {
       consecutiveCount++
     } else {
-      consecutiveCount = currentBg === 'solid' ? 1 : 0
-      lastBg = currentBg
+      consecutiveCount = 1
+      lastBg = signature
     }
 
     return u
+  })
+}
+
+/**
+ * Converts an AI art-direction plan into a restrained page rhythm the current
+ * renderer can faithfully produce. Section wrappers should not all become
+ * floating cards, and decorative effects are deliberately budgeted.
+ */
+function enforceProfessionalPageRhythm(
+  upgrades: SectionRestyleUpgrade[],
+  availableSections: RestyleSectionContext[]
+): SectionRestyleUpgrade[] {
+  const order = new Map(availableSections.map((section, index) => [section.id, index]))
+  const sorted = [...upgrades].sort(
+    (a, b) => (order.get(a.sectionId ?? '') ?? 999) - (order.get(b.sectionId ?? '') ?? 999)
+  )
+  const gradientBudget = Math.max(1, Math.ceil(sorted.length / 4))
+  const dividerBudget = Math.ceil(sorted.length / 3)
+  let gradientsUsed = 0
+  let glassUsed = 0
+  let dividersUsed = 0
+  let previousHadDivider = false
+
+  return sorted.map((upgrade, index) => {
+    const design: SectionDesign = {
+      ...(upgrade.design as SectionDesign),
+      // PremiumSectionFrame wraps the full viewport-width section. Rounded and
+      // shadowed wrappers create the stacked-card look the editor is avoiding.
+      borderRadius: 'none',
+      shadow: 'none',
+      dividerTop: 'none',
+      layoutVariant: upgrade.layoutVariant || upgrade.design.layoutVariant || 'default',
+    }
+
+    if (design.backgroundType === 'gradient') {
+      gradientsUsed++
+      if (gradientsUsed > gradientBudget) {
+        design.backgroundType = 'solid'
+        design.backgroundValue = index % 2 === 0 ? 'var(--ds-bg)' : 'var(--ds-surface)'
+      }
+    }
+
+    if (design.backgroundType === 'glass') {
+      glassUsed++
+      if (glassUsed > 1) {
+        design.backgroundType = 'solid'
+        design.backgroundValue = 'var(--ds-surface)'
+      }
+    }
+
+    const requestedDivider = design.dividerBottom !== 'none'
+    const canUseDivider = requestedDivider && !previousHadDivider && dividersUsed < dividerBudget
+    design.dividerBottom = canUseDivider ? design.dividerBottom : 'none'
+    if (canUseDivider) dividersUsed++
+    previousHadDivider = canUseDivider
+
+    return { ...upgrade, design }
   })
 }
 
@@ -194,7 +249,9 @@ function normalizeSectionUpgrade(
   const sectionId = resolveSectionId(candidates, lookup, availableIds)
 
   // Section type
-  const sectionType = String(u.sectionType ?? u.section_type ?? u.type ?? '')
+  const resolvedSection = sectionId ? lookup.byId.get(sectionId) : undefined
+  const sectionType =
+    resolvedSection?.type ?? String(u.sectionType ?? u.section_type ?? u.type ?? '')
 
   // Design — normalize and enforce readability
   const rawDesign = u.design && typeof u.design === 'object' ? u.design : {}
@@ -204,9 +261,15 @@ function normalizeSectionUpgrade(
   return {
     sectionId,
     sectionType,
-    title: typeof u.title === 'string' ? u.title : undefined,
+    title:
+      resolvedSection?.title ?? (typeof u.title === 'string' ? u.title : undefined) ?? undefined,
     design: readableDesign,
-    layoutVariant: typeof u.layoutVariant === 'string' ? u.layoutVariant : 'default',
+    layoutVariant:
+      typeof u.layoutVariant === 'string'
+        ? u.layoutVariant
+        : typeof rawDesign === 'object' && 'layoutVariant' in rawDesign
+          ? String((rawDesign as Record<string, unknown>).layoutVariant)
+          : 'default',
     visualIntent: typeof u.visualIntent === 'string' ? u.visualIntent : '',
     preserveContent: true,
   }
@@ -265,6 +328,18 @@ export function normalizeRestylePlan(
     .map((u: unknown) => normalizeSectionUpgrade(u, lookup, availableIds, designSystem))
     .filter((u): u is SectionRestyleUpgrade => u !== null)
 
+  // Keep one deterministic upgrade per real section. AI responses occasionally
+  // repeat a section by both UUID and type, which used to produce inconsistent
+  // previews and last-write-wins behavior during apply.
+  const uniqueUpgrades = new Map<string, SectionRestyleUpgrade>()
+  let unresolvedIndex = 0
+  for (const upgrade of sectionUpgrades) {
+    const key = upgrade.sectionId ?? `unresolved:${upgrade.sectionType}:${unresolvedIndex++}`
+    if (!uniqueUpgrades.has(key)) uniqueUpgrades.set(key, upgrade)
+    else warnings.push(`Duplicate AI upgrade ignored for section ${upgrade.sectionType}.`)
+  }
+  sectionUpgrades = [...uniqueUpgrades.values()]
+
   // Ensure every section has at least a default design upgrade
   const coveredIds = new Set(sectionUpgrades.map((u) => u.sectionId).filter(Boolean))
   for (const section of availableSections) {
@@ -287,6 +362,7 @@ export function normalizeRestylePlan(
 
   // Ensure background variety (no monotonous flat sections)
   sectionUpgrades = ensureBackgroundVariety(sectionUpgrades)
+  sectionUpgrades = enforceProfessionalPageRhythm(sectionUpgrades, availableSections)
 
   // ── 4. Normalize contrast fixes ───────────────────────────────────────────
   const rawContrast = Array.isArray(raw.contrastFixes) ? raw.contrastFixes : []

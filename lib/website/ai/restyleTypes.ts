@@ -143,6 +143,8 @@ export interface RestyleSectionContext {
   sortOrder: number
   pageId: string
   currentDesign?: Partial<SectionDesign> | null
+  /** Compact, bounded visitor-facing content used for visual planning. */
+  contentSummary?: Record<string, unknown>
 }
 
 export interface RestyleBusinessContext {

@@ -21,6 +21,7 @@ import type { WebsiteRestylePlan, RestyleSectionContext } from '@/lib/website/ai
 
 const bodySchema = z.object({
   tenantId: z.string().uuid(),
+  pageId: z.string().uuid().optional().nullable(),
   runId: z.string().uuid().optional().nullable(),
   restylePlan: z.record(z.unknown()).optional(),
 })
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { tenantId, runId, restylePlan: bodyPlan } = body
+  const { tenantId, pageId, runId, restylePlan: bodyPlan } = body
 
   const db = getSupabaseServerClient()
 
@@ -88,19 +89,27 @@ export async function POST(req: NextRequest) {
 
   // ── Load current sections ────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: dbSections } = (await (db as any)
+  let sectionsQuery = (db as any)
     .from('site_sections')
     .select('id, section_type, content, sort_order, page_id, style_config')
     .eq('tenant_id', tenantId)
     .eq('is_visible', true)
-    .order('sort_order', { ascending: true })) as {
+    .order('sort_order', { ascending: true })
+
+  if (pageId) sectionsQuery = sectionsQuery.eq('page_id', pageId)
+
+  const { data: dbSections } = (await sectionsQuery) as {
     data: Array<Record<string, unknown>> | null
     error: unknown
   }
 
   if (!dbSections || dbSections.length === 0)
     return NextResponse.json(
-      { error: 'No sections found. Build your website first.' },
+      {
+        error: pageId
+          ? 'No sections found on this page.'
+          : 'No sections found. Build your website first.',
+      },
       { status: 400 }
     )
 

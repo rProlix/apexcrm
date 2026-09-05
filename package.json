@@ -19,6 +19,7 @@
     "test:payments": "tsx --test lib/payments/__tests__/*.test.ts",
     "test:rewards": "tsx --test lib/rewards/__tests__/*.test.ts",
     "test:scroll-experience": "tsx --test lib/website-scroll-experience/__tests__/*.test.ts",
+    "test:website-ai": "tsx --test lib/website-ai/__tests__/*.test.ts",
     "repair:van-images": "tsx scripts/restore-missing-van-images.ts",
     "worker:van:build": "npm --prefix workers/van-damage-worker run build",
     "worker:van:start": "npm --prefix workers/van-damage-worker run start",

@@ -52,7 +52,7 @@ export function AiRestyleDrawer() {
   const [stylePreset, setStylePreset] = useState('premium_modern')
   const [customPrompt, setCustomPrompt] = useState('')
   const [intensity, setIntensity] = useState<'subtle' | 'balanced' | 'cinematic'>('balanced')
-  const [preserveImages, setPreserveImages] = useState(false)
+  const [preserveImages, setPreserveImages] = useState(true)
   const [generateImageSuggestions, setGenerateImageSuggestions] = useState(true)
   const [applyAnimations, setApplyAnimations] = useState(true)
   const [mobileFirst, setMobileFirst] = useState(true)
@@ -196,6 +196,7 @@ export function AiRestyleDrawer() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tenantId,
+          pageId: pageId || null,
           runId: runId ?? undefined,
           restylePlan: restylePlan ?? undefined,
         }),
@@ -219,7 +220,7 @@ export function AiRestyleDrawer() {
       setErrorMsg(err instanceof Error ? err.message : 'Unexpected error')
       setStep('error')
     }
-  }, [tenantId, runId, restylePlan])
+  }, [tenantId, pageId, runId, restylePlan])
 
   if (!showRestyleDrawer || !tenantId) return null
 
@@ -248,7 +249,7 @@ export function AiRestyleDrawer() {
           top: 0,
           right: 0,
           bottom: 0,
-          width: DRAWER_WIDTH,
+          width: `min(${DRAWER_WIDTH}px, 100vw)`,
           zIndex: 99998,
           background: '#0e0e12',
           borderLeft: '1px solid #2e2e38',
@@ -298,7 +299,7 @@ export function AiRestyleDrawer() {
                 AI Restyle Website
               </div>
               <div style={{ fontSize: '0.6875rem', color: '#52525b', marginTop: 1 }}>
-                Redesign visual style · Keep your content
+                Refine this page while keeping its content
               </div>
             </div>
           </div>
@@ -504,7 +505,7 @@ function FormPanel({
             onChange={setPreserveImages}
           />
           <Toggle
-            label="Generate image suggestions"
+            label="Suggest missing image placements"
             value={generateImageSuggestions}
             onChange={setGenerateImageSuggestions}
           />
@@ -752,6 +753,35 @@ function PreviewPanel({
         </Section>
       )}
 
+      {plan.imageSuggestions && plan.imageSuggestions.length > 0 && (
+        <Section label={`Image Plan (${plan.imageSuggestions.length})`}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {plan.imageSuggestions.slice(0, 4).map((suggestion, index) => (
+              <div
+                key={`${suggestion.sectionId ?? suggestion.sectionType}-${index}`}
+                style={{
+                  padding: '0.625rem 0.75rem',
+                  borderRadius: 8,
+                  background: '#18181b',
+                  border: '1px solid #27272a',
+                }}
+              >
+                <div style={{ color: '#d4d4d8', fontSize: '0.75rem', fontWeight: 600 }}>
+                  {suggestion.sectionType.replace(/_/g, ' ')}: {suggestion.slotKey}
+                </div>
+                <div style={{ color: '#71717a', fontSize: '0.6875rem', marginTop: 3 }}>
+                  {suggestion.notes}
+                </div>
+              </div>
+            ))}
+            <p style={{ color: '#52525b', fontSize: '0.6875rem', margin: 0 }}>
+              Restyle preserves current images. Generate approved replacements or missing assets in
+              AI Images.
+            </p>
+          </div>
+        </Section>
+      )}
+
       {/* Warnings */}
       {plan.warnings.length > 0 && (
         <div
@@ -967,6 +997,23 @@ function DonePanel({
           Try Another Style
         </button>
         <a
+          href="/website/ai-images"
+          style={{
+            padding: '0.625rem',
+            borderRadius: 8,
+            border: '1px solid rgba(99,102,241,0.3)',
+            background: 'rgba(99,102,241,0.08)',
+            color: '#a5b4fc',
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            textAlign: 'center',
+            display: 'block',
+            textDecoration: 'none',
+          }}
+        >
+          Create missing website images
+        </a>
+        <a
           href="/website/templates"
           style={{
             padding: '0.625rem',
@@ -1077,14 +1124,19 @@ function Toggle({
   onChange: (v: boolean) => void
 }) {
   return (
-    <div
+    <button
+      type="button"
       onClick={() => onChange(!value)}
+      aria-pressed={value}
       style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         cursor: 'pointer',
         padding: '0.375rem 0',
+        width: '100%',
+        border: 0,
+        background: 'transparent',
       }}
     >
       <span style={{ fontSize: '0.8125rem', color: '#a1a1aa' }}>{label}</span>
@@ -1112,7 +1164,7 @@ function Toggle({
           }}
         />
       </div>
-    </div>
+    </button>
   )
 }
 

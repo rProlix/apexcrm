@@ -160,26 +160,48 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
 async function loadTenantContext(tenantId: string): Promise<TenantContext> {
   const db = getSupabaseServerClient()
+  // The generated Supabase types lag the business-profile and Website Builder
+  // columns used by current migrations. Keep the escape hatch local to these
+  // reads rather than weakening the rest of the module.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dbClient = db as any
 
-  const [tenantResult, settingsResult, pagesResult, storeModuleResult, productsResult] =
-    await Promise.all([
-      db.from('tenants').select('id, name').eq('id', tenantId).maybeSingle(),
-      db.from('site_settings').select('site_name').eq('tenant_id', tenantId).maybeSingle(),
-      db
-        .from('site_pages')
-        .select('slug, title, page_type')
-        .eq('tenant_id', tenantId)
-        .neq('status', 'archived')
-        .order('sort_order')
-        .limit(20),
-      db
-        .from('tenant_modules')
-        .select('enabled')
-        .eq('tenant_id', tenantId)
-        .eq('module_key', 'store')
-        .maybeSingle(),
-      db.from('products').select('name').eq('tenant_id', tenantId).limit(50),
-    ])
+  const [
+    tenantResult,
+    settingsResult,
+    pagesResult,
+    sectionsResult,
+    storeModuleResult,
+    productsResult,
+  ] = await Promise.all([
+    dbClient
+      .from('tenants')
+      .select('id, name, business_type, industry, description')
+      .eq('id', tenantId)
+      .maybeSingle(),
+    db.from('site_settings').select('site_name').eq('tenant_id', tenantId).maybeSingle(),
+    db
+      .from('site_pages')
+      .select('id, slug, title, page_type')
+      .eq('tenant_id', tenantId)
+      .neq('status', 'archived')
+      .order('sort_order')
+      .limit(20),
+    dbClient
+      .from('site_sections')
+      .select('page_id, section_type, content')
+      .eq('tenant_id', tenantId)
+      .eq('is_visible', true)
+      .order('sort_order')
+      .limit(80),
+    db
+      .from('tenant_modules')
+      .select('enabled')
+      .eq('tenant_id', tenantId)
+      .eq('module_key', 'store')
+      .maybeSingle(),
+    db.from('products').select('name').eq('tenant_id', tenantId).limit(50),
+  ])
 
   const tenant = tenantResult.data
   const settings = settingsResult.data
@@ -187,12 +209,16 @@ async function loadTenantContext(tenantId: string): Promise<TenantContext> {
   const hasStore = storeModuleResult.data?.enabled === true
   const productNames = (productsResult.data ?? []).map((p: { name: string }) => p.name)
 
-  const businessType = null // Could be extended via tenant branding/metadata
+  const pageSlugById = new Map(
+    pages.map((page: { id: string; slug: string }) => [page.id, page.slug])
+  )
+  const businessType = tenant?.business_type ?? tenant?.industry ?? null
 
   return {
     tenantId,
     tenantName: tenant?.name ?? 'Business',
     businessType,
+    businessDescription: tenant?.description ?? null,
     hasStore,
     siteName: settings?.site_name ?? null,
     existingPages: pages.map((p: { slug: string; title: string | null; page_type: string }) => ({
@@ -200,6 +226,20 @@ async function loadTenantContext(tenantId: string): Promise<TenantContext> {
       title: p.title,
       page_type: p.page_type,
     })),
+    existingSections: (sectionsResult.data ?? []).map(
+      (section: { page_id: string; section_type: string; content: unknown }) => {
+        const content =
+          section.content && typeof section.content === 'object' && !Array.isArray(section.content)
+            ? (section.content as Record<string, unknown>)
+            : {}
+        const rawTitle = content.headline ?? content.heading ?? content.title
+        return {
+          pageSlug: pageSlugById.get(section.page_id) ?? '',
+          sectionType: section.section_type,
+          title: typeof rawTitle === 'string' ? rawTitle.slice(0, 100) : null,
+        }
+      }
+    ),
     existingProductNames: productNames,
   }
 }

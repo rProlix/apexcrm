@@ -36,6 +36,7 @@ export type AiSuggestionType =
   | 'section'
   | 'seo'
   | 'promotion'
+  | 'cta'
   | 'premium_3d_scroll_hero'
   | 'scroll_experience'
   | 'unknown'
@@ -200,8 +201,14 @@ export interface TenantContext {
   tenantId: string
   tenantName: string
   businessType: string | null
+  businessDescription?: string | null
   hasStore: boolean
   siteName: string | null
   existingPages: Array<{ slug: string; title: string | null; page_type: string }>
+  existingSections?: Array<{
+    pageSlug: string
+    sectionType: string
+    title: string | null
+  }>
   existingProductNames: string[]
 }

@@ -59,7 +59,7 @@ export function ImportJobDetail({ jobId, onDone }: Props) {
     })
   }
 
-  async function handleUpdate(id: string, updates: Record<string, string>) {
+  async function handleUpdate(id: string, updates: Record<string, unknown>) {
     const res = await fetch(`/api/website-ai/suggestions/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

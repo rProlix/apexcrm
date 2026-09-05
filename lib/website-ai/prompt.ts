@@ -2,6 +2,7 @@
 // Builds the Gemini prompt from pasted input and tenant context.
 
 import type { TenantContext } from './types'
+import { COMPLETE_PAGE_PLANNING_RULES, PROFESSIONAL_WEBSITE_QUALITY_RULES } from './qualityRules'
 
 export function buildGeminiPrompt(rawInput: string, tenantContext: TenantContext): string {
   const existingPageList = tenantContext.existingPages
@@ -12,9 +13,21 @@ export function buildGeminiPrompt(rawInput: string, tenantContext: TenantContext
     ? tenantContext.existingProductNames.map((n) => `  - ${n}`).join('\n')
     : '  (none)'
 
-  return `You are not just filling website text. You are acting as a senior brand designer, conversion-focused web designer, accessibility reviewer, and front-end art director for a multi-tenant SaaS CRM platform. A business administrator has pasted raw business content and you must analyze it, generate a complete professional design system for this business, and return structured website section suggestions with design instructions.
+  const existingSectionList = tenantContext.existingSections?.length
+    ? tenantContext.existingSections
+        .map(
+          (section) =>
+            `  - /${section.pageSlug}: ${section.sectionType}${section.title ? ` (${section.title})` : ''}`
+        )
+        .join('\n')
+    : '  (none yet)'
 
-For every business website, create a complete design system that matches the business category, audience, mood, and price point. Avoid blocky stacked sections. Create a smooth premium layout with seamless section transitions, fluid visual flow, layered backgrounds, subtle gradients, organic dividers, angled or curved transitions, image overlays, soft shadows, cards that feel integrated into the layout, and section-to-section blending. Each page should feel custom-designed, polished, readable, and expensive.
+  return `You are a senior brand designer, conversion-focused web designer, content editor, and accessibility reviewer for a multi-tenant website builder. A business administrator has pasted raw business content. Analyze it, create a cohesive and truthful page plan, generate a restrained design system for this specific business, and return structured website section suggestions that the builder can apply safely.
+
+The result must feel complete because the information architecture, content hierarchy, conversion path, typography, spacing, and imagery plan work together. "Premium" does not mean adding more effects.
+
+${PROFESSIONAL_WEBSITE_QUALITY_RULES}
+${COMPLETE_PAGE_PLANNING_RULES}
 
 READABILITY RULES:
 - Never put low-opacity gray text on busy images.
@@ -28,21 +41,22 @@ READABILITY RULES:
 
 TYPOGRAPHY RULES:
 - Select typography based on the business type and brand mood.
-- Restaurants: warm, modern, appetizing serif/sans fonts.
-- Law firms: elegant, trustworthy serif or professional sans-serif.
-- Tech companies: clean, futuristic sans-serif.
-- Luxury brands: refined serif/display fonts with generous spacing.
-- Beauty/Spa: elegant editorial or warm humanist.
-- Fitness/Sports: bold condensed sans-serif.
+- Prefer a professional sans-serif for most categories.
+- Use serif headings only for a justified editorial, heritage, legal, or established luxury direction.
+- Use one heading family and one highly readable body family.
+- Use font stacks that are available to the renderer. Do not claim a custom web font is loaded when it is not.
 
 BUSINESS CONTEXT:
 - Business name: ${tenantContext.siteName ?? tenantContext.tenantName}
 - Business type hint: ${tenantContext.businessType ?? 'unknown'}
+- Business description: ${tenantContext.businessDescription ?? 'not provided'}
 - Has online store: ${tenantContext.hasStore ? 'yes' : 'no'}
 - Existing website pages:
 ${existingPageList || '  (none yet)'}
 - Existing product names (to avoid duplicates):
 ${existingProductList}
+- Existing sections (reuse these purposes instead of duplicating them):
+${existingSectionList}
 
 PASTED CONTENT TO ANALYZE:
 ---
@@ -53,12 +67,15 @@ INSTRUCTIONS:
 - Analyze every sentence and paragraph in the pasted content.
 - Detect what type of content it is: reviews, services, products, menu items, business hours, contact info, about copy, hero text, FAQs, policies, social links, promotions, gallery captions, or SEO metadata.
 - Return structured website content suggestions that can be directly applied to a website builder.
-- Each suggestion must map to one of these section types: hero, about, services, products, menu, reviews, testimonials, faq, contact, hours, gallery, policies, social_links, navigation, page, section, seo, promotion, scroll_experience, unknown.
+- Each suggestion must map to one of these section types: hero, about, services, products, menu, reviews, testimonials, faq, contact, hours, gallery, policies, social_links, navigation, page, section, seo, promotion, cta, scroll_experience, unknown.
 - Use scroll_experience only when the input explicitly asks for a cinematic or scroll-controlled video and eligible READY experienceId and experienceVersionId values are present in supplied context. Never invent media IDs or storage URLs.
 - Each suggestion must have one of these actions: create, update, append, replace, ignore.
 - For action "append": content will be added to an existing section of the same type.
 - For action "create": a new section will be created.
 - For action "update" or "replace": an existing section will be overwritten.
+- Consolidate related facts into the smallest useful set of sections. Do not produce duplicate or near-duplicate suggestions.
+- Prefer updating an existing page purpose over adding another section with the same purpose.
+- Include precise missingInfoQuestions for any gap that prevents the page from feeling trustworthy or complete.
 
 CRITICAL RULES:
 1. Return ONLY valid JSON. No markdown, no code fences, no comments, no trailing commas.
@@ -78,6 +95,8 @@ CRITICAL RULES:
 15. Do not return unsupported enum values. Use only the exact values listed in this prompt.
 16. Always include a designSystem object at the root level of your response.
 17. Always include a "design" object inside each proposedSection.
+18. Do a final copy audit before returning JSON. Remove vague filler, unsupported claims, duplicate CTA intent, decorative labels, and awkward phrasing.
+19. Do a final page audit before returning JSON. Confirm the suggestions form a clear visitor journey and do not create duplicate section purposes.
 
 DESIGN SYSTEM RULES:
 - designLevel must be one of: clean, premium, luxury, bold, warm, editorial, futuristic
@@ -225,7 +244,7 @@ OUTPUT FORMAT — return exactly this JSON structure:
 
 For SERVICES suggestions, use this data shape:
 "data": { "services": [{ "name": "Service Name", "price": "$79", "description": "Brief description." }] }
-"proposedSection": { "type": "feature_grid", "heading": "Our Services", "items": [{ "title": "Service Name", "description": "$79 — Brief description." }], "design": { "backgroundType": "solid", "backgroundValue": "#FFFBF7", "cardStyle": "soft", "spacing": "balanced", "shadow": "soft", "borderRadius": "soft", "dividerTop": "none", "dividerBottom": "none", "textColor": "#1A0E0A", "subtextColor": "#5C3D2E", "overlay": {"enabled": false, "type": "gradient", "value": "", "opacity": 0}, "imageTreatment": "rounded", "layoutVariant": "grid", "readability": {"checked": true, "textContrast": "pass", "subtextContrast": "pass", "buttonContrast": "pass", "notes": []} } }
+"proposedSection": { "type": "feature_grid", "heading": "Our Services", "items": [{ "title": "Service Name", "description": "$79 - Brief description." }], "design": { "backgroundType": "solid", "backgroundValue": "#FFFBF7", "cardStyle": "soft", "spacing": "balanced", "shadow": "soft", "borderRadius": "soft", "dividerTop": "none", "dividerBottom": "none", "textColor": "#1A0E0A", "subtextColor": "#5C3D2E", "overlay": {"enabled": false, "type": "gradient", "value": "", "opacity": 0}, "imageTreatment": "rounded", "layoutVariant": "grid", "readability": {"checked": true, "textContrast": "pass", "subtextContrast": "pass", "buttonContrast": "pass", "notes": []} } }
 
 For HOURS suggestions:
 "data": { "hours": [{ "day": "Monday", "open": "9:00 AM", "close": "6:00 PM", "closed": false }] }
@@ -247,6 +266,9 @@ For FAQ suggestions:
 
 For PROMOTION suggestions:
 "proposedSection": { "type": "banner", "text": "Promotion text here", "variant": "promo", "ctaLabel": "Shop Now", "ctaHref": "/shop" }
+
+For final CTA suggestions, use type "cta" and only when it advances the same primary conversion goal as the hero:
+"proposedSection": { "type": "cta", "headline": "Ready to get started?", "body": "A short, factual next step.", "ctaLabel": "Book now", "ctaHref": "/contact", "align": "left" }
 
 Return ONLY the JSON object. Nothing else.`
 }
